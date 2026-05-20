@@ -20,7 +20,10 @@ button {
   /* Skip animating `color` (paint property) — keep compositor-friendly props
      only per baseline-ui. Scale-on-press feedback matches the
      emil-design-eng 100–160ms tactile envelope. */
-  transition: background 120ms ease, border-color 120ms ease, transform 140ms ease-out;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    transform 140ms var(--ease-out-strong);
 }
 
 button:active {
@@ -832,10 +835,9 @@ button:active {
     0 10px 28px oklch(0 0 0 / 0.12);
   transform: scale(1);
   opacity: 1;
-  /* Strong ease-out curve from emil-design-eng for a confident snap.
-     Modals keep transform-origin: center by default. */
+  /* Modals keep transform-origin: center by default. */
   transition:
-    transform 240ms cubic-bezier(0.23, 1, 0.32, 1),
+    transform 240ms var(--ease-out-strong),
     opacity 200ms ease-out;
 }
 
