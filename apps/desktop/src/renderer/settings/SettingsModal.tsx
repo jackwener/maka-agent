@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { X } from 'lucide-react';
 import type {
   AppSettings,
   BotProvider,
@@ -142,7 +143,9 @@ function SettingsSurface(props: {
       <section className="settingsMainPane">
         <header className="settingsPageHeader">
           <h2>{activeItem.label}</h2>
-          <button className="settingsCloseButton" type="button" aria-label="Close settings" onClick={props.onClose}>×</button>
+          <button className="settingsCloseButton" type="button" aria-label="Close settings" onClick={props.onClose}>
+            <X strokeWidth={1.75} aria-hidden="true" />
+          </button>
         </header>
 
         <div className="settingsPageContent">

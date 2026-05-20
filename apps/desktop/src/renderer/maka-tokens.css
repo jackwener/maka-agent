@@ -581,6 +581,12 @@
     -webkit-backdrop-filter: blur(6px);
     display: grid; place-items: center;
     z-index: var(--z-modal);
+    overscroll-behavior: contain;
+    opacity: 1;
+    transition: opacity 200ms ease-out;
+  }
+  @starting-style {
+    .maka-modal-backdrop { opacity: 0; }
   }
   .maka-modal {
     background: var(--background);
@@ -591,6 +597,16 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    transform: scale(1);
+    opacity: 1;
+    /* Strong ease-out curve from emil-design-eng. Modals keep
+       transform-origin: center because they aren't anchored to a trigger. */
+    transition:
+      transform 220ms cubic-bezier(0.23, 1, 0.32, 1),
+      opacity 200ms ease-out;
+  }
+  @starting-style {
+    .maka-modal { transform: scale(0.96); opacity: 0; }
   }
   .maka-modal-header {
     padding: 16px 20px 8px 20px;
