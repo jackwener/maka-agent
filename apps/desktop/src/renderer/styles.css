@@ -487,6 +487,15 @@ button:active {
   text-wrap: pretty;
 }
 
+.maka-empty-state-code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--foreground-5);
+  color: var(--foreground-70);
+}
+
 .maka-empty-state-cta {
   margin-top: 6px;
 }
@@ -542,7 +551,7 @@ button:active {
   white-space: nowrap;
 }
 
-.maka-chat-tab small {
+.maka-chat-tab .maka-chat-tab-backend {
   color: var(--foreground-45, var(--foreground-40));
   font-size: 11px;
   font-weight: 500;
@@ -728,6 +737,16 @@ button:active {
   margin-top: 8px;
   max-height: 132px;
   overflow: auto;
+}
+
+.maka-overlay-preview {
+  margin: 8px 0 0;
+  max-height: 240px;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .composer {

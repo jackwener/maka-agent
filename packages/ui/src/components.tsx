@@ -190,7 +190,9 @@ export function SessionListPanel(props: {
           <div className="maka-empty-state">
             <Sparkles className="maka-empty-state-icon" strokeWidth={1.5} />
             <div className="maka-empty-state-title">No skills yet</div>
-            <div className="maka-empty-state-body">Custom skills will appear here.</div>
+            <div className="maka-empty-state-body">
+              Maka loads skills from <code className="maka-empty-state-code">~/.maka/skills/</code>. Drop a folder with a <code className="maka-empty-state-code">SKILL.md</code> to register one.
+            </div>
           </div>
         ) : props.sessions.length === 0 ? (
           <div className="maka-empty-state">
@@ -328,7 +330,7 @@ function ChatTab(props: { title: string; backend: string }) {
     <div className="maka-chat-tab" title={props.title}>
       <MessageSquare className="maka-chat-tab-icon" strokeWidth={1.5} />
       <span>{props.title}</span>
-      <small>{props.backend}</small>
+      <span className="maka-chat-tab-backend">{props.backend}</span>
     </div>
   );
 }
@@ -467,11 +469,18 @@ export function PermissionDialog(props: {
 }
 
 function OverlayPreview(props: { content: ToolResultContent }) {
-  if (props.content.kind === 'text') return <pre>{props.content.text}</pre>;
-  if (props.content.kind === 'json') return <pre>{JSON.stringify(props.content.value, null, 2)}</pre>;
-  if (props.content.kind === 'terminal') return <pre>{props.content.stdout || props.content.stderr}</pre>;
-  if (props.content.kind === 'file_diff') return <pre>{props.content.diff}</pre>;
-  return <pre>{props.content.kind}</pre>;
+  const body = renderOverlayBody(props.content);
+  // Bound the height so a tool that prints kilobytes of output can't push the
+  // composer off-screen. Internal scroll is fine for inline preview.
+  return <pre className="maka-overlay-preview">{body}</pre>;
+}
+
+function renderOverlayBody(content: ToolResultContent): string {
+  if (content.kind === 'text') return content.text;
+  if (content.kind === 'json') return JSON.stringify(content.value, null, 2);
+  if (content.kind === 'terminal') return content.stdout || content.stderr;
+  if (content.kind === 'file_diff') return content.diff;
+  return content.kind;
 }
 
 function mergeTools(stored: ToolActivityItem[], live: ToolActivityItem[]): ToolActivityItem[] {
