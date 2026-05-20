@@ -654,7 +654,6 @@ button:active {
   font-size: clamp(24px, 2.4vw, 32px);
   font-weight: 600;
   line-height: 1.12;
-  letter-spacing: 0;
   text-wrap: balance;
 }
 
@@ -849,7 +848,7 @@ button:active {
 
 .settingsSurface[data-modal="true"] {
   position: relative;
-  background: #fbfaf7;
+  background: var(--background);
   grid-template-columns: 196px minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
 }
@@ -859,7 +858,7 @@ button:active {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   padding: 22px 8px 22px 18px;
-  background: #fbfaf7;
+  background: var(--background);
 }
 
 .settingsSidebar header {
@@ -905,7 +904,7 @@ button:active {
 }
 
 .settingsNavItem[data-active="true"] {
-  background: #ffffff;
+  background: var(--background);
   color: var(--foreground);
   box-shadow:
     0 1px 0 oklch(0 0 0 / 0.04),
@@ -924,8 +923,7 @@ button:active {
   place-items: center;
   color: var(--foreground-60);
   font-size: 9px;
-  font-weight: 750;
-  letter-spacing: 0;
+  font-weight: 700;
 }
 
 .settingsNavItem strong {
@@ -933,7 +931,7 @@ button:active {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 14px;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .settingsMainPane {
@@ -942,7 +940,7 @@ button:active {
   min-height: 0;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  background: #fbfaf7;
+  background: var(--background);
   padding: 24px 34px 74px 20px;
 }
 
@@ -958,8 +956,7 @@ button:active {
   margin: 0;
   color: var(--foreground);
   font-size: 20px;
-  font-weight: 720;
-  letter-spacing: 0;
+  font-weight: 700;
 }
 
 .settingsPageContent {
@@ -1011,7 +1008,7 @@ button:active {
   display: block;
   color: var(--foreground);
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .settingsFormRow small,
@@ -1029,7 +1026,7 @@ button:active {
   flex: 0 0 auto;
   border: 0;
   border-radius: 999px;
-  background: #d2d2cf;
+  background: var(--foreground-20);
   cursor: pointer;
   padding: 2px;
 }
@@ -1039,13 +1036,13 @@ button:active {
   height: 16px;
   display: block;
   border-radius: 50%;
-  background: #ffffff;
+  background: var(--background);
   box-shadow: 0 1px 2px oklch(0 0 0 / 0.16);
   transition: transform 150ms ease;
 }
 
 .settingsSwitch[data-checked="true"] {
-  background: #244332;
+  background: var(--brand-deep);
 }
 
 .settingsSwitch[data-checked="true"] span {
@@ -1077,7 +1074,7 @@ button:active {
   min-height: 34px;
   border: 1px solid var(--border);
   border-radius: 999px;
-  background: #ffffff;
+  background: var(--background);
   color: var(--foreground);
   padding: 0 12px;
   outline: none;
@@ -1093,8 +1090,8 @@ button:active {
 
 .settingsNotice {
   border-radius: 12px;
-  background: #f7f2e6;
-  color: #8b641d;
+  background: oklch(from var(--info) l c h / 0.10);
+  color: var(--info-text);
   padding: 11px 12px;
   font-size: 12px;
   line-height: 1.45;
@@ -1113,11 +1110,11 @@ button:active {
 }
 
 .settingsInlineResult[data-ok="true"] {
-  color: #2f6d48;
+  color: var(--success-text);
 }
 
 .settingsInlineResult[data-ok="false"] {
-  color: #a33f2f;
+  color: var(--destructive-text);
 }
 
 .settingsBotLayout {
@@ -1156,7 +1153,7 @@ button:active {
 }
 
 .settingsBotList em {
-  color: #2f6d48;
+  color: var(--success-text);
   font-size: 10px;
   font-style: normal;
 }
@@ -1167,10 +1164,10 @@ button:active {
   display: grid;
   place-items: center;
   border-radius: 9px;
-  background: #e9effd;
-  color: #2850a7;
+  background: oklch(from var(--accent) l c h / 0.08);
+  color: var(--accent);
   font-size: 10px;
-  font-weight: 750;
+  font-weight: 700;
 }
 
 .settingsBotLogo[data-large="true"] {
@@ -1247,7 +1244,7 @@ button:active {
 }
 
 .settingsSegmented button[data-active="true"] {
-  background: #ffffff;
+  background: var(--background);
   color: var(--foreground);
   box-shadow: 0 1px 2px oklch(0 0 0 / 0.08);
 }
@@ -1297,7 +1294,7 @@ button:active {
 
 .settingsStatsTable th {
   color: var(--foreground-70);
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .settingsHeader {
@@ -1315,7 +1312,7 @@ button:active {
   min-height: 78px;
   padding: 24px 34px 14px;
   border-bottom: 0;
-  background: #fbfaf7;
+  background: var(--background);
 }
 
 .settingsHeader span {
@@ -1333,7 +1330,6 @@ button:active {
   color: var(--foreground);
   font-size: 24px;
   font-weight: 600;
-  letter-spacing: 0;
 }
 
 .settingsCloseButton {
@@ -1384,7 +1380,7 @@ button:active {
 .settingsSurface[data-modal="true"] .settingsTabs {
   padding: 22px 12px 18px 18px;
   border-right: 0;
-  background: #fbfaf7;
+  background: var(--background);
 }
 
 .settingsTab {
@@ -1625,7 +1621,7 @@ button:active {
   margin: 0;
   color: var(--foreground);
   font-size: 14px;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .providersEmpty p,
@@ -1647,7 +1643,7 @@ button:active {
 .settingsSurface[data-modal="true"] .providersList,
 .settingsSurface[data-modal="true"] .providersDetail {
   border-radius: 18px;
-  background: #f4f3ef;
+  background: var(--foreground-3);
 }
 
 .providersList {
@@ -1730,7 +1726,7 @@ button:active {
 
 .providerListItem strong {
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .providerListItem small {
@@ -1784,7 +1780,7 @@ button:active {
   gap: 3px;
   border: 1px solid transparent;
   border-radius: 14px;
-  background: #f4f3ef;
+  background: var(--foreground-3);
   color: var(--foreground);
   padding: 10px 12px;
   text-align: left;
@@ -1827,7 +1823,7 @@ button:active {
   gap: 10px;
   border: 1px solid var(--border);
   border-radius: 18px;
-  background: #f8f7f3;
+  background: var(--foreground-2);
   color: var(--foreground);
   padding: 12px;
   text-align: left;
@@ -1836,7 +1832,7 @@ button:active {
 
 .providerCatalogCard:hover {
   border-color: oklch(from var(--accent) l c h / 0.18);
-  background: #ffffff;
+  background: var(--background);
 }
 
 .providerCatalogCard[data-disabled="true"] {
@@ -1849,10 +1845,10 @@ button:active {
   display: grid;
   place-items: center;
   border-radius: 12px;
-  background: #ebe8df;
-  color: #244332;
+  background: var(--foreground-5);
+  color: var(--brand-deep);
   font-size: 15px;
-  font-weight: 750;
+  font-weight: 700;
 }
 
 .providerCatalogCopy {
@@ -1897,8 +1893,8 @@ button:active {
 }
 
 .providerCatalogSoon {
-  background: #ece6d8;
-  color: #7a5a20;
+  background: oklch(from var(--info) l c h / 0.14);
+  color: var(--info-text);
 }
 
 .catalogCustom {
@@ -1926,10 +1922,10 @@ button:active {
 .providerComingSoon {
   display: grid;
   gap: 4px;
-  border: 1px solid #eadfca;
+  border: 1px solid oklch(from var(--info) l c h / 0.22);
   border-radius: 14px;
-  background: #fbf3e4;
-  color: #5b421a;
+  background: oklch(from var(--info) l c h / 0.10);
+  color: var(--info-text);
   padding: 12px;
 }
 
@@ -1946,16 +1942,16 @@ button:active {
   min-height: 50px;
   border: 0;
   border-radius: 999px;
-  background: #244332;
-  color: white;
+  background: var(--brand-deep);
+  color: var(--background);
   cursor: pointer;
   padding: 0 26px;
   font-size: 16px;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .settingsDoneButton:hover {
-  background: #1d382a;
+  background: var(--brand-deep-hover);
 }
 
 .providerEditor header {
@@ -2008,7 +2004,7 @@ button:active {
   width: fit-content;
   color: var(--accent);
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 600;
   text-decoration: none;
 }
 
@@ -2026,11 +2022,11 @@ button:active {
 
 .providerError,
 .connectionStatus[data-ok="false"] {
-  color: #b42318;
+  color: var(--destructive-text);
 }
 
 .connectionStatus[data-ok="true"] {
-  color: #027a48;
+  color: var(--success-text);
 }
 
 .settingsRow strong {
@@ -2092,7 +2088,7 @@ button:active {
   overflow-x: auto;
   border: 1px solid var(--border);
   border-radius: 16px;
-  background: #f6f5f1;
+  background: var(--foreground-3);
   padding: 10px;
 }
 
@@ -2111,7 +2107,7 @@ button:active {
   margin: 0;
   color: var(--foreground);
   font-size: 13px;
-  font-weight: 720;
+  font-weight: 700;
 }
 
 .enabledStripHeader span,
@@ -2132,7 +2128,7 @@ button:active {
   gap: 10px;
   border: 1px dashed var(--border);
   border-radius: 13px;
-  background: #ffffff;
+  background: var(--background);
   color: var(--foreground);
   padding: 10px 12px;
   text-align: left;
@@ -2150,7 +2146,7 @@ button:active {
 .enabledProviderChip:hover,
 .enabledEmptyChip:hover {
   border-color: oklch(from var(--accent) l c h / 0.16);
-  background: #fbfaf8;
+  background: var(--background-elevated);
 }
 
 .enabledProviderChip:active,
@@ -2198,13 +2194,13 @@ button:active {
   align-items: center;
   border: 1px solid transparent;
   border-radius: 999px;
-  background: #f0efeb;
+  background: var(--foreground-5);
   color: var(--foreground-60);
   padding: 0 15px;
 }
 
 .catalogPillTabs button:hover {
-  background: #e9e7e1;
+  background: var(--foreground-10);
   color: var(--foreground);
 }
 
@@ -2217,7 +2213,7 @@ button:active {
 
 .catalogPillTabs strong {
   font-size: 12px;
-  font-weight: 720;
+  font-weight: 700;
 }
 
 .providerMarketGrid,
@@ -2276,7 +2272,7 @@ button:active {
   color: var(--foreground-60);
   padding: 2px 7px;
   font-size: 10px;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .providerLogo {
@@ -2285,8 +2281,8 @@ button:active {
   display: grid;
   place-items: center;
   border-radius: 13px;
-  background: #ece9df;
-  color: #244332;
+  background: var(--foreground-5);
+  color: var(--brand-deep);
   box-shadow:
     inset 0 0 0 1px oklch(1 0 0 / 0.58),
     0 8px 16px oklch(0.44 0.03 90 / 0.06);
@@ -2372,9 +2368,9 @@ button:active {
 
 .providerCatalogTitle em,
 .providerCatalogCount {
-  background: #f0efeb;
+  background: var(--foreground-5);
   color: var(--foreground-50);
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .customProviderEntry {
@@ -2418,7 +2414,7 @@ button:active {
   overflow: auto;
   border: 1px solid var(--border);
   border-radius: 16px;
-  background: #fbfaf7;
+  background: var(--background);
   box-shadow: 0 18px 46px oklch(0 0 0 / 0.14);
   padding: 16px;
 }
