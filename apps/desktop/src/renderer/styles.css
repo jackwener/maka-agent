@@ -18,12 +18,13 @@ select {
 
 button {
   /* Skip animating `color` (paint property) — keep compositor-friendly props
-     only per baseline-ui. */
-  transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+     only per baseline-ui. Scale-on-press feedback matches the
+     emil-design-eng 100–160ms tactile envelope. */
+  transition: background 120ms ease, border-color 120ms ease, transform 140ms ease-out;
 }
 
 button:active {
-  transform: translateY(1px);
+  transform: scale(0.97);
 }
 
 @media (prefers-reduced-motion: reduce) {

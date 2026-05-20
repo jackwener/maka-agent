@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent, type RefObject } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type RefObject } from 'react';
 import {
   Archive,
   Flag,
@@ -61,7 +61,7 @@ export function useModalA11y(
       container.focus({ preventScroll: true });
     }
 
-    function onKeyDown(event: KeyboardEvent) {
+    function onKeyDown(event: globalThis.KeyboardEvent) {
       if (!container) return;
       if (event.key === 'Escape' && onEscape) {
         event.stopPropagation();
@@ -334,24 +334,48 @@ function ChatTab(props: { title: string; backend: string }) {
 }
 
 export function Composer(props: { disabled?: boolean; hidden?: boolean; onSend(text: string): void; onStop(): void }) {
+  const formRef = useRef<HTMLFormElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   if (props.hidden) return null;
+
+  function sendCurrent() {
+    if (props.disabled) return;
+    const textarea = textareaRef.current;
+    const form = formRef.current;
+    const text = (textarea?.value ?? '').trim();
+    if (!text) return;
+    props.onSend(text);
+    form?.reset();
+  }
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = event.currentTarget;
-    const data = new FormData(form);
-    const text = String(data.get('text') ?? '').trim();
-    if (!text) return;
-    props.onSend(text);
-    form.reset();
+    sendCurrent();
+  }
+
+  function onTextareaKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    // Skip when an IME composition is active so CJK input isn't interrupted.
+    if (event.nativeEvent.isComposing || event.key === 'Process') return;
+    if (event.key !== 'Enter') return;
+    if (event.shiftKey || event.altKey) return; // Shift+Enter / Alt+Enter inserts a newline.
+    event.preventDefault();
+    sendCurrent();
   }
 
   return (
-    <form className="maka-composer composer" onSubmit={submit}>
+    <form ref={formRef} className="maka-composer composer" onSubmit={submit}>
       <div className="maka-composer-inner composerInner">
-        <textarea name="text" placeholder="Message Maka…" disabled={props.disabled} />
+        <textarea
+          ref={textareaRef}
+          name="text"
+          placeholder="Message Maka…"
+          disabled={props.disabled}
+          onKeyDown={onTextareaKeyDown}
+          autoComplete="off"
+          spellCheck={false}
+        />
         <div className="maka-composer-toolbar composerActions">
-          <span>{props.disabled ? 'Waiting for permission' : 'Enter to send'}</span>
+          <span>{props.disabled ? 'Waiting for permission' : (<>Press <kbd>Enter</kbd> to send · <kbd>Shift</kbd>+<kbd>Enter</kbd> for newline</>)}</span>
           <div>
             <button className="maka-button" type="button" onClick={props.onStop}>Stop</button>
             <button className="maka-button" data-variant="primary" type="submit" disabled={props.disabled}>Send</button>
