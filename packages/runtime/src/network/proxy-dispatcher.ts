@@ -1,13 +1,13 @@
-import { Agent, Pool, buildConnector } from 'undici';
+import { Agent, ProxyAgent, buildConnector } from 'undici';
 import { SocksClient } from 'socks';
 import { isIP } from 'node:net';
 import { connect as tlsConnect } from 'node:tls';
 import { buildProxyUrl } from './proxy-parser.js';
 import type { ProxySettings } from '@maka/core/settings/network-settings';
 
-export function buildProxyDispatcher(proxy: ProxySettings): Agent | Pool {
+export function buildProxyDispatcher(proxy: ProxySettings): Agent | ProxyAgent {
   if (proxy.type === 'socks5') return buildSocks5Dispatcher(proxy);
-  return new Pool(buildProxyUrl(proxy));
+  return new ProxyAgent(buildProxyUrl(proxy));
 }
 
 function buildSocks5Dispatcher(proxy: ProxySettings): Agent {

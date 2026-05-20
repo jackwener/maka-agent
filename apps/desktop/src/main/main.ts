@@ -15,6 +15,7 @@ import type {
   SessionCommand,
   SessionEvent,
   SessionListFilter,
+  SettingsTestResult,
   UpdateConnectionInput,
   UpdateAppSettingsInput,
   UsageRange,
@@ -314,7 +315,33 @@ function registerIpc(): void {
     await applySettingsRuntimeEffects(next, patch);
     return maskAppSettings(next, patch);
   });
-  ipcMain.handle('settings:testNetworkProxy', () => settingsStore.testNetworkProxy());
+  ipcMain.handle('settings:testNetworkProxy', async () => {
+    const started = Date.now();
+    const stored = toContractNetworkSettings((await settingsStore.get()).network).proxy;
+    const result = await testProxyConnection({}, stored);
+    const latencyMs = result.latencyMs ?? (Date.now() - started);
+    if (!result.ok) {
+      return {
+        ok: false,
+        message: result.error ?? (result.status ? `HTTP ${result.status}` : '代理不可达'),
+        latencyMs,
+      } satisfies SettingsTestResult;
+    }
+    return {
+      ok: true,
+      message: result.ip
+        ? `代理配置有效：${stored.type}://${stored.host}:${stored.port} · ${result.countryFlag ?? ''} ${result.ip}`.trim()
+        : `代理配置有效：${stored.type}://${stored.host}:${stored.port}`,
+      latencyMs,
+      details: {
+        status: result.status,
+        ip: result.ip,
+        countryCode: result.countryCode,
+        countryFlag: result.countryFlag,
+        bypassList: stored.bypassList,
+      },
+    } satisfies SettingsTestResult;
+  });
   ipcMain.handle('settings:testBotChannel', async (_event, provider: BotProvider) => {
     const settings = await settingsStore.get();
     const result = await testRuntimeBotChannel(provider, settings.botChat.channels[provider]);

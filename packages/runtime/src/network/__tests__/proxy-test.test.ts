@@ -15,4 +15,15 @@ describe('testProxyConnection', () => {
     expect(result.ok).toBe(false);
     expect(result.error).toMatch(/host.*port/i);
   });
+
+  test('returns an error when the proxy host refuses connections', async () => {
+    const result = await testProxyConnection({
+      proxy: { ...PROXY_DEFAULTS, enabled: true, type: 'http', host: '127.0.0.1', port: 1 },
+      url: 'http://example.com',
+      timeoutMs: 1_000,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.error ?? '').toMatch(/ECONNREFUSED|fetch failed|bad port|timeout/i);
+  });
 });
