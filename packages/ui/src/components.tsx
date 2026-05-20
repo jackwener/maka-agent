@@ -464,26 +464,64 @@ export function Composer(props: { disabled?: boolean; hidden?: boolean; onSend(t
   );
 }
 
+const STATUS_LABEL: Record<ToolActivityItem['status'], string> = {
+  pending: 'Queued',
+  waiting_permission: 'Waiting for permission',
+  running: 'Running',
+  completed: 'Done',
+  errored: 'Errored',
+  interrupted: 'Interrupted',
+};
+
+function isOpenByDefault(status: ToolActivityItem['status']): boolean {
+  // Show details inline while the call is in flight or blocking the user;
+  // collapse once it has settled so completed history doesn't drown the chat.
+  return status === 'pending' || status === 'waiting_permission' || status === 'running';
+}
+
+function formatDuration(ms: number | undefined): string | null {
+  if (ms === undefined || ms < 0) return null;
+  if (ms < 1000) return `${ms} ms`;
+  if (ms < 60_000) return `${(ms / 1000).toFixed(ms < 10_000 ? 1 : 0)}s`;
+  const minutes = Math.floor(ms / 60_000);
+  const seconds = Math.round((ms % 60_000) / 1000);
+  return `${minutes}m ${seconds}s`;
+}
+
 export function ToolActivity(props: { items: ToolActivityItem[] }) {
   return (
-    <section className="toolInline">
+    <section className="toolInline" aria-label="Tool activity">
       <header>
         <strong>Activity</strong>
-        <small>{props.items.length}</small>
+        <span className="maka-tool-count" aria-label={`${props.items.length} calls`}>{props.items.length}</span>
       </header>
-      {props.items.map((item) => (
-        <div key={item.toolUseId} className="maka-tool toolItem" data-status={item.status}>
-          <header className="maka-tool-header">
-            <span className="maka-tool-name">
-              {item.displayName ?? item.toolName}
-            </span>
-            <small>{item.status.replace('_', ' ')}</small>
-          </header>
-          {item.intent && <p>{item.intent}</p>}
-          <pre className="maka-code toolArgs">{JSON.stringify(item.args, null, 2)}</pre>
-          {item.result && <OverlayPreview content={item.result} />}
-        </div>
-      ))}
+      {props.items.map((item) => {
+        const duration = formatDuration(item.durationMs);
+        return (
+          <details
+            key={item.toolUseId}
+            className="maka-tool toolItem"
+            data-status={item.status}
+            open={isOpenByDefault(item.status)}
+          >
+            <summary className="maka-tool-header">
+              <span className="maka-tool-status-dot" data-status={item.status} aria-hidden="true" />
+              <span className="maka-tool-name">{item.displayName ?? item.toolName}</span>
+              <span className="maka-tool-meta">
+                {duration && <span className="maka-tool-duration">{duration}</span>}
+                <span className="maka-tool-status-label">{STATUS_LABEL[item.status]}</span>
+              </span>
+            </summary>
+            <div className="maka-tool-body">
+              {item.intent && <p className="maka-tool-intent">{item.intent}</p>}
+              {item.args !== undefined && (
+                <pre className="maka-code toolArgs">{JSON.stringify(item.args, null, 2)}</pre>
+              )}
+              {item.result && <OverlayPreview content={item.result} />}
+            </div>
+          </details>
+        );
+      })}
     </section>
   );
 }

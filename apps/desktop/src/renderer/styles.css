@@ -712,6 +712,7 @@ button:active {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  margin-bottom: 8px;
   color: var(--foreground-50);
   font-size: 12px;
 }
@@ -721,20 +722,8 @@ button:active {
   box-shadow: var(--shadow-minimal-flat);
 }
 
-.toolItem header {
-  justify-content: space-between;
-}
-
-.toolItem p {
-  margin: 6px 0 0;
-  color: var(--foreground-60);
-  font-family: var(--font-default);
-  font-size: 12px;
-  line-height: 1.4;
-}
-
 .toolArgs {
-  margin-top: 8px;
+  margin: 0;
   max-height: 132px;
   overflow: auto;
 }

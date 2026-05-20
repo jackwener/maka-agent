@@ -601,22 +601,98 @@
   @starting-style {
     .maka-tool { opacity: 0; transform: translateY(4px); }
   }
+  /* Native <details>/<summary> styling — the summary becomes the
+     collapsed/expanded header, and clicking it toggles the body. */
+  .maka-tool { padding: 0; }
+  .maka-tool > summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 8px 12px;
+  }
+  .maka-tool > summary::-webkit-details-marker { display: none; }
+  .maka-tool > summary::marker { content: ''; }
+  .maka-tool[open] > summary { border-bottom: 1px solid var(--border); }
+
   .maka-tool-header {
-    display: flex;
+    display: grid;
+    grid-template-columns: 8px minmax(0, 1fr) auto;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     color: var(--foreground-70);
   }
   .maka-tool-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     color: var(--foreground);
     font-weight: 500;
     font-family: var(--font-mono);
+  }
+  .maka-tool-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--foreground-50);
+    font-size: 11px;
+  }
+  .maka-tool-duration {
+    font-variant-numeric: tabular-nums;
+  }
+  .maka-tool-status-label {
+    color: var(--foreground-60);
+  }
+  .maka-tool-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--foreground-30);
+    flex: 0 0 auto;
+  }
+  .maka-tool-status-dot[data-status="waiting_permission"] { background: var(--info); }
+  .maka-tool-status-dot[data-status="running"] {
+    background: var(--accent);
+    box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.15);
+    animation: maka-tool-pulse 1.5s ease-in-out infinite;
+  }
+  .maka-tool-status-dot[data-status="completed"] { background: var(--success); }
+  .maka-tool-status-dot[data-status="errored"] { background: var(--destructive); }
+  .maka-tool-status-dot[data-status="interrupted"] { background: var(--foreground-30); }
+
+  @keyframes maka-tool-pulse {
+    0%, 100% { box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.15); }
+    50%      { box-shadow: 0 0 0 5px oklch(from var(--accent) l c h / 0.06); }
+  }
+
+  .maka-tool-body {
+    padding: 10px 12px 12px;
+  }
+  .maka-tool-intent {
+    margin: 0 0 8px;
+    color: var(--foreground-60);
+    font-family: var(--font-default);
+    font-size: 12px;
+    line-height: 1.4;
   }
   .maka-tool[data-status="waiting_permission"] { border-color: oklch(from var(--info) l c h / 0.4); }
   .maka-tool[data-status="running"]            { border-color: oklch(from var(--accent) l c h / 0.4); }
   .maka-tool[data-status="completed"]          { border-color: var(--border); }
   .maka-tool[data-status="errored"]            { border-color: oklch(from var(--destructive) l c h / 0.4); background: oklch(from var(--destructive) l c h / 0.04); }
   .maka-tool[data-status="interrupted"]        { border-color: var(--border); background: var(--foreground-3); opacity: 0.7; }
+
+  .maka-tool-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 18px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--foreground-5);
+    color: var(--foreground-60);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
 
   /* ---- Composer --------------------------------------------------- */
 
