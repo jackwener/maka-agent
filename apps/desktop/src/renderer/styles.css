@@ -17,11 +17,19 @@ select {
 }
 
 button {
-  transition: background 120ms ease, border-color 120ms ease, color 120ms ease, transform 120ms ease;
+  /* Skip animating `color` (paint property) — keep compositor-friendly props
+     only per baseline-ui. */
+  transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
 }
 
 button:active {
   transform: translateY(1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button:active {
+    transform: none;
+  }
 }
 
 .appFrame {

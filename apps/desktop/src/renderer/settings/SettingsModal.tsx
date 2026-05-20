@@ -147,7 +147,7 @@ function SettingsSurface(props: {
 
         <div className="settingsPageContent">
           {loading ? (
-            <div className="settingsEmptyState">Loading...</div>
+            <div className="settingsEmptyState" aria-busy="true">Loading…</div>
           ) : (
             <SettingsPage
               section={section}
@@ -331,7 +331,7 @@ function NetworkSettingsPage(props: {
 
           <div className="settingsActionRow">
             <button className="maka-button" type="button" disabled={testing} onClick={testProxy}>
-              {testing ? '测试中...' : '测试当前配置'}
+              {testing ? '测试中…' : '测试当前配置'}
             </button>
             {result && <span className="settingsInlineResult" data-ok={result.ok}>{result.message}{result.latencyMs !== undefined ? ` (${result.latencyMs}ms)` : ''}</span>}
           </div>
@@ -393,7 +393,7 @@ function BotChatSettingsPage(props: {
 
         <label className="settingsField">
           <span>{selected === 'telegram' || selected === 'discord' ? 'Bot Token' : 'App Secret / Token'}</span>
-          <input type="password" value={channel.token} onChange={(event) => updateChannel({ token: event.currentTarget.value })} placeholder="123456:ABC-DEF..." />
+          <input type="password" value={channel.token} onChange={(event) => updateChannel({ token: event.currentTarget.value })} placeholder="123456:ABC-DEF…" />
         </label>
 
         <label className="settingsField">
@@ -407,7 +407,7 @@ function BotChatSettingsPage(props: {
 
         <div className="settingsActionRow">
           <button className="maka-button" type="button" disabled={testing} onClick={testChannel}>
-            {testing ? '测试中...' : '测试并连接'}
+            {testing ? '测试中…' : '测试并连接'}
           </button>
           {result && <span className="settingsInlineResult" data-ok={result.ok}>{result.message}</span>}
         </div>
@@ -459,7 +459,7 @@ function UsageSettingsPage(props: {
           ]}
           onChange={(value) => void setRange(value as UsageRange)}
         />
-        <button className="maka-button" type="button" disabled={refreshing} onClick={refresh}>{refreshing ? '刷新中...' : '刷新'}</button>
+        <button className="maka-button" type="button" disabled={refreshing} onClick={refresh}>{refreshing ? '刷新中…' : '刷新'}</button>
       </div>
 
       <div className="settingsUsageSummary">
@@ -482,7 +482,7 @@ function UsageSettingsPage(props: {
       />
 
       <div className="settingsUsageFilters">
-        <input value={usage.modelFilter} onChange={(event) => void props.onUpdate({ usage: { modelFilter: event.currentTarget.value } })} placeholder="按模型筛选..." />
+        <input value={usage.modelFilter} onChange={(event) => void props.onUpdate({ usage: { modelFilter: event.currentTarget.value } })} placeholder="按模型筛选…" />
         <select value={usage.status} onChange={(event) => void props.onUpdate({ usage: { status: event.currentTarget.value as typeof usage.status } })}>
           <option value="all">全部状态</option>
           <option value="success">成功</option>

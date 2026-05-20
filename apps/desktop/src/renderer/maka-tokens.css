@@ -661,3 +661,27 @@
   background-size: 200% 100%;
   animation: maka-shimmer 1.5s ease-in-out infinite;
 }
+
+/* =============================================================================
+   REDUCED-MOTION
+
+   Users with `prefers-reduced-motion: reduce` get instant transitions and
+   animations everywhere — but we keep opacity/color changes meaningful (per
+   emil-design-eng: "Reduced motion means fewer and gentler animations, not
+   zero").
+
+   Strategy: cap durations to ~0.01ms so transitions still fire (state changes
+   are still observable to assistive tech) but feel instantaneous. Looping
+   animations get capped to a single iteration.
+============================================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

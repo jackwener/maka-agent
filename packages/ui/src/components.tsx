@@ -349,7 +349,7 @@ export function Composer(props: { disabled?: boolean; hidden?: boolean; onSend(t
   return (
     <form className="maka-composer composer" onSubmit={submit}>
       <div className="maka-composer-inner composerInner">
-        <textarea name="text" placeholder="Message Maka..." disabled={props.disabled} />
+        <textarea name="text" placeholder="Message Maka…" disabled={props.disabled} />
         <div className="maka-composer-toolbar composerActions">
           <span>{props.disabled ? 'Waiting for permission' : 'Enter to send'}</span>
           <div>
