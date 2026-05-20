@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useMemo, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from 'react';
+import { StrictMode, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from 'react';
 import { createRoot } from 'react-dom/client';
 import type {
   ConnectionEvent,
@@ -13,6 +13,7 @@ import type {
 import {
   ChatView,
   Composer,
+  type ComposerHandle,
   type NavSelection,
   PermissionDialog,
   SessionListPanel,
@@ -48,6 +49,7 @@ function AppShell() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [themePref, setThemePref] = useState<ThemePreference>('auto');
   const [helpOpen, closeHelp] = useKeyboardHelp();
+  const composerRef = useRef<ComposerHandle>(null);
   const activeStreaming = activeId ? streamingBySession[activeId] ?? '' : '';
   const liveTools = useMemo(() => (activeId ? liveToolsBySession[activeId] ?? [] : []), [activeId, liveToolsBySession]);
   const activePermission = activeId ? permissionBySession[activeId] : undefined;
@@ -406,8 +408,10 @@ function AppShell() {
               activeSession={activeSessionForView}
               mode={navSelection.section}
               onNew={createSession}
+              onPromptSuggestion={(prompt) => composerRef.current?.setText(prompt)}
             />
             <Composer
+              ref={composerRef}
               hidden={navSelection.section !== 'sessions'}
               disabled={Boolean(activePermission)}
               onSend={send}

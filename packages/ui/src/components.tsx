@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type MouseEvent, type RefObject } from 'react';
+import { forwardRef, memo, useEffect, useImperativeHandle, useRef, useState, type FormEvent, type KeyboardEvent, type MouseEvent, type RefObject } from 'react';
 import {
   Archive,
   ArchiveRestore,
@@ -300,6 +300,15 @@ export function SessionListPanel(props: {
 
 const SCROLL_BOTTOM_THRESHOLD = 64; // px
 
+const PROMPT_SUGGESTIONS: Array<{ label: string; prompt: string }> = [
+  { label: '总结代码库', prompt: '帮我总结当前代码库的目录结构和关键模块。' },
+  { label: '解释这段代码', prompt: '我贴一段代码进来，请帮我逐行解释它做什么、有没有坑：\n\n```\n\n```' },
+  { label: '规划一个新功能', prompt: '我想实现以下功能，请帮我拆任务、列依赖、估算工作量：\n\n' },
+  { label: '调试一个 bug', prompt: '我遇到一个 bug，现象是 ____，复现步骤是 ____，已经尝试过 ____。可能的原因是？' },
+  { label: '写单元测试', prompt: '请为下面这个模块写 node:test 覆盖关键路径：\n\n```ts\n\n```' },
+  { label: 'Code review', prompt: '请帮我 review 这段代码，重点关注可读性、错误处理和潜在性能问题：\n\n```\n\n```' },
+];
+
 function SessionRow(props: {
   session: SessionSummary;
   active: boolean;
@@ -459,6 +468,7 @@ export function ChatView(props: {
   activeSession?: SessionSummary;
   mode: NavSelection['section'];
   onNew(): void;
+  onPromptSuggestion?(prompt: string): void;
 }) {
   const chat = materializeChat(props.messages);
   const storedTools = materializeTools(props.messages);
@@ -508,11 +518,7 @@ export function ChatView(props: {
           <span className="modePill">Ask mode</span>
         </header>
         <div className="maka-chat messages">
-          <div className="emptyChat compact">
-            <span className="eyebrow">Maka</span>
-            <h1>What should we work on?</h1>
-            <p>Describe the change, question, or investigation.</p>
-          </div>
+          <EmptyChatHero onPromptSuggestion={props.onPromptSuggestion} />
         </div>
       </main>
     );
@@ -531,11 +537,7 @@ export function ChatView(props: {
       <div className="maka-chat-shell">
         <div ref={scrollRef} className="maka-chat messages" onScroll={onScroll}>
           {chat.length === 0 && !props.streamingText && (
-            <div className="emptyChat compact">
-              <span className="eyebrow">Maka</span>
-              <h1>What should we work on?</h1>
-              <p>Describe the change, question, or investigation.</p>
-            </div>
+            <EmptyChatHero onPromptSuggestion={props.onPromptSuggestion} />
           )}
           {chat.map((item) => (
             <article key={item.id} className={`maka-message-row message ${item.role}`}>
@@ -654,6 +656,32 @@ function Markdown(props: { text: string }) {
   );
 }
 
+function EmptyChatHero(props: { onPromptSuggestion?(prompt: string): void }) {
+  return (
+    <div className="emptyChat compact">
+      <span className="eyebrow">Maka</span>
+      <h1>What should we work on?</h1>
+      <p>Describe the change, question, or investigation — or pick a starting point below.</p>
+      {props.onPromptSuggestion && (
+        <ul className="maka-prompt-suggestions" aria-label="Prompt suggestions">
+          {PROMPT_SUGGESTIONS.map((suggestion) => (
+            <li key={suggestion.label}>
+              <button
+                type="button"
+                className="maka-prompt-chip"
+                onClick={() => props.onPromptSuggestion?.(suggestion.prompt)}
+              >
+                <span className="maka-prompt-chip-label">{suggestion.label}</span>
+                <span className="maka-prompt-chip-hint">{suggestion.prompt.split('\n')[0]?.slice(0, 60)}…</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function ChatTab(props: { title: string; backend: string }) {
   return (
     <div className="maka-chat-tab" title={props.title}>
@@ -666,10 +694,19 @@ function ChatTab(props: { title: string; backend: string }) {
 
 const COMPOSER_MAX_HEIGHT = 240;
 
-export function Composer(props: { disabled?: boolean; hidden?: boolean; onSend(text: string): void; onStop(): void }) {
+export interface ComposerHandle {
+  /** Replace the textarea value and resize, leaving focus on the input. */
+  setText(text: string): void;
+  /** Move focus to the textarea without changing its content. */
+  focus(): void;
+}
+
+export const Composer = forwardRef<
+  ComposerHandle,
+  { disabled?: boolean; hidden?: boolean; onSend(text: string): void; onStop(): void }
+>(function Composer(props, ref) {
   const formRef = useRef<HTMLFormElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  if (props.hidden) return null;
 
   function autoResize() {
     const el = textareaRef.current;
@@ -681,6 +718,26 @@ export function Composer(props: { disabled?: boolean; hidden?: boolean; onSend(t
     el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, COMPOSER_MAX_HEIGHT)}px`;
   }
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      setText(text: string) {
+        const el = textareaRef.current;
+        if (!el) return;
+        el.value = text;
+        autoResize();
+        el.focus();
+        // Move caret to end so the user can keep typing.
+        const length = el.value.length;
+        el.setSelectionRange(length, length);
+      },
+      focus() {
+        textareaRef.current?.focus();
+      },
+    }),
+    [],
+  );
 
   function sendCurrent() {
     if (props.disabled) return;
@@ -712,6 +769,8 @@ export function Composer(props: { disabled?: boolean; hidden?: boolean; onSend(t
     sendCurrent();
   }
 
+  if (props.hidden) return null;
+
   return (
     <form ref={formRef} className="maka-composer composer" onSubmit={submit}>
       <div className="maka-composer-inner composerInner">
@@ -736,7 +795,7 @@ export function Composer(props: { disabled?: boolean; hidden?: boolean; onSend(t
       </div>
     </form>
   );
-}
+});
 
 const STATUS_LABEL: Record<ToolActivityItem['status'], string> = {
   pending: 'Queued',
