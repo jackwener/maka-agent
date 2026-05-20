@@ -537,6 +537,63 @@ button:active {
   box-shadow: 0 0 0 2px oklch(from var(--accent) l c h / 0.18);
 }
 
+.maka-prompt-suggestions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  margin: 20px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.maka-prompt-suggestions li {
+  display: flex;
+}
+
+.maka-prompt-chip {
+  flex: 1;
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--background-elevated);
+  color: var(--foreground);
+  cursor: pointer;
+  padding: 12px 14px;
+  text-align: left;
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    transform 140ms var(--ease-out-strong);
+}
+
+.maka-prompt-chip:hover {
+  border-color: oklch(from var(--accent) l c h / 0.4);
+  background: oklch(from var(--accent) l c h / 0.05);
+  transform: translateY(-1px);
+}
+
+.maka-prompt-chip:active {
+  transform: translateY(0) scale(0.99);
+}
+
+.maka-prompt-chip-label {
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.maka-prompt-chip-hint {
+  color: var(--foreground-60);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
 .maka-list-row-name {
   overflow: hidden;
   text-overflow: ellipsis;
