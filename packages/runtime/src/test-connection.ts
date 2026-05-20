@@ -4,6 +4,9 @@ import {
   type ConnectionTestResult,
   type LlmConnection,
 } from '@maka/core/llm-connections';
+import { proxiedFetch } from './bots/proxied-fetch.js';
+
+const CONNECTION_TEST_TIMEOUT_MS = 15_000;
 
 export async function testConnection(
   connection: LlmConnection,
@@ -47,7 +50,7 @@ async function probeAnthropic(
   model: string,
   t0: number,
 ): Promise<ConnectionTestResult> {
-  const r = await fetch(`${stripTrailing(baseUrl)}/v1/messages`, {
+  const r = await proxiedFetch(`${stripTrailing(baseUrl)}/v1/messages`, {
     method: 'POST',
     headers: {
       'x-api-key': apiKey,
@@ -59,6 +62,7 @@ async function probeAnthropic(
       max_tokens: 16,
       messages: [{ role: 'user', content: 'Hi' }],
     }),
+    timeoutMs: CONNECTION_TEST_TIMEOUT_MS,
   });
   if (!r.ok) return httpFailure(r, t0);
   return { ok: true, latencyMs: Date.now() - t0, modelTested: model };
@@ -70,7 +74,7 @@ async function probeOpenAI(
   model: string,
   t0: number,
 ): Promise<ConnectionTestResult> {
-  const r = await fetch(`${stripTrailing(baseUrl)}/chat/completions`, {
+  const r = await proxiedFetch(`${stripTrailing(baseUrl)}/chat/completions`, {
     method: 'POST',
     headers: {
       ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}),
@@ -81,6 +85,7 @@ async function probeOpenAI(
       max_tokens: 16,
       messages: [{ role: 'user', content: 'Hi' }],
     }),
+    timeoutMs: CONNECTION_TEST_TIMEOUT_MS,
   });
   if (!r.ok) return httpFailure(r, t0);
   return { ok: true, latencyMs: Date.now() - t0, modelTested: model };
@@ -92,7 +97,7 @@ async function probeGoogle(
   model: string,
   t0: number,
 ): Promise<ConnectionTestResult> {
-  const r = await fetch(
+  const r = await proxiedFetch(
     `${stripTrailing(baseUrl)}/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
     {
       method: 'POST',
@@ -101,6 +106,7 @@ async function probeGoogle(
         contents: [{ role: 'user', parts: [{ text: 'Hi' }] }],
         generationConfig: { maxOutputTokens: 16 },
       }),
+      timeoutMs: CONNECTION_TEST_TIMEOUT_MS,
     },
   );
   if (!r.ok) return httpFailure(r, t0);

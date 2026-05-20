@@ -4,6 +4,7 @@ import type { BotBridge, BotPlatform, BotStatus, SendCapable } from './types.js'
 import { proxiedFetch } from './proxied-fetch.js';
 
 const TELEGRAM_POLL_TIMEOUT_S = 15;
+const TELEGRAM_REQUEST_TIMEOUT_MS = 10_000;
 
 export class SimpleBotBridge extends EventEmitter implements BotBridge, SendCapable {
   readonly platform: BotPlatform;
@@ -165,11 +166,15 @@ export class SimpleBotBridge extends EventEmitter implements BotBridge, SendCapa
 }
 
 async function telegramApi(token: string, method: string, body?: Record<string, unknown>, signal?: AbortSignal): Promise<any> {
+  const timeoutMs = typeof body?.timeout === 'number'
+    ? (body.timeout + 5) * 1_000
+    : TELEGRAM_REQUEST_TIMEOUT_MS;
   const response = await proxiedFetch(`https://api.telegram.org/bot${token}/${method}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined,
     signal,
+    timeoutMs,
   });
   return response.json();
 }

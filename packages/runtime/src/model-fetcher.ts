@@ -4,6 +4,9 @@ import {
   type LlmConnection,
   type ModelInfo,
 } from '@maka/core/llm-connections';
+import { proxiedFetch } from './bots/proxied-fetch.js';
+
+const MODEL_FETCH_TIMEOUT_MS = 10_000;
 
 export async function fetchProviderModels(
   connection: LlmConnection,
@@ -13,7 +16,7 @@ export async function fetchProviderModels(
   const auth = PROVIDER_DEFAULTS[connection.providerType].authKind;
   try {
     if (connection.providerType === 'ollama') {
-      const r = await fetch(`${ollamaRoot(baseUrl)}/api/tags`);
+      const r = await proxiedFetch(`${ollamaRoot(baseUrl)}/api/tags`, { timeoutMs: MODEL_FETCH_TIMEOUT_MS });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const data = await r.json() as { models?: Array<{ name?: string }> };
       return (data.models ?? []).flatMap((model) => model.name ? [{ id: model.name }] : []);
@@ -21,24 +24,27 @@ export async function fetchProviderModels(
 
     switch (PROVIDER_DEFAULTS[connection.providerType].protocol) {
       case 'anthropic': {
-        const r = await fetch(`${stripTrailing(baseUrl)}/v1/models`, {
+        const r = await proxiedFetch(`${stripTrailing(baseUrl)}/v1/models`, {
           headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+          timeoutMs: MODEL_FETCH_TIMEOUT_MS,
         });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const data = await r.json() as { data?: Array<{ id?: string }> };
         return (data.data ?? []).flatMap((model) => model.id ? [{ id: model.id }] : []);
       }
       case 'openai': {
-        const r = await fetch(`${stripTrailing(baseUrl)}/models`, {
+        const r = await proxiedFetch(`${stripTrailing(baseUrl)}/models`, {
           headers: auth === 'none' ? {} : { authorization: `Bearer ${apiKey}` },
+          timeoutMs: MODEL_FETCH_TIMEOUT_MS,
         });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const data = await r.json() as { data?: Array<{ id?: string }> };
         return (data.data ?? []).flatMap((model) => model.id ? [{ id: model.id }] : []);
       }
       case 'google': {
-        const r = await fetch(
+        const r = await proxiedFetch(
           `${stripTrailing(baseUrl)}/v1beta/models?key=${encodeURIComponent(apiKey)}`,
+          { timeoutMs: MODEL_FETCH_TIMEOUT_MS },
         );
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const data = await r.json() as { models?: Array<{ name?: string }> };

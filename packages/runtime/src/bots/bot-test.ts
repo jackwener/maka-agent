@@ -2,6 +2,8 @@ import type { BotChannelSettings, BotProvider } from '@maka/core';
 import type { BotTestResult } from './types.js';
 import { proxiedFetch } from './proxied-fetch.js';
 
+const BOT_TEST_TIMEOUT_MS = 10_000;
+
 export async function testBotChannel(provider: BotProvider, channel: BotChannelSettings): Promise<BotTestResult> {
   if (!channel.token.trim() && provider !== 'wechat') {
     return { ok: false, error: 'Bot token is required' };
@@ -25,7 +27,7 @@ export async function testBotChannel(provider: BotProvider, channel: BotChannelS
 async function testTelegram(channel: BotChannelSettings): Promise<BotTestResult> {
   const base = `https://api.telegram.org/bot${channel.token}`;
   try {
-    const me = await (await proxiedFetch(`${base}/getMe`, { method: 'GET' })).json();
+    const me = await (await proxiedFetch(`${base}/getMe`, { method: 'GET', timeoutMs: BOT_TEST_TIMEOUT_MS })).json();
     if (!me.ok) return { ok: false, error: me.description ?? 'Invalid bot token' };
     return {
       ok: true,
@@ -43,6 +45,7 @@ async function testDiscord(channel: BotChannelSettings): Promise<BotTestResult> 
     const response = await proxiedFetch('https://discord.com/api/v10/users/@me', {
       method: 'GET',
       headers: { Authorization: `Bot ${channel.token}` },
+      timeoutMs: BOT_TEST_TIMEOUT_MS,
     });
     const json = await response.json().catch(() => ({}));
     if (!response.ok) return { ok: false, error: json.message ?? `HTTP ${response.status}` };
@@ -61,6 +64,7 @@ async function testFeishu(channel: BotChannelSettings): Promise<BotTestResult> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ app_id: appId, app_secret: appSecret }),
+      timeoutMs: BOT_TEST_TIMEOUT_MS,
     });
     const json = await response.json();
     if (json.code !== 0 || !json.tenant_access_token) {
