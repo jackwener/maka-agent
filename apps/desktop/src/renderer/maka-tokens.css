@@ -40,6 +40,12 @@
   --destructive: oklch(0.58 0.24 28);   /* red — errors, denied */
   --destructive-rgb: 180, 60, 50;
 
+  /* Settings hero green ("Solarpunk deep") — used for Done CTA, on-toggle
+     state, and provider mark backgrounds. Distinct from --accent so the
+     Settings surface keeps its own primary affordance. */
+  --brand-deep: oklch(0.32 0.05 152);
+  --brand-deep-hover: oklch(0.28 0.05 152);
+
   /* === text variants (mixed toward foreground for better contrast) === */
   --success-text: color-mix(in oklab, var(--success) 50%, var(--foreground));
   --destructive-text: color-mix(in oklab, var(--destructive) 50%, var(--foreground));
@@ -168,6 +174,11 @@
 
   /* foreground-N variants re-derive automatically via color-mix(), so the
      :root definitions above remain correct — no need to redefine here. */
+
+  /* Brand deep needs a slightly brighter hue in dark mode to maintain
+     legible contrast against the dark background. */
+  --brand-deep: oklch(0.62 0.10 152);
+  --brand-deep-hover: oklch(0.68 0.10 152);
 }
 
 /* =============================================================================
