@@ -90,6 +90,15 @@ button:active {
   background: var(--foreground-20);
 }
 
+/* Keyboard-focused separator: replace the suppressed native outline with a
+   visible accent ring on the pseudo-element. Hover styling intentionally
+   overrides via cascade order. */
+.maka-resize-handle:focus-visible::after {
+  background: var(--ring);
+  width: 2px;
+  left: 3px;
+}
+
 .isResizingColumns {
   cursor: col-resize;
   user-select: none;

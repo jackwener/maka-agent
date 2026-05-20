@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type RefObject } from 'react';
 import {
   Archive,
   Flag,
@@ -29,6 +29,94 @@ const FILTER_LABEL: Record<SessionFilter, string> = {
   flagged: 'Flagged',
   archived: 'Archived',
 };
+
+/**
+ * Hook for accessible modal dialogs.
+ *
+ * - Saves the element that had focus before the modal opened.
+ * - Moves focus to the first focusable element inside the modal on mount
+ *   (or the container itself if no focusable child exists).
+ * - Traps Tab/Shift+Tab inside the modal.
+ * - Optionally closes the modal on Escape.
+ * - Restores focus to the previously-focused element on unmount.
+ *
+ * Implements rule "3. focus and dialogs (critical)" from the
+ * fixing-accessibility skill.
+ */
+export function useModalA11y(
+  containerRef: RefObject<HTMLElement | null>,
+  onEscape?: () => void,
+): void {
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+
+    const initial = getFocusable(container);
+    if (initial.length > 0) {
+      initial[0]!.focus({ preventScroll: true });
+    } else {
+      if (!container.hasAttribute('tabindex')) container.setAttribute('tabindex', '-1');
+      container.focus({ preventScroll: true });
+    }
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (!container) return;
+      if (event.key === 'Escape' && onEscape) {
+        event.stopPropagation();
+        event.preventDefault();
+        onEscape();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const items = getFocusable(container);
+      if (items.length === 0) {
+        event.preventDefault();
+        return;
+      }
+      const first = items[0]!;
+      const last = items[items.length - 1]!;
+      const active = document.activeElement;
+      if (event.shiftKey && (active === first || !container.contains(active))) {
+        event.preventDefault();
+        last.focus({ preventScroll: true });
+      } else if (!event.shiftKey && (active === last || !container.contains(active))) {
+        event.preventDefault();
+        first.focus({ preventScroll: true });
+      }
+    }
+
+    container.addEventListener('keydown', onKeyDown);
+    return () => {
+      container.removeEventListener('keydown', onKeyDown);
+      // Defer restoration so any in-flight focus changes (e.g. clicking a
+      // button that unmounts the modal) settle before we yank focus back.
+      queueMicrotask(() => {
+        if (previouslyFocused && document.contains(previouslyFocused)) {
+          previouslyFocused.focus?.({ preventScroll: true });
+        }
+      });
+    };
+  }, [containerRef, onEscape]);
+}
+
+const FOCUSABLE_SELECTOR =
+  'a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), iframe, [tabindex]:not([tabindex="-1"])';
+
+function getFocusable(container: HTMLElement): HTMLElement[] {
+  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+    (element) => !element.hasAttribute('inert') && isVisible(element),
+  );
+}
+
+function isVisible(element: HTMLElement): boolean {
+  if (element.hidden) return false;
+  // offsetParent is null for display:none ancestors and fixed-positioned roots,
+  // but our modal elements are always rendered visible — so this is a sufficient
+  // approximation without forcing layout.
+  return element.offsetParent !== null || element === document.activeElement;
+}
 
 function Count(props: { value: number }) {
   if (props.value <= 0) return null;
@@ -313,6 +401,9 @@ export function PermissionDialog(props: {
   onRespond(response: PermissionResponse): void;
 }) {
   const [rememberForTurn, setRememberForTurn] = useState(false);
+  const dialogRef = useRef<HTMLElement>(null);
+  // No onEscape — a permission request requires an explicit allow/deny decision.
+  useModalA11y(dialogRef);
 
   function submit(decision: PermissionResponse['decision']) {
     props.onRespond({
@@ -324,7 +415,7 @@ export function PermissionDialog(props: {
 
   return (
     <div className="maka-modal-backdrop permissionBackdrop">
-      <section className="maka-modal permissionDialog" role="dialog" aria-modal="true" aria-labelledby="permissionTitle">
+      <section ref={dialogRef} className="maka-modal permissionDialog" role="dialog" aria-modal="true" aria-labelledby="permissionTitle">
         <div className="maka-modal-header">
           <h2 className="maka-modal-title" id="permissionTitle">Permission required</h2>
           <p className="maka-modal-subtitle">

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type {
   AppSettings,
   BotProvider,
@@ -10,6 +10,7 @@ import type {
   UsageStats,
 } from '@maka/core';
 import { BOT_PROVIDERS, createDefaultSettings } from '@maka/core/settings';
+import { useModalA11y } from '@maka/ui';
 import { ProvidersPanel } from './ProvidersPanel';
 
 type SettingsNavItem = {
@@ -52,17 +53,21 @@ export function SettingsModal(props: {
   onRefresh(): Promise<void>;
   onClose(): void;
 }) {
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') props.onClose();
-    }
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [props.onClose]);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  // Escape closes the modal, Tab/Shift+Tab cycles inside the dialog,
+  // focus restored to the trigger on close.
+  useModalA11y(dialogRef, props.onClose);
 
   return (
-    <div className="settingsModalBackdrop" role="presentation" onMouseDown={props.onClose}>
-      <div className="settingsModal" role="dialog" aria-modal="true" aria-label="Settings" onMouseDown={(event) => event.stopPropagation()}>
+    <div className="settingsModalBackdrop" role="presentation" onClick={props.onClose}>
+      <div
+        ref={dialogRef}
+        className="settingsModal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Settings"
+        onClick={(event) => event.stopPropagation()}
+      >
         <SettingsSurface
           connections={props.connections}
           defaultSlug={props.defaultSlug}
