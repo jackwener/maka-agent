@@ -1291,6 +1291,164 @@ button:active {
   align-items: center;
 }
 
+/* PR30 Permission dialog: per-reason iconography + per-tool summary block */
+.permissionDialog {
+  width: min(560px, calc(100vw - 48px));
+}
+
+.maka-permission-header {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  align-items: start;
+  gap: 14px;
+}
+
+.maka-permission-icon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: oklch(from var(--info) l c h / 0.10);
+  color: var(--info-text);
+}
+
+.permissionDialog[data-tone="caution"] .maka-permission-icon {
+  background: oklch(from var(--info) l c h / 0.14);
+  color: var(--info-text);
+}
+
+.permissionDialog[data-tone="destructive"] .maka-permission-icon {
+  background: oklch(from var(--destructive) l c h / 0.10);
+  color: var(--destructive-text);
+}
+
+.permissionDialog[data-tone="destructive"] {
+  border: 1px solid oklch(from var(--destructive) l c h / 0.32);
+}
+
+.maka-permission-tool {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--foreground-5);
+  color: var(--foreground-80);
+}
+
+.maka-permission-body {
+  display: grid;
+  gap: 12px;
+}
+
+.maka-permission-summary {
+  display: grid;
+  gap: 6px;
+}
+
+.maka-permission-line {
+  margin: 0;
+  color: var(--foreground-80);
+  font-size: 13px;
+}
+
+.maka-permission-path {
+  margin: 0;
+}
+
+.maka-permission-path code {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--foreground-5);
+  color: var(--foreground);
+}
+
+.maka-permission-command,
+.maka-permission-preview {
+  margin: 0;
+  max-height: 200px;
+  overflow: auto;
+}
+
+.maka-permission-meta {
+  margin: 0;
+  color: var(--foreground-60);
+  font-size: 12px;
+}
+
+.maka-permission-hint {
+  border-radius: 10px;
+  background: oklch(from var(--info) l c h / 0.10);
+  color: var(--info-text);
+  padding: 9px 12px;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.maka-permission-diff {
+  display: grid;
+  gap: 10px;
+}
+
+.maka-permission-diff > div {
+  display: grid;
+  gap: 4px;
+}
+
+.maka-permission-diff-tag {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 1px 7px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.maka-permission-diff-tag[data-side="old"] {
+  background: oklch(from var(--destructive) l c h / 0.10);
+  color: var(--destructive-text);
+}
+
+.maka-permission-diff-tag[data-side="new"] {
+  background: oklch(from var(--success) l c h / 0.10);
+  color: var(--success-text);
+}
+
+.maka-permission-raw {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--foreground-2);
+}
+
+.maka-permission-raw > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 8px 12px;
+  color: var(--foreground-60);
+  font-size: 12px;
+}
+
+.maka-permission-raw > summary::-webkit-details-marker { display: none; }
+.maka-permission-raw > summary::marker { content: ''; }
+
+.maka-permission-raw[open] > summary {
+  border-bottom: 1px solid var(--border);
+}
+
+.maka-permission-raw .maka-code {
+  margin: 0;
+  border: 0;
+  border-radius: 0 0 10px 10px;
+  background: var(--foreground-2);
+  max-height: 220px;
+  overflow: auto;
+}
+
 .settingsSurface {
   min-height: 0;
   height: 100%;

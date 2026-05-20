@@ -1,11 +1,16 @@
-import { forwardRef, memo, useEffect, useImperativeHandle, useRef, useState, type FormEvent, type KeyboardEvent, type MouseEvent, type RefObject } from 'react';
+import { forwardRef, memo, useEffect, useImperativeHandle, useRef, useState, type FormEvent, type KeyboardEvent, type MouseEvent, type ReactNode, type RefObject } from 'react';
 import {
+  AlertOctagon,
+  AlertTriangle,
   Archive,
   ArchiveRestore,
   ArrowDown,
   Check,
   Copy,
+  FileEdit,
   Flag,
+  GitMerge,
+  HelpCircle,
   MessageSquare,
   Pencil,
   Pin,
@@ -13,9 +18,12 @@ import {
   Plus,
   Search,
   Settings,
+  ShieldAlert,
   Sparkles,
   SquarePen,
+  Terminal,
   Trash2,
+  Wifi,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -877,6 +885,27 @@ export function OverlayHost(props: { content?: ToolResultContent; onClose(): voi
   );
 }
 
+// Per-reason presentation hints. Drives icon + headline + risk tone in the
+// dialog so the user can scan the modal in 1-2 seconds before reading the
+// args block.
+type ReasonKind = PermissionRequestEvent['reason'];
+
+interface ReasonPreset {
+  label: string;
+  Icon: typeof AlertTriangle;
+  tone: 'info' | 'caution' | 'destructive';
+}
+
+const REASON_PRESETS: Record<ReasonKind, ReasonPreset> = {
+  shell_dangerous: { label: 'Shell command (review carefully)', Icon: Terminal, tone: 'caution' },
+  file_write: { label: 'Write or create a file', Icon: FileEdit, tone: 'info' },
+  fs_destructive: { label: 'Filesystem destructive (cannot undo)', Icon: AlertOctagon, tone: 'destructive' },
+  git_destructive: { label: 'Git history destructive', Icon: GitMerge, tone: 'destructive' },
+  network: { label: 'Outbound network request', Icon: Wifi, tone: 'info' },
+  privileged: { label: 'Privileged operation (sudo / su)', Icon: ShieldAlert, tone: 'destructive' },
+  custom: { label: 'Custom request', Icon: HelpCircle, tone: 'info' },
+};
+
 export function PermissionDialog(props: {
   request: PermissionRequestEvent;
   onRespond(response: PermissionResponse): void;
@@ -894,33 +923,132 @@ export function PermissionDialog(props: {
     });
   }
 
+  const preset = REASON_PRESETS[props.request.reason] ?? REASON_PRESETS.custom;
+  const summary = renderPermissionSummary(props.request);
+  const isDestructive = preset.tone === 'destructive';
+
   return (
     <div className="maka-modal-backdrop permissionBackdrop">
-      <section ref={dialogRef} className="maka-modal permissionDialog" role="dialog" aria-modal="true" aria-labelledby="permissionTitle">
-        <div className="maka-modal-header">
-          <h2 className="maka-modal-title" id="permissionTitle">Permission required</h2>
-          <p className="maka-modal-subtitle">
-            {props.request.toolName} · <span className="maka-reason-text" data-reason={props.request.reason}>{props.request.reason}</span>
-          </p>
+      <section
+        ref={dialogRef}
+        className="maka-modal permissionDialog"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="permissionTitle"
+        data-tone={preset.tone}
+      >
+        <div className="maka-modal-header maka-permission-header">
+          <span className="maka-permission-icon" aria-hidden="true">
+            <preset.Icon size={20} strokeWidth={1.75} />
+          </span>
+          <div>
+            <h2 className="maka-modal-title" id="permissionTitle">需要确认权限</h2>
+            <p className="maka-modal-subtitle">
+              <code className="maka-permission-tool">{props.request.toolName}</code>
+              <span aria-hidden="true"> · </span>
+              <span className="maka-reason-text" data-reason={props.request.reason}>{preset.label}</span>
+            </p>
+          </div>
         </div>
-        <div className="maka-modal-body">
-          <pre className="maka-code">{JSON.stringify(props.request.args, null, 2)}</pre>
+        <div className="maka-modal-body maka-permission-body">
+          {summary && <div className="maka-permission-summary">{summary}</div>}
+          {props.request.hint && (
+            <div className="maka-permission-hint" role="note">{props.request.hint}</div>
+          )}
+          <details className="maka-permission-raw">
+            <summary>查看完整参数</summary>
+            <pre className="maka-code">{JSON.stringify(props.request.args, null, 2)}</pre>
+          </details>
           <label className="permissionRemember">
             <input
               type="checkbox"
               checked={rememberForTurn}
               onChange={(event) => setRememberForTurn(event.currentTarget.checked)}
             />
-            Remember for this turn
+            本轮对话内记住选择（同类型工具不再询问）
           </label>
         </div>
         <div className="maka-modal-footer permissionActions">
-          <button className="maka-button" data-variant="ghost" type="button" onClick={() => submit('deny')}>Deny</button>
-          <button className="maka-button" data-variant="primary" type="button" onClick={() => submit('allow')}>Allow</button>
+          <button className="maka-button" data-variant="ghost" type="button" onClick={() => submit('deny')}>拒绝</button>
+          <button
+            className="maka-button"
+            data-variant={isDestructive ? 'destructive' : 'primary'}
+            type="button"
+            onClick={() => submit('allow')}
+          >
+            {isDestructive ? '我已确认，允许' : '允许'}
+          </button>
         </div>
       </section>
     </div>
   );
+}
+
+/**
+ * Per-tool human-readable summary of what the request will do, used at the
+ * top of the permission dialog body. Falls back to undefined if we can't
+ * recognize the tool — the raw args `<details>` block is always available.
+ */
+function renderPermissionSummary(request: PermissionRequestEvent): ReactNode | undefined {
+  const args = (request.args ?? {}) as Record<string, unknown>;
+  switch (request.toolName) {
+    case 'Bash': {
+      const command = typeof args.command === 'string' ? args.command : undefined;
+      if (!command) return undefined;
+      const timeout = typeof args.timeout_ms === 'number' ? args.timeout_ms : undefined;
+      return (
+        <>
+          <p className="maka-permission-line">即将运行 shell 命令：</p>
+          <pre className="maka-code maka-permission-command">{command}</pre>
+          {timeout !== undefined && (
+            <p className="maka-permission-meta">超时 <strong>{timeout} ms</strong></p>
+          )}
+        </>
+      );
+    }
+    case 'Write': {
+      const path = typeof args.path === 'string' ? args.path : undefined;
+      const content = typeof args.content === 'string' ? args.content : '';
+      if (!path) return undefined;
+      const bytes = new TextEncoder().encode(content).length;
+      const lines = content.split('\n').length;
+      const preview = content.length > 600 ? `${content.slice(0, 600)}…` : content;
+      return (
+        <>
+          <p className="maka-permission-line">即将写入文件：</p>
+          <p className="maka-permission-path"><code>{path}</code></p>
+          <p className="maka-permission-meta">
+            <strong>{bytes}</strong> 字节 · <strong>{lines}</strong> 行
+          </p>
+          <pre className="maka-code maka-permission-preview">{preview}</pre>
+        </>
+      );
+    }
+    case 'Edit': {
+      const path = typeof args.path === 'string' ? args.path : undefined;
+      const oldString = typeof args.old_string === 'string' ? args.old_string : '';
+      const newString = typeof args.new_string === 'string' ? args.new_string : '';
+      if (!path) return undefined;
+      return (
+        <>
+          <p className="maka-permission-line">即将修改文件：</p>
+          <p className="maka-permission-path"><code>{path}</code></p>
+          <div className="maka-permission-diff">
+            <div>
+              <span className="maka-permission-diff-tag" data-side="old">删除</span>
+              <pre className="maka-code">{oldString.length > 400 ? `${oldString.slice(0, 400)}…` : oldString}</pre>
+            </div>
+            <div>
+              <span className="maka-permission-diff-tag" data-side="new">写入</span>
+              <pre className="maka-code">{newString.length > 400 ? `${newString.slice(0, 400)}…` : newString}</pre>
+            </div>
+          </div>
+        </>
+      );
+    }
+    default:
+      return undefined;
+  }
 }
 
 function OverlayPreview(props: { content: ToolResultContent }) {
