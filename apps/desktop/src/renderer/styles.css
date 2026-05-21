@@ -807,11 +807,55 @@ button:active {
 }
 
 .maka-list-row-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 600;
+  min-width: 0;
+}
+
+.maka-list-row-name > span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 14px;
-  font-weight: 600;
+  min-width: 0;
+}
+
+/* Small pulsing accent dot rendered when a session has live streaming
+ * delta in flight. Replaces the unread halo for streaming sessions so the
+ * indicator hierarchy is: streaming > unread > inactive. Respects
+ * prefers-reduced-motion. */
+.maka-list-row-streaming-dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.15);
+  animation: maka-list-row-streaming-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes maka-list-row-streaming-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.18);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 5px oklch(from var(--accent) l c h / 0.05);
+    transform: scale(1.1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .maka-list-row-streaming-dot {
+    animation: none;
+  }
+}
+
+.maka-list-row[data-streaming="true"] .maka-list-row-name > span {
+  color: var(--foreground);
 }
 
 .maka-list-row-meta {

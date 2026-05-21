@@ -68,6 +68,13 @@ function AppShell() {
   const composerRef = useRef<ComposerHandle>(null);
   const activeIdRef = useRef<string | undefined>(undefined);
   const activeStreaming = activeId ? streamingBySession[activeId] ?? '' : '';
+  // Set of session ids with a live streaming delta — drives the sidebar
+  // pulse indicator. Recomputed on every streamingBySession change; cheap
+  // since the underlying map only has at most a handful of entries.
+  const streamingSessionIds = useMemo(
+    () => new Set(Object.entries(streamingBySession).flatMap(([id, text]) => (text ? [id] : []))),
+    [streamingBySession],
+  );
   const liveTools = useMemo(() => (activeId ? liveToolsBySession[activeId] ?? [] : []), [activeId, liveToolsBySession]);
   const activePermission = activeId ? permissionBySession[activeId] : undefined;
   const activeSession = sessions.find((session) => session.id === activeId);
@@ -568,6 +575,7 @@ function AppShell() {
             sessions={visibleSessions}
             activeId={activeId}
             skills={skills}
+            streamingSessionIds={streamingSessionIds}
             onSelect={setNavSelection}
             onSelectSession={setActiveId}
             onOpenSettings={openSettings}
