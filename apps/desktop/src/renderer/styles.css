@@ -3897,6 +3897,23 @@ button:active {
   flex: 1 1 auto;
 }
 
+/* Per @kenji's status contract item #4: fetched vs fallback must NEVER look
+ * the same. Fetched lists get a neutral success line; fallback lists get
+ * an info-toned line that explicitly says it's static and how to refresh. */
+.providerModelSource {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+}
+.providerModelSource[data-source="fetched"] {
+  color: var(--success-text);
+}
+.providerModelSource[data-source="fallback"] {
+  color: var(--info-text);
+}
+
 .providerActions {
   flex-wrap: wrap;
 }
