@@ -426,7 +426,7 @@ function SettingsPage(props: {
     case 'data':
       return <DataSettingsPage />;
     case 'account':
-      return <AccountSettingsPage connections={props.connections} />;
+      return <AccountSettingsPage connections={props.connections} defaultSlug={props.defaultSlug} />;
     default: {
       const copy = COMING_SOON_PAGES[props.section];
       if (copy) {
@@ -645,7 +645,7 @@ const THEME_OPTIONS: Array<{ value: ThemePreference; label: string; help: string
   { value: 'auto', label: '跟随系统', help: '匹配 macOS 的当前 Light/Dark 偏好。' },
 ];
 
-function AccountSettingsPage(props: { connections: LlmConnection[] }) {
+function AccountSettingsPage(props: { connections: LlmConnection[]; defaultSlug: string | null }) {
   // Backend (xuan, 5ca1f8a) persists per-connection lastTestStatus. UI
   // derives the display status from `enabled + hasSecret + defaultModel +
   // lastTestStatus + authKind` per @kenji's status-contract priority list,
@@ -704,6 +704,7 @@ function AccountSettingsPage(props: { connections: LlmConnection[] }) {
               key={connection.slug}
               connection={connection}
               hasSecret={secretMap[connection.slug] ?? false}
+              isDefault={connection.slug === props.defaultSlug}
             />
           ))}
         </div>
@@ -716,7 +717,11 @@ function AccountSettingsPage(props: { connections: LlmConnection[] }) {
   );
 }
 
-function AccountConnectionRow(props: { connection: LlmConnection; hasSecret: boolean }) {
+function AccountConnectionRow(props: {
+  connection: LlmConnection;
+  hasSecret: boolean;
+  isDefault: boolean;
+}) {
   const status: ConnectionUiStatus = connectionUiStatusFromRecord(props.connection, props.hasSecret);
   const presentation = presentConnectionUiStatus(status);
   const subtitle = `${props.connection.providerType} · ${props.connection.defaultModel || '未设默认模型'}`;
@@ -725,10 +730,20 @@ function AccountConnectionRow(props: { connection: LlmConnection; hasSecret: boo
     : null;
   const lastTestMessage = props.connection.lastTestMessage;
   return (
-    <div className="settingsConnectionRow" role="listitem" data-status={status}>
+    <div
+      className="settingsConnectionRow"
+      role="listitem"
+      data-status={status}
+      data-default={props.isDefault ? 'true' : undefined}
+    >
       <div className="settingsConnectionRowHead">
         <div className="settingsConnectionRowText">
-          <strong>{props.connection.name}</strong>
+          <div className="settingsConnectionRowName">
+            <strong>{props.connection.name}</strong>
+            {props.isDefault && (
+              <span className="settingsConnectionDefaultBadge" aria-label="默认连接">默认</span>
+            )}
+          </div>
           <small>{subtitle}</small>
         </div>
         <span className="settingsConnectionBadge" data-tone={presentation.tone}>

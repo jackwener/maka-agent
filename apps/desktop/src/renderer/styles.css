@@ -3191,6 +3191,29 @@ button:active {
   opacity: 0.72;
 }
 
+.settingsConnectionRow[data-default="true"] {
+  box-shadow: 0 0 0 2px oklch(from var(--accent) l c h / 0.12);
+}
+
+.settingsConnectionRowName {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.settingsConnectionDefaultBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: oklch(from var(--accent) l c h / 0.14);
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
 .settingsConnectionRowHead {
   display: flex;
   align-items: center;

@@ -37,7 +37,12 @@ const SHORTCUTS: Section[] = [
     heading: '会话列表',
     rows: [
       { keys: ['Tab'], description: '在会话与导航之间移动焦点' },
+      { keys: ['↑', '↓'], description: '上下移动聚焦的会话' },
+      { keys: ['Home', 'End'], description: '跳到列表顶部 / 底部' },
+      { keys: ['←', '→'], description: 'Chats / 已标记 / 已归档 之间循环切换' },
       { keys: ['Enter'], description: '打开聚焦的会话' },
+      { keys: ['Delete'], description: '弹出删除确认（永远不静默删除）' },
+      { keys: ['F'], description: '聚焦会话列表搜索框（按 Esc 清空）' },
     ],
   },
   {
