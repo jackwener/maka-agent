@@ -67,6 +67,10 @@ import type { LlmCallRecord, ToolInvocationRecord } from '@maka/core/usage-stats
 
 import { PermissionEngine } from './permission-engine.js';
 import { AsyncEventQueue } from './async-queue.js';
+import {
+  recordToolArtifactsSafely,
+  type ToolArtifactRecorder,
+} from './tool-artifacts.js';
 
 // ============================================================================
 // AgentBackend interface
@@ -182,6 +186,12 @@ export interface AiSdkBackendInput {
   /** Optional fire-and-forget telemetry hooks. Tool implementations remain unaware. */
   recordLlmCall?: LlmTelemetryRecorder;
   recordToolInvocation?: ToolTelemetryRecorder;
+  /**
+   * Optional artifact recorder. Runtime derives only deterministic candidates
+   * from structured tool results / explicit redirects; desktop main owns
+   * file-backed persistence.
+   */
+  recordToolArtifacts?: ToolArtifactRecorder;
 }
 
 // ============================================================================
@@ -582,6 +592,29 @@ export class AiSdkBackend implements AgentBackend {
           bytesOut: byteLength(result),
           startedAt,
         });
+
+        void recordToolArtifactsSafely(
+          {
+            sessionId: this.sessionId,
+            turnId,
+            toolUseId,
+            toolName: tool.name,
+            cwd: this.input.header.cwd,
+            args,
+            result,
+          },
+          this.input.recordToolArtifacts,
+          (message) => {
+            queue.push({
+              type: 'tool_progress',
+              id: this.newId(),
+              turnId,
+              ts: this.now(),
+              toolUseId,
+              chunk: message,
+            });
+          },
+        );
 
         return result;
       } catch (err) {

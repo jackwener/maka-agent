@@ -37,6 +37,17 @@ export type {
 
 export { buildBuiltinTools } from './builtin-tools.js';
 export type { MakaTool as BuiltinMakaTool, MakaToolContext as BuiltinMakaToolContext } from './builtin-tools.js';
+export {
+  deriveToolArtifactCandidates,
+  extractStdoutRedirectPath,
+  recordToolArtifactsSafely,
+} from './tool-artifacts.js';
+export type {
+  ToolArtifactCandidate,
+  ToolArtifactDerivationInput,
+  ToolArtifactRecorder,
+  ToolArtifactRecorderInput,
+} from './tool-artifacts.js';
 
 export { getAIModel, buildProviderOptions } from './model-factory.js';
 export type { ModelFactoryInput as GetAIModelInput } from './model-factory.js';

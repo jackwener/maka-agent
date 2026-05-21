@@ -11,6 +11,7 @@
     "./permission-engine": "./dist/permission-engine.js",
     "./ai-sdk-backend": "./dist/ai-sdk-backend.js",
     "./builtin-tools": "./dist/builtin-tools.js",
+    "./tool-artifacts": "./dist/tool-artifacts.js",
     "./model-factory": "./dist/model-factory.js",
     "./test-connection": "./dist/test-connection.js",
     "./model-fetcher": "./dist/model-fetcher.js",

@@ -2,8 +2,8 @@ import { app, BrowserWindow, ipcMain, Menu, nativeTheme, screen, shell } from 'e
 import { isExternalUrl } from './external-link-guard.js';
 import { readSavedBounds, writeSavedBounds, type SavedBounds } from './window-state.js';
 import { randomUUID } from 'node:crypto';
-import { mkdir, readdir, readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { mkdir, readdir, readFile, realpath } from 'node:fs/promises';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { release as osRelease, arch as osArch } from 'node:os';
 import {
   generalizedErrorMessage,
@@ -60,6 +60,7 @@ import {
   setActiveProxy,
   testConnection,
 } from '@maka/runtime';
+import type { ToolArtifactRecorderInput } from '@maka/runtime/tool-artifacts';
 import { testProxyConnection } from '@maka/runtime/network/proxy-test';
 import { PROVIDER_DEFAULTS } from '@maka/core/llm-connections';
 import { createArtifactStore, createConnectionStore, createSessionStore, createSettingsStore, createTelemetryRepo, resolveArtifactPath } from '@maka/storage';
@@ -109,6 +110,55 @@ const botRegistry = new BotRegistry({
 
 app.setName('Maka');
 
+async function persistToolArtifacts(cwd: string, event: ToolArtifactRecorderInput): Promise<void> {
+  for (const candidate of event.candidates) {
+    let content = candidate.content;
+    if (content === undefined && candidate.sourcePath) {
+      const sourcePath = await resolveToolArtifactSourcePath(cwd, candidate.sourcePath);
+      if (!sourcePath) continue;
+      content = await readFile(sourcePath);
+    }
+    if (content === undefined) continue;
+    const artifact = await artifactStore.create({
+      sessionId: event.sessionId,
+      turnId: event.turnId,
+      name: candidate.name,
+      kind: candidate.kind,
+      content,
+      ...(candidate.mimeType ? { mimeType: candidate.mimeType } : {}),
+      source: candidate.source ?? 'tool_result',
+      ...(candidate.summary ? { summary: candidate.summary } : {}),
+    });
+    mainWindow?.webContents.send('artifacts:changed', {
+      reason: 'created',
+      artifactId: artifact.id,
+      sessionId: artifact.sessionId,
+      ts: Date.now(),
+    });
+  }
+}
+
+async function resolveToolArtifactSourcePath(cwd: string, sourcePath: string): Promise<string | null> {
+  const candidate = isAbsolute(sourcePath) ? sourcePath : resolve(cwd, sourcePath);
+  let root: string;
+  let target: string;
+  try {
+    [root, target] = await Promise.all([
+      realpath(cwd),
+      realpath(candidate),
+    ]);
+  } catch {
+    return null;
+  }
+  return isInsideOrSamePath(root, target) ? target : null;
+}
+
+function isInsideOrSamePath(root: string, target: string): boolean {
+  if (target === root) return true;
+  const rel = relative(root, target);
+  return rel !== '' && !rel.startsWith('..') && rel !== '..' && !rel.includes(`..${sep}`) && !rel.startsWith(sep);
+}
+
 backends.register('ai-sdk', async (ctx) => {
   const { connection, apiKey } = await getReadyConnection(ctx.header.llmConnectionSlug, ctx.header.model);
 
@@ -125,6 +175,7 @@ backends.register('ai-sdk', async (ctx) => {
     systemPrompt: buildSystemPrompt,
     recordLlmCall: (event) => recordLlmCall({ repo: telemetryRepo, lookupPricing }, event),
     recordToolInvocation: (event) => recordToolInvocation({ repo: telemetryRepo }, event),
+    recordToolArtifacts: (event) => persistToolArtifacts(ctx.header.cwd, event),
     newId: randomUUID,
     now: Date.now,
   });
