@@ -91,6 +91,82 @@ function groupedNav(): Array<{ group: SettingsNavGroup; items: SettingsNavItem[]
   });
 }
 
+interface NavGroupSummary {
+  /** Short text rendered next to the group label, e.g. "3 verified · 1 needs reauth". */
+  text: string;
+  /** Tone drives color (info / warning / destructive). undefined → neutral. */
+  tone?: 'info' | 'warning' | 'destructive';
+}
+
+/**
+ * Per @kenji's PR75 review: group labels shouldn't be just visual dividers
+ * — they should summarize the live state of the group so the nav doubles
+ * as a navigation map. We surface this as a small line below the group
+ * heading, distinct from the persistent uppercase label.
+ */
+function navGroupSummary(args: {
+  group: SettingsNavGroup;
+  connections: LlmConnection[];
+  defaultSlug: string | null;
+  settings: AppSettings;
+}): NavGroupSummary | undefined {
+  // Keep summaries terse — @kenji's PR78 review: "不要让 nav 变成第二个详情页".
+  // One short sentence, max ~14 chars, tone-coded for urgency.
+  switch (args.group) {
+    case 'AI': {
+      const enabled = args.connections.filter((c) => c.enabled).length;
+      if (enabled === 0) {
+        return { text: '尚未启用任何连接', tone: 'info' };
+      }
+      const errored = args.connections.filter(
+        (c) => c.enabled && c.lastTestStatus === 'error',
+      ).length;
+      const needsReauth = args.connections.filter(
+        (c) => c.enabled && c.lastTestStatus === 'needs_reauth',
+      ).length;
+      if (errored > 0) {
+        return { text: `${errored} 个连接出错`, tone: 'destructive' };
+      }
+      if (needsReauth > 0) {
+        return { text: `${needsReauth} 个需重登`, tone: 'warning' };
+      }
+      const defaultConnection = args.connections.find((c) => c.slug === args.defaultSlug);
+      if (!defaultConnection) {
+        return { text: '未设默认模型', tone: 'warning' };
+      }
+      return { text: `${enabled} 个连接可用` };
+    }
+    case '集成': {
+      const proxyOn = args.settings.network?.proxy?.enabled ?? false;
+      const botChannels = args.settings.botChat?.channels ?? ({} as Record<string, { enabled?: boolean } | undefined>);
+      const enabledBots = Object.values(botChannels).filter(
+        (channel) => channel?.enabled ?? false,
+      ).length;
+      return {
+        text: `${proxyOn ? '代理已开' : '直连'} · ${enabledBots} 个机器人`,
+      };
+    }
+    case '数据与账号': {
+      const errored = args.connections.filter(
+        (c) => c.enabled && c.lastTestStatus === 'error',
+      ).length;
+      const needsReauth = args.connections.filter(
+        (c) => c.enabled && c.lastTestStatus === 'needs_reauth',
+      ).length;
+      if (errored + needsReauth > 0) {
+        return {
+          text: `${errored + needsReauth} 个凭据需处理`,
+          tone: errored > 0 ? 'destructive' : 'warning',
+        };
+      }
+      return { text: '凭据本地加密' };
+    }
+    case '基础':
+    case '其他':
+      return undefined;
+  }
+}
+
 /**
  * V0.2 product-stance copy for Coming Soon Settings pages. The shape is
  * derived from @kenji's contract notes (`notes/maka-*-contract.md`) and is
@@ -351,27 +427,40 @@ function SettingsSurface(props: {
           <span>设置 <kbd>⌘</kbd><kbd>,</kbd></span>
         </header>
         <nav aria-label="设置分组">
-          {groupedNav().map(({ group, items }) => (
-            <div key={group} className="settingsNavGroup">
-              <div className="settingsNavGroupLabel">{group}</div>
-              {items.map((item) => (
-                <button
-                  key={item.id}
-                  className="settingsNavItem"
-                  data-active={section === item.id}
-                  type="button"
-                  disabled={!item.enabled}
-                  onClick={() => setSection(item.id)}
-                >
-                  <span className="settingsNavGlyph" aria-hidden="true">
-                    <item.Icon size={16} strokeWidth={1.5} />
-                  </span>
-                  <strong>{item.label}</strong>
-                  {item.comingSoon && <em className="settingsNavBadge" aria-label="即将推出">Soon</em>}
-                </button>
-              ))}
-            </div>
-          ))}
+          {groupedNav().map(({ group, items }) => {
+            const summary = navGroupSummary({
+              group,
+              connections: props.connections,
+              defaultSlug: props.defaultSlug,
+              settings,
+            });
+            return (
+              <div key={group} className="settingsNavGroup">
+                <div className="settingsNavGroupLabel">{group}</div>
+                {summary && (
+                  <div className="settingsNavGroupSummary" data-tone={summary.tone ?? 'neutral'}>
+                    {summary.text}
+                  </div>
+                )}
+                {items.map((item) => (
+                  <button
+                    key={item.id}
+                    className="settingsNavItem"
+                    data-active={section === item.id}
+                    type="button"
+                    disabled={!item.enabled}
+                    onClick={() => setSection(item.id)}
+                  >
+                    <span className="settingsNavGlyph" aria-hidden="true">
+                      <item.Icon size={16} strokeWidth={1.5} />
+                    </span>
+                    <strong>{item.label}</strong>
+                    {item.comingSoon && <em className="settingsNavBadge" aria-label="即将推出">Soon</em>}
+                  </button>
+                ))}
+              </div>
+            );
+          })}
         </nav>
       </aside>
 

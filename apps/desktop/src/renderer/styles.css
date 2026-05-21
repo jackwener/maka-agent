@@ -2420,7 +2420,32 @@ button:active {
   letter-spacing: 0.10em;
   text-transform: uppercase;
   color: var(--foreground-50);
+  padding: 0 6px 0;
+}
+
+/* Per @kenji's PR75 review: group labels should also act as navigation
+ * summaries (live state, not just visual dividers). Single short line in
+ * the foreground-60 default, tinted info/warning/destructive when the
+ * group has actionable state. */
+.settingsNavGroupSummary {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--foreground-60);
   padding: 0 6px 2px;
+}
+
+.settingsNavGroupSummary[data-tone="info"] {
+  color: var(--info-text);
+}
+
+.settingsNavGroupSummary[data-tone="warning"] {
+  color: var(--info-text);
+  font-weight: 600;
+}
+
+.settingsNavGroupSummary[data-tone="destructive"] {
+  color: var(--destructive);
+  font-weight: 600;
 }
 
 .settingsNavItem {
