@@ -434,6 +434,16 @@ function ConnectionDetail(props: {
   const [baseUrl, setBaseUrl] = useState(connection.baseUrl ?? defaults.baseUrl);
   const [defaultModel, setDefaultModel] = useState(connection.defaultModel);
   const [models, setModels] = useState<ModelInfo[]>(connection.models ?? []);
+  // Track the model-list source explicitly instead of inferring from array
+  // length, per @kenji's review of PR73: "等 @xuan 后端不再 silent fallback
+  // 后，UI 的 fetched/fallback source 标记要以 backend 返回 source 或实际
+  // 错误分支为准，别只按数组非空判断." A successful fetch that legitimately
+  // returns 0 models is still 'fetched'; a failed fetch leaves the source
+  // at 'fallback'. Persisted models on mount are assumed 'fetched' (they
+  // were written by a previous successful fetch via `connections.update`).
+  const [modelSource, setModelSource] = useState<'fetched' | 'fallback'>(
+    (connection.models?.length ?? 0) > 0 ? 'fetched' : 'fallback',
+  );
   const [busy, setBusy] = useState(false);
   const [testing, setTesting] = useState(false);
   const [fetchingModels, setFetchingModels] = useState(false);
@@ -448,7 +458,14 @@ function ConnectionDetail(props: {
   }, [props.bridge, connection.slug, defaults.authKind]);
 
   const fallbackModels = defaults.fallbackModels;
-  const modelChoices = models.length > 0 ? models : fallbackModels.map((id) => ({ id }));
+  // Picker entries: when source is 'fetched', use the fetched list verbatim
+  // (even if empty — that's the truthful state and the small empty-state
+  // hint below tells the user). When 'fallback', merge fallback IDs in so
+  // the dropdown isn't empty before first save / fetch.
+  const modelChoices =
+    modelSource === 'fetched' || models.length > 0
+      ? models
+      : fallbackModels.map((id) => ({ id }));
   const needsSecret = defaults.authKind !== 'none';
 
   async function save() {
@@ -459,9 +476,19 @@ function ConnectionDetail(props: {
         defaultModel,
         ...(apiKey ? { apiKey } : {}),
       });
+      const wroteNewKey = apiKey.length > 0;
       setApiKey('');
-      setHasSecret(needsSecret ? await props.bridge.hasSecret(connection.slug) : true);
+      const nextHasSecret = needsSecret ? await props.bridge.hasSecret(connection.slug) : true;
+      setHasSecret(nextHasSecret);
       await props.onChanged();
+      // Auto-fetch live model list as soon as the secret is in place. Without
+      // this, the user lands on a Settings · 模型 row whose `defaultModel`
+      // dropdown only contains the static fallback list (e.g. Z.ai → just
+      // glm-4.7 / 4.6 / 4.5), which looks like Maka doesn't support newer
+      // models. Auto-fetch on save closes that gap.
+      if (nextHasSecret && (wroteNewKey || models.length === 0)) {
+        void refreshModels({ silent: true });
+      }
     } finally {
       setBusy(false);
     }
@@ -490,13 +517,36 @@ function ConnectionDetail(props: {
     }
   }
 
-  async function refreshModels() {
+  async function refreshModels(opts: { silent?: boolean } = {}) {
     setFetchingModels(true);
     try {
+      // Once xuan's backend patch lands, a failed live `/models` probe will
+      // throw with a generalizedErrorMessage (auth / timeout / network /
+      // provider unavailable) rather than silently substituting the static
+      // fallback list. Until then we still defensively handle the throw
+      // case here so the UI is correct once the backend flips.
       const list = await props.bridge.fetchModels(connection.slug);
       setModels(list);
+      // Mark as fetched even if list.length === 0. A provider that returned
+      // an empty model list is a meaningful signal — the user should see
+      // "0 fetched" rather than the static fallback being silently
+      // substituted.
+      setModelSource('fetched');
       await props.bridge.update(connection.slug, { models: list });
       await props.onChanged();
+      if (!opts.silent) {
+        toast.success(`已拉取 ${list.length} 个模型 · ${connection.name}`);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      // Leave the previously-known source / models intact (so the dropdown
+      // doesn't suddenly empty out), but ensure the source label downgrades
+      // back to 'fallback' if we have nothing fresh to show.
+      if (models.length === 0) setModelSource('fallback');
+      toast.error(
+        `拉取模型失败 · ${connection.name}`,
+        `${message} · 当前继续显示静态列表，请确认 API key / Base URL / 代理设置后重试。`,
+      );
     } finally {
       setFetchingModels(false);
     }
@@ -556,10 +606,22 @@ function ConnectionDetail(props: {
               <option key={model.id} value={model.id}>{model.id}</option>
             ))}
           </select>
-          <button className="maka-button" type="button" disabled={fetchingModels || (needsSecret && !hasSecret)} onClick={refreshModels}>
+          <button
+            className="maka-button"
+            type="button"
+            disabled={fetchingModels || (needsSecret && !hasSecret)}
+            onClick={() => void refreshModels()}
+          >
             {fetchingModels ? '拉取中…' : '从 API 刷新'}
           </button>
         </div>
+        <small className="providerModelSource" data-source={modelSource}>
+          {modelSource === 'fetched'
+            ? models.length > 0
+              ? `实时拉取的 ${models.length} 个模型（最新一次成功）`
+              : '已成功调用 provider，但返回 0 个模型 — 该 provider 可能未对当前 API key 开放任何模型，请检查账户/方案。'
+            : `静态备用列表（${fallbackModels.length} 项）。点「从 API 刷新」拉取该 provider 的真实模型清单。`}
+        </small>
       </label>
       {defaults.signupUrl && (
         <a className="providerExternalLink" href={defaults.signupUrl} target="_blank" rel="noreferrer">
