@@ -2022,6 +2022,17 @@ button:active {
   line-height: 1.5;
 }
 
+/* Single-line emphasis under the "记住本轮" checkbox when the action is
+ * destructive. Keeps the dialog body readable but draws an extra beat
+ * before the user clicks 我已确认，允许. */
+.maka-permission-danger-note {
+  margin: 0;
+  color: var(--destructive);
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 600;
+}
+
 .maka-permission-diff {
   display: grid;
   gap: 10px;

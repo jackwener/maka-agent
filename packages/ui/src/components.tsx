@@ -1443,13 +1443,13 @@ interface ReasonPreset {
 }
 
 const REASON_PRESETS: Record<ReasonKind, ReasonPreset> = {
-  shell_dangerous: { label: 'Shell command (review carefully)', Icon: Terminal, tone: 'caution' },
-  file_write: { label: 'Write or create a file', Icon: FileEdit, tone: 'info' },
-  fs_destructive: { label: 'Filesystem destructive (cannot undo)', Icon: AlertOctagon, tone: 'destructive' },
-  git_destructive: { label: 'Git history destructive', Icon: GitMerge, tone: 'destructive' },
-  network: { label: 'Outbound network request', Icon: Wifi, tone: 'info' },
-  privileged: { label: 'Privileged operation (sudo / su)', Icon: ShieldAlert, tone: 'destructive' },
-  custom: { label: 'Custom request', Icon: HelpCircle, tone: 'info' },
+  shell_dangerous: { label: '高风险 shell 命令 · 请仔细确认', Icon: Terminal, tone: 'caution' },
+  file_write: { label: '写入或创建文件', Icon: FileEdit, tone: 'info' },
+  fs_destructive: { label: '不可恢复的文件系统操作', Icon: AlertOctagon, tone: 'destructive' },
+  git_destructive: { label: '不可恢复的 Git 操作', Icon: GitMerge, tone: 'destructive' },
+  network: { label: '对外网络请求', Icon: Wifi, tone: 'info' },
+  privileged: { label: '特权操作 (sudo / su)', Icon: ShieldAlert, tone: 'destructive' },
+  custom: { label: '自定义请求', Icon: HelpCircle, tone: 'info' },
 };
 
 export function PermissionDialog(props: {
@@ -1511,8 +1511,13 @@ export function PermissionDialog(props: {
               checked={rememberForTurn}
               onChange={(event) => setRememberForTurn(event.currentTarget.checked)}
             />
-            本轮对话内记住选择（同类型工具不再询问）
+            本轮对话内记住选择（同类型工具不再询问，关闭/切换对话后失效）
           </label>
+          {isDestructive && (
+            <p className="maka-permission-danger-note" role="note">
+              这类操作不可恢复，确认前请再读一遍上面的参数。
+            </p>
+          )}
         </div>
         <div className="maka-modal-footer permissionActions">
           <button className="maka-button" data-variant="ghost" type="button" onClick={() => submit('deny')}>拒绝</button>
