@@ -1,4 +1,4 @@
-import { forwardRef, memo, useEffect, useImperativeHandle, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type MouseEvent, type ReactNode, type RefObject } from 'react';
+import React, { forwardRef, memo, useEffect, useImperativeHandle, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type MouseEvent, type ReactNode, type RefObject } from 'react';
 import {
   AlertOctagon,
   AlertTriangle,
@@ -769,11 +769,66 @@ function Markdown(props: { text: string }) {
             {children}
           </code>
         ),
+        // Wrap block code with a language pill header + copy affordance.
+        // The pill is alma-inspired (40-markdown-deep §7a) — surfaces the
+        // detected language so users can verify hljs got it right.
+        pre: ({ children, ...rest }) => <CodeBlock {...rest}>{children}</CodeBlock>,
       }}
     >
       {props.text}
     </ReactMarkdown>
   );
+}
+
+function CodeBlock({ children, ...rest }: { children?: ReactNode }) {
+  // Extract the language from the inner <code class="language-xxx hljs"> if
+  // there is one. react-markdown's `pre` always receives a single `code`
+  // child, but downstream rehype plugins may have layered classes on it.
+  const code = isElementWithClassName(children) ? children : null;
+  const lang = code?.props.className?.match(/language-([A-Za-z0-9_+-]+)/)?.[1]?.toLowerCase();
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    const text = collectCodeText(code?.props.children);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1400);
+    } catch {
+      /* clipboard unavailable */
+    }
+  }
+
+  return (
+    <div className="maka-code-block">
+      <div className="maka-code-block-header">
+        <span className="maka-code-block-lang">{lang ?? 'code'}</span>
+        <button
+          type="button"
+          className="maka-code-block-copy"
+          onClick={copy}
+          aria-label={copied ? 'Copied' : 'Copy code'}
+          data-copied={copied}
+        >
+          {copied
+            ? <Check size={12} strokeWidth={2} aria-hidden="true" />
+            : <Copy size={12} strokeWidth={1.75} aria-hidden="true" />}
+        </button>
+      </div>
+      <pre {...rest}>{children}</pre>
+    </div>
+  );
+}
+
+function isElementWithClassName(node: ReactNode): node is React.ReactElement<{ className?: string; children?: ReactNode }> {
+  return typeof node === 'object' && node !== null && 'props' in node;
+}
+
+function collectCodeText(children: ReactNode): string {
+  if (typeof children === 'string') return children;
+  if (Array.isArray(children)) return children.map(collectCodeText).join('');
+  if (isElementWithClassName(children)) return collectCodeText(children.props.children);
+  return '';
 }
 
 function EmptyChatHero(props: { onPromptSuggestion?(prompt: string): void }) {
