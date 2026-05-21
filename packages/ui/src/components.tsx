@@ -282,7 +282,7 @@ export function SessionListPanel(props: {
         <div className="maka-window-drag-strip" aria-hidden="true" />
         <button className="maka-nav-primary" type="button" onClick={props.onNew}>
           <SquarePen className="maka-nav-primary-icon" strokeWidth={1.5} />
-          <span>New Chat</span>
+          <span>新建对话</span>
         </button>
       </header>
 
@@ -332,8 +332,8 @@ export function SessionListPanel(props: {
               setSearchQuery('');
             }
           }}
-          placeholder="搜索会话…  ⌘F"
-          aria-label="Search chats"
+          placeholder="搜索会话…  F 聚焦"
+          aria-label="搜索会话"
           autoComplete="off"
           spellCheck={false}
         />
@@ -393,21 +393,21 @@ export function SessionListPanel(props: {
           ) : (
             <div className="maka-empty-state">
               <Sparkles className="maka-empty-state-icon" strokeWidth={1.5} />
-              <div className="maka-empty-state-title">No skills yet</div>
+              <div className="maka-empty-state-title">还没有 Skill</div>
               <div className="maka-empty-state-body">
-                Drop a folder with a <code className="maka-empty-state-code">SKILL.md</code> under
-                the workspace <code className="maka-empty-state-code">skills/</code> directory.
-                See 关于 · 工作区 for the exact path.
+                把一个含 <code className="maka-empty-state-code">SKILL.md</code> 的文件夹放到工作区的
+                {' '}<code className="maka-empty-state-code">skills/</code> 目录下，重启 Maka 后会出现在这里。
+                工作区路径在 设置 · 关于 · 工作区。
               </div>
             </div>
           )
         ) : props.sessions.length === 0 ? (
           <div className="maka-empty-state">
             <MessageSquare className="maka-empty-state-icon" strokeWidth={1.5} />
-            <div className="maka-empty-state-title">No chats yet</div>
-            <div className="maka-empty-state-body">Chats with Maka appear here. Start one to get going.</div>
+            <div className="maka-empty-state-title">还没有对话</div>
+            <div className="maka-empty-state-body">和 Maka 的对话会出现在这里。点下面开始第一条。</div>
             <button className="maka-button maka-empty-state-cta" type="button" onClick={props.onNew}>
-              New Chat
+              新建对话
             </button>
           </div>
         ) : filteredSessions.length === 0 ? (
@@ -1258,14 +1258,14 @@ export const Composer = forwardRef<
         <div className="maka-composer-toolbar composerActions" data-streaming={props.streaming ? 'true' : undefined}>
           <span>
             {props.disabled ? (
-              'Waiting for permission'
+              '等待你确认权限…'
             ) : props.streaming ? (
               <span className="maka-composer-streaming-hint">
                 <span className="maka-composer-streaming-dot" aria-hidden="true" />
                 Maka 正在思考… <kbd>Esc</kbd> 或点 Stop 中断
               </span>
             ) : (
-              <>Press <kbd>Enter</kbd> to send · <kbd>Shift</kbd>+<kbd>Enter</kbd> for newline</>
+              <><kbd>Enter</kbd> 发送 · <kbd>Shift</kbd>+<kbd>Enter</kbd> 换行</>
             )}
           </span>
           <div>
@@ -1286,12 +1286,12 @@ export const Composer = forwardRef<
 });
 
 const STATUS_LABEL: Record<ToolActivityItem['status'], string> = {
-  pending: 'Queued',
-  waiting_permission: 'Waiting for permission',
-  running: 'Running',
-  completed: 'Done',
-  errored: 'Errored',
-  interrupted: 'Interrupted',
+  pending: '排队中',
+  waiting_permission: '等待权限',
+  running: '运行中',
+  completed: '已完成',
+  errored: '失败',
+  interrupted: '已中断',
 };
 
 function isOpenByDefault(status: ToolActivityItem['status']): boolean {
@@ -1337,10 +1337,10 @@ function formatDuration(ms: number | undefined): string | null {
 
 export function ToolActivity(props: { items: ToolActivityItem[] }) {
   return (
-    <section className="toolInline" aria-label="Tool activity">
+    <section className="toolInline" aria-label="工具调用记录">
       <header>
-        <strong>Activity</strong>
-        <span className="maka-tool-count" aria-label={`${props.items.length} calls`}>{props.items.length}</span>
+        <strong>工具调用</strong>
+        <span className="maka-tool-count" aria-label={`${props.items.length} 次调用`}>{props.items.length}</span>
       </header>
       {props.items.map((item) => {
         const duration = formatDuration(item.durationMs);
