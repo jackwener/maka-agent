@@ -239,6 +239,40 @@ describe('deriveOnboardingState — 15-case matrix (@kenji + @xuan PR110a)', () 
       { kind: 'blocked', reason: 'all_connections_unhealthy' },
     );
   });
+
+  // @kenji PR110a review gate: `needs_default_connection` requires
+  // an ACTUALLY ready alt — not just a real connection that happens
+  // to be the same kind of broken as the default.
+  it('case 16: default missing_api_key + alt also missing_api_key → needs_connection_credentials, NOT needs_default_connection', () => {
+    const a = realConnection({ slug: 'conn-a' });
+    const b = realConnection({ slug: 'conn-b' });
+    // Neither has a secret; defaultSlug=conn-a. The default's reason
+    // is `missing_api_key` which has a per-connection fix path, so we
+    // route to that. Falling through to `needs_default_connection`
+    // would be a bug because switching to `conn-b` would NOT make the
+    // workspace usable.
+    assert.deepEqual(
+      derive({
+        connections: [a, b],
+        defaultSlug: 'conn-a',
+        secrets: {}, // both lack secret
+      }),
+      { kind: 'needs_connection_credentials', connectionSlug: 'conn-a' },
+    );
+  });
+
+  it('case 17: default disabled + alt also disabled → blocked: all_connections_unhealthy (no per-connection fix wins)', () => {
+    const a = realConnection({ slug: 'conn-a', enabled: false });
+    const b = realConnection({ slug: 'conn-b', enabled: false });
+    assert.deepEqual(
+      derive({
+        connections: [a, b],
+        defaultSlug: 'conn-a',
+        secrets: { 'conn-a': true, 'conn-b': true },
+      }),
+      { kind: 'blocked', reason: 'all_connections_unhealthy' },
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -404,13 +438,61 @@ describe('sanitizeOnboardingMilestones', () => {
     ]);
   });
 
-  it('de-duplicates by id, keeping the first valid entry', () => {
+  it('de-duplicates by id, last valid entry wins (@kenji PR110a review)', () => {
+    // Milestone is a user-progress snapshot, not an audit log. Later
+    // valid entries reflect newer user intent. First-wins would let a
+    // bare `{ id }` placeholder erase a subsequent terminal transition.
     const result = sanitizeOnboardingMilestones([
       { id: 'first_chat_sent', completedAt: 1 },
       { id: 'first_chat_sent', completedAt: 2 },
       { id: 'first_chat_sent', skippedAt: 3 },
     ]);
-    assert.deepEqual<OnboardingMilestone[]>(result, [{ id: 'first_chat_sent', completedAt: 1 }]);
+    assert.deepEqual<OnboardingMilestone[]>(result, [{ id: 'first_chat_sent', skippedAt: 3 }]);
+  });
+
+  it('last-wins: placeholder followed by terminal entry → terminal entry survives', () => {
+    // {id} alone is the "unseen yet" placeholder; the user later
+    // completes it. Sanitize must NOT drop the completedAt.
+    const result = sanitizeOnboardingMilestones([
+      { id: 'first_chat_sent' },
+      { id: 'first_chat_sent', completedAt: 1_700_000_000_000 },
+    ]);
+    assert.deepEqual<OnboardingMilestone[]>(result, [
+      { id: 'first_chat_sent', completedAt: 1_700_000_000_000 },
+    ]);
+  });
+
+  it('last-wins: completed → skipped transition survives', () => {
+    const result = sanitizeOnboardingMilestones([
+      { id: 'first_chat_sent', completedAt: 1 },
+      { id: 'first_chat_sent', skippedAt: 2 },
+    ]);
+    assert.deepEqual<OnboardingMilestone[]>(result, [{ id: 'first_chat_sent', skippedAt: 2 }]);
+  });
+
+  it('output array position is the milestone\'s first-seen index', () => {
+    // Stable ordering across rewrites: ids appear in the order they
+    // first showed up, regardless of where the last-wins value came
+    // from.
+    const result = sanitizeOnboardingMilestones([
+      { id: 'first_personalization', completedAt: 10 },
+      { id: 'first_chat_sent', completedAt: 1 },
+      { id: 'first_chat_sent', completedAt: 2 }, // updates first_chat_sent
+      { id: 'first_personalization', completedAt: 11 }, // updates first_personalization
+    ]);
+    assert.deepEqual<OnboardingMilestone[]>(result, [
+      { id: 'first_personalization', completedAt: 11 },
+      { id: 'first_chat_sent', completedAt: 2 },
+    ]);
+  });
+
+  it('invalid duplicate is dropped, then last-wins applies to remaining valid entries', () => {
+    const result = sanitizeOnboardingMilestones([
+      { id: 'first_chat_sent', completedAt: 1 },
+      { id: 'first_chat_sent', completedAt: 'oops' }, // invalid — dropped
+      { id: 'first_chat_sent', completedAt: 3 }, // last valid
+    ] as unknown[]);
+    assert.deepEqual<OnboardingMilestone[]>(result, [{ id: 'first_chat_sent', completedAt: 3 }]);
   });
 
   it('returns [] when input is an empty array', () => {

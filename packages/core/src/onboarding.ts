@@ -277,20 +277,41 @@ export function isOnboardingMilestone(value: unknown): value is OnboardingMilest
  * entry should not erase the user's whole milestone progress.
  *
  * Returns an empty array if the input is not an array at all.
+ *
+ * **Dedup policy: last-valid-entry wins, deterministic.** If a
+ * milestone id appears more than once after invalid entries are
+ * dropped, the LAST valid occurrence's VALUE survives, but the
+ * RESULTING ARRAY POSITION is the FIRST-seen index of that id.
+ *
+ * Worked example:
+ *   input:  [{ id: A, completedAt: 1 },
+ *            { id: B, completedAt: 10 },
+ *            { id: A, completedAt: 2 }]
+ *   output: [{ id: A, completedAt: 2 },   // value from last A,
+ *                                         //   position from first A
+ *            { id: B, completedAt: 10 }]
+ *
+ * Rationale (@kenji PR110a review): milestone is a user-progress
+ * snapshot, not an audit log; later entries reflect newer state. A
+ * `{ id }` placeholder followed by `{ id, completedAt: T }` must
+ * produce `completedAt: T` — anything else loses the terminal
+ * transition. Stable first-seen position protects consumers from
+ * re-orderings every time the user updates a single milestone.
+ *
+ * The settings WRITE path (PR110b) is responsible for upserting
+ * milestones in place, so legitimate progressions never produce
+ * duplicates that reach this sanitizer.
  */
 export function sanitizeOnboardingMilestones(raw: unknown): OnboardingMilestone[] {
   if (!Array.isArray(raw)) return [];
-  const valid: OnboardingMilestone[] = [];
-  const seen = new Set<OnboardingMilestoneId>();
+  // Map.set updates the value but preserves the original insertion
+  // position — so we get last-value-wins with first-seen ordering.
+  const dedup = new Map<OnboardingMilestoneId, OnboardingMilestone>();
   for (const entry of raw) {
     if (!isOnboardingMilestone(entry)) continue;
-    // De-duplicate: if a milestone id appears twice (e.g. legacy
-    // settings.json), keep the first valid entry.
-    if (seen.has(entry.id)) continue;
-    seen.add(entry.id);
-    valid.push(entry);
+    dedup.set(entry.id, entry);
   }
-  return valid;
+  return Array.from(dedup.values());
 }
 
 function isValidTimestamp(value: unknown): value is number {
