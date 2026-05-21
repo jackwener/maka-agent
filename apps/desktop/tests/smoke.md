@@ -75,7 +75,7 @@ variant=… path=…`. The driver script greps for the marker, kills the
 subprocess, and copies the PNG into the canonical screenshots
 directory.
 
-### Automated screenshot sanity gate (PR-IR-02)
+### Screenshot diff gate (PR-IR-02 stage 1)
 
 `screenshots:diff:stable` is a blocking **capture sanity** gate for the
 stable baseline subset (`artifact-pane`, `first-run`, `artifact-errors`):
@@ -85,28 +85,36 @@ npm --workspace @maka/desktop run screenshots
 npm --workspace @maka/desktop run screenshots:diff:stable
 ```
 
-It verifies that each expected stable PNG exists, is a valid PNG, is not
-truncated, and has the exact dimensions for its viewport/theme/motion
-variant. It also reports large byte-size drift as a warning.
+**What this gate catches:**
+- Missing, corrupt, or truncated PNGs.
+- Broken capture IPC or fixture startup.
+- Wrong dimensions, such as a `1280` variant captured at `990` width.
+- Scenario/variant matrix drift between capture and diff scripts.
 
-This gate does **not** verify pixel-level UI correctness. It catches
-capture pipeline regressions, broken fixtures, missing screenshots, and
-viewport sizing bugs. Human review of the screenshots is still required
-for visual details until pixel-level diff with calibrated tolerance and
-ignored dynamic regions (PR-IR-02 v3) is added.
+**What this gate does NOT catch:**
+- Pixel-level UI regressions inside the image.
+- Layout shifts that keep total image dimensions stable.
+- Color, contrast, opacity, typography, or spacing regressions.
 
-After Step 2 rollout (full 144 PNG baseline once fixture drift is
-resolved), use the same scripts without the `:stable` suffix:
-
-```bash
-npm --workspace @maka/desktop run screenshots:diff      # all 18 scenarios
-npm --workspace @maka/desktop run screenshots:baseline  # full promotion
-```
+Electron/font rasterization drift makes byte-level diff impractical as
+a blocker. Human review of the screenshots is still required until
+pixel-level diff with calibrated tolerance and ignored dynamic regions
+(PR-IR-02 v3) is added. That future gate should pilot on the stable
+subset (`artifact-pane` / `first-run` / `artifact-errors`) first
+before expanding to all scenarios.
 
 To promote the current stable subset after intentional visual changes:
 
 ```bash
 npm --workspace @maka/desktop run screenshots:baseline:stable
+```
+
+After Step 2 rollout, when the full 144 PNG baseline has been reviewed
+and promoted, use the same scripts without the `:stable` suffix:
+
+```bash
+npm --workspace @maka/desktop run screenshots:diff      # all 18 scenarios
+npm --workspace @maka/desktop run screenshots:baseline  # full promotion
 ```
 
 ### Reduced-motion variant (PR-IR-04)

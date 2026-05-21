@@ -244,36 +244,35 @@ screen. Screenshots provide a regression baseline.
 
 ### PR-IR-02 — Screenshot diff CI gate
 
-**Status (2026-05-22)**: Stage 1 live as `scripts/diff-screenshots.mjs`,
-committed baseline `apps/desktop/tests/screenshots-baseline/` covers 3
-stable scenarios × 8 variants = 24 PNGs (`artifact-pane` / `first-run`
-/ `artifact-errors`). `npm --workspace @maka/desktop run
-screenshots:diff:stable` exits 1 on hard failures (missing PNG /
-corrupt PNG / file < 1 KB / wrong dimensions); size drift is a soft
-warning.
+**Status (2026-05-22).** Stage 1 is live as
+`scripts/diff-screenshots.mjs`. The committed baseline in
+`apps/desktop/tests/screenshots-baseline/` covers 3 stable scenarios × 8
+variants = 24 PNGs: `artifact-pane`, `first-run`, and `artifact-errors`.
+`npm --workspace @maka/desktop run screenshots:diff:stable` exits 1 on
+hard failures: missing PNG, corrupt PNG, file < 1 KB, or wrong
+dimensions. Size drift is a soft warning.
 
-**Scope of the current gate (what it DOES catch)**:
-- Capture pipeline regression (renderer crashes before paint, IPC
-  contract broken, fixture seed throws)
-- Viewport misconfiguration (`MAKA_VISUAL_SMOKE_WIDTH/HEIGHT` not
-  honored in main.ts)
-- Truncated / empty PNGs (renderer paint settled before capture flush)
-- Schema drift (manifest format / variants list out of sync between
-  driver and gate)
+**Scope catches.**
+- Capture pipeline regression: renderer crashes before paint, capture
+  IPC breaks, or fixture seed throws.
+- Viewport misconfiguration: `MAKA_VISUAL_SMOKE_WIDTH/HEIGHT` not
+  honored by the main process.
+- Truncated or empty PNGs.
+- Scenario/variant matrix drift between capture and diff scripts.
 
-**What it does NOT catch (yet)**:
-- Pixel-level UI regressions inside the captured image. Electron + font
-  rasterization drift makes byte-level SHA256 useless as a blocker
-  (~70/88 PNGs change between runs even with @xuan's PR108k fixture
-  clock + Date.now freeze).
-- Layout shifts within the same viewport (need pixelmatch + ignored
-  dynamic regions).
-- Color / contrast regressions.
+**Out of scope.**
+- Pixel-level UI regressions. Electron/font rasterization drift makes
+  byte-level SHA/SHA256 equality unsuitable as a blocker (~70/88 PNGs
+  change between runs even with @xuan's PR108k fixture clock + Date.now
+  freeze).
+- Layout shifts that keep the same viewport dimensions.
+- Color, contrast, opacity, typography, and spacing regressions.
 
-**PR-IR-02 v3 (future)**: introduce `pixelmatch` + `pngjs` with
-tolerance + ignored regions. Pilot on stable subset
-(artifact-pane / first-run / artifact-errors) before expanding to all
-18 scenarios. Configure per-scenario tolerance based on observed drift.
+**PR-IR-02 v3 plan.** Add `pixelmatch` + `pngjs` with calibrated
+tolerance and ignored dynamic regions. Pilot only on the stable subset
+(`artifact-pane` / `first-run` / `artifact-errors`) before expanding to
+all 18 scenarios. Configure per-scenario tolerance based on observed
+drift.
 
 **Owner.** @yuejing. Baseline rollout coordinated with @xuan.
 
