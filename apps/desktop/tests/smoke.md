@@ -108,6 +108,14 @@ To promote the current stable subset after intentional visual changes:
 npm --workspace @maka/desktop run screenshots:baseline:stable
 ```
 
+After Step 2 rollout, when the full 144 PNG baseline has been reviewed
+and promoted, use the same scripts without the `:stable` suffix:
+
+```bash
+npm --workspace @maka/desktop run screenshots:diff      # all 18 scenarios
+npm --workspace @maka/desktop run screenshots:baseline  # full promotion
+```
+
 ### Reduced-motion variant (PR-IR-04)
 
 Combine `MAKA_VISUAL_SMOKE_REDUCED_MOTION=1` with any of the above to
