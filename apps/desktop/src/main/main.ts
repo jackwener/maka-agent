@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, Menu, shell } from 'electron';
+import { isExternalUrl } from './external-link-guard.js';
 import { randomUUID } from 'node:crypto';
 import { mkdir, readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -146,9 +147,64 @@ async function createWindow(): Promise<void> {
     backgroundColor: '#f3f3f5',
     webPreferences: {
       preload: join(import.meta.dirname, '..', 'preload', 'preload.cjs'),
-      contextIsolation: true,
-      nodeIntegration: false,
+      // Defense-in-depth flags (@kenji PR96 review). The external-link guard
+      // is the perimeter; these settings keep a hostile page from reaching
+      // Node primitives even if it somehow loaded inside the BrowserWindow:
+      contextIsolation: true,    // window.maka via contextBridge only
+      nodeIntegration: false,    // no `require` in renderer
+      sandbox: true,             // preload runs in the renderer sandbox
+      webSecurity: true,         // enforce CSP / same-origin policy
+      allowRunningInsecureContent: false,
     },
+  });
+
+  // Two-layer external-link hygiene: assistant markdown often emits `<a href>`
+  // links to docs / GitHub / provider sign-up pages. Without these guards
+  // clicking such a link would either replace the renderer view with the
+  // remote page (breaking the app) or open a new BrowserWindow with full
+  // Node integration.
+  //
+  // 1. `setWindowOpenHandler` intercepts `target="_blank"` and JS `window.open`,
+  //    hands the URL to the OS, denies the in-app open.
+  // 2. `will-navigate` blocks plain `<a>` clicks that would replace the
+  //    renderer location with a non-file:// URL, opening externally instead.
+  //
+  // Both are gated on the URL using `http(s):` or `mailto:` — everything else
+  // (file://, electron internal, etc.) is allowed/denied per Electron defaults.
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (isExternalUrl(url)) {
+      void shell.openExternal(url);
+    }
+    return { action: 'deny' };
+  });
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    // The initial Vite dev-server / packaged file:// load is allowed through
+    // (current URL equals navigation target while the renderer is settling).
+    // Every subsequent navigation is blocked: external URLs (http/https/
+    // mailto) get handed off to the OS, internal/file:// (including dropped
+    // files attempting to navigate to `file:///…`) are dropped entirely so
+    // the renderer never loses its React tree.
+    const current = mainWindow?.webContents.getURL() ?? '';
+    if (current === url) return;
+    event.preventDefault();
+    if (isExternalUrl(url)) {
+      void shell.openExternal(url);
+    }
+  });
+
+  // Block in-window file drops. Without this, dropping a file onto the
+  // BrowserWindow tries to navigate to its `file://` URL; the `will-navigate`
+  // handler above stops the navigation, but the visual flash + dropEffect
+  // ambiguity is still confusing. Suppressing dragover/drop at the document
+  // level keeps the chat surface immutable to accidental drops.
+  mainWindow.webContents.on('did-finish-load', () => {
+    mainWindow?.webContents.executeJavaScript(`
+      (() => {
+        const block = (e) => { e.preventDefault(); e.stopPropagation(); };
+        window.addEventListener('dragover', block, true);
+        window.addEventListener('drop', block, true);
+      })();
+    `).catch(() => { /* renderer may not be ready; ignore */ });
   });
 
   if (process.env.VITE_DEV_SERVER_URL) {
@@ -158,29 +214,34 @@ async function createWindow(): Promise<void> {
   }
 }
 
+
 function installApplicationMenu(): void {
+  // App menu labels match the in-app Chinese-leaning UI per the PR69/70/71
+  // localization sweep. Role-based items (cut/copy/paste/reload/etc.) keep
+  // their OS-localized labels — those auto-translate when the user's system
+  // language matches; we only override the explicit `label` strings.
   Menu.setApplicationMenu(
     Menu.buildFromTemplate([
       {
         label: 'Maka',
         submenu: [
-          { role: 'about', label: 'About Maka' },
+          { role: 'about', label: '关于 Maka' },
           {
-            label: 'Preferences…',
+            label: '设置…',
             accelerator: 'CommandOrControl+,',
             click: () => mainWindow?.webContents.send('window:openSettings'),
           },
           { type: 'separator' },
-          { role: 'hide', label: 'Hide Maka' },
+          { role: 'hide', label: '隐藏 Maka' },
           { role: 'hideOthers' },
           { role: 'unhide' },
           { type: 'separator' },
-          { role: 'quit', label: 'Quit Maka' },
+          { role: 'quit', label: '退出 Maka' },
         ],
       },
-      { label: 'File', submenu: [{ role: 'close' }] },
+      { label: '文件', submenu: [{ role: 'close' }] },
       {
-        label: 'Edit',
+        label: '编辑',
         submenu: [
           { role: 'undo' },
           { role: 'redo' },
@@ -192,7 +253,7 @@ function installApplicationMenu(): void {
         ],
       },
       {
-        label: 'View',
+        label: '视图',
         submenu: [
           { role: 'reload' },
           { role: 'toggleDevTools' },
@@ -204,7 +265,7 @@ function installApplicationMenu(): void {
           { role: 'togglefullscreen' },
         ],
       },
-      { label: 'Window', submenu: [{ role: 'minimize' }, { role: 'zoom' }] },
+      { label: '窗口', submenu: [{ role: 'minimize' }, { role: 'zoom' }] },
     ]),
   );
 }
