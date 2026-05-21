@@ -654,6 +654,15 @@ const PERMISSION_MODE_META: Record<PermissionMode, PermissionModeMeta> = {
 
 const PERMISSION_MODE_ORDER: PermissionMode[] = ['explore', 'ask', 'execute'];
 
+export interface ChatHeaderAlert {
+  /** Visual tone — drives badge color in the chat header. */
+  tone: 'info' | 'warning' | 'destructive';
+  /** Short label shown inside the chat header (e.g. "需要重新登录"). */
+  label: string;
+  /** Optional click handler — e.g. open Settings · 账号 to fix it. */
+  onClick?(): void;
+}
+
 export function ChatView(props: {
   messages: StoredMessage[];
   streamingText: string;
@@ -675,6 +684,13 @@ export function ChatView(props: {
    * the regular prompt-suggestion hero shows.
    */
   emptyOverride?: ReactNode;
+  /**
+   * Surfaces a small status pill in the chat header — used to expose a
+   * `needs_reauth` / `error` connection state from the credential
+   * lifecycle directly into the chat surface so the user notices before
+   * sending another doomed message.
+   */
+  connectionAlert?: ChatHeaderAlert;
   onNew(): void;
   onPromptSuggestion?(prompt: string): void;
   onPermissionModeChange?(mode: PermissionMode): void;
@@ -739,7 +755,7 @@ export function ChatView(props: {
           <PermissionModeSwitcher mode="ask" disabled disabledReason="新建对话后再切换模式。" />
         </header>
         <div className="maka-chat messages">
-          {props.emptyOverride ?? <EmptyChatHero onPromptSuggestion={props.onPromptSuggestion} />}
+          {props.emptyOverride ?? <EmptyChatHero onPromptSuggestion={props.onPromptSuggestion} userLabel={props.userLabel} />}
         </div>
       </main>
     );
@@ -764,6 +780,7 @@ export function ChatView(props: {
           <Plus strokeWidth={1.5} />
         </button>
         <span className="maka-chat-header-spacer" />
+        {props.connectionAlert && <ChatHeaderAlertBadge alert={props.connectionAlert} />}
         <PermissionModeSwitcher
           mode={props.activeSession.permissionMode}
           disabled={switcherDisabled}
@@ -780,7 +797,7 @@ export function ChatView(props: {
       <div className="maka-chat-shell">
         <div ref={scrollRef} className="maka-chat messages" onScroll={onScroll}>
           {chat.length === 0 && !props.streamingText && (
-            props.emptyOverride ?? <EmptyChatHero onPromptSuggestion={props.onPromptSuggestion} />
+            props.emptyOverride ?? <EmptyChatHero onPromptSuggestion={props.onPromptSuggestion} userLabel={props.userLabel} />
           )}
           {chat.map((item) => (
             <article
@@ -965,12 +982,19 @@ function collectCodeText(children: ReactNode): string {
   return '';
 }
 
-function EmptyChatHero(props: { onPromptSuggestion?(prompt: string): void }) {
+function EmptyChatHero(props: { onPromptSuggestion?(prompt: string): void; userLabel?: string }) {
+  // Greet the user by name when they've set one in Personalization Settings.
+  // Falls back to a neutral title so first-run users don't see "Hi 你, …".
+  const label = props.userLabel?.trim();
   return (
     <div className="emptyChat compact">
       <span className="eyebrow">Maka</span>
-      <h1>What should we work on?</h1>
-      <p>Describe the change, question, or investigation — or pick a starting point below.</p>
+      <h1>
+        {label
+          ? `${label}，今天想一起做点什么？`
+          : '想一起做点什么？'}
+      </h1>
+      <p>说一下你要改的、想问的、想查的；下面是几个常用起点。</p>
       {props.onPromptSuggestion && (
         <ul className="maka-prompt-suggestions" aria-label="Prompt suggestions">
           {PROMPT_SUGGESTIONS.map((suggestion) => (
@@ -988,6 +1012,29 @@ function EmptyChatHero(props: { onPromptSuggestion?(prompt: string): void }) {
         </ul>
       )}
     </div>
+  );
+}
+
+/**
+ * Small actionable pill that surfaces a credential / readiness issue
+ * inline in the chat header. Kept neutral about the source — it just
+ * renders a tone + label and an optional click handler. The connection
+ * lifecycle helper in the desktop renderer decides when to mount this.
+ */
+function ChatHeaderAlertBadge(props: { alert: ChatHeaderAlert }) {
+  const { tone, label, onClick } = props.alert;
+  const Tag = onClick ? 'button' : 'span';
+  return (
+    <Tag
+      className="maka-chat-header-alert"
+      data-tone={tone}
+      type={onClick ? 'button' : undefined}
+      onClick={onClick}
+      aria-label={label}
+    >
+      <AlertTriangle size={12} strokeWidth={2} aria-hidden="true" />
+      <span>{label}</span>
+    </Tag>
   );
 }
 
@@ -1106,7 +1153,18 @@ export interface ComposerHandle {
 
 export const Composer = forwardRef<
   ComposerHandle,
-  { disabled?: boolean; hidden?: boolean; onSend(text: string): boolean | void | Promise<boolean | void>; onStop(): void }
+  {
+    disabled?: boolean;
+    hidden?: boolean;
+    /**
+     * When true, the assistant is currently streaming a response.
+     * Toolbar swaps to a "Maka 正在思考…" hint and the Stop button is
+     * the only visible action — Send is hidden because the model is busy.
+     */
+    streaming?: boolean;
+    onSend(text: string): boolean | void | Promise<boolean | void>;
+    onStop(): void;
+  }
 >(function Composer(props, ref) {
   const formRef = useRef<HTMLFormElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -1167,6 +1225,14 @@ export const Composer = forwardRef<
   function onTextareaKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     // Skip when an IME composition is active so CJK input isn't interrupted.
     if (event.nativeEvent.isComposing || event.key === 'Process') return;
+    // Esc during streaming interrupts the model. We don't preventDefault
+    // unconditionally so Esc still works to close modals when the composer
+    // happens to be focused outside a streaming turn.
+    if (event.key === 'Escape' && props.streaming) {
+      event.preventDefault();
+      props.onStop();
+      return;
+    }
     if (event.key !== 'Enter') return;
     if (event.shiftKey || event.altKey) return; // Shift+Enter / Alt+Enter inserts a newline.
     event.preventDefault();
@@ -1189,11 +1255,29 @@ export const Composer = forwardRef<
           autoComplete="off"
           spellCheck={false}
         />
-        <div className="maka-composer-toolbar composerActions">
-          <span>{props.disabled ? 'Waiting for permission' : (<>Press <kbd>Enter</kbd> to send · <kbd>Shift</kbd>+<kbd>Enter</kbd> for newline</>)}</span>
+        <div className="maka-composer-toolbar composerActions" data-streaming={props.streaming ? 'true' : undefined}>
+          <span>
+            {props.disabled ? (
+              'Waiting for permission'
+            ) : props.streaming ? (
+              <span className="maka-composer-streaming-hint">
+                <span className="maka-composer-streaming-dot" aria-hidden="true" />
+                Maka 正在思考… <kbd>Esc</kbd> 或点 Stop 中断
+              </span>
+            ) : (
+              <>Press <kbd>Enter</kbd> to send · <kbd>Shift</kbd>+<kbd>Enter</kbd> for newline</>
+            )}
+          </span>
           <div>
-            <button className="maka-button" type="button" onClick={props.onStop}>Stop</button>
-            <button className="maka-button" data-variant="primary" type="submit" disabled={props.disabled}>Send</button>
+            {props.streaming ? (
+              <button className="maka-button" data-variant="primary" type="button" onClick={props.onStop}>
+                Stop
+              </button>
+            ) : (
+              <button className="maka-button" data-variant="primary" type="submit" disabled={props.disabled}>
+                Send
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -1359,13 +1443,13 @@ interface ReasonPreset {
 }
 
 const REASON_PRESETS: Record<ReasonKind, ReasonPreset> = {
-  shell_dangerous: { label: 'Shell command (review carefully)', Icon: Terminal, tone: 'caution' },
-  file_write: { label: 'Write or create a file', Icon: FileEdit, tone: 'info' },
-  fs_destructive: { label: 'Filesystem destructive (cannot undo)', Icon: AlertOctagon, tone: 'destructive' },
-  git_destructive: { label: 'Git history destructive', Icon: GitMerge, tone: 'destructive' },
-  network: { label: 'Outbound network request', Icon: Wifi, tone: 'info' },
-  privileged: { label: 'Privileged operation (sudo / su)', Icon: ShieldAlert, tone: 'destructive' },
-  custom: { label: 'Custom request', Icon: HelpCircle, tone: 'info' },
+  shell_dangerous: { label: '高风险 shell 命令 · 请仔细确认', Icon: Terminal, tone: 'caution' },
+  file_write: { label: '写入或创建文件', Icon: FileEdit, tone: 'info' },
+  fs_destructive: { label: '不可恢复的文件系统操作', Icon: AlertOctagon, tone: 'destructive' },
+  git_destructive: { label: '不可恢复的 Git 操作', Icon: GitMerge, tone: 'destructive' },
+  network: { label: '对外网络请求', Icon: Wifi, tone: 'info' },
+  privileged: { label: '特权操作 (sudo / su)', Icon: ShieldAlert, tone: 'destructive' },
+  custom: { label: '自定义请求', Icon: HelpCircle, tone: 'info' },
 };
 
 export function PermissionDialog(props: {
@@ -1427,8 +1511,13 @@ export function PermissionDialog(props: {
               checked={rememberForTurn}
               onChange={(event) => setRememberForTurn(event.currentTarget.checked)}
             />
-            本轮对话内记住选择（同类型工具不再询问）
+            本轮对话内记住选择（同类型工具不再询问，关闭/切换对话后失效）
           </label>
+          {isDestructive && (
+            <p className="maka-permission-danger-note" role="note">
+              这类操作不可恢复，确认前请再读一遍上面的参数。
+            </p>
+          )}
         </div>
         <div className="maka-modal-footer permissionActions">
           <button className="maka-button" data-variant="ghost" type="button" onClick={() => submit('deny')}>拒绝</button>
