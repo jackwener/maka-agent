@@ -87,7 +87,12 @@ const builtinTools = buildBuiltinTools().filter((tool) => tool.name !== 'Edit');
 let lookupPricing = buildPricingLookup();
 const botRegistry = new BotRegistry({
   onIncomingMessage: (message) => {
-    console.log('[bot] incoming message', message.platform, message.chatId);
+    // Only log incoming bot messages in dev — production stdout leaking
+    // platform + chatId is operational noise at best and a small privacy
+    // signal at worst (which bridges are connected, with what frequency).
+    if (process.env.VITE_DEV_SERVER_URL || process.env.NODE_ENV === 'development') {
+      console.log('[bot] incoming message', message.platform, message.chatId);
+    }
   },
   onStatusChange: (status) => {
     mainWindow?.webContents.send('settings:bots:statusChanged', status);
