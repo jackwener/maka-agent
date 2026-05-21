@@ -1,0 +1,401 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-05-21T20:13:23.207Z",
+  "mainSha": "5f64fe8dfdbe",
+  "variants": [
+    "light-1280-motion",
+    "light-990-motion",
+    "light-1280-reduced-motion",
+    "light-990-reduced-motion",
+    "dark-1280-motion",
+    "dark-990-motion",
+    "dark-1280-reduced-motion",
+    "dark-990-reduced-motion"
+  ],
+  "entries": [
+    {
+      "scenario": "artifact-errors",
+      "variant": "light-1280-motion",
+      "theme": "light",
+      "viewport": {
+        "width": 1280,
+        "height": 820
+      },
+      "reducedMotion": false,
+      "ok": true,
+      "dimensions": {
+        "width": 2560,
+        "height": 1640
+      },
+      "bytes": 248274
+    },
+    {
+      "scenario": "artifact-errors",
+      "variant": "light-990-motion",
+      "theme": "light",
+      "viewport": {
+        "width": 990,
+        "height": 820
+      },
+      "reducedMotion": false,
+      "ok": true,
+      "dimensions": {
+        "width": 1980,
+        "height": 1640
+      },
+      "bytes": 242332
+    },
+    {
+      "scenario": "artifact-errors",
+      "variant": "light-1280-reduced-motion",
+      "theme": "light",
+      "viewport": {
+        "width": 1280,
+        "height": 820
+      },
+      "reducedMotion": true,
+      "ok": true,
+      "dimensions": {
+        "width": 2560,
+        "height": 1640
+      },
+      "bytes": 248274
+    },
+    {
+      "scenario": "artifact-errors",
+      "variant": "light-990-reduced-motion",
+      "theme": "light",
+      "viewport": {
+        "width": 990,
+        "height": 820
+      },
+      "reducedMotion": true,
+      "ok": true,
+      "dimensions": {
+        "width": 1980,
+        "height": 1640
+      },
+      "bytes": 242332
+    },
+    {
+      "scenario": "artifact-errors",
+      "variant": "dark-1280-motion",
+      "theme": "dark",
+      "viewport": {
+        "width": 1280,
+        "height": 820
+      },
+      "reducedMotion": false,
+      "ok": true,
+      "dimensions": {
+        "width": 2560,
+        "height": 1640
+      },
+      "bytes": 248274
+    },
+    {
+      "scenario": "artifact-errors",
+      "variant": "dark-990-motion",
+      "theme": "dark",
+      "viewport": {
+        "width": 990,
+        "height": 820
+      },
+      "reducedMotion": false,
+      "ok": true,
+      "dimensions": {
+        "width": 1980,
+        "height": 1640
+      },
+      "bytes": 242332
+    },
+    {
+      "scenario": "artifact-errors",
+      "variant": "dark-1280-reduced-motion",
+      "theme": "dark",
+      "viewport": {
+        "width": 1280,
+        "height": 820
+      },
+      "reducedMotion": true,
+      "ok": true,
+      "dimensions": {
+        "width": 2560,
+        "height": 1640
+      },
+      "bytes": 248274
+    },
+    {
+      "scenario": "artifact-errors",
+      "variant": "dark-990-reduced-motion",
+      "theme": "dark",
+      "viewport": {
+        "width": 990,
+        "height": 820
+      },
+      "reducedMotion": true,
+      "ok": true,
+      "dimensions": {
+        "width": 1980,
+        "height": 1640
+      },
+      "bytes": 242332
+    },
+    {
+      "scenario": "artifact-pane",
+      "variant": "light-1280-motion",
+      "theme": "light",
+      "viewport": {
+        "width": 1280,
+        "height": 820
+      },
+      "reducedMotion": false,
+      "ok": true,
+      "dimensions": {
+        "width": 2560,
+        "height": 1640
+      },
+      "bytes": 248274
+    },
+    {
+      "scenario": "artifact-pane",
+      "variant": "light-990-motion",
+      "theme": "light",
+      "viewport": {
+        "width": 990,
+        "height": 820
+      },
+      "reducedMotion": false,
+      "ok": true,
+      "dimensions": {
+        "width": 1980,
+        "height": 1640
+      },
+      "bytes": 242332
+    },
+    {
+      "scenario": "artifact-pane",
+      "variant": "light-1280-reduced-motion",
+      "theme": "light",
+      "viewport": {
+        "width": 1280,
+        "height": 820
+      },
+      "reducedMotion": true,
+      "ok": true,
+      "dimensions": {
+        "width": 2560,
+        "height": 1640
+      },
+      "bytes": 248274
+    },
+    {
+      "scenario": "artifact-pane",
+      "variant": "light-990-reduced-motion",
+      "theme": "light",
+      "viewport": {
+        "width": 990,
+        "height": 820
+      },
+      "reducedMotion": true,
+      "ok": true,
+      "dimensions": {
+        "width": 1980,
+        "height": 1640
+      },
+      "bytes": 242332
+    },
+    {
+      "scenario": "artifact-pane",
+      "variant": "dark-1280-motion",
+      "theme": "dark",
+      "viewport": {
+        "width": 1280,
+        "height": 820
+      },
+      "reducedMotion": false,
+      "ok": true,
+      "dimensions": {
+        "width": 2560,
+        "height": 1640
+      },
+      "bytes": 248274
+    },
+    {
+      "scenario": "artifact-pane",
+      "variant": "dark-990-motion",
+      "theme": "dark",
+      "viewport": {
+        "width": 990,
+        "height": 820
+      },
+      "reducedMotion": false,
+      "ok": true,
+      "dimensions": {
+        "width": 1980,
+        "height": 1640
+      },
+      "bytes": 242332
+    },
+    {
+      "scenario": "artifact-pane",
+      "variant": "dark-1280-reduced-motion",
+      "theme": "dark",
+      "viewport": {
+        "width": 1280,
+        "height": 820
+      },
+      "reducedMotion": true,
+      "ok": true,
+      "dimensions": {
+        "width": 2560,
+        "height": 1640
+      },
+      "bytes": 248274
+    },
+    {
+      "scenario": "artifact-pane",
+      "variant": "dark-990-reduced-motion",
+      "theme": "dark",
+      "viewport": {
+        "width": 990,
+        "height": 820
+      },
+      "reducedMotion": true,
+      "ok": true,
+      "dimensions": {
+        "width": 1980,
+        "height": 1640
+      },
+      "bytes": 242332
+    },
+    {
+      "scenario": "first-run",
+      "variant": "light-1280-motion",
+      "theme": "light",
+      "viewport": {
+        "width": 1280,
+        "height": 820
+      },
+      "reducedMotion": false,
+      "ok": true,
+      "dimensions": {
+        "width": 2560,
+        "height": 1640
+      },
+      "bytes": 371340
+    },
+    {
+      "scenario": "first-run",
+      "variant": "light-990-motion",
+      "theme": "light",
+      "viewport": {
+        "width": 990,
+        "height": 820
+      },
+      "reducedMotion": false,
+      "ok": true,
+      "dimensions": {
+        "width": 1980,
+        "height": 1640
+      },
+      "bytes": 355442
+    },
+    {
+      "scenario": "first-run",
+      "variant": "light-1280-reduced-motion",
+      "theme": "light",
+      "viewport": {
+        "width": 1280,
+        "height": 820
+      },
+      "reducedMotion": true,
+      "ok": true,
+      "dimensions": {
+        "width": 2560,
+        "height": 1640
+      },
+      "bytes": 371340
+    },
+    {
+      "scenario": "first-run",
+      "variant": "light-990-reduced-motion",
+      "theme": "light",
+      "viewport": {
+        "width": 990,
+        "height": 820
+      },
+      "reducedMotion": true,
+      "ok": true,
+      "dimensions": {
+        "width": 1980,
+        "height": 1640
+      },
+      "bytes": 355442
+    },
+    {
+      "scenario": "first-run",
+      "variant": "dark-1280-motion",
+      "theme": "dark",
+      "viewport": {
+        "width": 1280,
+        "height": 820
+      },
+      "reducedMotion": false,
+      "ok": true,
+      "dimensions": {
+        "width": 2560,
+        "height": 1640
+      },
+      "bytes": 371340
+    },
+    {
+      "scenario": "first-run",
+      "variant": "dark-990-motion",
+      "theme": "dark",
+      "viewport": {
+        "width": 990,
+        "height": 820
+      },
+      "reducedMotion": false,
+      "ok": true,
+      "dimensions": {
+        "width": 1980,
+        "height": 1640
+      },
+      "bytes": 355442
+    },
+    {
+      "scenario": "first-run",
+      "variant": "dark-1280-reduced-motion",
+      "theme": "dark",
+      "viewport": {
+        "width": 1280,
+        "height": 820
+      },
+      "reducedMotion": true,
+      "ok": true,
+      "dimensions": {
+        "width": 2560,
+        "height": 1640
+      },
+      "bytes": 371340
+    },
+    {
+      "scenario": "first-run",
+      "variant": "dark-990-reduced-motion",
+      "theme": "dark",
+      "viewport": {
+        "width": 990,
+        "height": 820
+      },
+      "reducedMotion": true,
+      "ok": true,
+      "dimensions": {
+        "width": 1980,
+        "height": 1640
+      },
+      "bytes": 355442
+    }
+  ]
+}
