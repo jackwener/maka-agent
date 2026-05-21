@@ -18,12 +18,15 @@ import {
   ChatView,
   Composer,
   type ComposerHandle,
+  deriveTurnLineageMap,
+  materializeTurns,
   type NavSelection,
   PermissionDialog,
   redactSecrets,
   SessionListPanel,
   type SkillEntry,
   ToastProvider,
+  type TurnFooterActionMeta,
   useToast,
   type ToolActivityItem,
 } from '@maka/ui';
@@ -38,6 +41,7 @@ import { deriveChatHeaderAlert } from './chat-header-alert';
 import { deriveStaleSessionIds } from './stale-sessions';
 import { deriveSessionStatusGroups } from './session-status-grouping';
 import { presentSessionStatus, sessionStatusAriaLabel } from './session-status-presentation';
+import { deriveTurnFooterActions } from './turn-footer-actions';
 import { applyDensity, applyTheme } from './theme';
 import { openPathActionLabel, openPathFailureCopy } from './open-path';
 import './styles.css';
@@ -164,6 +168,92 @@ function AppShell() {
     activeConnection?.lastTestStatus,
     defaultConnectionReady,
   ]);
+
+  // PR109d-b: turn footer actions per turn. Derived from the
+  // materialized turn list (status + lineage descendants) + pending
+  // mask. Per @kenji PR109d review: pending state prevents double-click
+  // duplicate sibling turns by disabling the action button between
+  // click and `sessions:changed turn-status-change` arriving.
+  const [pendingTurnActions, setPendingTurnActions] = useState<Set<string>>(() => new Set());
+  const pendingKeyOf = (turnId: string, actionId: TurnFooterActionMeta['id']) =>
+    `${turnId}:${actionId}`;
+
+  const turnFooterActionsByTurn = useMemo(() => {
+    const turnsForLineage = materializeTurns(messages, liveTools);
+    const lineage = deriveTurnLineageMap(turnsForLineage);
+    const byTurn: Record<string, ReadonlyArray<TurnFooterActionMeta>> = {};
+    for (const turn of turnsForLineage) {
+      const lineageEntry = lineage.get(turn.turnId);
+      // Compute pending per-turn from the global set (cheap; per turn
+      // has at most 4 possible action keys).
+      const pendingForTurn = new Set<TurnFooterActionMeta['id']>();
+      for (const id of ['retry', 'regenerate', 'branch', 'copy'] as const) {
+        if (pendingTurnActions.has(pendingKeyOf(turn.turnId, id))) {
+          pendingForTurn.add(id);
+        }
+      }
+      const actions = deriveTurnFooterActions({
+        status: turn.status,
+        hasContent: Boolean(turn.assistant?.text && turn.assistant.text.trim().length > 0),
+        ...(lineageEntry?.retriedToTurnId ? { alreadyRetried: true } : {}),
+        ...(lineageEntry?.regeneratedToTurnId ? { alreadyRegenerated: true } : {}),
+        ...(pendingForTurn.size > 0 ? { pendingActions: pendingForTurn } : {}),
+      });
+      byTurn[turn.turnId] = actions;
+    }
+    return byTurn;
+  }, [messages, liveTools, pendingTurnActions]);
+
+  async function handleTurnFooterAction(
+    turnId: string,
+    actionId: TurnFooterActionMeta['id'],
+  ): Promise<void> {
+    if (!activeId) return;
+    if (actionId === 'copy') return; // handled in-component
+    const key = pendingKeyOf(turnId, actionId);
+    if (pendingTurnActions.has(key)) return; // hard guard: already pending
+    setPendingTurnActions((current) => {
+      const next = new Set(current);
+      next.add(key);
+      return next;
+    });
+    // Safety net: clear pending after 5s in case `sessions:changed`
+    // never arrives (runtime failed silently, IPC dropped, etc.).
+    // Per @kenji: timeout fallback is necessary because branch action
+    // doesn't always produce a `created` event we can correlate to.
+    const timeoutHandle = setTimeout(() => {
+      setPendingTurnActions((current) => {
+        if (!current.has(key)) return current;
+        const next = new Set(current);
+        next.delete(key);
+        return next;
+      });
+    }, 5000);
+    try {
+      if (actionId === 'retry') {
+        await window.maka.sessions.retryTurn(activeId, { sourceTurnId: turnId });
+        toastApi.info('已发起重试', '正在生成新的一轮回答');
+      } else if (actionId === 'regenerate') {
+        await window.maka.sessions.regenerateTurn(activeId, { sourceTurnId: turnId });
+        toastApi.info('已发起重新生成', '保留旧回答，生成新的并行回答');
+      } else if (actionId === 'branch') {
+        const newSession = await window.maka.sessions.branchFromTurn(activeId, { sourceTurnId: turnId });
+        await refreshSessions();
+        setActiveId(newSession.id);
+        toastApi.success('已创建分支', `新会话 ${newSession.name}`);
+      }
+    } catch (error) {
+      toastApi.error('操作失败', cleanErrorMessage(error));
+    } finally {
+      clearTimeout(timeoutHandle);
+      setPendingTurnActions((current) => {
+        if (!current.has(key)) return current;
+        const next = new Set(current);
+        next.delete(key);
+        return next;
+      });
+    }
+  }
 
   // PR109b: chat header lifecycle status badge. Hidden for `active`
   // (default) to avoid badge noise on healthy sessions. Every other
@@ -778,6 +868,8 @@ function AppShell() {
                 mode={navSelection.section}
                 connectionAlert={chatConnectionAlert}
                 sessionStatusBadge={chatSessionStatusBadge}
+                turnFooterActionsByTurn={turnFooterActionsByTurn}
+                onTurnFooterAction={handleTurnFooterAction}
                 emptyOverride={needsOnboarding ? (
                   <OnboardingHero
                     onOpenSettings={() => setSettingsOpen(true)}

@@ -13,6 +13,7 @@ import {
   Eye,
   FileEdit,
   Flag,
+  GitBranch,
   GitMerge,
   HelpCircle,
   Hourglass,
@@ -22,6 +23,8 @@ import {
   Pin,
   PinOff,
   Plus,
+  RefreshCcw,
+  Repeat,
   Search,
   Settings,
   ShieldAlert,
@@ -1021,6 +1024,15 @@ export function ChatView(props: {
     tone: 'accent' | 'warning' | 'destructive' | 'info' | 'success' | 'muted' | 'neutral';
     tooltip?: string;
   };
+  /**
+   * PR109d-b: footer actions per turn, keyed by turnId. The renderer
+   * (apps/desktop/src/renderer/main.tsx) computes these from
+   * `deriveTurnFooterActions()` over each turn's `TurnStatus` + lineage
+   * state, then hands them in. Keeps the action policy with the
+   * consumer that has visibility into the full turn list.
+   */
+  turnFooterActionsByTurn?: Record<string, ReadonlyArray<TurnFooterActionMeta>>;
+  onTurnFooterAction?: (turnId: string, actionId: TurnFooterActionMeta['id']) => void;
   onNew(): void;
   onPromptSuggestion?(prompt: string): void;
   onPermissionModeChange?(mode: PermissionMode): void;
@@ -1135,7 +1147,13 @@ export function ChatView(props: {
             props.emptyOverride ?? <EmptyChatHero onPromptSuggestion={props.onPromptSuggestion} userLabel={props.userLabel} />
           )}
           {turns.map((turn) => (
-            <TurnView key={turn.turnId} turn={turn} userLabel={props.userLabel} />
+            <TurnView
+              key={turn.turnId}
+              turn={turn}
+              userLabel={props.userLabel}
+              footerActions={props.turnFooterActionsByTurn?.[turn.turnId]}
+              onFooterAction={(actionId) => props.onTurnFooterAction?.(turn.turnId, actionId)}
+            />
           ))}
           {props.streamingText && (
             <article className="maka-message-row maka-turn-streaming message assistant streaming">
@@ -1537,7 +1555,19 @@ function formatTurnDuration(ms: number): string {
  * "message stack + tools panel at end" layout so the user sees the
  * narrative of "ask → tools fired → answer" as one work unit.
  */
-function TurnView(props: { turn: TurnViewModel; userLabel?: string }) {
+function TurnView(props: {
+  turn: TurnViewModel;
+  userLabel?: string;
+  /**
+   * PR109d-b: footer actions derived from `TurnStatus` + lineage map
+   * by the consumer (renderer/main.tsx). Each action carries its
+   * own `enabled` flag + tooltip; @maka/ui doesn't compute these
+   * itself so the policy stays in the renderer where the lineage
+   * map is built.
+   */
+  footerActions?: ReadonlyArray<TurnFooterActionMeta>;
+  onFooterAction?: (actionId: TurnFooterActionMeta['id']) => void;
+}) {
   const { turn } = props;
   return (
     <section className="maka-turn" data-turn-id={turn.turnId}>
@@ -1570,6 +1600,7 @@ function TurnView(props: { turn: TurnViewModel; userLabel?: string }) {
       {turn.assistant && (
         <article
           className="maka-message-row message assistant"
+          data-turn-status={turn.status}
           title={turn.assistant.ts ? formatAbsoluteTimestamp(turn.assistant.ts) : undefined}
         >
           <MessageMeta role="assistant" userLabel={props.userLabel} ts={turn.assistant.ts} />
@@ -1588,13 +1619,104 @@ function TurnView(props: { turn: TurnViewModel; userLabel?: string }) {
                 </div>
               </details>
             )}
+            {/* PR109d-c: aborted turn body gets a muted "(已中断)" prefix
+                + Ban icon so the user can see this turn was cancelled
+                without it looking like a fault state (which is reserved
+                for `failed`). Lives in the message body wrapper so the
+                Copy button below still copies the assistant text without
+                the prefix. */}
+            {turn.status === 'aborted' && (
+              <div className="maka-turn-aborted-marker" role="status">
+                <Ban size={12} strokeWidth={2} aria-hidden="true" />
+                <em>(已中断)</em>
+              </div>
+            )}
             <MessageBody role="assistant" text={turn.assistant.text} />
           </div>
+          {props.footerActions && props.footerActions.length > 0 && (
+            <TurnFooterActions
+              actions={props.footerActions}
+              onAction={props.onFooterAction}
+              assistantText={turn.assistant.text}
+            />
+          )}
         </article>
       )}
     </section>
   );
 }
+
+/**
+ * Turn footer actions row (PR109d-b). Renders icon+text buttons for
+ * `重试 / 重新生成 / 分支 / 复制` driven by the pure helper's enabled
+ * matrix. Disabled buttons stay rendered so the user can see what
+ * actions exist on the turn; click handlers no-op when disabled.
+ *
+ * Copy action is handled locally (write to clipboard) so the
+ * consumer doesn't need a clipboard IPC for it. Other actions
+ * (retry / regenerate / branch) bubble up via `onAction`.
+ */
+export interface TurnFooterActionMeta {
+  id: 'retry' | 'regenerate' | 'branch' | 'copy';
+  label: string;
+  enabled: boolean;
+  tooltip?: string;
+}
+
+function TurnFooterActions(props: {
+  actions: ReadonlyArray<TurnFooterActionMeta>;
+  onAction?: (actionId: TurnFooterActionMeta['id']) => void;
+  /** Assistant text used by the inline copy action. */
+  assistantText?: string;
+}) {
+  async function handleClick(action: TurnFooterActionMeta) {
+    if (!action.enabled) return;
+    if (action.id === 'copy') {
+      if (!props.assistantText) return;
+      try {
+        await navigator.clipboard.writeText(props.assistantText);
+      } catch {
+        /* silent — clipboard may be unavailable; UI Copy doesn't toast here */
+      }
+      return;
+    }
+    props.onAction?.(action.id);
+  }
+  return (
+    <div className="maka-turn-footer" role="toolbar" aria-label="本轮回答操作">
+      {props.actions.map((action) => {
+        // Per @kenji review: pending state must keep the original button
+        // label visible (not a spinner-only) so screen readers can hear
+        // which action is processing. `aria-busy="true"` is the AT signal.
+        const isPending = action.tooltip === '正在处理…';
+        return (
+          <button
+            key={action.id}
+            type="button"
+            className="maka-turn-footer-action"
+            data-action={action.id}
+            data-pending={isPending || undefined}
+            disabled={!action.enabled}
+            aria-disabled={!action.enabled}
+            aria-busy={isPending || undefined}
+            title={action.tooltip ?? action.label}
+            onClick={() => void handleClick(action)}
+          >
+            {STATUS_FOOTER_ICON[action.id]}
+            <span>{action.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+const STATUS_FOOTER_ICON: Record<TurnFooterActionMeta['id'], ReactNode> = {
+  retry: <Repeat size={12} strokeWidth={2} aria-hidden="true" />,
+  regenerate: <RefreshCcw size={12} strokeWidth={2} aria-hidden="true" />,
+  branch: <GitBranch size={12} strokeWidth={2} aria-hidden="true" />,
+  copy: <Copy size={12} strokeWidth={2} aria-hidden="true" />,
+};
 
 function MessageMeta(props: { role: string; userLabel?: string; ts?: number }) {
   const label = messageRoleLabel(props.role, props.userLabel);

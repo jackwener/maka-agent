@@ -1244,13 +1244,20 @@ destructive icon）。
 - `aborted` 在 sidebar 用 collapsed group 显示（PR109b @kenji review）；header badge 也会出现「已中止」muted 状态
 - `blocked` 显式必带 reason；reason 缺失 fallback `unknown`
 
-### 9.9 Turn control 契约（@kenji item 4）
+### 9.9 Turn control 契约（@kenji item 4 — PR109c 进行中）
 
 `retry / regenerate / branch-from-turn / cancel / checkpoint-before-tools` 是
 turn-level contract。PR109c 落下第一版 runtime/storage contract；footer UI
 在 PR109d 消费。
 
-**状态机**：
+**Turn-level state machine** (PR109c, @xuan core contract — fields locked
+2026-05-22 04:18):
+
+```
+running ──cancel──► aborted   (terminal; partial output preserved)
+running ──error──► failed     (terminal; errorClass populated)
+running ──final─► completed   (terminal; default success)
+```
 
 | 状态 | 含义 | 持久化 |
 |---|---|---|
@@ -1259,57 +1266,93 @@ turn-level contract。PR109c 落下第一版 runtime/storage contract；footer U
 | `aborted` | 用户 cancel/stop；不是 error | `turn_state.abortedAt` + `partialOutputRetained` |
 | `failed` | runtime/backend/tool 失败 | `turn_state.errorClass` |
 
-**字段**：
+Each turn is **immutable** once it leaves `running` — including its
+`status` value, partial output, and message body. Retry / regenerate /
+branch never rewrite an old turn; they always create a sibling turn
+(retry/regenerate) or a new session (branch).
+
+**TurnRecord 字段** (`@maka/core`, PR109c):
 
 ```ts
 interface TurnRecord {
   turnId: string;
   status: 'running' | 'completed' | 'aborted' | 'failed';
-  parentTurnId?: string;
-  retriedFromTurnId?: string;
-  regeneratedFromTurnId?: string;
-  branchOfTurnId?: string;
-  parentSessionId?: string;
-  abortedAt?: number;
-  errorClass?: string;
-  partialOutputRetained: boolean;
+  parentTurnId?: string;            // reserved for v2 turn-tree
+  retriedFromTurnId?: string;        // new turn was a retry of this id
+  regeneratedFromTurnId?: string;    // new turn was a regenerate of this id
+  branchOfTurnId?: string;           // set on first turn of a branched session
+  parentSessionId?: string;          // sibling to branchOfTurnId
+  abortedAt?: number;                // wall-clock ms when cancel landed
+  errorClass?: string;               // generalizedErrorMessage class for `failed`
+  partialOutputRetained: boolean;    // always true after PR109c per @kenji
 }
 ```
 
 Lineage 只写正向字段。旧 turn immutable：除自身 `running →
 completed/aborted/failed` 的状态变化外，未来 sibling 出现不会回写旧 turn。
-UI 需要 "已重试 →" / "已重新生成 →" 时，从当前 turn list derive 反向 map。
+UI 需要 "已重试 →" / "已重新生成 →" 时，从当前 turn list derive 反向 map
+via `deriveTurnLineageMap()`（PR109d）。
 
-**操作清单**：
+**操作清单**（UI 触发 → core/runtime 处理）：
 
-| 操作 | 触发位置 | 持久化影响 | 不变量 |
-|---|---|---|---|
-| `retry` | failed/aborted turn footer | 复用同 user message 创建新 sibling turn，写 `retriedFromTurnId` | **旧 turn 输出不可被覆盖** |
-| `regenerate` | completed assistant footer | 复用同 user message 创建新 sibling turn，写 `regeneratedFromTurnId` | **旧 completed answer 不可被覆盖** |
-| `branch-from-turn` | turn header context menu | 创建新 session，写 `parentSessionId` + `branchOfTurnId`，复制消息上下文到 turn boundary | 原 session 不变；v1 不复制 artifact bytes |
-| `cancel` | streaming 中的 Stop / Esc | turn 落 `aborted` 状态，partial output 保留 | cancel 必须显式标 `aborted`，不可隐式删 |
-| `checkpoint-before-tools` | 自动（如果 turn 含 destructive tool） | 在 destructive tool 之前 snapshot workspace | snapshot 失败 → 阻止 tool 调用 |
+| 操作 | UI 文案 | 触发位置 | 适用 turn.status | 行为 | 旧 turn 处理 |
+|---|---|---|---|---|---|
+| `retry` | 「重试」 | turn footer hover | `failed` / `aborted` | sibling turn 复用同 user message + 写 `retriedFromTurnId` | immutable，自身 status 不变 |
+| `regenerate` | 「重新生成」 | assistant message footer hover | `completed` | sibling turn 复用同 user message + 写 `regeneratedFromTurnId` | immutable |
+| `branch-from-turn` | 「分支」 | turn header context menu | 任意（含 `aborted`） | 新 session via `sessions:branchFromTurn` + `branchOfTurnId` + `parentSessionId` + 复制至该 turn boundary（aborted 起点复制到中断前最后可用 boundary） | 原 session 不变；artifacts v1 只复制引用，不复制 bytes |
+| `cancel` | 「取消」 | streaming 中的 Composer Stop / Esc | `running` | turn → `aborted`；session → `aborted`；partial output 保留 | n/a — turn 自身 status 转 |
+| `checkpoint-before-tools` | n/a (自动) | 自动（destructive tool 前） | n/a | snapshot workspace；失败阻止 tool | n/a |
 
-**UI 表现**：
-- 每个 assistant message 底部 hover 区域显示 `↻ 重试 / 🌿 分支 / 📋 复制`
-- 取消时 message 文本前端追加灰色斜体 "(已中断)"
-- Branch 后 sidebar 立刻显示新 session 并自动 select
-- Branch 支持 aborted 起点；copy 到中断前最后可用 boundary，UI 文案「从中断前分支」
-
-**IPC / projection（PR109c）**：
+**IPC / projection（PR109c locked）**：
 - `sessions:listTurns(sessionId) -> TurnRecord[]`
 - `sessions:retryTurn(sessionId, { sourceTurnId, turnId? })`
 - `sessions:regenerateTurn(sessionId, { sourceTurnId, turnId? })`
 - `sessions:branchFromTurn(sessionId, { sourceTurnId, name? }) -> SessionSummary`
-- `SessionChangedReason` 新增 `turn-status-change`
-- `@maka/ui` `TurnViewModel` surface 同名字段；`deriveTurnLineageMap()`
+- `SessionChangedReason` 新增 `turn-status-change`（独立于 session-level
+  `status-change`）
+- `@maka/ui` `TurnViewModel` surface 同名字段；
+  `deriveTurnLineageMap(turns)` 在 PR109d 加入 `materialize-turns.ts`，
   只 derive 反向 UI 链接，不持久化反向字段
 
+**UI 表现** (PR109d 接口约定):
+
+- **Turn footer hover actions** (`↻ 重试 / 🌿 分支 / 📋 复制`)：根据 turn.status
+  动态决定 enabled set
+  - `running`：仅显示 `📋 复制`（其他 action 长任务结束后再露）
+  - `completed`：`🔁 重新生成 / 🌿 分支 / 📋 复制`
+  - `failed` / `aborted`：`↻ 重试 / 🌿 分支 / 📋 复制`
+- **Aborted turn 视觉**：assistant message body 前缀灰色斜体 "(已中断)"；
+  turn header 显示 muted `Ban` icon
+- **Failed turn 视觉**：使用 PR58 的 AlertOctagon 红色 banner + copy-error
+  按钮，文案走 generalizedErrorMessage
+- **Lineage badges**：
+  - 新 turn 顶部 small badge「重试自 turn ${shortId}」/「重新生成自
+    turn ${shortId}」点击 scroll 到原 turn
+  - 旧 turn footer 通过 UI-side derive 显示「已重试 → turn ${shortId}」/
+    「已重新生成 → turn ${shortId}」点击 scroll 到新 turn
+  - branched session sidebar 顶部 banner「分自 ${parentSessionName}」+
+    点击跳回 parent
+- **Branch 复制语义**：aborted 起点的 branch 文案明示「从中断前分支」
+- **Cancel 行为**：cancel button 仅调 IPC + 显示 loading；status 变化由
+  runtime 广播 `turn-status-change`，**UI 不 optimistic 写**（同 PR109b
+  约束）
+
 **Gate**：
-- node:test 钉死 `aborted` 状态机：cancel 时 `turn.status === 'aborted'` 且
-  partial output 不被丢弃；retry/regenerate 创建新 sibling；branch 复制边界
-- smoke path `turn-control-affordances`（PR109d）：seed 一个含 5 个 turn 的
-  session，验 retry/regenerate/branch 各一次
+- core/storage/runtime tests (PR109c) 锁 turn 状态机：cancel 写 aborted
+  且 partial 保留；retry/regenerate 创建新 sibling 不覆盖旧 turn；
+  branch 复制至 turn boundary + aborted 起点 fallback 到中断前 boundary
+- node:test 锁 UI lineage derive helper：`deriveTurnLineageMap(turns)`
+  返回正确的 `retriedTo` / `regeneratedTo` 反向映射；旧 turn 无
+  retried-to 时不影响
+- node:test 锁 footer action × turn.status enabled matrix
+- fixture scenario `turn-control-history`（PR109d）：seed 一个含 5 turn
+  的 session 覆盖每个状态（running × 1, completed × 2, aborted × 1,
+  failed × 1）+ 1 retry sibling + 1 regenerate sibling，让截图覆盖所有
+  footer 状态
+- smoke Path 15（PR109d）：从 active session cancel → 验 aborted 出现 +
+  「(已中断)」prefix + retry button 可用；点 retry → 新 turn 出现 +
+  badge 链接；点 regenerate completed → sibling 出现，原 assistant
+  仍可见
 
 ### 9.10 Sources / Skills / Automations 可见系统（@kenji item 5）
 

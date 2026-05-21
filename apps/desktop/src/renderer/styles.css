@@ -5524,3 +5524,65 @@ button:active {
     overflow-y: auto;
   }
 }
+
+
+/* PR109d-c: Aborted turn marker. Sits above the assistant message body
+ * to surface "(已中断)" + muted Ban icon when turn.status === aborted.
+ * Uses muted tone — aborted is dormant history, NOT an error state
+ * (per @kenji review #2: aborted does NOT use destructive red). */
+.maka-turn-aborted-marker {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 2px 0 4px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--foreground-5);
+  color: var(--foreground-60);
+  font-size: 12px;
+  font-style: italic;
+  width: fit-content;
+}
+.maka-turn-aborted-marker em {
+  font-style: italic;
+}
+
+
+/* PR109d-b: Turn footer action row. Sits below the assistant message
+ * bubble; icon+text buttons for 重试/重新生成/分支/复制. Disabled
+ * buttons remain rendered (per @kenji review: user should see what
+ * actions exist on the turn) but click handlers no-op. */
+.maka-turn-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 0;
+  flex-wrap: wrap;
+}
+.maka-turn-footer-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--foreground-70);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.maka-turn-footer-action:hover:not(:disabled) {
+  background: var(--foreground-5);
+  color: var(--foreground);
+}
+.maka-turn-footer-action:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.maka-turn-footer-action:disabled,
+.maka-turn-footer-action[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
