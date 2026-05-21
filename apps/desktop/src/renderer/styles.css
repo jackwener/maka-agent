@@ -886,6 +886,28 @@ button:active {
   color: var(--foreground-50);
 }
 
+/* Real provider brand mark replaces the generic MessageSquare icon when
+   the chat has a real connection. The ProviderLogo already renders an
+   inline 32px square via .providerLogo[data-compact]; we just resize. */
+.maka-chat-tab-provider {
+  width: 18px;
+  height: 18px;
+  display: inline-grid;
+  place-items: center;
+}
+
+.maka-chat-tab-provider .providerLogo {
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+.maka-chat-tab-provider .providerLogo svg {
+  width: 70%;
+  height: 70%;
+}
+
 .maka-chat-tab span {
   min-width: 0;
   overflow: hidden;

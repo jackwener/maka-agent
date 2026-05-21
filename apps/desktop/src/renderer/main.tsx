@@ -28,6 +28,7 @@ import { ErrorBoundary } from './error-boundary';
 import { KeyboardHelpModal, useKeyboardHelp } from './keyboard-help';
 import { CommandPalette, buildCommandList, useCommandPalette } from './command-palette';
 import { OnboardingHero } from './OnboardingHero';
+import { ProviderLogo } from './settings/ProvidersPanel';
 import { applyDensity, applyTheme } from './theme';
 import './styles.css';
 
@@ -496,6 +497,8 @@ function AppShell() {
               activeSession={activeSessionForView}
               activeConnectionLabel={activeConnectionLabel}
               activeModelLabel={activeModelLabel}
+              activeProviderType={activeConnection?.providerType}
+              renderProviderMark={(type) => <ProviderLogo type={type} compact />}
               mode={navSelection.section}
               emptyOverride={needsOnboarding ? (
                 <OnboardingHero

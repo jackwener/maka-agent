@@ -33,6 +33,7 @@ import type {
   PermissionMode,
   PermissionRequestEvent,
   PermissionResponse,
+  ProviderType,
   SessionSummary,
   StoredMessage,
   ToolResultContent,
@@ -563,6 +564,11 @@ export function ChatView(props: {
   activeSession?: SessionSummary;
   activeConnectionLabel?: string;
   activeModelLabel?: string;
+  /** Renders a provider brand mark next to the model name in the chat tab. */
+  activeProviderType?: ProviderType;
+  /** Optional renderer for the provider mark; supplied by the desktop app to
+   *  avoid bringing the full provider SVG library into @maka/ui. */
+  renderProviderMark?(type: ProviderType): ReactNode;
   mode: NavSelection['section'];
   /**
    * When the user has no real LLM connection configured, the empty state
@@ -641,6 +647,9 @@ export function ChatView(props: {
           subtitle={props.activeModelLabel ?? props.activeConnectionLabel}
           subtitleHint={props.activeConnectionLabel && props.activeModelLabel
             ? `${props.activeConnectionLabel} · ${props.activeModelLabel}`
+            : undefined}
+          providerMark={props.activeProviderType && props.renderProviderMark
+            ? props.renderProviderMark(props.activeProviderType)
             : undefined}
         />
         <button className="maka-chat-tab-plus" type="button" aria-label="New chat" onClick={props.onNew}>
@@ -906,10 +915,17 @@ function PermissionModeSwitcher(props: {
   );
 }
 
-function ChatTab(props: { title: string; subtitle?: string; subtitleHint?: string }) {
+function ChatTab(props: {
+  title: string;
+  subtitle?: string;
+  subtitleHint?: string;
+  providerMark?: ReactNode;
+}) {
   return (
     <div className="maka-chat-tab" title={props.subtitleHint ? `${props.title} · ${props.subtitleHint}` : props.title}>
-      <MessageSquare className="maka-chat-tab-icon" strokeWidth={1.5} />
+      {props.providerMark
+        ? <span className="maka-chat-tab-provider" aria-hidden="true">{props.providerMark}</span>
+        : <MessageSquare className="maka-chat-tab-icon" strokeWidth={1.5} />}
       <span>{props.title}</span>
       {props.subtitle && <span className="maka-chat-tab-backend">{props.subtitle}</span>}
     </div>
