@@ -48,24 +48,48 @@ type SettingsNavItem = {
   Icon: ComponentType<LucideProps>;
   enabled: boolean;
   comingSoon?: boolean;
+  /** Group label rendered as a small uppercase divider above this item. */
+  group: SettingsNavGroup;
 };
 
+export type SettingsNavGroup = '基础' | 'AI' | '集成' | '数据与账号' | '其他';
+
+const NAV_GROUP_ORDER: SettingsNavGroup[] = ['基础', 'AI', '集成', '数据与账号', '其他'];
+
 export const SETTINGS_NAV: SettingsNavItem[] = [
-  { id: 'general', label: '通用', Icon: SettingsIcon, enabled: true },
-  { id: 'personalization', label: '个性化', Icon: User, enabled: true },
-  { id: 'theme', label: '主题', Icon: Palette, enabled: true },
-  { id: 'daily-review', label: '每日回顾', Icon: CalendarDays, enabled: true, comingSoon: true },
-  { id: 'models', label: '模型', Icon: Cpu, enabled: true },
-  { id: 'usage', label: '使用统计', Icon: BarChart3, enabled: true },
-  { id: 'voice-models', label: '语音模型', Icon: Volume2, enabled: true, comingSoon: true },
-  { id: 'open-gateway', label: '开放网关', Icon: Sparkles, enabled: true, comingSoon: true },
-  { id: 'bot-chat', label: '机器人对话', Icon: Bot, enabled: true },
-  { id: 'search', label: '搜索服务', Icon: Search, enabled: true, comingSoon: true },
-  { id: 'network', label: '网络', Icon: Globe, enabled: true },
-  { id: 'data', label: '数据', Icon: Database, enabled: true },
-  { id: 'account', label: '账号', Icon: UserCircle, enabled: true },
-  { id: 'about', label: '关于', Icon: Info, enabled: true },
+  // Group 1: 基础 — 通用偏好、个性化、主题
+  { id: 'general', label: '通用', Icon: SettingsIcon, enabled: true, group: '基础' },
+  { id: 'personalization', label: '个性化', Icon: User, enabled: true, group: '基础' },
+  { id: 'theme', label: '主题', Icon: Palette, enabled: true, group: '基础' },
+  // Group 2: AI — 模型、使用、语音、回顾、网关
+  { id: 'models', label: '模型', Icon: Cpu, enabled: true, group: 'AI' },
+  { id: 'usage', label: '使用统计', Icon: BarChart3, enabled: true, group: 'AI' },
+  { id: 'daily-review', label: '每日回顾', Icon: CalendarDays, enabled: true, comingSoon: true, group: 'AI' },
+  { id: 'voice-models', label: '语音模型', Icon: Volume2, enabled: true, comingSoon: true, group: 'AI' },
+  { id: 'open-gateway', label: '开放网关', Icon: Sparkles, enabled: true, comingSoon: true, group: 'AI' },
+  // Group 3: 集成 — bot、搜索、网络
+  { id: 'bot-chat', label: '机器人对话', Icon: Bot, enabled: true, group: '集成' },
+  { id: 'search', label: '搜索服务', Icon: Search, enabled: true, comingSoon: true, group: '集成' },
+  { id: 'network', label: '网络', Icon: Globe, enabled: true, group: '集成' },
+  // Group 4: 数据与账号
+  { id: 'data', label: '数据', Icon: Database, enabled: true, group: '数据与账号' },
+  { id: 'account', label: '账号', Icon: UserCircle, enabled: true, group: '数据与账号' },
+  // Group 5: 其他
+  { id: 'about', label: '关于', Icon: Info, enabled: true, group: '其他' },
 ];
+
+/** Order-preserving grouping used by the nav renderer. */
+function groupedNav(): Array<{ group: SettingsNavGroup; items: SettingsNavItem[] }> {
+  const byGroup = new Map<SettingsNavGroup, SettingsNavItem[]>();
+  for (const item of SETTINGS_NAV) {
+    if (!byGroup.has(item.group)) byGroup.set(item.group, []);
+    byGroup.get(item.group)!.push(item);
+  }
+  return NAV_GROUP_ORDER.flatMap((group) => {
+    const items = byGroup.get(group);
+    return items && items.length > 0 ? [{ group, items }] : [];
+  });
+}
 
 /**
  * V0.2 product-stance copy for Coming Soon Settings pages. The shape is
@@ -326,22 +350,27 @@ function SettingsSurface(props: {
         <header>
           <span>设置 <kbd>⌘</kbd><kbd>,</kbd></span>
         </header>
-        <nav aria-label="Settings sections">
-          {SETTINGS_NAV.map((item) => (
-            <button
-              key={item.id}
-              className="settingsNavItem"
-              data-active={section === item.id}
-              type="button"
-              disabled={!item.enabled}
-              onClick={() => setSection(item.id)}
-            >
-              <span className="settingsNavGlyph" aria-hidden="true">
-                <item.Icon size={16} strokeWidth={1.5} />
-              </span>
-              <strong>{item.label}</strong>
-              {item.comingSoon && <em className="settingsNavBadge" aria-label="即将推出">Soon</em>}
-            </button>
+        <nav aria-label="设置分组">
+          {groupedNav().map(({ group, items }) => (
+            <div key={group} className="settingsNavGroup">
+              <div className="settingsNavGroupLabel">{group}</div>
+              {items.map((item) => (
+                <button
+                  key={item.id}
+                  className="settingsNavItem"
+                  data-active={section === item.id}
+                  type="button"
+                  disabled={!item.enabled}
+                  onClick={() => setSection(item.id)}
+                >
+                  <span className="settingsNavGlyph" aria-hidden="true">
+                    <item.Icon size={16} strokeWidth={1.5} />
+                  </span>
+                  <strong>{item.label}</strong>
+                  {item.comingSoon && <em className="settingsNavBadge" aria-label="即将推出">Soon</em>}
+                </button>
+              ))}
+            </div>
           ))}
         </nav>
       </aside>
