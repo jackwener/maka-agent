@@ -68,6 +68,23 @@ export interface SessionSummary {
   permissionMode: PermissionMode;
 }
 
+export type SessionChangedReason =
+  | 'created'
+  | 'updated'
+  | 'archived'
+  | 'deleted'
+  | 'message-appended'
+  | 'pinned'
+  | 'renamed'
+  | 'mode-change';
+
+export interface SessionChangedEvent {
+  type: 'sessions_changed';
+  reason: SessionChangedReason;
+  sessionId?: string;
+  ts: number;
+}
+
 // ============================================================================
 // Stored messages (JSONL line 2+, append-only)
 // ============================================================================

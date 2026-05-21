@@ -4,6 +4,7 @@ import { mkdir, readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { release as osRelease, arch as osArch } from 'node:os';
 import {
+  generalizedErrorMessage,
   isPermissionMode,
 } from '@maka/core';
 import type {
@@ -13,6 +14,8 @@ import type {
   CreateConnectionInput,
   CreateSessionInput,
   SessionCommand,
+  SessionChangedEvent,
+  SessionChangedReason,
   SessionEvent,
   SessionListFilter,
   SettingsTestResult,
@@ -322,7 +325,7 @@ function registerIpc(): void {
   ipcMain.handle('sessions:create', async (_event, input?: Partial<CreateSessionInput>) => {
     const cwd = input?.cwd ?? process.cwd();
     if (input?.backend === 'fake') {
-      return runtime.createSession({
+      const session = await runtime.createSession({
         cwd,
         backend: 'fake',
         llmConnectionSlug: input.llmConnectionSlug ?? 'fake',
@@ -331,12 +334,14 @@ function registerIpc(): void {
         name: input.name ?? 'New Chat',
         labels: input.labels,
       });
+      emitSessionsChanged('created', session.id);
+      return session;
     }
 
     const requestedSlug = input?.llmConnectionSlug ?? (await connectionStore.getDefault());
     const { connection, model } = await getReadyConnection(requestedSlug, input?.model);
 
-    return runtime.createSession({
+    const session = await runtime.createSession({
       cwd,
       backend: 'ai-sdk',
       llmConnectionSlug: connection.slug,
@@ -345,6 +350,8 @@ function registerIpc(): void {
       name: input?.name ?? 'New Chat',
       labels: input?.labels,
     });
+    emitSessionsChanged('created', session.id);
+    return session;
   });
   ipcMain.handle('sessions:readMessages', (_event, sessionId: string) => runtime.getMessages(sessionId));
   ipcMain.handle('sessions:stop', (_event, sessionId: string) => runtime.stopSession(sessionId));
@@ -361,21 +368,35 @@ function registerIpc(): void {
     });
     void streamEvents(sessionId, iterator);
   });
-  ipcMain.handle('sessions:archive', (_event, sessionId: string) => runtime.archive(sessionId));
-  ipcMain.handle('sessions:unarchive', (_event, sessionId: string) => runtime.unarchive(sessionId));
-  ipcMain.handle('sessions:setFlagged', (_event, sessionId: string, isFlagged: boolean) =>
-    runtime.setFlagged(sessionId, isFlagged),
-  );
-  ipcMain.handle('sessions:rename', (_event, sessionId: string, name: string) =>
-    runtime.renameSession(sessionId, name),
-  );
+  ipcMain.handle('sessions:archive', async (_event, sessionId: string) => {
+    await runtime.archive(sessionId);
+    emitSessionsChanged('archived', sessionId);
+  });
+  ipcMain.handle('sessions:unarchive', async (_event, sessionId: string) => {
+    await runtime.unarchive(sessionId);
+    emitSessionsChanged('updated', sessionId);
+  });
+  ipcMain.handle('sessions:setFlagged', async (_event, sessionId: string, isFlagged: boolean) => {
+    await runtime.setFlagged(sessionId, isFlagged);
+    emitSessionsChanged('pinned', sessionId);
+  });
+  ipcMain.handle('sessions:rename', async (_event, sessionId: string, name: string) => {
+    await runtime.renameSession(sessionId, name);
+    emitSessionsChanged('renamed', sessionId);
+  });
   ipcMain.handle('sessions:setPermissionMode', (_event, sessionId: string, mode: unknown) => {
     if (!isPermissionMode(mode)) {
       throw new Error(`Invalid permission mode: ${String(mode)}`);
     }
-    return runtime.setPermissionMode(sessionId, mode);
+    return runtime.setPermissionMode(sessionId, mode).then((session) => {
+      emitSessionsChanged('mode-change', sessionId);
+      return session;
+    });
   });
-  ipcMain.handle('sessions:remove', (_event, sessionId: string) => runtime.remove(sessionId));
+  ipcMain.handle('sessions:remove', async (_event, sessionId: string) => {
+    await runtime.remove(sessionId);
+    emitSessionsChanged('deleted', sessionId);
+  });
 
   ipcMain.handle('connections:list', () => connectionStore.list());
   ipcMain.handle('connections:getDefault', () => connectionStore.getDefault());
@@ -427,7 +448,11 @@ function registerIpc(): void {
     if (PROVIDER_DEFAULTS[connection.providerType].authKind !== 'none' && !apiKey) {
       throw new Error('No API key set for this connection');
     }
-    return fetchProviderModels(connection, apiKey ?? '');
+    try {
+      return await fetchProviderModels(connection, apiKey ?? '');
+    } catch (error) {
+      throw new Error(generalizedErrorMessage(error, 'Failed to fetch provider models'));
+    }
   });
   ipcMain.handle('connections:hasSecret', async (_event, slug: string) =>
     Boolean(await credentialStore.getSecret(slug, 'api_key')),
@@ -480,7 +505,7 @@ function registerIpc(): void {
           [provider]: {
             connected: result.ok,
             lastTestAt: Date.now(),
-            lastError: result.ok ? undefined : result.error,
+            lastError: result.ok ? undefined : generalizedErrorMessage(result.error ?? '', 'Bot connection test failed'),
           },
         },
       },
@@ -577,9 +602,19 @@ async function applySettingsRuntimeEffects(settings: AppSettings, patch: UpdateA
 }
 
 async function streamEvents(sessionId: string, iterator: AsyncIterable<SessionEvent>): Promise<void> {
+  let userAppendBroadcasted = false;
+  let finalAppendBroadcasted = false;
   try {
     for await (const event of iterator) {
+      if (!userAppendBroadcasted) {
+        emitSessionsChanged('message-appended', sessionId);
+        userAppendBroadcasted = true;
+      }
       mainWindow?.webContents.send(`sessions:event:${sessionId}`, event);
+      if (!finalAppendBroadcasted && isFinalSessionEvent(event)) {
+        emitSessionsChanged('message-appended', sessionId);
+        finalAppendBroadcasted = true;
+      }
     }
   } catch (error) {
     mainWindow?.webContents.send(`sessions:event:${sessionId}`, {
@@ -591,7 +626,14 @@ async function streamEvents(sessionId: string, iterator: AsyncIterable<SessionEv
       code: errorCode(error),
       message: errorMessage(error),
     } satisfies SessionEvent);
+    if (!finalAppendBroadcasted) {
+      emitSessionsChanged('message-appended', sessionId);
+    }
   }
+}
+
+function isFinalSessionEvent(event: SessionEvent): boolean {
+  return event.type === 'text_complete' || event.type === 'complete' || event.type === 'abort' || event.type === 'error';
 }
 
 async function assertSessionCanSend(sessionId: string): Promise<void> {
@@ -624,6 +666,16 @@ function emitConnectionListChanged(): void {
     ts: Date.now(),
   };
   mainWindow?.webContents.send('connections:event', event);
+}
+
+function emitSessionsChanged(reason: SessionChangedReason, sessionId?: string): void {
+  const event: SessionChangedEvent = {
+    type: 'sessions_changed',
+    reason,
+    ts: Date.now(),
+  };
+  if (sessionId) event.sessionId = sessionId;
+  mainWindow?.webContents.send('sessions:changed', event);
 }
 
 function toContractNetworkSettings(network: Awaited<ReturnType<typeof settingsStore.get>>['network']): ContractNetworkSettings {

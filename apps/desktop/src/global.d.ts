@@ -10,6 +10,7 @@ import type {
   PermissionMode,
   SettingsTestResult,
   SessionCommand,
+  SessionChangedEvent,
   SessionEvent,
   SessionListFilter,
   SessionSummary,
@@ -43,6 +44,7 @@ declare global {
         readMessages(sessionId: string): Promise<StoredMessage[]>;
         respondToPermission(sessionId: string, response: PermissionResponse): Promise<void>;
         subscribeEvents(sessionId: string, handler: (event: SessionEvent) => void): () => void;
+        subscribeChanges(handler: (event: SessionChangedEvent) => void): () => void;
         archive(sessionId: string): Promise<void>;
         unarchive(sessionId: string): Promise<void>;
         setFlagged(sessionId: string, isFlagged: boolean): Promise<void>;

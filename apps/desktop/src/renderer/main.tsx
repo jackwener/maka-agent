@@ -66,6 +66,7 @@ function AppShell() {
   const [helpOpen, closeHelp] = useKeyboardHelp();
   const [paletteOpen, openPalette, closePalette] = useCommandPalette();
   const composerRef = useRef<ComposerHandle>(null);
+  const activeIdRef = useRef<string | undefined>(undefined);
   const activeStreaming = activeId ? streamingBySession[activeId] ?? '' : '';
   const liveTools = useMemo(() => (activeId ? liveToolsBySession[activeId] ?? [] : []), [activeId, liveToolsBySession]);
   const activePermission = activeId ? permissionBySession[activeId] : undefined;
@@ -133,6 +134,10 @@ function AppShell() {
   const [sessionListWidth, setSessionListWidth] = useState(() => readSessionListWidth());
 
   useEffect(() => {
+    activeIdRef.current = activeId;
+  }, [activeId]);
+
+  useEffect(() => {
     void refreshSessions();
     void refreshConnections();
     // Pull the persisted theme preference (auto/light/dark) and apply it
@@ -150,6 +155,28 @@ function AppShell() {
     });
     void window.maka.skills.list().then(setSkills).catch(() => setSkills([]));
     const unsubscribeConnections = window.maka.connections.subscribeEvents(handleConnectionEvent);
+    const unsubscribeSessionChanges = window.maka.sessions.subscribeChanges((event) => {
+      void refreshSessions();
+      if (event.reason === 'deleted' && event.sessionId === activeIdRef.current) {
+        setActiveId(undefined);
+        setMessages([]);
+        setStreamingBySession((current) => {
+          const next = { ...current };
+          delete next[event.sessionId!];
+          return next;
+        });
+        setLiveToolsBySession((current) => {
+          const next = { ...current };
+          delete next[event.sessionId!];
+          return next;
+        });
+        setPermissionBySession((current) => {
+          const next = { ...current };
+          delete next[event.sessionId!];
+          return next;
+        });
+      }
+    });
     const unsubscribeOpenSettings = window.maka.appWindow.subscribeOpenSettings(openSettings);
     function onKeyDown(event: globalThis.KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && event.key === ',') {
@@ -160,6 +187,7 @@ function AppShell() {
     window.addEventListener('keydown', onKeyDown);
     return () => {
       unsubscribeConnections();
+      unsubscribeSessionChanges();
       unsubscribeOpenSettings();
       window.removeEventListener('keydown', onKeyDown);
     };

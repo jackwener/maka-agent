@@ -11,6 +11,7 @@ import type {
   PermissionMode,
   SettingsTestResult,
   SessionCommand,
+  SessionChangedEvent,
   SessionEvent,
   SessionListFilter,
   SessionSummary,
@@ -58,6 +59,11 @@ contextBridge.exposeInMainWorld('maka', {
       const listener = (_event: Electron.IpcRendererEvent, payload: SessionEvent) => handler(payload);
       ipcRenderer.on(channel, listener);
       return () => ipcRenderer.off(channel, listener);
+    },
+    subscribeChanges(handler: (event: SessionChangedEvent) => void): () => void {
+      const listener = (_event: Electron.IpcRendererEvent, payload: SessionChangedEvent) => handler(payload);
+      ipcRenderer.on('sessions:changed', listener);
+      return () => ipcRenderer.off('sessions:changed', listener);
     },
     archive(sessionId: string): Promise<void> {
       return ipcRenderer.invoke('sessions:archive', sessionId);
