@@ -16,6 +16,7 @@ import type {
   StoredMessage,
   UpdateConnectionInput,
   UpdateAppSettingsInput,
+  UpdateAppSettingsResult,
   UsageRange,
   UsageStats,
 } from '@maka/core';
@@ -63,7 +64,7 @@ declare global {
       };
       settings: {
         get(): Promise<AppSettings>;
-        update(patch: UpdateAppSettingsInput): Promise<AppSettings>;
+        update(patch: UpdateAppSettingsInput): Promise<UpdateAppSettingsResult>;
         testNetworkProxy(input?: TestProxyInput): Promise<SettingsTestResult>;
         testBotChannel(provider: BotProvider): Promise<SettingsTestResult>;
         usageStats(range?: UsageRange): Promise<UsageStats>;
