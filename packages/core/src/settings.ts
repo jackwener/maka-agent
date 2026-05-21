@@ -148,6 +148,20 @@ export type UpdateAppSettingsInput = Partial<{
   personalization: Partial<PersonalizationSettings>;
 }>;
 
+export type PersonalizationSettingsWarning =
+  | 'override-attempt'
+  | 'sensitive-pattern'
+  | 'control-chars';
+
+export interface UpdateAppSettingsWarnings {
+  personalization?: PersonalizationSettingsWarning[];
+}
+
+export interface UpdateAppSettingsResult {
+  settings: AppSettings;
+  warnings?: UpdateAppSettingsWarnings;
+}
+
 export const BOT_PROVIDERS: BotProvider[] = [
   'telegram',
   'feishu',

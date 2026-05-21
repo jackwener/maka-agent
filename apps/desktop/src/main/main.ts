@@ -16,6 +16,7 @@ import type {
   SessionEvent,
   SessionListFilter,
   SettingsTestResult,
+  UpdateAppSettingsResult,
   UpdateConnectionInput,
   UpdateAppSettingsInput,
   UsageRange,
@@ -66,7 +67,7 @@ import {
 import { createSafeStorageCredentialStore } from './credential-store.js';
 import { resolveOpenPath, type OpenPathResult } from './open-path-guard.js';
 import { buildPersonalizationPromptFragment } from './personalization-prompt.js';
-import { maskAppSettings, preserveSensitivePlaceholders, toSettingsTestResult } from './settings-ipc-helpers.js';
+import { buildSettingsUpdateResult, maskAppSettings, preserveSensitivePlaceholders, toSettingsTestResult } from './settings-ipc-helpers.js';
 
 const workspaceRoot = join(app.getPath('userData'), 'workspaces', 'default');
 const store = createSessionStore(workspaceRoot);
@@ -429,11 +430,11 @@ function registerIpc(): void {
   );
 
   ipcMain.handle('settings:get', async () => maskAppSettings(await settingsStore.get()));
-  ipcMain.handle('settings:update', async (_event, patch: UpdateAppSettingsInput) => {
+  ipcMain.handle('settings:update', async (_event, patch: UpdateAppSettingsInput): Promise<UpdateAppSettingsResult> => {
     const normalizedPatch = await normalizeSettingsPatch(patch);
     const next = await settingsStore.update(normalizedPatch);
     await applySettingsRuntimeEffects(next, patch);
-    return maskAppSettings(next, patch);
+    return buildSettingsUpdateResult(next, patch);
   });
   ipcMain.handle('settings:testNetworkProxy', async (_event, input: TestProxyInput = {}) => {
     const started = Date.now();
