@@ -27,6 +27,7 @@ import { SettingsModal } from './settings/SettingsModal';
 import { ErrorBoundary } from './error-boundary';
 import { KeyboardHelpModal, useKeyboardHelp } from './keyboard-help';
 import { CommandPalette, buildCommandList, useCommandPalette } from './command-palette';
+import { OnboardingHero } from './OnboardingHero';
 import { applyDensity, applyTheme } from './theme';
 import './styles.css';
 
@@ -84,6 +85,15 @@ function AppShell() {
   } : undefined);
   const visibleSessions = useMemo(() => filterSessions(sessions, navSelection), [sessions, navSelection]);
   const sessionCounts = useMemo(() => countSessions(sessions), [sessions]);
+  // Aligns with @kenji's provider-onboarding-invariants 3-state taxonomy:
+  // `ready` when at least one enabled connection exists, `needs_onboarding`
+  // otherwise. We treat any-enabled as "ready" — backend (xuan) is the
+  // authoritative check on secret + model validity; this gate just decides
+  // which hero to show on an empty chat.
+  const needsOnboarding = useMemo(
+    () => !connections.some((connection) => connection.enabled),
+    [connections],
+  );
   const [sessionListWidth, setSessionListWidth] = useState(() => readSessionListWidth());
 
   useEffect(() => {
@@ -487,6 +497,12 @@ function AppShell() {
               activeConnectionLabel={activeConnectionLabel}
               activeModelLabel={activeModelLabel}
               mode={navSelection.section}
+              emptyOverride={needsOnboarding ? (
+                <OnboardingHero
+                  onOpenSettings={() => setSettingsOpen(true)}
+                  onUseAnyway={() => composerRef.current?.focus()}
+                />
+              ) : undefined}
               onNew={createSession}
               onPromptSuggestion={(prompt) => composerRef.current?.setText(prompt)}
               onPermissionModeChange={(mode) => void setPermissionMode(mode)}

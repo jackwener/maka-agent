@@ -564,6 +564,12 @@ export function ChatView(props: {
   activeConnectionLabel?: string;
   activeModelLabel?: string;
   mode: NavSelection['section'];
+  /**
+   * When the user has no real LLM connection configured, the empty state
+   * defers to this slot. App renders `<OnboardingHero>` here; if undefined,
+   * the regular prompt-suggestion hero shows.
+   */
+  emptyOverride?: ReactNode;
   onNew(): void;
   onPromptSuggestion?(prompt: string): void;
   onPermissionModeChange?(mode: PermissionMode): void;
@@ -619,7 +625,7 @@ export function ChatView(props: {
           <PermissionModeSwitcher mode="ask" disabled disabledReason="新建对话后再切换模式。" />
         </header>
         <div className="maka-chat messages">
-          <EmptyChatHero onPromptSuggestion={props.onPromptSuggestion} />
+          {props.emptyOverride ?? <EmptyChatHero onPromptSuggestion={props.onPromptSuggestion} />}
         </div>
       </main>
     );
@@ -657,7 +663,7 @@ export function ChatView(props: {
       <div className="maka-chat-shell">
         <div ref={scrollRef} className="maka-chat messages" onScroll={onScroll}>
           {chat.length === 0 && !props.streamingText && (
-            <EmptyChatHero onPromptSuggestion={props.onPromptSuggestion} />
+            props.emptyOverride ?? <EmptyChatHero onPromptSuggestion={props.onPromptSuggestion} />
           )}
           {chat.map((item) => (
             <article key={item.id} className={`maka-message-row message ${item.role}`}>

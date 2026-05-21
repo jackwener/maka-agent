@@ -645,6 +645,132 @@ button:active {
   -webkit-box-orient: vertical;
 }
 
+/* Onboarding hero — first-run, no real connection configured. */
+.maka-onboarding {
+  width: min(760px, 100%);
+  margin: auto;
+  padding: 24px 28px 8vh;
+  display: grid;
+  gap: 24px;
+  color: var(--foreground);
+}
+
+.maka-onboarding header {
+  display: grid;
+  gap: 10px;
+}
+
+.maka-onboarding-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.maka-onboarding header h1 {
+  margin: 0;
+  max-width: 24ch;
+  color: var(--foreground);
+  font-size: clamp(26px, 3vw, 36px);
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.maka-onboarding header p {
+  margin: 0;
+  max-width: 60ch;
+  color: var(--foreground-60);
+  font-size: 14px;
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+.maka-onboarding-grid {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(248px, 1fr));
+  gap: 10px;
+}
+
+.maka-onboarding-card {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 14px;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--background-elevated);
+  color: var(--foreground);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    transform 140ms var(--ease-out-strong);
+}
+
+.maka-onboarding-card:hover {
+  border-color: oklch(from var(--accent) l c h / 0.32);
+  background: oklch(from var(--accent) l c h / 0.05);
+  transform: translateY(-1px);
+}
+
+.maka-onboarding-card-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.maka-onboarding-card-copy strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.maka-onboarding-card-copy small {
+  color: var(--foreground-60);
+  font-size: 12px;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.maka-onboarding-card > :last-child {
+  color: var(--foreground-40);
+}
+
+.maka-onboarding-footer {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.maka-onboarding-skip {
+  border: 0;
+  background: transparent;
+  color: var(--foreground-60);
+  cursor: pointer;
+  font-size: 13px;
+  text-decoration: none;
+  padding: 6px 4px;
+}
+
+.maka-onboarding-skip:hover {
+  color: var(--foreground);
+  text-decoration: underline;
+}
+
 .maka-list-row-name {
   overflow: hidden;
   text-overflow: ellipsis;
