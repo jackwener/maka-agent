@@ -38,12 +38,20 @@ export interface VisualSmokeFixture {
    * surface without depending on the host OS accessibility setting.
    */
   reducedMotion: boolean;
+  /**
+   * PR-IR-01: when set, the renderer auto-captures a screenshot after
+   * the fixture settles. The variant name becomes the filename under
+   * `<scenario>/<variant>.png`. Validated against `[a-zA-Z0-9._-]+`
+   * — anything else fails closed.
+   */
+  autoCaptureVariant: string | null;
 }
 
 export function resolveVisualSmokeFixture(
   rawScenario: string | undefined,
   isPackaged: boolean,
   rawReducedMotion: string | undefined = undefined,
+  rawAutoCaptureVariant: string | undefined = undefined,
 ): VisualSmokeFixture | null {
   if (!rawScenario) return null;
   if (isPackaged) {
@@ -54,10 +62,12 @@ export function resolveVisualSmokeFixture(
   }
   const scenario = rawScenario as VisualSmokeScenario;
   const reducedMotion = parseReducedMotionFlag(rawReducedMotion);
+  const autoCaptureVariant = parseAutoCaptureVariant(rawAutoCaptureVariant);
   return {
     scenario,
     workspaceName: `visual-smoke-${scenario}`,
     reducedMotion,
+    autoCaptureVariant,
   };
 }
 
@@ -67,12 +77,26 @@ function parseReducedMotionFlag(raw: string | undefined): boolean {
   return normalized === '1' || normalized === 'true' || normalized === 'yes';
 }
 
+/**
+ * Validate the auto-capture variant name. Must be `[a-zA-Z0-9._-]+` (no
+ * slashes, no `..`, no whitespace). Fail-closed for invalid input.
+ */
+function parseAutoCaptureVariant(raw: string | undefined): string | null {
+  if (raw === undefined) return null;
+  const trimmed = raw.trim();
+  if (trimmed.length === 0 || trimmed.length > 64) return null;
+  if (!/^[a-zA-Z0-9._-]+$/.test(trimmed)) return null;
+  if (trimmed === '.' || trimmed === '..') return null;
+  return trimmed;
+}
+
 export function getVisualSmokeState(fixture: VisualSmokeFixture | null): VisualSmokeState | null {
   if (!fixture) return null;
   const state: VisualSmokeState = {
     enabled: true,
     scenario: fixture.scenario,
     ...(fixture.reducedMotion ? { reducedMotion: true } : {}),
+    ...(fixture.autoCaptureVariant ? { autoCaptureVariant: fixture.autoCaptureVariant } : {}),
   };
   switch (fixture.scenario) {
     case 'first-run':

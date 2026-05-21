@@ -36,6 +36,32 @@ describe('visual smoke fixture mode', () => {
       scenario: 'provider-workspace',
       workspaceName: 'visual-smoke-provider-workspace',
       reducedMotion: false,
+      autoCaptureVariant: null,
+    });
+  });
+
+  describe('auto-capture variant (PR-IR-01)', () => {
+    it('defaults to null when env var unset', () => {
+      const fixture = resolveVisualSmokeFixture('all', false);
+      assert.equal(fixture?.autoCaptureVariant, null);
+      const state = getVisualSmokeState(fixture);
+      assert.equal(state?.autoCaptureVariant, undefined);
+    });
+
+    it('accepts well-formed variant names', () => {
+      for (const raw of ['light-1280-motion', 'dark-990-reduced-motion', 'narrow_1024']) {
+        const fixture = resolveVisualSmokeFixture('all', false, undefined, raw);
+        assert.equal(fixture?.autoCaptureVariant, raw, `raw=${JSON.stringify(raw)}`);
+        const state = getVisualSmokeState(fixture);
+        assert.equal(state?.autoCaptureVariant, raw, `raw=${JSON.stringify(raw)}`);
+      }
+    });
+
+    it('rejects path-traversal / unsafe variant names (fail-closed)', () => {
+      for (const raw of ['../escape', '.', '..', 'with/slash', 'with space', 'a'.repeat(65), '']) {
+        const fixture = resolveVisualSmokeFixture('all', false, undefined, raw);
+        assert.equal(fixture?.autoCaptureVariant, null, `raw=${JSON.stringify(raw)} should fail-closed`);
+      }
     });
   });
 

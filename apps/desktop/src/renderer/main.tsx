@@ -319,6 +319,25 @@ function AppShell() {
     if (state.openSettingsSection) {
       openSettingsSection(state.openSettingsSection);
     }
+    // PR-IR-01: when MAKA_VISUAL_SMOKE_AUTO_CAPTURE is set, snap a
+    // screenshot once the fixture has settled and the renderer has
+    // committed. We wait two RAFs + a small idle delay so async layout
+    // (Settings modal mount, sidebar group rendering, etc.) finishes
+    // before the capture lands. The driver script reads the stdout
+    // marker emitted from main and kills the subprocess after.
+    if (state.autoCaptureVariant) {
+      const variant = state.autoCaptureVariant;
+      // Two RAFs + 400ms idle is the same pattern Chromium uses for
+      // settled layout in DevTools "Capture full size screenshot" —
+      // gives @starting-style + fonts + late-stream IPC time to flush.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            void window.maka.visualSmoke.capture({ scenario: state.scenario, variant });
+          }, 400);
+        });
+      });
+    }
   }
 
   // Hover-action callbacks for SessionListPanel. Each one calls the
