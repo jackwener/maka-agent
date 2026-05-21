@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, Menu, shell } from 'electron';
+import { isExternalUrl } from './external-link-guard.js';
 import { randomUUID } from 'node:crypto';
 import { mkdir, readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -145,12 +146,43 @@ async function createWindow(): Promise<void> {
     },
   });
 
+  // Two-layer external-link hygiene: assistant markdown often emits `<a href>`
+  // links to docs / GitHub / provider sign-up pages. Without these guards
+  // clicking such a link would either replace the renderer view with the
+  // remote page (breaking the app) or open a new BrowserWindow with full
+  // Node integration.
+  //
+  // 1. `setWindowOpenHandler` intercepts `target="_blank"` and JS `window.open`,
+  //    hands the URL to the OS, denies the in-app open.
+  // 2. `will-navigate` blocks plain `<a>` clicks that would replace the
+  //    renderer location with a non-file:// URL, opening externally instead.
+  //
+  // Both are gated on the URL using `http(s):` or `mailto:` — everything else
+  // (file://, electron internal, etc.) is allowed/denied per Electron defaults.
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (isExternalUrl(url)) {
+      void shell.openExternal(url);
+    }
+    return { action: 'deny' };
+  });
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    // Don't intercept the initial Vite dev-server load or the packaged file://
+    // renderer load — only block follow-up navigations away from the app.
+    const current = mainWindow?.webContents.getURL() ?? '';
+    if (current === url) return;
+    if (isExternalUrl(url)) {
+      event.preventDefault();
+      void shell.openExternal(url);
+    }
+  });
+
   if (process.env.VITE_DEV_SERVER_URL) {
     await mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
   } else {
     await mainWindow.loadFile(join(import.meta.dirname, '..', 'renderer', 'index.html'));
   }
 }
+
 
 function installApplicationMenu(): void {
   Menu.setApplicationMenu(
