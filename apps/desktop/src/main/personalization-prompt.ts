@@ -1,22 +1,35 @@
-import type { PersonalizationSettings } from '@maka/core';
+import type { PersonalizationSettings, PersonalizationSettingsWarning } from '@maka/core';
 
 export interface PersonalizationPromptFragment {
   text?: string;
-  warnings: string[];
+  warnings: PersonalizationSettingsWarning[];
 }
 
 const MAX_DISPLAY_NAME_LENGTH = 60;
 const MAX_ASSISTANT_TONE_LENGTH = 500;
 
-const SUSPICIOUS_PATTERNS: Array<{ code: string; pattern: RegExp }> = [
-  { code: 'ignore_previous', pattern: /\bignore\s+(all\s+)?previous\b/i },
-  { code: 'system_label', pattern: /\bsystem\s*:/i },
-  { code: 'identity_override', pattern: /\byou\s+are\s+now\b/i },
-  { code: 'permission_override', pattern: /\b(do\s+not|don't)\s+ask\s+(for\s+)?permission\b/i },
-  { code: 'approval_override', pattern: /\bwithout\s+(asking\s+for\s+)?approval\b/i },
-  { code: 'destructive_command', pattern: /\brm\s+-rf\b/i },
-  { code: 'privileged_command', pattern: /\bsudo\b/i },
-  { code: 'developer_override', pattern: /\bdeveloper\s+(message|instruction|mode)\b/i },
+const WARNING_ORDER: PersonalizationSettingsWarning[] = [
+  'override-attempt',
+  'sensitive-pattern',
+  'control-chars',
+];
+
+const OVERRIDE_PATTERNS: RegExp[] = [
+  /\bignore\s+(all\s+)?previous\b/i,
+  /\bsystem\s*:/i,
+  /\byou\s+are\s+now\b/i,
+  /\b(do\s+not|don't)\s+ask\s+(for\s+)?permission\b/i,
+  /\bwithout\s+(asking\s+for\s+)?approval\b/i,
+  /\brm\s+-rf\b/i,
+  /\bsudo\b/i,
+  /\bdeveloper\s+(message|instruction|mode)\b/i,
+];
+
+const SENSITIVE_PATTERNS: RegExp[] = [
+  /\b(api[_-]?key|secret|token|password|passwd|pwd)\b/i,
+  /\bsk-[a-z0-9_-]{12,}\b/i,
+  /\bghp_[a-z0-9_]{20,}\b/i,
+  /\bxox[baprs]-[a-z0-9-]{10,}\b/i,
 ];
 
 export function buildPersonalizationPromptFragment(
@@ -24,7 +37,7 @@ export function buildPersonalizationPromptFragment(
 ): PersonalizationPromptFragment {
   const displayName = sanitizeDisplayName(settings?.displayName ?? '');
   const assistantTone = sanitizeAssistantTone(settings?.assistantTone ?? '');
-  const warnings = detectSuspiciousTone(assistantTone);
+  const warnings = collectPersonalizationWarnings(settings);
 
   if (!displayName && !assistantTone) return { warnings };
 
@@ -75,11 +88,37 @@ export function sanitizeAssistantTone(value: string): string {
   return truncateCodepoints(normalized, MAX_ASSISTANT_TONE_LENGTH);
 }
 
-function detectSuspiciousTone(value: string): string[] {
-  if (!value) return [];
-  return SUSPICIOUS_PATTERNS
-    .filter(({ pattern }) => pattern.test(value))
-    .map(({ code }) => code);
+export function collectPersonalizationWarnings(
+  settings: Partial<PersonalizationSettings> | undefined,
+): PersonalizationSettingsWarning[] {
+  if (!settings) return [];
+  const rawDisplayName = settings.displayName ?? '';
+  const rawAssistantTone = settings.assistantTone ?? '';
+  const source = `${rawDisplayName}\n${rawAssistantTone}`;
+  const detected = new Set<PersonalizationSettingsWarning>();
+
+  if (OVERRIDE_PATTERNS.some((pattern) => pattern.test(source))) {
+    detected.add('override-attempt');
+  }
+  if (SENSITIVE_PATTERNS.some((pattern) => pattern.test(source))) {
+    detected.add('sensitive-pattern');
+  }
+  if (
+    removesControlOrFormatCharacters(rawDisplayName, sanitizeDisplayName(rawDisplayName))
+    || removesControlOrFormatCharacters(rawAssistantTone, sanitizeAssistantTone(rawAssistantTone))
+  ) {
+    detected.add('control-chars');
+  }
+
+  return WARNING_ORDER.filter((warning) => detected.has(warning));
+}
+
+function removesControlOrFormatCharacters(raw: string, sanitized: string): boolean {
+  const normalizedRaw = raw
+    .replace(/\r\n?/g, '\n')
+    .replace(/[^\S\n]+/g, ' ')
+    .trim();
+  return normalizedRaw !== sanitized && /[\u0000-\u001F\u007F-\u009F\p{Cf}]/u.test(raw);
 }
 
 function truncateCodepoints(value: string, maxLength: number): string {

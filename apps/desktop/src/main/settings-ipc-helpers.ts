@@ -3,9 +3,11 @@ import type {
   BotProvider,
   SettingsTestResult,
   UpdateAppSettingsInput,
+  UpdateAppSettingsResult,
 } from '@maka/core';
 import { SENSITIVE_PLACEHOLDER, maskSensitive } from '@maka/core/settings/network-settings';
 import type { BotTestResult } from '@maka/runtime';
+import { collectPersonalizationWarnings } from './personalization-prompt.js';
 
 export function preserveSensitivePlaceholders(
   patch: UpdateAppSettingsInput,
@@ -80,6 +82,17 @@ export function maskAppSettings(settings: AppSettings, revealPatch: UpdateAppSet
         ]),
       ) as AppSettings['botChat']['channels'],
     },
+  };
+}
+
+export function buildSettingsUpdateResult(
+  settings: AppSettings,
+  patch: UpdateAppSettingsInput,
+): UpdateAppSettingsResult {
+  const personalization = collectPersonalizationWarnings(patch.personalization);
+  return {
+    settings: maskAppSettings(settings, patch),
+    ...(personalization.length ? { warnings: { personalization } } : {}),
   };
 }
 

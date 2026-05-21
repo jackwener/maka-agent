@@ -17,6 +17,7 @@ import type {
   StoredMessage,
   UpdateConnectionInput,
   UpdateAppSettingsInput,
+  UpdateAppSettingsResult,
   UsageRange,
   UsageStats,
 } from '@maka/core';
@@ -115,7 +116,7 @@ contextBridge.exposeInMainWorld('maka', {
     get(): Promise<AppSettings> {
       return ipcRenderer.invoke('settings:get');
     },
-    update(patch: UpdateAppSettingsInput): Promise<AppSettings> {
+    update(patch: UpdateAppSettingsInput): Promise<UpdateAppSettingsResult> {
       return ipcRenderer.invoke('settings:update', patch);
     },
     testNetworkProxy(input?: TestProxyInput): Promise<SettingsTestResult> {

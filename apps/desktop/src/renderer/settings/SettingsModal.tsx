@@ -23,9 +23,11 @@ import type {
   BotProvider,
   LlmConnection,
   NetworkProxySettings,
+  PersonalizationSettingsWarning,
   SettingsSection,
   ThemePreference,
   UiDensity,
+  UpdateAppSettingsResult,
   UsageRange,
   UsageStats,
 } from '@maka/core';
@@ -272,12 +274,13 @@ function SettingsSurface(props: {
   }
 
   async function updateSettings(patch: Parameters<typeof window.maka.settings.update>[0]) {
-    const next = await window.maka.settings.update(patch);
+    const result = await window.maka.settings.update(patch);
+    const next = result.settings;
     setSettings(next);
     if (patch.personalization?.displayName !== undefined) {
       props.onUserLabelChange?.(next.personalization.displayName);
     }
-    return next;
+    return result;
   }
 
   async function reloadUsage(range: UsageRange = settings.usage.range) {
@@ -364,7 +367,7 @@ function SettingsPage(props: {
   themePref: ThemePreference;
   density: UiDensity;
   onRefreshConnections(): Promise<void>;
-  onUpdateSettings(patch: Parameters<typeof window.maka.settings.update>[0]): Promise<AppSettings>;
+  onUpdateSettings(patch: Parameters<typeof window.maka.settings.update>[0]): Promise<UpdateAppSettingsResult>;
   onReloadUsage(range?: UsageRange): Promise<void>;
   onThemeChange(pref: ThemePreference): void;
   onDensityChange(density: UiDensity): void;
@@ -769,7 +772,7 @@ function DataSettingsPage() {
 
 function PersonalizationSettingsPage(props: {
   settings: AppSettings;
-  onUpdate(patch: Parameters<typeof window.maka.settings.update>[0]): Promise<AppSettings>;
+  onUpdate(patch: Parameters<typeof window.maka.settings.update>[0]): Promise<UpdateAppSettingsResult>;
 }) {
   const value = props.settings.personalization;
   const [displayName, setDisplayName] = useState(value.displayName);
@@ -780,13 +783,15 @@ function PersonalizationSettingsPage(props: {
   async function save() {
     setSaving(true);
     try {
-      await props.onUpdate({
+      const result = await props.onUpdate({
         personalization: {
           displayName: displayName.trim().slice(0, 60),
           assistantTone: assistantTone.trim().slice(0, 500),
         },
       });
       toast.success('个性化已保存');
+      const warnings = collectPersonalizationWarningCopy(result.warnings?.personalization ?? []);
+      if (warnings) toast.warning('个性化已按低优先级偏好保存', warnings);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       toast.error('保存失败', message);
@@ -844,6 +849,16 @@ function PersonalizationSettingsPage(props: {
   );
 }
 
+function collectPersonalizationWarningCopy(warnings: PersonalizationSettingsWarning[]): string | undefined {
+  if (warnings.length === 0) return undefined;
+  const copy: Record<PersonalizationSettingsWarning, string> = {
+    'override-attempt': '检测到类似 system/developer/permission override 的指令式内容，已作为低优先级偏好处理。',
+    'sensitive-pattern': '检测到疑似密钥、token 或密码内容；不会在提示或日志里回显原文。',
+    'control-chars': '已清理不可见控制字符，避免影响提示结构。',
+  };
+  return warnings.map((warning) => copy[warning]).join('\n');
+}
+
 const DENSITY_OPTIONS: Array<{ value: UiDensity; label: string; help: string }> = [
   { value: 'compact', label: '紧凑', help: '减小行间距与控件高度，更接近 IDE 风格。' },
   { value: 'comfortable', label: '舒适', help: '默认。平衡阅读和密度。' },
@@ -853,7 +868,7 @@ const DENSITY_OPTIONS: Array<{ value: UiDensity; label: string; help: string }> 
 function ThemeSettingsPage(props: {
   themePref: ThemePreference;
   density: UiDensity;
-  onUpdate(patch: Parameters<typeof window.maka.settings.update>[0]): Promise<AppSettings>;
+  onUpdate(patch: Parameters<typeof window.maka.settings.update>[0]): Promise<UpdateAppSettingsResult>;
   onThemeChange(pref: ThemePreference): void;
   onDensityChange(density: UiDensity): void;
 }) {
@@ -925,7 +940,7 @@ function ThemeSettingsPage(props: {
 
 function NetworkSettingsPage(props: {
   settings: AppSettings;
-  onUpdate(patch: Parameters<typeof window.maka.settings.update>[0]): Promise<AppSettings>;
+  onUpdate(patch: Parameters<typeof window.maka.settings.update>[0]): Promise<UpdateAppSettingsResult>;
 }) {
   const proxy = props.settings.network.proxy;
   const [testing, setTesting] = useState(false);
@@ -1046,7 +1061,7 @@ function toProxyTestInput(proxy: NetworkProxySettings): TestProxyInput {
 
 function BotChatSettingsPage(props: {
   settings: AppSettings;
-  onUpdate(patch: Parameters<typeof window.maka.settings.update>[0]): Promise<AppSettings>;
+  onUpdate(patch: Parameters<typeof window.maka.settings.update>[0]): Promise<UpdateAppSettingsResult>;
 }) {
   const [selected, setSelected] = useState<BotProvider>('telegram');
   const [testing, setTesting] = useState(false);
@@ -1128,7 +1143,7 @@ function BotChatSettingsPage(props: {
 function UsageSettingsPage(props: {
   settings: AppSettings;
   stats: UsageStats | null;
-  onUpdate(patch: Parameters<typeof window.maka.settings.update>[0]): Promise<AppSettings>;
+  onUpdate(patch: Parameters<typeof window.maka.settings.update>[0]): Promise<UpdateAppSettingsResult>;
   onReload(range?: UsageRange): Promise<void>;
 }) {
   const usage = props.settings.usage;
