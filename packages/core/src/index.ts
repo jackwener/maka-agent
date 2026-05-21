@@ -35,6 +35,8 @@ export type {
 export type {
   SessionHeader,
   SessionSummary,
+  SessionChangedEvent,
+  SessionChangedReason,
   BackendKind,
   StoredMessage,
   UserMessage,
