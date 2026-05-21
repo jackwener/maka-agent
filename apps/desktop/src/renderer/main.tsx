@@ -474,7 +474,7 @@ function AppShell() {
             onSelectSession={setActiveId}
             onOpenSettings={openSettings}
             onNew={createSession}
-            onOpenSkillFolder={(path) => void window.maka.app.openPath(path)}
+            onOpenSkillFolder={() => void window.maka.app.openPath('skills')}
             rowActions={{
               onToggleFlag: (sessionId, next) => void flagSession(sessionId, next),
               onArchive: (sessionId) => void archiveSession(sessionId),

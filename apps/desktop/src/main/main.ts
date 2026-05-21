@@ -64,6 +64,7 @@ import {
   requireReadyConnection,
 } from './chat-readiness.js';
 import { createSafeStorageCredentialStore } from './credential-store.js';
+import { resolveOpenPath, type OpenPathResult } from './open-path-guard.js';
 import { buildPersonalizationPromptFragment } from './personalization-prompt.js';
 import { maskAppSettings, preserveSensitivePlaceholders, toSettingsTestResult } from './settings-ipc-helpers.js';
 
@@ -307,12 +308,12 @@ function registerIpc(): void {
     osRelease: osRelease(),
     workspacePath: workspaceRoot,
   }));
-  ipcMain.handle('app:openPath', async (_event, target: string) => {
-    // Whitelist: only let renderer open paths inside the workspace root, so a
-    // compromised page can't probe arbitrary FS via Electron.shell.
-    const normalized = join(target);
-    if (!normalized.startsWith(workspaceRoot)) throw new Error('Path outside workspace');
-    return shell.openPath(normalized);
+  ipcMain.handle('app:openPath', async (_event, key: string): Promise<OpenPathResult> => {
+    const resolved = await resolveOpenPath({ key, workspaceRoot });
+    if (!resolved.ok) return resolved;
+    const error = await shell.openPath(resolved.path);
+    if (error) return { ok: false, reason: 'open-failed' };
+    return { ok: true, opened: resolved.key };
   });
   ipcMain.handle('skills:list', async () => listInstalledSkills(workspaceRoot));
   ipcMain.handle('sessions:list', (_event, filter?: SessionListFilter) => runtime.listSessions(filter));

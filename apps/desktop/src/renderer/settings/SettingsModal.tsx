@@ -515,13 +515,8 @@ function DataSettingsPage() {
 
   async function openWorkspace() {
     if (!info) return;
-    try {
-      const result = await window.maka.app.openPath(info.workspacePath);
-      if (result) toast.error('打开失败', result);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      toast.error('打开失败', message);
-    }
+    const result = await window.maka.app.openPath('workspace');
+    if (!result.ok) toast.error('打开失败', openPathFailureCopy(result.reason));
   }
 
   async function copyPath() {
@@ -573,6 +568,23 @@ function DataSettingsPage() {
       </div>
     </div>
   );
+}
+
+function openPathFailureCopy(reason: string): string {
+  switch (reason) {
+    case 'unknown-key':
+      return '未知的工作区目录。';
+    case 'not-allowed':
+      return '路径不在允许打开的工作区范围内。';
+    case 'missing':
+      return '目录不存在。';
+    case 'not-a-directory':
+      return '目标不是目录。';
+    case 'open-failed':
+      return '系统没有打开该目录。';
+    default:
+      return '无法打开目录。';
+  }
 }
 
 function PersonalizationSettingsPage(props: {
