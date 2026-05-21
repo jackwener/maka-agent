@@ -755,7 +755,7 @@ export function ChatView(props: {
           <PermissionModeSwitcher mode="ask" disabled disabledReason="新建对话后再切换模式。" />
         </header>
         <div className="maka-chat messages">
-          {props.emptyOverride ?? <EmptyChatHero onPromptSuggestion={props.onPromptSuggestion} />}
+          {props.emptyOverride ?? <EmptyChatHero onPromptSuggestion={props.onPromptSuggestion} userLabel={props.userLabel} />}
         </div>
       </main>
     );
@@ -797,7 +797,7 @@ export function ChatView(props: {
       <div className="maka-chat-shell">
         <div ref={scrollRef} className="maka-chat messages" onScroll={onScroll}>
           {chat.length === 0 && !props.streamingText && (
-            props.emptyOverride ?? <EmptyChatHero onPromptSuggestion={props.onPromptSuggestion} />
+            props.emptyOverride ?? <EmptyChatHero onPromptSuggestion={props.onPromptSuggestion} userLabel={props.userLabel} />
           )}
           {chat.map((item) => (
             <article
@@ -982,12 +982,19 @@ function collectCodeText(children: ReactNode): string {
   return '';
 }
 
-function EmptyChatHero(props: { onPromptSuggestion?(prompt: string): void }) {
+function EmptyChatHero(props: { onPromptSuggestion?(prompt: string): void; userLabel?: string }) {
+  // Greet the user by name when they've set one in Personalization Settings.
+  // Falls back to a neutral title so first-run users don't see "Hi 你, …".
+  const label = props.userLabel?.trim();
   return (
     <div className="emptyChat compact">
       <span className="eyebrow">Maka</span>
-      <h1>What should we work on?</h1>
-      <p>Describe the change, question, or investigation — or pick a starting point below.</p>
+      <h1>
+        {label
+          ? `${label}，今天想一起做点什么？`
+          : '想一起做点什么？'}
+      </h1>
+      <p>说一下你要改的、想问的、想查的；下面是几个常用起点。</p>
       {props.onPromptSuggestion && (
         <ul className="maka-prompt-suggestions" aria-label="Prompt suggestions">
           {PROMPT_SUGGESTIONS.map((suggestion) => (
