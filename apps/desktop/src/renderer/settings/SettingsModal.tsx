@@ -426,7 +426,13 @@ function SettingsPage(props: {
     case 'data':
       return <DataSettingsPage />;
     case 'account':
-      return <AccountSettingsPage connections={props.connections} defaultSlug={props.defaultSlug} />;
+      return (
+        <AccountSettingsPage
+          connections={props.connections}
+          defaultSlug={props.defaultSlug}
+          onRefresh={props.onRefreshConnections}
+        />
+      );
     default: {
       const copy = COMING_SOON_PAGES[props.section];
       if (copy) {
@@ -645,12 +651,18 @@ const THEME_OPTIONS: Array<{ value: ThemePreference; label: string; help: string
   { value: 'auto', label: '跟随系统', help: '匹配 macOS 的当前 Light/Dark 偏好。' },
 ];
 
-function AccountSettingsPage(props: { connections: LlmConnection[]; defaultSlug: string | null }) {
+function AccountSettingsPage(props: {
+  connections: LlmConnection[];
+  defaultSlug: string | null;
+  onRefresh(): Promise<void>;
+}) {
   // Backend (xuan, 5ca1f8a) persists per-connection lastTestStatus. UI
   // derives the display status from `enabled + hasSecret + defaultModel +
   // lastTestStatus + authKind` per @kenji's status-contract priority list,
   // so we never produce mixed labels like "disabled + verified".
   const [secretMap, setSecretMap] = useState<Record<string, boolean>>({});
+  const [testingSlug, setTestingSlug] = useState<string | null>(null);
+  const toast = useToast();
 
   useEffect(() => {
     let cancelled = false;
@@ -671,6 +683,27 @@ function AccountSettingsPage(props: { connections: LlmConnection[]; defaultSlug:
       cancelled = true;
     };
   }, [props.connections]);
+
+  async function testConnection(slug: string) {
+    setTestingSlug(slug);
+    try {
+      const result = await window.maka.connections.test(slug);
+      if (result.ok) {
+        toast.success('连接已验证', `延迟 ${result.latencyMs ?? '?'} ms${result.modelTested ? ' · ' + result.modelTested : ''}`);
+      } else {
+        toast.error('连接测试失败', result.errorMessage ?? '未知错误');
+      }
+    } catch (error) {
+      // Main is supposed to return a structured result; if something escapes
+      // to throw form, surface the generalized message anyway.
+      toast.error('测试出错', error instanceof Error ? error.message : String(error));
+    } finally {
+      setTestingSlug(null);
+      // Pull the freshest lastTestStatus/lastTestAt/lastTestMessage so the
+      // row re-renders with the new derived status without a Settings reopen.
+      await props.onRefresh();
+    }
+  }
 
   const enabledCount = props.connections.filter((connection) => connection.enabled).length;
   const totalCount = props.connections.length;
@@ -705,6 +738,9 @@ function AccountSettingsPage(props: { connections: LlmConnection[]; defaultSlug:
               connection={connection}
               hasSecret={secretMap[connection.slug] ?? false}
               isDefault={connection.slug === props.defaultSlug}
+              testing={testingSlug === connection.slug}
+              canTest={testingSlug === null}
+              onTest={() => void testConnection(connection.slug)}
             />
           ))}
         </div>
@@ -721,6 +757,9 @@ function AccountConnectionRow(props: {
   connection: LlmConnection;
   hasSecret: boolean;
   isDefault: boolean;
+  testing: boolean;
+  canTest: boolean;
+  onTest(): void;
 }) {
   const status: ConnectionUiStatus = connectionUiStatusFromRecord(props.connection, props.hasSecret);
   const presentation = presentConnectionUiStatus(status);
@@ -757,6 +796,17 @@ function AccountConnectionRow(props: {
           {lastTestAt && <time dateTime={props.connection.lastTestAt}>{lastTestAt}</time>}
         </p>
       )}
+      <div className="settingsConnectionActions">
+        <button
+          type="button"
+          className="maka-button"
+          data-size="sm"
+          disabled={!props.connection.enabled || !props.canTest}
+          onClick={props.onTest}
+        >
+          {props.testing ? '测试中…' : '测试连接'}
+        </button>
+      </div>
     </div>
   );
 }

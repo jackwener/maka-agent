@@ -3287,6 +3287,13 @@ button:active {
   font-family: var(--font-mono);
 }
 
+.settingsConnectionActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
 .providerEmpty,
 .providerCard,
 .settingsRow {
