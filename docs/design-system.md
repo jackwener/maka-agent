@@ -1247,15 +1247,46 @@ destructive icon）。
 ### 9.9 Turn control 契约（@kenji item 4）
 
 `retry / regenerate / branch-from-turn / cancel / checkpoint-before-tools` 是
-turn-level contract，目前 Maka 只有 `stop`（通过 PR66 的 Composer Stop 按钮）。
+turn-level contract。PR109c 落下第一版 runtime/storage contract；footer UI
+在 PR109d 消费。
+
+**状态机**：
+
+| 状态 | 含义 | 持久化 |
+|---|---|---|
+| `running` | turn 已开始，后端仍在流式/工具/permission handoff 中 | `turn_state` |
+| `completed` | 正常完成或 regenerate/retry 后的新 sibling 完成 | `turn_state` |
+| `aborted` | 用户 cancel/stop；不是 error | `turn_state.abortedAt` + `partialOutputRetained` |
+| `failed` | runtime/backend/tool 失败 | `turn_state.errorClass` |
+
+**字段**：
+
+```ts
+interface TurnRecord {
+  turnId: string;
+  status: 'running' | 'completed' | 'aborted' | 'failed';
+  parentTurnId?: string;
+  retriedFromTurnId?: string;
+  regeneratedFromTurnId?: string;
+  branchOfTurnId?: string;
+  parentSessionId?: string;
+  abortedAt?: number;
+  errorClass?: string;
+  partialOutputRetained: boolean;
+}
+```
+
+Lineage 只写正向字段。旧 turn immutable：除自身 `running →
+completed/aborted/failed` 的状态变化外，未来 sibling 出现不会回写旧 turn。
+UI 需要 "已重试 →" / "已重新生成 →" 时，从当前 turn list derive 反向 map。
 
 **操作清单**：
 
 | 操作 | 触发位置 | 持久化影响 | 不变量 |
 |---|---|---|---|
-| `retry` | turn footer hover action | 写新 turn，旧 turn 保留 + 标记 `retried_from` | **旧 turn 输出不可被覆盖** |
-| `regenerate` | assistant message footer hover | 同 retry，但用相同 user message | **旧 turn 输出不可被覆盖** |
-| `branch-from-turn` | turn header context menu | 创建新 session，复制至此 turn 的所有消息 | 原 session 不变 |
+| `retry` | failed/aborted turn footer | 复用同 user message 创建新 sibling turn，写 `retriedFromTurnId` | **旧 turn 输出不可被覆盖** |
+| `regenerate` | completed assistant footer | 复用同 user message 创建新 sibling turn，写 `regeneratedFromTurnId` | **旧 completed answer 不可被覆盖** |
+| `branch-from-turn` | turn header context menu | 创建新 session，写 `parentSessionId` + `branchOfTurnId`，复制消息上下文到 turn boundary | 原 session 不变；v1 不复制 artifact bytes |
 | `cancel` | streaming 中的 Stop / Esc | turn 落 `aborted` 状态，partial output 保留 | cancel 必须显式标 `aborted`，不可隐式删 |
 | `checkpoint-before-tools` | 自动（如果 turn 含 destructive tool） | 在 destructive tool 之前 snapshot workspace | snapshot 失败 → 阻止 tool 调用 |
 
@@ -1263,12 +1294,22 @@ turn-level contract，目前 Maka 只有 `stop`（通过 PR66 的 Composer Stop 
 - 每个 assistant message 底部 hover 区域显示 `↻ 重试 / 🌿 分支 / 📋 复制`
 - 取消时 message 文本前端追加灰色斜体 "(已中断)"
 - Branch 后 sidebar 立刻显示新 session 并自动 select
+- Branch 支持 aborted 起点；copy 到中断前最后可用 boundary，UI 文案「从中断前分支」
+
+**IPC / projection（PR109c）**：
+- `sessions:listTurns(sessionId) -> TurnRecord[]`
+- `sessions:retryTurn(sessionId, { sourceTurnId, turnId? })`
+- `sessions:regenerateTurn(sessionId, { sourceTurnId, turnId? })`
+- `sessions:branchFromTurn(sessionId, { sourceTurnId, name? }) -> SessionSummary`
+- `SessionChangedReason` 新增 `turn-status-change`
+- `@maka/ui` `TurnViewModel` surface 同名字段；`deriveTurnLineageMap()`
+  只 derive 反向 UI 链接，不持久化反向字段
 
 **Gate**：
-- node:test 钉死 `aborted` 状态机：cancel 时 turn.status === 'aborted' 且
-  partial output 不被丢弃
-- smoke path `turn-control-affordances`：seed 一个含 5 个 turn 的 session，验
-  retry/regenerate/branch 各一次
+- node:test 钉死 `aborted` 状态机：cancel 时 `turn.status === 'aborted'` 且
+  partial output 不被丢弃；retry/regenerate 创建新 sibling；branch 复制边界
+- smoke path `turn-control-affordances`（PR109d）：seed 一个含 5 个 turn 的
+  session，验 retry/regenerate/branch 各一次
 
 ### 9.10 Sources / Skills / Automations 可见系统（@kenji item 5）
 
