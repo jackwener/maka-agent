@@ -1314,20 +1314,29 @@
   /* ---- Buttons ---------------------------------------------------- */
 
   .maka-button {
+    /* PR-UI-LAYOUT-12: button polish for warm canvas.
+     * - Padding 6/12 → 7/14 — more comfortable hit target.
+     * - Min-height pinned at 32px (was implicit; varied by content).
+     * - Focus ring added (was missing — only browser default outline). */
     appearance: none;
+    min-height: 32px;
     border: 1px solid var(--border);
     background: var(--background);
     color: var(--foreground);
-    padding: 6px 12px;
+    padding: 7px 14px;
     border-radius: var(--radius-button);
     font-size: 13px;
     font-weight: 500;
     line-height: 1.2;
     cursor: pointer;
-    transition: background 120ms ease, border-color 120ms ease, color 120ms ease, transform 120ms ease;
+    transition: background 120ms ease, border-color 120ms ease, color 120ms ease, transform 120ms ease, box-shadow 120ms ease;
   }
   .maka-button:hover  { background: var(--hover); }
-  .maka-button:active { background: var(--active); }
+  .maka-button:active { background: var(--active); transform: translateY(0.5px); }
+  .maka-button:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.16);
+  }
   .maka-button[disabled],
   .maka-button[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
 
@@ -1339,12 +1348,18 @@
   .maka-button[data-variant="primary"]:hover {
     background: oklch(from var(--accent) calc(l - 0.03) c h);
   }
+  .maka-button[data-variant="primary"]:focus-visible {
+    box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.28);
+  }
   .maka-button[data-variant="destructive"] {
     border-color: oklch(from var(--destructive) l c h / 0.35);
     color: var(--destructive-text);
   }
   .maka-button[data-variant="destructive"]:hover {
     background: oklch(from var(--destructive) l c h / 0.08);
+  }
+  .maka-button[data-variant="destructive"]:focus-visible {
+    box-shadow: 0 0 0 3px oklch(from var(--destructive) l c h / 0.20);
   }
   .maka-button[data-variant="ghost"] {
     border-color: transparent;
