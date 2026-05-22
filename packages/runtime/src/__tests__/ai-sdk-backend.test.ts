@@ -34,6 +34,48 @@ describe('AiSdkBackend error surfaces', () => {
   });
 });
 
+describe('AiSdkBackend stop', () => {
+  test('rejects parked permission requests for the active turn', async () => {
+    const permissionEngine = new PermissionEngine({ newId: () => 'permission-id', now: () => 1 });
+    permissionEngine.beginTurn('turn-1');
+    const verdict = permissionEngine.evaluate({
+      sessionId: 'session-1',
+      turnId: 'turn-1',
+      toolUseId: 'tool-1',
+      toolName: 'Write',
+      args: { path: 'notes.md', content: 'hello' },
+      mode: 'ask',
+    });
+    assert.equal(verdict.kind, 'prompt');
+    assert.equal(permissionEngine.pendingCount('turn-1'), 1);
+    const parked = verdict.kind === 'prompt'
+      ? verdict.parked.then(
+          () => 'resolved',
+          (error: Error) => error.message,
+        )
+      : Promise.resolve('not-prompt');
+    const backend = new AiSdkBackend({
+      sessionId: 'session-1',
+      header: header(),
+      appendMessage: async () => {},
+      connection: connection(),
+      apiKey: 'sk-test',
+      modelId: 'claude-sonnet-4-5-20250929',
+      permissionEngine,
+      modelFactory: () => ({}),
+      tools: [],
+      newId: idGenerator(),
+      now: () => 1,
+    });
+
+    (backend as unknown as { currentTurnId: string }).currentTurnId = 'turn-1';
+    await backend.stop('user_stop');
+
+    assert.match(await parked, /Turn turn-1 aborted before permission request permission-id was answered/);
+    assert.equal(permissionEngine.pendingCount('turn-1'), 0);
+  });
+});
+
 function header(): SessionHeader {
   return {
     id: 'session-1',

@@ -733,6 +733,9 @@ export class AiSdkBackend implements AgentBackend {
   async stop(_reason: 'user_stop' | 'redirect'): Promise<void> {
     this.aborted = true;
     this.abortController?.abort();
+    if (this.currentTurnId !== null) {
+      this.input.permissionEngine.endTurn(this.currentTurnId, 'aborted');
+    }
   }
 
   async respondToPermission(decision: PermissionDecision): Promise<void> {
