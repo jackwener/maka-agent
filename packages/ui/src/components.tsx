@@ -734,14 +734,54 @@ const BLOCKED_REASON_TOOLTIP = {
 
 const SCROLL_BOTTOM_THRESHOLD = 64; // px
 
-const PROMPT_SUGGESTIONS: Array<{ label: string; prompt: string }> = [
-  { label: '总结代码库', prompt: '帮我总结当前代码库的目录结构和关键模块。' },
-  { label: '解释这段代码', prompt: '我贴一段代码进来，请帮我逐行解释它做什么、有没有坑：\n\n```\n\n```' },
-  { label: '规划一个新功能', prompt: '我想实现以下功能，请帮我拆任务、列依赖、估算工作量：\n\n' },
-  { label: '调试一个 bug', prompt: '我遇到一个 bug，现象是 ____，复现步骤是 ____，已经尝试过 ____。可能的原因是？' },
-  { label: '写单元测试', prompt: '请为下面这个模块写 node:test 覆盖关键路径：\n\n```ts\n\n```' },
-  { label: 'Code review', prompt: '请帮我 review 这段代码，重点关注可读性、错误处理和潜在性能问题：\n\n```\n\n```' },
-];
+/**
+ * PR-UI-14 (@yuejing 2026-05-22): locale-aware prompt suggestions.
+ *
+ * Audit §3.7 — the v1 chip set was 6 dev-heavy zh prompts (code review,
+ * unit tests, debugging…). Two problems:
+ *   1. English-locale users saw a wall of Chinese chips on first run.
+ *   2. Non-developer users (PMs, writers, students) saw nothing
+ *      universally relevant — the chips read as "Maka is only for
+ *      programmers".
+ *
+ * Fix: detect locale family (zh / en) via `navigator.language` and
+ * return a balanced mix of dev + general starting points. Each locale
+ * keeps 3 dev chips (codebase summary / explain code / Code review)
+ * for the power-user path and adds 3 general chips (read a long doc,
+ * translate, draft a message) so the empty-chat surface reads as a
+ * general assistant first, a coding assistant second.
+ */
+type PromptSuggestionLocale = 'zh' | 'en';
+type PromptSuggestion = { label: string; prompt: string };
+
+const PROMPT_SUGGESTIONS_BY_LOCALE: Record<PromptSuggestionLocale, PromptSuggestion[]> = {
+  zh: [
+    { label: '总结代码库', prompt: '帮我总结当前代码库的目录结构和关键模块。' },
+    { label: '解释这段代码', prompt: '我贴一段代码进来，请帮我逐行解释它做什么、有没有坑：\n\n```\n\n```' },
+    { label: '读一份长文', prompt: '我贴一篇文章/文档过来，请帮我提炼核心观点、列出关键事实、找出我可能漏看的地方：\n\n' },
+    { label: '翻译并润色', prompt: '把下面这段翻译成英文，保持原意，语气专业自然：\n\n' },
+    { label: '起草一条消息', prompt: '帮我起草一条 ____ 风格的消息，对象是 ____，目的是 ____：\n\n要点：\n- \n- ' },
+    { label: 'Code review', prompt: '请帮我 review 这段代码，重点关注可读性、错误处理和潜在性能问题：\n\n```\n\n```' },
+  ],
+  en: [
+    { label: 'Summarize this codebase', prompt: 'Help me map this codebase: directory layout, key modules, and how they fit together.' },
+    { label: 'Explain this code', prompt: 'Paste a snippet — explain it line by line and flag any pitfalls:\n\n```\n\n```' },
+    { label: 'Read this for me', prompt: 'Here\'s an article or doc — pull out the core argument, list the key facts, and tell me what I might be missing:\n\n' },
+    { label: 'Translate & polish', prompt: 'Translate the text below into Chinese; keep the meaning, tone should stay natural and professional:\n\n' },
+    { label: 'Draft a message', prompt: 'Help me draft a ____ message to ____, with the goal of ____:\n\nPoints to cover:\n- \n- ' },
+    { label: 'Code review', prompt: 'Please review this code — readability, error handling, performance concerns:\n\n```\n\n```' },
+  ],
+};
+
+function detectPromptSuggestionLocale(): PromptSuggestionLocale {
+  if (typeof navigator === 'undefined') return 'zh';
+  const lang = navigator.language?.toLowerCase() ?? '';
+  return lang.startsWith('zh') ? 'zh' : 'en';
+}
+
+export function getPromptSuggestions(locale?: PromptSuggestionLocale): PromptSuggestion[] {
+  return PROMPT_SUGGESTIONS_BY_LOCALE[locale ?? detectPromptSuggestionLocale()];
+}
 
 function SessionRow(props: {
   session: SessionSummary;
@@ -1366,6 +1406,38 @@ function collectCodeText(children: ReactNode): string {
   return '';
 }
 
+/**
+ * Locale-aware copy bundle for the empty-chat hero. Mirrors the
+ * locale split applied to `PROMPT_SUGGESTIONS_BY_LOCALE` (PR-UI-14)
+ * so the eyebrow, headline, and intro paragraph don't fall back to
+ * Chinese while the chips switch to English.
+ */
+const EMPTY_HERO_COPY_BY_LOCALE: Record<PromptSuggestionLocale, {
+  ariaLabel: string;
+  eyebrow: string;
+  headlineWithLabel: (label: string) => string;
+  headlineFallback: string;
+  intro: string;
+  promptListLabel: string;
+}> = {
+  zh: {
+    ariaLabel: '开始对话',
+    eyebrow: 'READY · 想一起做点什么？',
+    headlineWithLabel: (label) => `${label}，今天想做点什么？`,
+    headlineFallback: '直接说说你想做什么。',
+    intro: '说一下你要改的、想问的、想查的；下面是几个常用起点，也可以直接在下方输入框里描述需求。',
+    promptListLabel: '提示建议',
+  },
+  en: {
+    ariaLabel: 'Start a conversation',
+    eyebrow: 'READY · What shall we work on?',
+    headlineWithLabel: (label) => `Hey ${label}, what shall we tackle today?`,
+    headlineFallback: 'Just tell me what you’re trying to do.',
+    intro: 'Describe what you want to change, ask, or look up. Here are a few common starting points — or just type in the composer below.',
+    promptListLabel: 'Prompt suggestions',
+  },
+};
+
 function EmptyChatHero(props: { onPromptSuggestion?(prompt: string): void; userLabel?: string }) {
   // Greet the user by name when they've set one in Personalization Settings.
   // Falls back to a neutral title so first-run users don't see "Hi 你, …".
@@ -1374,24 +1446,30 @@ function EmptyChatHero(props: { onPromptSuggestion?(prompt: string): void; userL
   // ReadyEmptyHero. Both heroes now use the same Sparkles-eyebrow chrome,
   // same headline scale, same chip suggestion grid — so users don't see
   // a jarring visual switch between "first-run" and "empty session" surfaces.
+  //
+  // PR-UI-14 (@yuejing 2026-05-22): locale-aware chips + hero copy. We
+  // detect `navigator.language` once per render and use it to pick both
+  // the prompt suggestion set and the surrounding copy bundle, so users
+  // on en locale never see a mixed-language hero.
   const label = props.userLabel?.trim();
+  const locale = detectPromptSuggestionLocale();
+  const copy = EMPTY_HERO_COPY_BY_LOCALE[locale];
+  const suggestions = getPromptSuggestions(locale);
   return (
-    <section className="maka-hero maka-hero-empty-chat" aria-label="开始对话">
+    <section className="maka-hero maka-hero-empty-chat" aria-label={copy.ariaLabel}>
       <header>
         <span className="maka-hero-eyebrow">
           <Sparkles size={12} strokeWidth={2} aria-hidden="true" />
-          <span>READY · 想一起做点什么？</span>
+          <span>{copy.eyebrow}</span>
         </span>
         <h1>
-          {label
-            ? `${label}，今天想做点什么？`
-            : '直接说说你想做什么。'}
+          {label ? copy.headlineWithLabel(label) : copy.headlineFallback}
         </h1>
-        <p>说一下你要改的、想问的、想查的；下面是几个常用起点，也可以直接在下方输入框里描述需求。</p>
+        <p>{copy.intro}</p>
       </header>
       {props.onPromptSuggestion && (
-        <ul className="maka-prompt-suggestions" aria-label="提示建议">
-          {PROMPT_SUGGESTIONS.map((suggestion) => (
+        <ul className="maka-prompt-suggestions" aria-label={copy.promptListLabel}>
+          {suggestions.map((suggestion) => (
             <li key={suggestion.label}>
               <button
                 type="button"
