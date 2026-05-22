@@ -16,6 +16,7 @@
     "./artifacts": "./dist/artifacts.js",
     "./runtime-inputs": "./dist/runtime-inputs.js",
     "./visual-smoke": "./dist/visual-smoke.js",
+    "./capabilities": "./dist/capabilities.js",
     "./backend-types": "./dist/backend-types.js",
     "./llm-connections": "./dist/llm-connections.js",
     "./connection-readiness": "./dist/connection-readiness.js",

@@ -82,6 +82,7 @@ import { connectionTestStatusPatch } from './connection-test-status.js';
 import { resolveOpenPath, type OpenPathResult } from './open-path-guard.js';
 import { buildPersonalizationPromptFragment } from './personalization-prompt.js';
 import { buildSettingsUpdateResult, maskAppSettings, preserveSensitivePlaceholders, toSettingsTestResult } from './settings-ipc-helpers.js';
+import { buildCapabilitySnapshotCollection, buildPermissionSnapshot } from './capability-snapshot.js';
 import {
   getVisualSmokeState,
   resolveVisualSmokeFixture,
@@ -917,6 +918,18 @@ function registerIpc(): void {
   // model-picker UI is ready.
   ipcMain.handle('quickChat:start', async (_event, input: unknown) => {
     return handleQuickChatStart(input);
+  });
+
+  ipcMain.handle('permissions:getSnapshot', () => buildPermissionSnapshot());
+  ipcMain.handle('capabilities:getSnapshot', async () => {
+    const permissions = buildPermissionSnapshot();
+    const settings = await settingsStore.get();
+    return buildCapabilitySnapshotCollection({
+      settings,
+      permissions,
+      botStatuses: botRegistry.allStatuses(),
+      now: permissions.checkedAt,
+    });
   });
 
   ipcMain.handle('settings:get', async () => maskAppSettings(await settingsStore.get()));

@@ -28,9 +28,11 @@ import type {
   ArtifactSaveResult,
   ArtifactTextReadResult,
   BranchFromTurnInput,
+  CapabilitySnapshotCollection,
   RegenerateTurnInput,
   RetryTurnInput,
   TurnRecord,
+  PermissionSnapshot,
 } from '@maka/core';
 import type {
   PricingConfig,
@@ -116,6 +118,12 @@ declare global {
       };
       quickChat: {
         start(input?: { prompt?: string }): Promise<QuickChatResult>;
+      };
+      permissions: {
+        getSnapshot(): Promise<PermissionSnapshot>;
+      };
+      capabilities: {
+        getSnapshot(): Promise<CapabilitySnapshotCollection>;
       };
       usage: {
         summary(query: UsageQuery): Promise<Result<UsageSummaryV2>>;

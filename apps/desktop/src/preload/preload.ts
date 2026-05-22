@@ -29,9 +29,11 @@ import type {
   ArtifactSaveResult,
   ArtifactTextReadResult,
   BranchFromTurnInput,
+  CapabilitySnapshotCollection,
   RegenerateTurnInput,
   RetryTurnInput,
   TurnRecord,
+  PermissionSnapshot,
 } from '@maka/core';
 import type {
   PricingConfig,
@@ -190,6 +192,16 @@ contextBridge.exposeInMainWorld('maka', {
      */
     start(input?: { prompt?: string }): Promise<QuickChatResult> {
       return ipcRenderer.invoke('quickChat:start', input);
+    },
+  },
+  permissions: {
+    getSnapshot(): Promise<PermissionSnapshot> {
+      return ipcRenderer.invoke('permissions:getSnapshot');
+    },
+  },
+  capabilities: {
+    getSnapshot(): Promise<CapabilitySnapshotCollection> {
+      return ipcRenderer.invoke('capabilities:getSnapshot');
     },
   },
   settings: {
