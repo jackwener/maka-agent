@@ -9,6 +9,21 @@ export interface ChatItem {
   ts?: number;
 }
 
+/**
+ * One chunk from PR-REAL-4 `tool_output_delta`. The renderer keeps these
+ * per-tool, sorted by `seq` (per-toolCallId monotonic), so out-of-order
+ * arrivals are repaired and duplicates dropped. `redacted: true` signals
+ * the runtime suppressed a secret in this chunk; the UI renders a small
+ * "[已脱敏]" hint instead of pretending the chunk arrived clean.
+ */
+export interface ToolOutputChunk {
+  seq: number;
+  stream: 'stdout' | 'stderr';
+  text: string;
+  redacted: boolean;
+  createdAt: number;
+}
+
 export interface ToolActivityItem {
   toolUseId: string;
   toolName: string;
@@ -18,6 +33,17 @@ export interface ToolActivityItem {
   args: unknown;
   result?: ToolResultContent;
   durationMs?: number;
+  /**
+   * Live streamed output buffer (PR-UI-12). Append-only from the
+   * renderer's perspective — runtime side already enforces the
+   * 256-char redaction tail and per-toolCallId seq monotonicity, so
+   * the UI only needs to:
+   *  - dedupe by `seq` (drop chunks whose seq already exists)
+   *  - keep the list sorted by `seq` (insert-sort on out-of-order)
+   *  - render in two visual streams (stdout / stderr) but preserve
+   *    the global seq order so interleaving reads correctly.
+   */
+  outputChunks?: ToolOutputChunk[];
 }
 
 // system_note kinds that we surface inline to the user. Everything else
@@ -67,6 +93,43 @@ export function materializeTools(messages: StoredMessage[]): ToolActivityItem[] 
         durationMs: result?.durationMs,
       };
     });
+}
+
+/**
+ * PR-UI-12 fixup (@xuan review): merge live tool state on top of the
+ * persisted tool. The general rule (preserved from before PR-UI-12) is
+ * "live wins" — live events arrive faster than persisted JSONL refresh
+ * and represent the most current status.
+ *
+ * One scoped exception: if persisted reached `interrupted` while live
+ * is still an in-flight status (`pending` / `running` /
+ * `waiting_permission`), persisted wins. This catches the post-abort
+ * race where the live handler missed a clean status update (e.g.
+ * `error` events without a per-tool terminal patch) and live would
+ * otherwise mask the persisted `interrupted` signal forever.
+ *
+ * `completed` / `errored` always defer to live by design — the
+ * existing test "merges live tool over persisted tool keeping the
+ * latest status" locks the "stale-persisted-completed" case so a tool
+ * that's actually still streaming doesn't snap back to "completed"
+ * just because JSONL got there first.
+ *
+ * Live `outputChunks` always come from live — persisted JSONL doesn't
+ * store them (PR-REAL-4 contract: chunks are transient UI).
+ */
+function mergeLiveOverPersisted(persisted: ToolActivityItem, live: ToolActivityItem): ToolActivityItem {
+  const liveIsInFlight =
+    live.status === 'pending'
+    || live.status === 'running'
+    || live.status === 'waiting_permission';
+  const merged: ToolActivityItem = { ...persisted, ...live };
+  if (persisted.status === 'interrupted' && liveIsInFlight) {
+    merged.status = 'interrupted';
+  }
+  if (live.outputChunks && live.outputChunks.length > 0) {
+    merged.outputChunks = live.outputChunks;
+  }
+  return merged;
 }
 
 /**
@@ -213,7 +276,7 @@ export function materializeTurns(
   const liveById = new Map(liveTools.map((tool) => [tool.toolUseId, tool]));
   for (const tool of persistedTools) {
     const live = liveById.get(tool.toolUseId);
-    const merged = live ? { ...tool, ...live } : tool;
+    const merged = live ? mergeLiveOverPersisted(tool, live) : tool;
     const turnId = turnsByMsg.get(tool.toolUseId) ?? order[order.length - 1] ?? looseTurnId;
     const turn = ensureTurn(turnId, Date.now());
     turn.tools.push(merged);

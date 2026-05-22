@@ -53,6 +53,7 @@ import {
   materializeTools,
   materializeTurns,
   type ToolActivityItem,
+  type ToolOutputChunk,
   type TurnViewModel,
 } from './materialize.js';
 
@@ -2326,12 +2327,96 @@ export function ToolActivity(props: { items: ToolActivityItem[] }) {
               {item.args !== undefined && (
                 <pre className="maka-code toolArgs">{JSON.stringify(item.args, null, 2)}</pre>
               )}
+              {item.outputChunks && item.outputChunks.length > 0 && (
+                <ToolOutputStream
+                  chunks={item.outputChunks}
+                  live={item.status === 'running' || item.status === 'pending'}
+                  interrupted={item.status === 'interrupted'}
+                />
+              )}
               {item.result && <OverlayPreview content={item.result} />}
             </div>
           </details>
         );
       })}
     </section>
+  );
+}
+
+/**
+ * PR-UI-12 — live stdout/stderr stream from PR-REAL-4 `tool_output_delta`.
+ *
+ * Renders chunks in their original seq order (already sorted in main.tsx
+ * before this component sees them) so interleaved stdout+stderr reads
+ * the way a human would expect from a real terminal. Each chunk keeps
+ * its stream tag so stderr can render in a destructive tone — a
+ * single mono `<pre>` would lose that visual signal.
+ *
+ * `redacted: true` chunks render as a small inline hint "[已脱敏]"
+ * instead of pretending the chunk arrived clean. Empty redacted
+ * chunks (runtime suppressed everything) collapse to just the hint.
+ *
+ * Auto-scroll: while `live` is true, we anchor to the bottom on every
+ * chunk update so users see the latest output. Once the tool reaches
+ * terminal (`tool_result`), auto-scroll stops so users can scroll up
+ * to read history without being yanked back.
+ */
+function ToolOutputStream(props: {
+  chunks: ToolOutputChunk[];
+  live: boolean;
+  interrupted: boolean;
+}) {
+  const preRef = useRef<HTMLPreElement>(null);
+  useEffect(() => {
+    if (!props.live) return;
+    const el = preRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [props.chunks, props.live]);
+
+  const stdoutCount = props.chunks.filter((c) => c.stream === 'stdout').length;
+  const stderrCount = props.chunks.filter((c) => c.stream === 'stderr').length;
+  const redactedCount = props.chunks.filter((c) => c.redacted).length;
+
+  return (
+    <div className="maka-tool-output-stream" data-live={props.live ? 'true' : undefined}>
+      <header className="maka-tool-output-stream-header">
+        <span className="maka-tool-output-stream-label">
+          {props.live ? (
+            <>
+              <span className="maka-tool-output-stream-dot" aria-hidden="true" />
+              <span>实时输出</span>
+            </>
+          ) : props.interrupted ? (
+            <span>已中断 · 已收到的输出</span>
+          ) : (
+            <span>工具输出</span>
+          )}
+        </span>
+        <span className="maka-tool-output-stream-counts">
+          {stdoutCount > 0 && <span>stdout {stdoutCount}</span>}
+          {stderrCount > 0 && <span data-stream="stderr">stderr {stderrCount}</span>}
+          {redactedCount > 0 && <span data-redacted="true">已脱敏 {redactedCount}</span>}
+        </span>
+      </header>
+      <pre ref={preRef} className="maka-tool-output-stream-body">
+        {props.chunks.map((chunk) => (
+          <span
+            key={chunk.seq}
+            className="maka-tool-output-stream-chunk"
+            data-stream={chunk.stream}
+            data-redacted={chunk.redacted ? 'true' : undefined}
+          >
+            {chunk.text}
+            {chunk.redacted && (
+              <span className="maka-tool-output-stream-redacted-tag" aria-label="已脱敏">
+                {' '}[已脱敏]
+              </span>
+            )}
+          </span>
+        ))}
+      </pre>
+    </div>
   );
 }
 

@@ -6629,3 +6629,126 @@ button:active {
   font-size: 0.78rem;
   line-height: 1.55;
 }
+
+/* =============================================================================
+   PR-UI-12 — Tool live output stream (PR-REAL-4 tool_output_delta consumer)
+
+   Renders typed-stream stdout/stderr below the tool args and above the
+   final tool_result. While the tool is live, the panel auto-scrolls to
+   bottom; once terminal it stops following so users can read history.
+============================================================================= */
+
+.maka-tool-output-stream {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 6px 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background);
+  overflow: hidden;
+}
+.maka-tool-output-stream[data-live="true"] {
+  border-color: oklch(from var(--accent) l c h / 0.40);
+  box-shadow: inset 0 0 0 1px oklch(from var(--accent) l c h / 0.06);
+}
+
+.maka-tool-output-stream-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 10px;
+  background: var(--foreground-3);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--foreground-50);
+}
+
+.maka-tool-output-stream-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.maka-tool-output-stream-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  /* Pulse to communicate "live"; collapses to static under
+   * prefers-reduced-motion via the existing global rule. */
+  animation: maka-tool-output-stream-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes maka-tool-output-stream-pulse {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.18); }
+}
+
+/* PR-UI-12 fixup (@xuan review): the visual-smoke fixture attr collapsed
+ * this pulse via the global `[data-maka-reduced-motion]` wildcard, but
+ * real OS `prefers-reduced-motion: reduce` only had the button:active
+ * rule. Add an explicit suppression so users who set system-level
+ * reduced motion don't see the pulse breathe. */
+@media (prefers-reduced-motion: reduce) {
+  .maka-tool-output-stream-dot {
+    animation: none;
+    opacity: 0.8;
+  }
+}
+
+.maka-tool-output-stream-counts {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.maka-tool-output-stream-counts span {
+  font-variant-numeric: tabular-nums;
+}
+.maka-tool-output-stream-counts span[data-stream="stderr"] {
+  color: var(--destructive-text);
+}
+.maka-tool-output-stream-counts span[data-redacted="true"] {
+  color: var(--warning-text, var(--info-text));
+}
+
+.maka-tool-output-stream-body {
+  margin: 0;
+  padding: 8px 10px;
+  max-height: 220px;
+  overflow-y: auto;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  background: var(--background);
+  color: var(--foreground-80);
+  white-space: pre-wrap;
+  word-break: break-word;
+  scroll-behavior: auto;
+}
+
+.maka-tool-output-stream-chunk {
+  display: contents;
+}
+
+.maka-tool-output-stream-chunk[data-stream="stderr"] {
+  color: var(--destructive-text);
+}
+
+.maka-tool-output-stream-chunk[data-redacted="true"] {
+  opacity: 0.65;
+}
+
+.maka-tool-output-stream-redacted-tag {
+  display: inline;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  color: var(--warning-text, var(--info-text));
+  background: oklch(from var(--warning, var(--info)) l c h / 0.10);
+  border-radius: 4px;
+  padding: 0 4px;
+  margin-left: 2px;
+}
