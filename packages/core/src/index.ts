@@ -130,6 +130,44 @@ export type {
   VisualSmokeState,
 } from './visual-smoke.js';
 
+// capabilities.ts
+export type {
+  ActionApprovalState,
+  CapabilityActionApprovalSignal,
+  CapabilityConfigurationSignal,
+  CapabilityConfigurationState,
+  CapabilityFeatureSignal,
+  CapabilityId,
+  CapabilityMemoryAcceptanceSignal,
+  CapabilityPermissionRequirement,
+  CapabilityReadinessState,
+  CapabilityRuntimeProbeSignal,
+  CapabilitySnapshot,
+  CapabilitySnapshotCollection,
+  DeriveCapabilityReadinessInput,
+  FeatureEnablementState,
+  MemoryAcceptanceState,
+  OsPermissionId,
+  OsPermissionSnapshot,
+  OsPermissionState,
+  PermissionSnapshot,
+  RuntimeProbeState,
+} from './capabilities.js';
+export {
+  ACTION_APPROVAL_STATES,
+  CAPABILITY_CONFIGURATION_STATES,
+  CAPABILITY_READINESS_STATES,
+  FEATURE_ENABLEMENT_STATES,
+  MEMORY_ACCEPTANCE_STATES,
+  OS_PERMISSION_IDS,
+  OS_PERMISSION_STATES,
+  RUNTIME_PROBE_STATES,
+  deriveCapabilityReadiness,
+  isCapabilityReadinessState,
+  isOsPermissionState,
+  runtimeProbeFromBotReadiness,
+} from './capabilities.js';
+
 // backend-types.ts
 export type { BackendSendInput, PermissionDecision } from './backend-types.js';
 

@@ -1,0 +1,193 @@
+import type { BotProvider, BotReadinessState } from './settings.js';
+
+export const OS_PERMISSION_IDS = [
+  'accessibility',
+  'screen_recording',
+  'microphone',
+  'notifications',
+  'automation',
+] as const;
+export type OsPermissionId = typeof OS_PERMISSION_IDS[number];
+
+export const OS_PERMISSION_STATES = [
+  'unsupported',
+  'unknown',
+  'not_determined',
+  'denied',
+  'granted',
+] as const;
+export type OsPermissionState = typeof OS_PERMISSION_STATES[number];
+
+export const FEATURE_ENABLEMENT_STATES = [
+  'not_available',
+  'disabled',
+  'enabled',
+] as const;
+export type FeatureEnablementState = typeof FEATURE_ENABLEMENT_STATES[number];
+
+export const ACTION_APPROVAL_STATES = [
+  'not_required',
+  'required_per_action',
+  'pending',
+  'approved',
+  'denied',
+] as const;
+export type ActionApprovalState = typeof ACTION_APPROVAL_STATES[number];
+
+export const CAPABILITY_CONFIGURATION_STATES = [
+  'not_required',
+  'missing',
+  'present',
+] as const;
+export type CapabilityConfigurationState = typeof CAPABILITY_CONFIGURATION_STATES[number];
+
+export const MEMORY_ACCEPTANCE_STATES = [
+  'not_applicable',
+  'disabled',
+  'draft_required',
+  'accepted',
+] as const;
+export type MemoryAcceptanceState = typeof MEMORY_ACCEPTANCE_STATES[number];
+
+export const RUNTIME_PROBE_STATES = [
+  'not_available',
+  'not_run',
+  'healthy',
+  'degraded',
+] as const;
+export type RuntimeProbeState = typeof RUNTIME_PROBE_STATES[number];
+
+export const CAPABILITY_READINESS_STATES = [
+  'not_configured',
+  'denied',
+  'enabled',
+  'degraded',
+  'paused',
+] as const;
+export type CapabilityReadinessState = typeof CAPABILITY_READINESS_STATES[number];
+
+export type CapabilityId =
+  | 'computer_use'
+  | 'activity_recorder'
+  | 'voice'
+  | 'open_gateway'
+  | 'memory_write'
+  | `bot:${BotProvider}`;
+
+export interface OsPermissionSnapshot {
+  id: OsPermissionId;
+  status: OsPermissionState;
+  source: 'electron' | 'platform' | 'static';
+  checkedAt: number;
+  reason?: string;
+  canOpenSettings: boolean;
+  canRequest: boolean;
+}
+
+export interface PermissionSnapshot {
+  checkedAt: number;
+  platform: NodeJS.Platform;
+  permissions: Record<OsPermissionId, OsPermissionSnapshot>;
+}
+
+export interface CapabilityPermissionRequirement {
+  id: OsPermissionId;
+  required: boolean;
+  status: OsPermissionState;
+}
+
+export interface CapabilityFeatureSignal {
+  state: FeatureEnablementState;
+  source: 'settings' | 'scaffold' | 'runtime';
+  reason?: string;
+}
+
+export interface CapabilityConfigurationSignal {
+  state: CapabilityConfigurationState;
+  source: 'settings' | 'runtime' | 'not_applicable';
+  reason?: string;
+}
+
+export interface CapabilityActionApprovalSignal {
+  state: ActionApprovalState;
+  source: 'permission_engine' | 'capability_policy' | 'not_applicable';
+}
+
+export interface CapabilityMemoryAcceptanceSignal {
+  state: MemoryAcceptanceState;
+  source: 'memory_contract' | 'not_applicable';
+}
+
+export interface CapabilityRuntimeProbeSignal {
+  state: RuntimeProbeState;
+  source: 'runtime_probe' | 'bot_registry' | 'not_applicable';
+  lastCheckedAt?: number;
+  reason?: string;
+}
+
+export interface CapabilitySnapshot {
+  id: CapabilityId;
+  label: string;
+  readiness: CapabilityReadinessState;
+  feature: CapabilityFeatureSignal;
+  configuration: CapabilityConfigurationSignal;
+  osPermissions: CapabilityPermissionRequirement[];
+  actionApproval: CapabilityActionApprovalSignal;
+  memoryAcceptance: CapabilityMemoryAcceptanceSignal;
+  runtimeProbe: CapabilityRuntimeProbeSignal;
+  canRevoke: boolean;
+  canPause: boolean;
+  auditEvents: string[];
+  updatedAt: number;
+}
+
+export interface CapabilitySnapshotCollection {
+  checkedAt: number;
+  capabilities: CapabilitySnapshot[];
+}
+
+export interface DeriveCapabilityReadinessInput {
+  feature: CapabilityFeatureSignal;
+  configuration: CapabilityConfigurationSignal;
+  osPermissions: CapabilityPermissionRequirement[];
+  runtimeProbe: CapabilityRuntimeProbeSignal;
+}
+
+export function isOsPermissionState(value: unknown): value is OsPermissionState {
+  return typeof value === 'string' && (OS_PERMISSION_STATES as readonly string[]).includes(value);
+}
+
+export function isCapabilityReadinessState(value: unknown): value is CapabilityReadinessState {
+  return typeof value === 'string' && (CAPABILITY_READINESS_STATES as readonly string[]).includes(value);
+}
+
+export function deriveCapabilityReadiness(input: DeriveCapabilityReadinessInput): CapabilityReadinessState {
+  if (input.feature.state === 'disabled') return 'paused';
+  if (input.feature.state === 'not_available') return 'not_configured';
+  if (input.configuration.state === 'missing') return 'not_configured';
+
+  const required = input.osPermissions.filter((permission) => permission.required);
+  if (required.some((permission) => permission.status === 'denied' || permission.status === 'unsupported')) {
+    return 'denied';
+  }
+  if (required.some((permission) => permission.status === 'not_determined' || permission.status === 'unknown')) {
+    return 'not_configured';
+  }
+
+  if (input.runtimeProbe.state === 'degraded') return 'degraded';
+  return 'enabled';
+}
+
+export function runtimeProbeFromBotReadiness(
+  readiness: BotReadinessState,
+  lastCheckedAt?: number,
+  reason?: string,
+): CapabilityRuntimeProbeSignal {
+  if (readiness === 'operational') {
+    return { state: 'healthy', source: 'bot_registry', lastCheckedAt, reason };
+  }
+  if (readiness === 'degraded') {
+    return { state: 'degraded', source: 'bot_registry', lastCheckedAt, reason };
+  }
+  return { state: 'not_run', source: 'bot_registry', lastCheckedAt, reason };
+}
