@@ -7,7 +7,7 @@
 
 import { z } from 'zod';
 import { promises as fs } from 'node:fs';
-import { exec } from 'node:child_process';
+import { exec, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { glob as nodeGlob } from 'node:fs/promises'; // Node 22+ stable glob
 import { resolve } from 'node:path';
@@ -19,6 +19,7 @@ import type { MakaTool, MakaToolContext } from './ai-sdk-backend.js';
 export type { MakaTool, MakaToolContext };
 
 const execAsync = promisify(exec);
+const BASH_MAX_OUTPUT_BYTES = 10 * 1024 * 1024;
 
 export function buildBuiltinTools(): MakaTool[] {
   return [
@@ -30,14 +31,21 @@ export function buildBuiltinTools(): MakaTool[] {
         timeout_ms: z.number().int().positive().max(600_000).optional(),
       }),
       permissionRequired: true,
-      impl: async ({ command, timeout_ms }, { cwd, abortSignal }) => {
-        const { stdout, stderr } = await execAsync(command, {
+      impl: async ({ command, timeout_ms }, { cwd, abortSignal, emitOutput }) => {
+        const result = await runStreamingShell(command, {
           cwd,
           timeout: timeout_ms ?? 120_000,
-          signal: abortSignal,
-          maxBuffer: 10 * 1024 * 1024,
+          abortSignal,
+          emitOutput,
         });
-        return { stdout, stderr };
+        return {
+          kind: 'terminal',
+          cwd,
+          cmd: command,
+          exitCode: result.exitCode,
+          stdout: result.stdout,
+          stderr: result.stderr,
+        };
       },
     },
     {
@@ -141,6 +149,84 @@ export function buildBuiltinTools(): MakaTool[] {
       },
     },
   ];
+}
+
+async function runStreamingShell(
+  command: string,
+  options: {
+    cwd: string;
+    timeout: number;
+    abortSignal: AbortSignal;
+    emitOutput: (stream: 'stdout' | 'stderr', chunk: string) => void;
+  },
+): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  return await new Promise((resolvePromise, reject) => {
+    const child = spawn(command, {
+      cwd: options.cwd,
+      shell: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let stdout = '';
+    let stderr = '';
+    let outputBytes = 0;
+    let settled = false;
+
+    const timer = setTimeout(() => {
+      child.kill('SIGTERM');
+      rejectOnce(new Error(`Command timed out after ${options.timeout}ms`));
+    }, options.timeout);
+
+    const abort = () => {
+      child.kill('SIGTERM');
+      rejectOnce(new Error('Command aborted'));
+    };
+    if (options.abortSignal.aborted) abort();
+    else options.abortSignal.addEventListener('abort', abort, { once: true });
+
+    child.stdout?.setEncoding('utf8');
+    child.stderr?.setEncoding('utf8');
+    child.stdout?.on('data', (chunk: string) => append('stdout', chunk));
+    child.stderr?.on('data', (chunk: string) => append('stderr', chunk));
+    child.on('error', rejectOnce);
+    child.on('close', (code, signal) => {
+      if (settled) return;
+      cleanup();
+      const exitCode = code ?? (signal ? 128 : 1);
+      if (exitCode !== 0) {
+        const error = new Error(`Command failed with exit code ${exitCode}`);
+        Object.assign(error, { stdout, stderr, code: exitCode });
+        settled = true;
+        reject(error);
+        return;
+      }
+      settled = true;
+      resolvePromise({ stdout, stderr, exitCode });
+    });
+
+    function append(stream: 'stdout' | 'stderr', chunk: string): void {
+      outputBytes += Buffer.byteLength(chunk, 'utf8');
+      if (outputBytes > BASH_MAX_OUTPUT_BYTES) {
+        child.kill('SIGTERM');
+        rejectOnce(new Error(`Command output exceeded ${BASH_MAX_OUTPUT_BYTES} bytes`));
+        return;
+      }
+      if (stream === 'stdout') stdout += chunk;
+      else stderr += chunk;
+      options.emitOutput(stream, chunk);
+    }
+
+    function rejectOnce(error: Error): void {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(error);
+    }
+
+    function cleanup(): void {
+      clearTimeout(timer);
+      options.abortSignal.removeEventListener('abort', abort);
+    }
+  });
 }
 
 function shellEscape(arg: string): string {

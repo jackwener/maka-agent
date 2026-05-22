@@ -40,6 +40,7 @@ import type {
   ToolStartEvent,
   ToolResultEvent,
   ToolResultContent,
+  ToolOutputStream,
   TextDeltaEvent,
   TextCompleteEvent,
   ThinkingDeltaEvent,
@@ -71,6 +72,7 @@ import {
   recordToolArtifactsSafely,
   type ToolArtifactRecorder,
 } from './tool-artifacts.js';
+import { createToolOutputDeltaEmitter } from './tool-output-delta.js';
 
 // ============================================================================
 // AgentBackend interface
@@ -122,6 +124,7 @@ export interface MakaToolContext {
   cwd: string;
   toolCallId: string;
   abortSignal: AbortSignal;
+  emitOutput: (stream: ToolOutputStream, chunk: string) => void;
 }
 
 // ============================================================================
@@ -544,6 +547,14 @@ export class AiSdkBackend implements AgentBackend {
 
       // 3. Permission allowed (or skipped) → run the real impl.
       const startedAt = this.now();
+      const output = createToolOutputDeltaEmitter({
+        sessionId: this.sessionId,
+        turnId,
+        toolUseId,
+        newId: this.newId,
+        now: this.now,
+        push: (event) => queue.push(event),
+      });
       try {
         const result = await tool.impl(args as never, {
           sessionId: this.sessionId,
@@ -551,7 +562,9 @@ export class AiSdkBackend implements AgentBackend {
           cwd: this.input.header.cwd,
           toolCallId: toolUseId,
           abortSignal: ctx.abortSignal,
+          emitOutput: output.emit,
         });
+        output.flush();
         const durationMs = this.now() - startedAt;
 
         // Coerce impl's return into ToolResultContent for storage + event.
@@ -618,6 +631,7 @@ export class AiSdkBackend implements AgentBackend {
 
         return result;
       } catch (err) {
+        output.flush();
         const msg = err instanceof Error ? err.message : String(err);
         await this.writeSyntheticToolResult(toolUseId, turnId, msg, queue);
         this.input.recordToolInvocation?.({

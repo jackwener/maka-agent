@@ -48,6 +48,8 @@ export type {
   ToolArtifactRecorder,
   ToolArtifactRecorderInput,
 } from './tool-artifacts.js';
+export { createToolOutputDeltaEmitter } from './tool-output-delta.js';
+export type { ToolOutputDeltaEmitter, ToolOutputDeltaEmitterInput } from './tool-output-delta.js';
 
 export { getAIModel, buildProviderOptions } from './model-factory.js';
 export type { ModelFactoryInput as GetAIModelInput } from './model-factory.js';

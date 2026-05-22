@@ -11,6 +11,9 @@
 
 import type { PermissionRequest, PermissionResponse, ToolCategory } from './permission.js';
 
+export const TOOL_OUTPUT_STREAMS = ['stdout', 'stderr'] as const;
+export const TOOL_OUTPUT_DELTA_MAX_CHARS = 8192;
+
 // ============================================================================
 // Storage refs (shared by attachments, image tool results, etc.)
 // ============================================================================
@@ -47,6 +50,7 @@ export type SessionEvent =
   | ThinkingDeltaEvent
   | ThinkingCompleteEvent
   | ToolStartEvent
+  | ToolOutputDeltaEvent
   | ToolProgressEvent
   | ToolResultEvent
   | PermissionRequestEvent
@@ -90,6 +94,29 @@ export interface ToolStartEvent extends BaseEvent {
   args: unknown;
   displayName?: string;
   intent?: string;
+}
+
+export type ToolOutputStream = typeof TOOL_OUTPUT_STREAMS[number];
+
+/**
+ * Live output side-channel for long-running tools.
+ *
+ * This is intentionally separate from ToolResultEvent: deltas are transient UI
+ * updates, while tool_result remains the terminal persisted result. `seq` is
+ * monotonic per toolCallId/toolUseId so renderers can de-dupe and repair
+ * event/result races without relying on arrival order.
+ */
+export interface ToolOutputDeltaEvent extends BaseEvent {
+  type: 'tool_output_delta';
+  sessionId: string;
+  toolCallId: string;
+  /** Existing UI/runtime name for the same identifier. */
+  toolUseId: string;
+  seq: number;
+  stream: ToolOutputStream;
+  chunk: string;
+  redacted: boolean;
+  createdAt: number;
 }
 
 export interface ToolProgressEvent extends BaseEvent {

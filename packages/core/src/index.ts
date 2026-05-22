@@ -16,6 +16,8 @@ export type {
   ThinkingDeltaEvent,
   ThinkingCompleteEvent,
   ToolStartEvent,
+  ToolOutputDeltaEvent,
+  ToolOutputStream,
   ToolProgressEvent,
   ToolResultEvent,
   ToolResultContent,
@@ -29,6 +31,10 @@ export type {
   AbortEvent,
   StorageRef,
   AttachmentRef,
+} from './events.js';
+export {
+  TOOL_OUTPUT_DELTA_MAX_CHARS,
+  TOOL_OUTPUT_STREAMS,
 } from './events.js';
 
 // session.ts
