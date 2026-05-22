@@ -233,6 +233,41 @@ describe('materializeTurns', () => {
     assert.equal(turns[0]?.tools.length, 1);
     assert.equal(turns[0]?.tools[0]?.status, 'running');
   });
+
+  it('persisted `interrupted` wins when live is still in-flight (PR-UI-12 @xuan review)', () => {
+    // After turn abort: persisted JSONL has a `tool_call` but no
+    // `tool_result`, so materializeTools marks it `interrupted`. If the
+    // live event handler missed cleaning up (e.g. error path didn't get
+    // a per-tool patch), live stays `running`. Without the scoped merge
+    // exception, live `running` would mask persisted `interrupted` and
+    // the UI would keep showing the in-flight spinner for an aborted
+    // tool. The exception is intentionally scoped to live being still
+    // in-flight (pending / running / waiting_permission) — if live has
+    // already moved to `completed` or `errored`, live wins per the
+    // general rule.
+    const turns = materializeTurns(
+      [
+        userMsg('t1', 100, 'q'),
+        toolCallMsg('t1', 101, 'c1'),
+        // no tool_result → persisted status === 'interrupted'
+      ],
+      [
+        {
+          toolUseId: 'c1',
+          toolName: 'Bash',
+          status: 'running',
+          args: {},
+          outputChunks: [
+            { seq: 0, stream: 'stdout', text: 'hello\n', redacted: false, createdAt: 100 },
+          ],
+        },
+      ],
+    );
+    assert.equal(turns[0]?.tools.length, 1);
+    assert.equal(turns[0]?.tools[0]?.status, 'interrupted');
+    // Output chunks must survive the merge — chunks come from live.
+    assert.equal(turns[0]?.tools[0]?.outputChunks?.length, 1);
+  });
 });
 
 describe('deriveTurnLineageMap', () => {
