@@ -1,5 +1,5 @@
 import { describe, test } from 'node:test';
-import { mkdir, mkdtemp, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect } from '../test-helpers.js';
@@ -103,6 +103,39 @@ describe('builtin read tools path containment', () => {
     expect(globResult).toMatchObject({ files: ['src/main.ts'] });
     const grepResult = await runTool(grep, { pattern: 'token', path: 'src' }, root);
     expect(JSON.stringify(grepResult).includes('main.ts')).toBe(true);
+  });
+});
+
+describe('builtin write tools path containment', () => {
+  test('Write rejects absolute, parent traversal, and symlink-parent escape paths', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'maka-write-root-'));
+    const outside = await mkdtemp(join(tmpdir(), 'maka-write-outside-'));
+    await symlink(outside, join(root, 'outside-link'));
+    const write = tool('Write');
+
+    await expectRejects(runTool(write, { path: '/tmp/outside.txt', content: 'x' }, root), /Write path must be relative/);
+    await expectRejects(runTool(write, { path: '../outside.txt', content: 'x' }, root), /Write path must stay inside/);
+    await expectRejects(runTool(write, { path: 'outside-link/new.txt', content: 'x' }, root), /Write path must stay inside/);
+
+    await mkdir(join(root, 'src'), { recursive: true });
+    await runTool(write, { path: 'src/new.txt', content: 'inside' }, root);
+    expect(await readFile(join(root, 'src', 'new.txt'), 'utf8')).toBe('inside');
+  });
+
+  test('Edit rejects absolute, parent traversal, and symlink file escapes', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'maka-edit-root-'));
+    const outside = await mkdtemp(join(tmpdir(), 'maka-edit-outside-'));
+    await writeFile(join(root, 'inside.txt'), 'hello world', 'utf8');
+    await writeFile(join(outside, 'secret.txt'), 'secret', 'utf8');
+    await symlink(join(outside, 'secret.txt'), join(root, 'secret-link.txt'));
+    const edit = tool('Edit');
+
+    await expectRejects(runTool(edit, { path: '/tmp/outside.txt', old_string: 'x', new_string: 'y' }, root), /Edit path must be relative/);
+    await expectRejects(runTool(edit, { path: '../outside.txt', old_string: 'x', new_string: 'y' }, root), /Edit path must stay inside/);
+    await expectRejects(runTool(edit, { path: 'secret-link.txt', old_string: 'secret', new_string: 'edited' }, root), /Edit path must stay inside/);
+
+    await runTool(edit, { path: 'inside.txt', old_string: 'world', new_string: 'Maka' }, root);
+    expect(await readFile(join(root, 'inside.txt'), 'utf8')).toBe('hello Maka');
   });
 });
 

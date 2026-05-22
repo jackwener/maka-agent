@@ -10,7 +10,7 @@ import { promises as fs } from 'node:fs';
 import { exec, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { glob as nodeGlob } from 'node:fs/promises'; // Node 22+ stable glob
-import { isAbsolute, relative, resolve } from 'node:path';
+import { dirname, isAbsolute, relative, resolve } from 'node:path';
 
 // Single source of truth for tool shape. AiSdkBackend exports them; we just
 // re-export here for back-compat with external callers that imported from
@@ -50,7 +50,7 @@ export function buildBuiltinTools(): MakaTool[] {
     },
     {
       name: 'Read',
-      description: 'Read a file from disk by absolute path (or relative to session cwd).',
+      description: 'Read a file from disk by path relative to session cwd.',
       parameters: z.object({
         path: z.string(),
         offset: z.number().int().nonnegative().optional(),
@@ -73,7 +73,7 @@ export function buildBuiltinTools(): MakaTool[] {
       parameters: z.object({ path: z.string(), content: z.string() }),
       permissionRequired: true,
       impl: async ({ path, content }, { cwd }) => {
-        const abs = resolve(cwd, path);
+        const abs = await resolveWritableInsideCwd(cwd, path, 'Write');
         await fs.writeFile(abs, content, 'utf8');
         return { ok: true, path: abs, bytes: Buffer.byteLength(content, 'utf8') };
       },
@@ -89,7 +89,7 @@ export function buildBuiltinTools(): MakaTool[] {
       }),
       permissionRequired: true,
       impl: async ({ path, old_string, new_string }, { cwd }) => {
-        const abs = resolve(cwd, path);
+        const abs = await resolveExistingInsideCwd(cwd, path, 'Edit');
         const current = await fs.readFile(abs, 'utf8');
         const count = current.split(old_string).length - 1;
         if (count === 0) throw new Error(`old_string not found in ${path}`);
@@ -232,6 +232,22 @@ async function runStreamingShell(
 
 function shellEscape(arg: string): string {
   return `'${arg.replaceAll("'", "'\\''")}'`;
+}
+
+async function resolveWritableInsideCwd(cwd: string, inputPath: string, label: string): Promise<string> {
+  if (isAbsolute(inputPath)) {
+    throw new Error(`${label} path must be relative to session cwd`);
+  }
+  const root = await fs.realpath(cwd);
+  const candidate = resolve(root, inputPath);
+  if (!isInside(root, candidate)) {
+    throw new Error(`${label} path must stay inside session cwd`);
+  }
+  const parent = await fs.realpath(dirname(candidate));
+  if (!isInside(root, parent)) {
+    throw new Error(`${label} path must stay inside session cwd`);
+  }
+  return candidate;
 }
 
 async function resolveExistingInsideCwd(cwd: string, inputPath: string, label: string): Promise<string> {
