@@ -3533,6 +3533,27 @@ button:active {
   background: var(--foreground-20);
   cursor: pointer;
   padding: 2px;
+  /* PR-UI-LAYOUT-35: smooth bg transition + focus ring (was
+   * missing — keyboard users couldn't see the switch state
+   * change visually-focused). */
+  transition: background 150ms ease, box-shadow 150ms ease;
+}
+
+.settingsSwitch:hover {
+  background: oklch(from var(--foreground) l c h / 0.28);
+}
+
+.settingsSwitch:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.18);
+}
+
+.settingsSwitch[data-checked="true"]:hover {
+  background: var(--brand-deep-hover);
+}
+
+.settingsSwitch[data-checked="true"]:focus-visible {
+  box-shadow: 0 0 0 3px oklch(from var(--brand-deep) l c h / 0.28);
 }
 
 .settingsSwitch span {
