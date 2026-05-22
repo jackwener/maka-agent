@@ -687,20 +687,23 @@ function registerIpc(): void {
   ipcMain.handle('sessions:send', async (_event, sessionId: string, command: SessionCommand) => {
     if (command.type !== 'send') return;
     await ensureSessionCanSend(sessionId);
+    const turnId = command.turnId || randomUUID();
     const iterator = runtime.sendMessage(sessionId, {
-      turnId: command.turnId || randomUUID(),
+      turnId,
       text: command.text,
       attachments: command.attachments,
     });
-    void streamEvents(sessionId, iterator);
+    void streamEvents(sessionId, iterator, turnId);
   });
   ipcMain.handle('sessions:retryTurn', async (_event, sessionId: string, input: RetryTurnInput) => {
     await ensureSessionCanSend(sessionId);
-    void streamEvents(sessionId, runtime.retryTurn(sessionId, input));
+    const turnId = input.turnId ?? randomUUID();
+    void streamEvents(sessionId, runtime.retryTurn(sessionId, { ...input, turnId }), turnId);
   });
   ipcMain.handle('sessions:regenerateTurn', async (_event, sessionId: string, input: RegenerateTurnInput) => {
     await ensureSessionCanSend(sessionId);
-    void streamEvents(sessionId, runtime.regenerateTurn(sessionId, input));
+    const turnId = input.turnId ?? randomUUID();
+    void streamEvents(sessionId, runtime.regenerateTurn(sessionId, { ...input, turnId }), turnId);
   });
   ipcMain.handle('sessions:branchFromTurn', async (_event, sessionId: string, input: BranchFromTurnInput) => {
     const session = await runtime.branchFromTurn(sessionId, input);
@@ -1010,7 +1013,11 @@ async function applySettingsRuntimeEffects(settings: AppSettings, patch: UpdateA
   }
 }
 
-async function streamEvents(sessionId: string, iterator: AsyncIterable<SessionEvent>): Promise<void> {
+async function streamEvents(
+  sessionId: string,
+  iterator: AsyncIterable<SessionEvent>,
+  fallbackTurnId?: string,
+): Promise<void> {
   let userAppendBroadcasted = false;
   let finalAppendBroadcasted = false;
   try {
@@ -1035,13 +1042,15 @@ async function streamEvents(sessionId: string, iterator: AsyncIterable<SessionEv
     mainWindow?.webContents.send(`sessions:event:${sessionId}`, {
       type: 'error',
       id: randomUUID(),
-      turnId: randomUUID(),
+      turnId: fallbackTurnId ?? randomUUID(),
       ts: Date.now(),
       recoverable: false,
       code: errorCode(error),
       reason: errorReason(error),
       message: errorMessage(error),
     } satisfies SessionEvent);
+    emitSessionsChanged('status-change', sessionId);
+    emitSessionsChanged('turn-status-change', sessionId);
     if (!finalAppendBroadcasted) {
       emitSessionsChanged('message-appended', sessionId);
     }
@@ -1132,7 +1141,7 @@ async function handleQuickChatStart(rawInput: unknown): Promise<QuickChatResult>
       // id is generated inside `runtime.sendMessage()`.
       const turnId = randomUUID();
       const iterator = runtime.sendMessage(sessionId, { turnId, text });
-      void streamEvents(sessionId, iterator);
+      void streamEvents(sessionId, iterator, turnId);
     },
   });
 }
