@@ -1496,16 +1496,26 @@ button:active {
   place-items: center;
   margin: 0 4px 4px 2px;
   border: 0;
-  border-radius: 6px;
+  /* PR-UI-LAYOUT-20: tab-plus radius 6 → 8 (matches the new card
+   * family rhythm); added focus-visible ring for keyboard a11y. */
+  border-radius: 8px;
   background: transparent;
   color: var(--foreground-50);
   cursor: pointer;
   -webkit-app-region: no-drag;
+  transition: background 120ms ease, color 120ms ease, box-shadow 120ms ease;
 }
 
 .maka-chat-tab-plus:hover {
   background: var(--hover);
   color: var(--foreground);
+}
+
+.maka-chat-tab-plus:focus-visible {
+  outline: none;
+  background: var(--hover);
+  color: var(--foreground);
+  box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.14);
 }
 
 .maka-chat-tab-plus svg {
