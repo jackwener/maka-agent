@@ -2841,12 +2841,34 @@ button:active {
 }
 
 .settingsNavGroupLabel {
+  /* PR-UI-11 (@yuejing 2026-05-22): group label polish — bump
+   * letter-spacing for SECTION feel, slightly bolder, faint divider
+   * line on the bottom so the 4 groups read as clearly separated
+   * chunks rather than just "uppercase text". */
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.10em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--foreground-50);
-  padding: 0 6px 0;
+  padding: 4px 6px 4px;
+  margin-bottom: 2px;
+}
+
+.settingsNavGroupLabel::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+  /* Subtle gradient fade — divider doesn't continue forever, just hints
+   * at section boundary. */
+  background: linear-gradient(
+    to right,
+    var(--border) 0%,
+    transparent 80%
+  );
 }
 
 /* Per @kenji's PR75 review: group labels should also act as navigation
@@ -2902,6 +2924,13 @@ button:active {
     inset 0 0 0 1px var(--border);
 }
 
+/* PR-UI-11: active nav item glyph picks up accent tint so the
+ * selection is visible even when the user is scrolling past — eye
+ * lands on the accented icon faster than on the small text. */
+.settingsNavItem[data-active="true"] .settingsNavGlyph {
+  color: var(--accent);
+}
+
 .settingsNavItem:disabled {
   cursor: default;
   opacity: 0.45;
@@ -2920,9 +2949,8 @@ button:active {
   height: 16px;
 }
 
-.settingsNavItem[data-active="true"] .settingsNavGlyph {
-  color: var(--foreground);
-}
+/* PR-UI-11 (@yuejing 2026-05-22): inactive glyph stays muted; active
+ * glyph is overridden above to `--accent` for selection visibility. */
 
 .settingsNavItem strong {
   overflow: hidden;
