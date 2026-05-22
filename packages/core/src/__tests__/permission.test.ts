@@ -85,6 +85,14 @@ describe('categorizeBash', () => {
     expect(categorizeBash('cat script.sh | bash')).toBe('fs_destructive');
   });
 
+  test('safe-prefix commands with shell control operators do NOT bypass prompt', () => {
+    expect(categorizeBash('echo hello > out.txt')).toBe('shell_unsafe');
+    expect(categorizeBash('cat package.json | wc -l')).toBe('shell_unsafe');
+    expect(categorizeBash('pwd && npm test')).toBe('shell_unsafe');
+    expect(categorizeBash('echo `cat secret.txt`')).toBe('shell_unsafe');
+    expect(categorizeBash('echo $(cat secret.txt)')).toBe('shell_unsafe');
+  });
+
   test('destructive git → git_destructive', () => {
     expect(categorizeBash('git reset --hard HEAD~3')).toBe('git_destructive');
     expect(categorizeBash('git push --force origin main')).toBe('git_destructive');

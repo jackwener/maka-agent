@@ -753,7 +753,14 @@ function AppShell() {
   }
 
   async function refreshMessages(sessionId: string) {
-    setMessages(await window.maka.sessions.readMessages(sessionId));
+    const next = await window.maka.sessions.readMessages(sessionId);
+    if (activeIdRef.current === sessionId) {
+      setMessages(next);
+    }
+  }
+
+  function clearStreaming(sessionId: string) {
+    setStreamingBySession((current) => ({ ...current, [sessionId]: '' }));
   }
 
   function handleEvent(sessionId: string, event: SessionEvent) {
@@ -765,7 +772,7 @@ function AppShell() {
         }));
         break;
       case 'text_complete':
-        setStreamingBySession((current) => ({ ...current, [sessionId]: '' }));
+        clearStreaming(sessionId);
         void refreshMessages(sessionId);
         break;
       case 'tool_start':
@@ -808,6 +815,8 @@ function AppShell() {
         void refreshMessages(sessionId);
         break;
       case 'error':
+        clearStreaming(sessionId);
+        setPermissionBySession((current) => ({ ...current, [sessionId]: undefined }));
         if (isNoRealConnectionEvent(event)) {
           showModelSetupToast(cleanEventMessage(event.message), noRealConnectionReasonFromEvent(event));
         } else {
@@ -817,7 +826,15 @@ function AppShell() {
         void refreshMessages(sessionId);
         break;
       case 'abort':
+        clearStreaming(sessionId);
+        setPermissionBySession((current) => ({ ...current, [sessionId]: undefined }));
+        void refreshSessions();
+        void refreshMessages(sessionId);
+        break;
       case 'complete':
+        if (event.stopReason !== 'permission_handoff') {
+          clearStreaming(sessionId);
+        }
         void refreshSessions();
         void refreshMessages(sessionId);
         break;

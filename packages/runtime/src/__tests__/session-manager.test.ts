@@ -197,6 +197,29 @@ describe('SessionManager permission mode updates', () => {
     await iterator.next();
   });
 
+  test('backend build failure after user append marks turn failed and session blocked', async () => {
+    const store = new MemorySessionStore();
+    const backends = new BackendRegistry();
+    backends.register('fake', () => {
+      throw new Error('backend init failed');
+    });
+    const manager = new SessionManager({ store, backends, newId: nextId(), now: nextNow(7_500) });
+    const session = await manager.createSession(makeInput());
+
+    await expectRejects(
+      drain(manager.sendMessage(session.id, { turnId: 'turn-1', text: 'hello' })),
+      /backend init failed/,
+    );
+
+    const header = await store.readHeader(session.id);
+    expect(header.status).toBe('blocked');
+    expect(header.blockedReason).toBe('unknown');
+    const messages = await store.readMessages(session.id);
+    expect(messages.some((message) => message.type === 'user' && message.turnId === 'turn-1')).toBe(true);
+    const turn = (await store.listTurns(session.id)).find((candidate) => candidate.turnId === 'turn-1');
+    expect(turn?.status).toBe('failed');
+  });
+
   test('marks a session running while a turn is in flight and active after completion', async () => {
     const store = new MemorySessionStore();
     const backends = new BackendRegistry();

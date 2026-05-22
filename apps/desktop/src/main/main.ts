@@ -745,6 +745,9 @@ function registerIpc(): void {
   ipcMain.handle('sessions:create', async (_event, input?: Partial<CreateSessionInput>) => {
     const cwd = input?.cwd ?? process.cwd();
     if (input?.backend === 'fake') {
+      if (!canCreateFakeSessionFromRenderer()) {
+        throw new Error('FakeBackend sessions are only available in development.');
+      }
       const session = await runtime.createSession({
         cwd,
         backend: 'fake',
@@ -1078,6 +1081,14 @@ function registerIpc(): void {
         : input.proxy;
       return testProxyConnection({ ...input, proxy }, stored);
     }, 'NETWORK_TEST_FAILED'),
+  );
+}
+
+function canCreateFakeSessionFromRenderer(): boolean {
+  return !app.isPackaged && (
+    Boolean(visualSmokeFixture) ||
+    Boolean(process.env.VITE_DEV_SERVER_URL) ||
+    process.env.NODE_ENV === 'development'
   );
 }
 

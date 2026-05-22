@@ -271,33 +271,37 @@ export class SessionManager {
     await this.deps.store.appendMessage(sessionId, userMsg);
     await this.appendTurnState(sessionId, input.turnId, 'running', input);
 
-    // 3. Lock connection right after the user message is flushed (§9 Step 2.3).
-    //    Even if backend startup fails next, the session's backend choice is
-    //    committed and won't drift.
-    if (!header.connectionLocked) {
-      header = await this.deps.store.updateHeader(sessionId, { connectionLocked: true });
-    }
-
-    // 4. Resolve / build backend.
-    const active = await this.ensureActive(sessionId, header);
-
-    // 5. Stream events from backend, side-tracking the latest ts for header
-    //    bookkeeping when the turn completes.
     let lastTs = this.deps.now();
     let sawCompletion = false;
     let finalStatus: { status: SessionStatus; blockedReason?: SessionBlockedReason } | undefined;
-    await this.updateStatus(sessionId, 'running', undefined, lastTs);
-    active.activeStreams += 1;
-    active.activeTurnIds.add(input.turnId);
-    active.activeTurnLineage.set(input.turnId, {
-      ...(input.parentTurnId ? { parentTurnId: input.parentTurnId } : {}),
-      ...(input.retriedFromTurnId ? { retriedFromTurnId: input.retriedFromTurnId } : {}),
-      ...(input.regeneratedFromTurnId ? { regeneratedFromTurnId: input.regeneratedFromTurnId } : {}),
-      ...(input.branchOfTurnId ? { branchOfTurnId: input.branchOfTurnId } : {}),
-      ...(input.parentSessionId ? { parentSessionId: input.parentSessionId } : {}),
-    });
+    let active: ActiveSession | undefined;
+    let activeStreamTracked = false;
 
     try {
+      // 3. Lock connection right after the user message is flushed (§9 Step 2.3).
+      //    Even if backend startup fails next, the session's backend choice is
+      //    committed and won't drift.
+      if (!header.connectionLocked) {
+        header = await this.deps.store.updateHeader(sessionId, { connectionLocked: true });
+      }
+
+      // 4. Resolve / build backend.
+      active = await this.ensureActive(sessionId, header);
+
+      // 5. Stream events from backend, side-tracking the latest ts for header
+      //    bookkeeping when the turn completes.
+      await this.updateStatus(sessionId, 'running', undefined, lastTs);
+      active.activeStreams += 1;
+      activeStreamTracked = true;
+      active.activeTurnIds.add(input.turnId);
+      active.activeTurnLineage.set(input.turnId, {
+        ...(input.parentTurnId ? { parentTurnId: input.parentTurnId } : {}),
+        ...(input.retriedFromTurnId ? { retriedFromTurnId: input.retriedFromTurnId } : {}),
+        ...(input.regeneratedFromTurnId ? { regeneratedFromTurnId: input.regeneratedFromTurnId } : {}),
+        ...(input.branchOfTurnId ? { branchOfTurnId: input.branchOfTurnId } : {}),
+        ...(input.parentSessionId ? { parentSessionId: input.parentSessionId } : {}),
+      });
+
       for await (const ev of active.backend.send({
         turnId: input.turnId,
         text: input.text,
@@ -336,10 +340,12 @@ export class SessionManager {
       }).catch(() => {});
       throw error;
     } finally {
-      active.activeStreams = Math.max(0, active.activeStreams - 1);
-      active.activeTurnIds.delete(input.turnId);
-      active.activeTurnLineage.delete(input.turnId);
-      const nextStatus = active.activeStreams > 0
+      if (active && activeStreamTracked) {
+        active.activeStreams = Math.max(0, active.activeStreams - 1);
+        active.activeTurnIds.delete(input.turnId);
+        active.activeTurnLineage.delete(input.turnId);
+      }
+      const nextStatus = active && active.activeStreams > 0
         ? { status: 'running' as const }
         : (finalStatus ?? { status: 'active' as const });
       // 6. Update header timestamps + unread flag exactly once per turn.
