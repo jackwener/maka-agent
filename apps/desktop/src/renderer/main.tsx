@@ -11,8 +11,10 @@ import type {
   SettingsSection,
   StoredMessage,
   ThemePreference,
+  ToastPosition,
   UiDensity,
 } from '@maka/core';
+import { isToastPosition } from '@maka/core';
 import {
   applyAssistantDelta,
   applyThinkingComplete,
@@ -64,15 +66,33 @@ import './styles.css';
 const NO_REAL_CONNECTION_CODE = 'NO_REAL_CONNECTION';
 const NO_REAL_CONNECTION_REASON_RE = /NO_REAL_CONNECTION:([a-z_]+): /;
 
+/**
+ * PR-UI-16: read the persisted toast position from localStorage on app
+ * boot so the first toast lands in the user's chosen corner without a
+ * round-trip to settings. AppShell later patches the same key when
+ * settings load, so refresh / first-launch / settings-edit all behave
+ * the same. Default `bottom-right` preserves the v1 hardcoded behavior.
+ */
+function readPersistedToastPosition(): ToastPosition {
+  try {
+    const value = localStorage.getItem('maka-toast-position-v1');
+    if (isToastPosition(value)) return value;
+  } catch {
+    /* localStorage unavailable */
+  }
+  return 'bottom-right';
+}
+
 function App() {
+  const [toastPosition, setToastPosition] = useState<ToastPosition>(() => readPersistedToastPosition());
   return (
-    <ToastProvider>
-      <AppShell />
+    <ToastProvider position={toastPosition}>
+      <AppShell onToastPositionChange={setToastPosition} />
     </ToastProvider>
   );
 }
 
-function AppShell() {
+function AppShell(props: { onToastPositionChange(position: ToastPosition): void }) {
   const toastApi = useToast();
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [activeId, setActiveId] = useState<string | undefined>();
@@ -486,6 +506,9 @@ function AppShell() {
       const pref = next.appearance?.theme ?? 'auto';
       const den = next.appearance?.density ?? 'comfortable';
       const palette = next.appearance?.palette ?? 'default';
+      const toastPosition: ToastPosition = isToastPosition(next.appearance?.toastPosition)
+        ? next.appearance!.toastPosition!
+        : 'bottom-right';
       const name = next.personalization?.displayName ?? '';
       setThemePref(pref);
       setDensity(den);
@@ -493,6 +516,16 @@ function AppShell() {
       applyTheme(pref);
       applyDensity(den);
       applyThemePalette(palette);
+      // PR-UI-16: persist toast position back to localStorage so the
+      // next app boot lands toasts in the right corner without a
+      // settings round-trip, and notify App.tsx so the live toast
+      // viewport repositions immediately.
+      try {
+        localStorage.setItem('maka-toast-position-v1', toastPosition);
+      } catch {
+        /* localStorage unavailable */
+      }
+      props.onToastPositionChange(toastPosition);
     });
     void window.maka.skills.list().then(setSkills).catch(() => setSkills([]));
     void applyVisualSmokeFixture();
