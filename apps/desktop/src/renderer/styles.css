@@ -708,13 +708,20 @@ button:active {
 .maka-prompt-chip {
   flex: 1;
   display: grid;
-  gap: 4px;
+  gap: 3px;
+  /* PR-UI-LAYOUT-5 (@yuejing): tighter chip chrome — was 12px
+   * radius + var(--background-elevated) bg + 12/14px padding. 牛马AI
+   * uses lighter pills; we keep two-line content (label + hint)
+   * but pull the visual weight down so the grid feels lighter and
+   * less card-like. Border drops to hairline `--border`,
+   * background to transparent (inherits warm panel bg) — accent
+   * tint only appears on hover. */
   border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--background-elevated);
+  border-radius: 10px;
+  background: transparent;
   color: var(--foreground);
   cursor: pointer;
-  padding: 12px 14px;
+  padding: 10px 12px;
   text-align: left;
   transition:
     border-color 140ms ease,
@@ -723,8 +730,8 @@ button:active {
 }
 
 .maka-prompt-chip:hover {
-  border-color: oklch(from var(--accent) l c h / 0.4);
-  background: oklch(from var(--accent) l c h / 0.05);
+  border-color: oklch(from var(--accent) l c h / 0.32);
+  background: oklch(from var(--accent) l c h / 0.04);
   transform: translateY(-1px);
 }
 
@@ -1333,7 +1340,14 @@ button:active {
   align-items: flex-end;
   gap: 4px;
   padding: 0 14px;
-  background: var(--foreground-5);
+  /* PR-UI-LAYOUT-5: chat header now blends with the surrounding
+   * floating panel's `--background` instead of carrying its own
+   * `--foreground-5` tint. Matches 牛马AI screenshot 1 where the tab
+   * strip reads as part of the main panel, not a separate header
+   * band. The active tab still pops because it owns `--background`
+   * with a thin border and rounded top corners — the contrast
+   * comes from the tab chrome, not from the surrounding band. */
+  background: transparent;
   border-bottom: 1px solid var(--border);
   -webkit-app-region: drag;
 }
