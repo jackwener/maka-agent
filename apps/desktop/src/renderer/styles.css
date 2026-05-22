@@ -909,8 +909,13 @@ button:active {
   gap: 14px;
   padding: 12px 14px;
   border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--background-elevated);
+  /* PR-UI-LAYOUT-7: align with the chip lightening from LAYOUT-5 — radius
+   * 14→12 + background `--background-elevated`→transparent so the cards
+   * sit lightly on the warm panel instead of reading as a stack of
+   * "elevated" tiles. Hover/active states still tint with accent for
+   * affordance feedback. */
+  border-radius: 12px;
+  background: transparent;
   color: var(--foreground);
   cursor: pointer;
   text-align: left;
@@ -4592,13 +4597,28 @@ button:active {
 .connectionForm input,
 .connectionForm select,
 .credentialField input {
-  min-height: 34px;
+  /* PR-UI-LAYOUT-11: provider form inputs aligned with the card
+   * radius family (6 → 8 stays slightly tighter than cards since
+   * inputs sit inside cards). Min-height bumped 34 → 36 so 13px
+   * text gets a more comfortable tap target. Background switches
+   * to `--background-elevated` so the input reads as recessed
+   * against the card surface. Focus ring added — was missing. */
+  min-height: 36px;
   border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--background);
+  border-radius: 8px;
+  background: var(--background-elevated);
   color: var(--foreground);
-  padding: 0 10px;
+  padding: 0 12px;
   outline: none;
+  font-size: 13px;
+  transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+.connectionForm input:focus,
+.connectionForm select:focus,
+.credentialField input:focus {
+  border-color: oklch(from var(--accent) l c h / 0.42);
+  background: var(--background);
+  box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.10);
 }
 
 .connectionStatus {
@@ -4860,17 +4880,45 @@ button:active {
   grid-template-columns: 1fr;
   gap: 10px;
   border: 1px solid var(--border);
-  border-radius: 18px;
-  background: var(--foreground-2);
+  /* PR-UI-LAYOUT-15: provider catalog card chrome refresh
+   * (Settings → Models → 推荐服务/国内服务/... grid).
+   * - Radius 18 → 14 (oversized rounded corner was a leftover from
+   *   the pre-warm-canvas era; 14 sits between the chip 10 and the
+   *   settings modal 18, matching 牛马 screenshot 3 provider tiles).
+   * - Background `--foreground-2` → transparent (sits lightly on
+   *   the panel, like the chip lightening).
+   * - Hover state adds a lift transform to make selection feel
+   *   tangible, matching `.maka-onboarding-card`. */
+  border-radius: 14px;
+  background: transparent;
   color: var(--foreground);
-  padding: 12px;
+  padding: 14px;
   text-align: left;
   cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    box-shadow 160ms ease,
+    transform 140ms var(--ease-out-strong);
 }
 
 .providerCatalogCard:hover {
-  border-color: oklch(from var(--accent) l c h / 0.18);
-  background: var(--background);
+  border-color: oklch(from var(--accent) l c h / 0.28);
+  background: oklch(from var(--accent) l c h / 0.04);
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 2px oklch(from var(--foreground) l c h / 0.04),
+    0 4px 12px oklch(from var(--accent) l c h / 0.06);
+}
+
+.providerCatalogCard:active:not([data-disabled="true"]) {
+  transform: translateY(0) scale(0.99);
+}
+
+.providerCatalogCard:focus-visible {
+  outline: none;
+  border-color: oklch(from var(--accent) l c h / 0.42);
+  box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.14);
 }
 
 .providerCatalogCard[data-disabled="true"] {
@@ -5010,18 +5058,28 @@ button:active {
 .providerEditor input,
 .providerEditor select {
   min-width: 0;
-  min-height: 34px;
+  min-height: 36px;
   border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--background);
+  /* PR-UI-LAYOUT-22: provider editor inputs (used in the
+   * ConfigureProvider sheet) brought up to the LAYOUT-11/21 focus
+   * ring family. Was: radius 6 + border-only focus.
+   * Now: radius 8 + min-height 36 + 3px halo + smoother transition.
+   * Matches connectionForm inputs visually so users see the same
+   * "this is a focused input" signal everywhere. */
+  border-radius: 8px;
+  background: var(--background-elevated);
   color: var(--foreground);
-  padding: 0 10px;
+  padding: 0 12px;
   outline: none;
+  font-size: 13px;
+  transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
 }
 
 .providerEditor input:focus,
 .providerEditor select:focus {
-  border-color: oklch(from var(--accent) l c h / 0.38);
+  border-color: oklch(from var(--accent) l c h / 0.42);
+  background: var(--background);
+  box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.10);
 }
 
 .providerModelRow,
@@ -5126,11 +5184,15 @@ button:active {
   color: var(--foreground);
   font-size: 12px;
   font-family: var(--font-mono);
+  transition: border-color 140ms ease, box-shadow 140ms ease;
 }
 
 .modelTableSearch:focus {
   outline: none;
-  border-color: oklch(from var(--accent) l c h / 0.4);
+  /* PR-UI-LAYOUT-22: brought into the focus-ring family — was
+   * border-color only, now 3px accent halo to match the rest. */
+  border-color: oklch(from var(--accent) l c h / 0.42);
+  box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.10);
 }
 
 .modelTableEmpty {
@@ -5375,7 +5437,9 @@ button:active {
   align-items: center;
   gap: 10px;
   border: 1px dashed var(--border);
-  border-radius: 13px;
+  /* PR-UI-LAYOUT-19: enabledProviderChip radius 13 → 12 to sit
+   * cleanly in the card family (12 for chip-ish surfaces). */
+  border-radius: 12px;
   background: var(--background);
   color: var(--foreground);
   padding: 10px 12px;
