@@ -508,7 +508,7 @@ button:active {
 .maka-list-row {
   position: relative;
   width: 100%;
-  min-height: 64px;
+  min-height: 56px;
   display: flex;
   align-items: stretch;
   border: 1px solid var(--border);
@@ -517,11 +517,23 @@ button:active {
   color: var(--foreground);
   box-shadow: var(--shadow-minimal-flat);
   overflow: hidden;
+  /* PR-UI-3 (@yuejing 2026-05-22): smooth multi-property transition so
+   * hover feels coordinated rather than independently animating each
+   * property. */
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
 }
 
 .maka-list-row:hover {
   background: var(--foreground-3);
   border-color: var(--border-strong);
+  /* Subtle elevation on hover — gives row a sense of "lifting" without
+   * being noisy. */
+  box-shadow:
+    0 1px 2px oklch(from var(--foreground) l c h / 0.04),
+    0 2px 6px oklch(from var(--foreground) l c h / 0.04);
 }
 
 .maka-list-row[data-active="true"] {
@@ -558,7 +570,9 @@ button:active {
   background: transparent;
   color: inherit;
   cursor: pointer;
-  padding: 10px 12px;
+  /* PR-UI-3: slightly tighter vertical padding (10→8) for more density,
+   * keep horizontal 12 for the same left/right rhythm. */
+  padding: 8px 12px;
   text-align: left;
 }
 
@@ -910,7 +924,10 @@ button:active {
 .maka-list-row-name {
   display: flex;
   align-items: center;
-  gap: 8px;
+  /* PR-UI-3: tighten badge gap 8→6 so streaming dot / status icon /
+   * stale pill / name cluster reads as one unit, not 4 disconnected
+   * elements. */
+  gap: 6px;
   overflow: hidden;
   font-size: 14px;
   font-weight: 600;
@@ -1114,13 +1131,16 @@ button:active {
 
 .maka-list-row-stale-pill {
   flex-shrink: 0;
-  margin-left: 6px;
+  /* PR-UI-3: drop margin-left, let parent's gap (6px) handle spacing
+   * so all badges in .maka-list-row-name share the same rhythm. */
   padding: 1px 6px;
   border-radius: 999px;
-  /* Reuses the chat-header-alert warning tone tokens (--info + --info-text)
-   * for visual consistency with the banner that explains the same state. */
-  background: oklch(from var(--info) l c h / 0.18);
-  color: var(--info-text);
+  /* Reuses the chat-header-alert warning tone tokens (--warning + --warning-text)
+   * for visual consistency with the banner that explains the same state.
+   * Switched from --info (blue) to --warning (amber) per UI audit §2.9 —
+   * "已过期" is a degraded-state signal, not informational. */
+  background: oklch(from var(--warning, var(--info)) l c h / 0.18);
+  color: var(--warning-text, var(--info-text));
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.02em;
