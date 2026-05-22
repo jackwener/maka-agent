@@ -1,0 +1,216 @@
+# Maka Code Bug / Flow Audit - 2026-05-22
+
+Owner: @xuan  
+Thread: #my-ai:02c56cb6  
+Scope: current Maka code, runtime/main/renderer/core/storage/settings surfaces. Layout work is tracked separately by @yuejing.
+
+## Fixed on main
+
+### 1. Shell safe-prefix commands bypassed Ask prompt
+
+Commit: `778077d Fix runtime failure states and shell permission gaps`
+
+Evidence:
+- `packages/core/src/permission.ts` categorized safe-prefix commands before checking generic shell control operators.
+- Commands like `echo hello > out.txt`, `cat package.json | wc -l`, `pwd && npm test`, backticks, and `$()` could be treated as `shell_safe`.
+
+Impact:
+- Ask/Explore mode could auto-allow command forms that mutate files, chain commands, or expand secret-bearing command substitutions.
+
+Fix:
+- Added `SHELL_CONTROL_PATTERNS` and classify those commands as `shell_unsafe` before safe-prefix matching.
+- Regression tests added in `packages/core/src/__tests__/permission.test.ts`.
+
+### 2. Backend build/send failure after user append left false session state
+
+Commit: `778077d Fix runtime failure states and shell permission gaps`
+
+Evidence:
+- `packages/runtime/src/session-manager.ts` appended the user message and turn running state before backend creation, but backend build failures happened before the active stream bookkeeping/finally state transition.
+
+Impact:
+- A persisted user message could be left with a running/active session instead of a failed/blocked turn.
+
+Fix:
+- Wrapped connection lock, backend build, stream bookkeeping, and backend send in a single try/finally.
+- Catch appends failed turn state and final header becomes `blocked/unknown`.
+- Regression test added in `packages/runtime/src/__tests__/session-manager.test.ts`.
+
+### 3. Renderer stale message refresh could overwrite current chat
+
+Commit: `778077d Fix runtime failure states and shell permission gaps`
+
+Evidence:
+- `apps/desktop/src/renderer/main.tsx` `refreshMessages(sessionId)` always called `setMessages(await readMessages(sessionId))`.
+
+Impact:
+- If the user switched sessions while an async read was in flight, the old session could overwrite the active chat view.
+
+Fix:
+- Guard `setMessages` with `activeIdRef.current === sessionId`.
+
+### 4. Streaming / permission UI could remain stuck after error/abort/complete
+
+Commit: `778077d Fix runtime failure states and shell permission gaps`
+
+Evidence:
+- Error and abort events refreshed sessions/messages but did not consistently clear streaming text or pending permission dialog state.
+
+Impact:
+- Composer/session UI could remain in a streaming/waiting state after the turn had already failed or aborted.
+
+Fix:
+- Added `clearStreaming(sessionId)` and clear pending permission state on error/abort; non-permission complete clears streaming.
+
+### 5. Packaged app could create FakeBackend sessions from renderer input
+
+Commit: `778077d Fix runtime failure states and shell permission gaps`
+
+Evidence:
+- `apps/desktop/src/main/main.ts` accepted renderer `sessions:create({ backend: 'fake' })` directly.
+
+Impact:
+- Packaged app had a fake-session creation path that bypassed the real readiness contract.
+
+Fix:
+- Added `canCreateFakeSessionFromRenderer()` and only allow fake sessions in unpackaged dev/visual-smoke contexts.
+
+### 6. Skills were listed but not injected into runtime prompts
+
+Commit: `a4a9b7e Wire skills into prompts and stop parked permissions`
+
+Evidence:
+- `skills:list` scanned `{workspaceRoot}/skills/*/SKILL.md`, but `buildSystemPrompt()` only included personalization.
+
+Impact:
+- UI made skills look installed, but the model never received their instructions.
+
+Fix:
+- Extracted skill scanning/prompt assembly into `apps/desktop/src/main/skills.ts`.
+- `buildSystemPrompt()` now includes bounded local skill instructions.
+- Prompt fragment explicitly says skills are lower priority, cannot grant tools, cannot bypass permission, and cannot override higher-priority instructions.
+- Tests added in `apps/desktop/src/main/__tests__/skills.test.ts`.
+
+### 7. Stop did not reject parked tool permission requests
+
+Commit: `a4a9b7e Wire skills into prompts and stop parked permissions`
+
+Evidence:
+- `AiSdkBackend.stop()` aborted the model stream but did not end the current permission-engine turn.
+
+Impact:
+- If a tool was waiting on a permission dialog, Stop could leave the tool wrapper parked until a later user decision.
+
+Fix:
+- `stop()` now calls `permissionEngine.endTurn(currentTurnId, 'aborted')`.
+- Regression test added in `packages/runtime/src/__tests__/ai-sdk-backend.test.ts`.
+
+### 8. Auto-approved read tools could escape session cwd
+
+Commit: `21522a9 Constrain read tools to session cwd`
+
+Evidence:
+- `Read`, `Glob`, and `Grep` were `permissionRequired: false` but accepted absolute paths, `../`, or symlink escapes.
+
+Impact:
+- Explore/Ask mode could read files outside the session workspace without a prompt.
+
+Fix:
+- `Read` rejects absolute paths and uses lexical + realpath containment under session cwd.
+- `Glob` rejects absolute/parent-traversal patterns and constrains optional cwd.
+- `Grep` constrains optional path under session cwd.
+- Tests added in `packages/runtime/src/__tests__/builtin-tools.test.ts`.
+
+### 9. Main-process stream catch emitted random turn ids
+
+Commit: `1e41f64 Preserve turn ids for stream errors`
+
+Evidence:
+- `streamEvents()` catch synthesized renderer error events with `turnId: randomUUID()`.
+
+Impact:
+- Even after runtime persisted the correct failed turn, the renderer error event could be detached from the actual turn lineage.
+
+Fix:
+- Send/retry/regenerate/quick-chat now generate explicit turn ids and pass them as `fallbackTurnId` into `streamEvents()`.
+- Catch uses that id and emits both session and turn status change events.
+
+## Remaining Product / Architecture Findings
+
+### A. Coming Soon settings surfaces still need a product decision
+
+Evidence:
+- `apps/desktop/src/renderer/settings/SettingsModal.tsx` exposes `daily-review`, `voice-models`, `open-gateway`, and `search` as enabled nav items with Coming Soon copy.
+- `packages/core/src/settings.ts` has section ids, but there is no real settings contract for these features yet.
+
+Risk:
+- This is honest enough as product-stance copy, but still takes Settings real estate and can feel like shipped capability.
+
+Recommendation:
+- @WAWQAQ should choose per page: implement now, hide from nav, or keep as disabled roadmap copy.
+- If kept visible, each page needs a real snapshot/status source before it becomes actionable.
+
+### B. Health / Capability center is contract-first, not probe-complete
+
+Evidence:
+- `apps/desktop/src/main/capability-snapshot.ts` marks Computer Use, Activity, Voice, Open Gateway, and Memory Write as `not_available` with scaffold reasons.
+- Bot readiness is now safer, but most non-bot runtime probes are still placeholders.
+
+Risk:
+- UI is no longer lying about operational state, but the actual parity capabilities are not implemented.
+
+Recommendation:
+- Next engineering PRs should implement real probes before flipping any row to enabled/operational.
+- Computer Use requires real helper process + AX/screenshot probe; Voice requires mic/TTS chunk probe; Open Gateway requires heartbeat.
+
+### C. Prompt assembly still lacks workspace context beyond personalization + skills
+
+Evidence:
+- `buildSystemPrompt()` currently joins personalization and installed skills.
+- No AGENTS.md / repository instructions / workspace summary is injected.
+
+Risk:
+- For coding workflows, the model lacks project-specific rules unless the user repeats them.
+
+Recommendation:
+- Add a bounded workspace-instructions loader with containment and precedence rules.
+- Treat workspace files as untrusted lower-priority context; include source path and truncation metadata.
+
+### D. Main / renderer / settings / UI component files are still too large
+
+Current sizes:
+- `apps/desktop/src/main/main.ts`: 1300 lines
+- `apps/desktop/src/renderer/main.tsx`: 1428 lines
+- `apps/desktop/src/renderer/settings/SettingsModal.tsx`: 1643 lines
+- `packages/ui/src/components.tsx`: 2654 lines
+- `packages/runtime/src/ai-sdk-backend.ts`: 912 lines
+
+Risk:
+- Fixes are harder to isolate; merge conflicts increase; subtle event/state coupling is easy to miss.
+
+Recommendation:
+- Split by ownership, not by arbitrary helpers:
+  - main IPC: sessions/connections/settings/artifacts/capabilities/skills modules
+  - renderer: session event reducer / settings shell / chat shell
+  - ui components: chat, sessions, permissions, composer, tool activity modules
+  - runtime backend: stream pump, tool wrapper, telemetry/artifact hooks
+
+### E. Open Gateway / search / voice / daily review are still no-op roadmap features
+
+Evidence:
+- They have Coming Soon UI copy and capability snapshot placeholders but no backend implementations.
+
+Risk:
+- Users may interpret the nav as feature presence.
+
+Recommendation:
+- Do not wire buttons/toggles until each has snapshot/degraded/revoke/audit/probe contracts.
+- Keep all four behind disabled copy or hide them until implementation starts.
+
+## Verification Log
+
+After the latest fixes:
+- `git diff --check` passed.
+- `npm run typecheck` passed.
+- Full `npm test --workspaces --if-present` passed: core 122 / storage 38 / runtime 99 / desktop 323 = 582.
+- Pushed commits: `778077d`, `a4a9b7e`, `21522a9`, `1e41f64`.
