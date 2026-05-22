@@ -21,6 +21,7 @@ import {
 import type {
   AppSettings,
   BotProvider,
+  BotReadinessState,
   LlmConnection,
   NetworkProxySettings,
   PersonalizationSettingsWarning,
@@ -304,6 +305,15 @@ const BOT_LABELS: Record<BotProvider, { label: string; help: string }> = {
   discord: { label: 'Discord', help: '配置 Discord Bot Token' },
   dingtalk: { label: '钉钉', help: '配置钉钉机器人 webhook' },
   qq: { label: 'QQ', help: '配置 QQ Bot bridge' },
+};
+
+const BOT_READINESS_COPY: Record<BotReadinessState, { label: string; detail: string; tone: 'neutral' | 'info' | 'success' | 'warning' | 'destructive' }> = {
+  unscaffolded: { label: '未接入', detail: '代码中还没有这个平台的 bridge。', tone: 'neutral' },
+  scaffolded: { label: '仅有入口', detail: '设置入口已保留，但还没有运行态凭据或 bridge。', tone: 'neutral' },
+  configured: { label: '已配置', detail: '已填写配置；还没有证明凭据或运行态可用。', tone: 'info' },
+  credentials_valid: { label: '凭据有效', detail: '凭据探测通过；这不代表已能收发消息。', tone: 'warning' },
+  operational: { label: '运行可用', detail: '最近一次运行态探测或收发 smoke 成功。', tone: 'success' },
+  degraded: { label: '运行降级', detail: '之前可用，但最近运行态探测失败。', tone: 'destructive' },
 };
 
 export function SettingsModal(props: {
@@ -1394,15 +1404,18 @@ function BotChatSettingsPage(props: {
   return (
     <div className="settingsBotLayout">
       <nav className="settingsBotList" aria-label="机器人频道列表">
-        {BOT_PROVIDERS.map((provider) => (
-          <button key={provider} type="button" data-active={selected === provider} onClick={() => {
-            setSelected(provider);
-          }}>
-            <span className="settingsBotLogo">{BOT_LABELS[provider].label.slice(0, 2)}</span>
-            <span>{BOT_LABELS[provider].label}</span>
-            {props.settings.botChat.channels[provider].connected && <em>已连接</em>}
-          </button>
-        ))}
+        {BOT_PROVIDERS.map((provider) => {
+          const copy = BOT_READINESS_COPY[props.settings.botChat.channels[provider].readiness] ?? BOT_READINESS_COPY.scaffolded;
+          return (
+            <button key={provider} type="button" data-active={selected === provider} onClick={() => {
+              setSelected(provider);
+            }}>
+              <span className="settingsBotLogo">{BOT_LABELS[provider].label.slice(0, 2)}</span>
+              <span>{BOT_LABELS[provider].label}</span>
+              <em data-tone={copy.tone}>{copy.label}</em>
+            </button>
+          );
+        })}
       </nav>
 
       <section className="settingsBotDetail">
@@ -1410,7 +1423,11 @@ function BotChatSettingsPage(props: {
           <span className="settingsBotLogo" data-large="true">{BOT_LABELS[selected].label.slice(0, 2)}</span>
           <div>
             <h3>{BOT_LABELS[selected].label}</h3>
-            <small>{channel.connected ? '已连接' : '未连接'}</small>
+            <small>
+              {(BOT_READINESS_COPY[channel.readiness] ?? BOT_READINESS_COPY.scaffolded).label}
+              {' · '}
+              {(BOT_READINESS_COPY[channel.readiness] ?? BOT_READINESS_COPY.scaffolded).detail}
+            </small>
           </div>
           <Switch checked={channel.enabled} onChange={(enabled) => updateChannel({ enabled })} />
         </div>

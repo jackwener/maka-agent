@@ -1,10 +1,15 @@
-import type { BotProvider } from '@maka/core';
+import type { BotProvider, BotReadinessState } from '@maka/core';
 
 export type BotPlatform = BotProvider;
 
 export interface BotStatus {
   platform: BotPlatform;
+  /**
+   * Runtime process/polling loop state only. This is not operational
+   * readiness; use `readiness` for user-facing health.
+   */
   running: boolean;
+  readiness: BotReadinessState;
   reason?: string;
   startedAt?: number;
   lastEventAt?: number;

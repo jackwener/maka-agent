@@ -206,6 +206,7 @@ export type {
   BotChannelSettings,
   BotChatSettings,
   BotProvider,
+  BotReadinessState,
   NetworkProxySettings,
   NetworkSettings,
   ProxyProtocol,
@@ -227,10 +228,12 @@ export type {
   UsageTab,
 } from './settings.js';
 export {
+  BOT_READINESS_STATES,
   BOT_PROVIDERS,
   DEFAULT_PROXY_BYPASS_DOMAINS,
   createDefaultBotChannel,
   createDefaultSettings,
+  isBotReadinessState,
   mergeSettings,
   normalizeSettings,
 } from './settings.js';

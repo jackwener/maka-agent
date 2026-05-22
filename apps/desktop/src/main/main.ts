@@ -965,6 +965,9 @@ function registerIpc(): void {
         channels: {
           [provider]: {
             connected: result.ok,
+            readiness: result.ok ? 'credentials_valid' : 'configured',
+            readinessReason: result.ok ? undefined : generalizedErrorMessage(result.error ?? '', 'Bot connection test failed'),
+            readinessUpdatedAt: Date.now(),
             lastTestAt: Date.now(),
             lastError: result.ok ? undefined : generalizedErrorMessage(result.error ?? '', 'Bot connection test failed'),
           },

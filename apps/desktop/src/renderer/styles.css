@@ -3545,10 +3545,15 @@ button:active {
 }
 
 .settingsBotList em {
-  color: var(--success-text);
   font-size: 10px;
   font-style: normal;
+  color: var(--foreground-55);
 }
+
+.settingsBotList em[data-tone="info"] { color: var(--accent); }
+.settingsBotList em[data-tone="success"] { color: var(--success-text); }
+.settingsBotList em[data-tone="warning"] { color: var(--info-text); }
+.settingsBotList em[data-tone="destructive"] { color: var(--destructive-text); }
 
 .settingsBotLogo {
   width: 28px;

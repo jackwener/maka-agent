@@ -12,6 +12,7 @@ export interface BotRegistryDeps {
 
 export class BotRegistry extends EventEmitter {
   private bridges = new Map<BotPlatform, BotBridge>();
+  private statuses = new Map<BotPlatform, BotStatus>();
   private applyQueue: Promise<void> = Promise.resolve();
 
   constructor(private readonly deps: BotRegistryDeps) {
@@ -28,14 +29,7 @@ export class BotRegistry extends EventEmitter {
   }
 
   getStatus(platform: BotPlatform): BotStatus {
-    return this.bridges.get(platform)?.getStatus() ?? {
-      platform,
-      running: false,
-      reason: platform === 'wechat' || platform === 'wecom' || platform === 'dingtalk' || platform === 'qq'
-        ? 'unimplemented'
-        : 'disabled',
-      connection: 'none',
-    };
+    return this.bridges.get(platform)?.getStatus() ?? this.statuses.get(platform) ?? defaultStatus(platform);
   }
 
   allStatuses(): Record<BotProvider, BotStatus> {
@@ -58,6 +52,7 @@ export class BotRegistry extends EventEmitter {
   private async stopAllNow(): Promise<void> {
     await Promise.all([...this.bridges.values()].map((bridge) => bridge.stop().catch(() => {})));
     this.bridges.clear();
+    this.statuses.clear();
   }
 
   private async reconcileOne(platform: BotPlatform, settings: BotChannelSettings): Promise<void> {
@@ -67,12 +62,15 @@ export class BotRegistry extends EventEmitter {
         await existing.stop().catch(() => {});
         this.bridges.delete(platform);
       }
+      this.statuses.set(platform, defaultStatus(platform));
       this.deps.onStatusChange(this.getStatus(platform));
       return;
     }
 
     if (!isImplemented(platform)) {
-      this.deps.onStatusChange(this.getStatus(platform));
+      const status = scaffoldStatus(platform, settings);
+      this.statuses.set(platform, status);
+      this.deps.onStatusChange(status);
       return;
     }
 
@@ -81,6 +79,7 @@ export class BotRegistry extends EventEmitter {
       if (update && !update.call(existing, settings).needsRestart) return;
       await existing.stop().catch(() => {});
     }
+    this.statuses.delete(platform);
 
     const bridge = new SimpleBotBridge(platform, settings);
     this.wire(bridge);
@@ -96,5 +95,36 @@ export class BotRegistry extends EventEmitter {
 }
 
 function isImplemented(platform: BotPlatform): boolean {
-  return platform === 'telegram' || platform === 'discord' || platform === 'feishu';
+  return platform === 'telegram';
+}
+
+function defaultStatus(platform: BotPlatform): BotStatus {
+  return {
+    platform,
+    running: false,
+    readiness: 'scaffolded',
+    reason: 'disabled',
+    connection: 'none',
+  };
+}
+
+function scaffoldStatus(platform: BotPlatform, settings: BotChannelSettings): BotStatus {
+  const readiness = settings.readiness === 'credentials_valid'
+    ? 'credentials_valid'
+    : readinessFromSettings(settings);
+  return {
+    platform,
+    running: false,
+    readiness,
+    reason: settings.token.trim() || settings.appId || settings.appSecret
+      ? 'scaffold-only'
+      : 'unimplemented',
+    connection: 'none',
+  };
+}
+
+function readinessFromSettings(settings: BotChannelSettings): BotStatus['readiness'] {
+  if (!settings.enabled) return 'scaffolded';
+  if (!settings.token.trim() && !settings.appId && !settings.appSecret) return 'scaffolded';
+  return 'configured';
 }

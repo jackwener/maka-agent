@@ -18,12 +18,14 @@ describe('BotRegistry', () => {
     }));
 
     assert.equal(registry.getStatus('telegram').reason, 'disabled');
-    assert.equal(registry.getStatus('wechat').reason, 'unimplemented');
+    assert.equal(registry.getStatus('telegram').readiness, 'scaffolded');
+    assert.equal(registry.getStatus('wechat').reason, 'scaffold-only');
     assert.equal(registry.getStatus('wechat').running, false);
-    assert.equal(statuses.some((status) => status.platform === 'wechat' && status.reason === 'unimplemented'), true);
+    assert.equal(registry.getStatus('wechat').readiness, 'configured');
+    assert.equal(statuses.some((status) => status.platform === 'wechat' && status.readiness === 'configured'), true);
   });
 
-  test('starts implemented non-network bridges and stops them when disabled', async () => {
+  test('does not mark scaffold-only Discord as operational', async () => {
     const statuses: BotStatus[] = [];
     const registry = new BotRegistry({
       onIncomingMessage: () => {},
@@ -34,8 +36,10 @@ describe('BotRegistry', () => {
       discord: { enabled: true, token: 'discord-token' },
     }));
 
-    assert.equal(registry.getStatus('discord').running, true);
-    assert.equal(registry.getStatus('discord').reason, 'ready');
+    assert.equal(registry.getStatus('discord').running, false);
+    assert.equal(registry.getStatus('discord').reason, 'scaffold-only');
+    assert.equal(registry.getStatus('discord').readiness, 'configured');
+    assert.equal(statuses.some((status) => status.platform === 'discord' && status.readiness === 'operational'), false);
 
     await registry.applySettings(settingsWith({
       discord: { enabled: false, token: 'discord-token' },
@@ -43,7 +47,7 @@ describe('BotRegistry', () => {
 
     assert.equal(registry.getStatus('discord').running, false);
     assert.equal(registry.getStatus('discord').reason, 'disabled');
-    assert.equal(statuses.some((status) => status.platform === 'discord' && status.reason === 'stopped'), true);
+    assert.equal(statuses.some((status) => status.platform === 'discord' && status.reason === 'disabled'), true);
   });
 
   test('queues overlapping applySettings calls so the newest settings win deterministically', async () => {
@@ -58,8 +62,9 @@ describe('BotRegistry', () => {
       registry.applySettings(settingsWith({ discord: { enabled: true, token: 'new-token' } })),
     ]);
 
-    assert.equal(registry.getStatus('discord').running, true);
-    assert.equal(registry.getStatus('discord').reason, 'ready');
+    assert.equal(registry.getStatus('discord').running, false);
+    assert.equal(registry.getStatus('discord').reason, 'scaffold-only');
+    assert.equal(registry.getStatus('discord').readiness, 'configured');
   });
 
   test('stopAll waits behind any pending applySettings call and clears bridges', async () => {
@@ -75,6 +80,28 @@ describe('BotRegistry', () => {
 
     assert.equal(registry.getStatus('discord').running, false);
     assert.equal(registry.getStatus('discord').reason, 'disabled');
+  });
+
+  test('credentials_valid remains non-operational without a runtime bridge probe', async () => {
+    const registry = new BotRegistry({
+      onIncomingMessage: () => {},
+      onStatusChange: () => {},
+    });
+
+    await registry.applySettings(settingsWith({
+      feishu: {
+        enabled: true,
+        token: 'tenant-token',
+        appId: 'cli_123',
+        appSecret: 'secret',
+        connected: true,
+        readiness: 'credentials_valid',
+      },
+    }));
+
+    assert.equal(registry.getStatus('feishu').running, false);
+    assert.equal(registry.getStatus('feishu').readiness, 'credentials_valid');
+    assert.notEqual(registry.getStatus('feishu').readiness, 'operational');
   });
 });
 

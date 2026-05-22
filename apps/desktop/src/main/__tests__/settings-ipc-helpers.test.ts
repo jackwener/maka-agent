@@ -76,7 +76,7 @@ describe('settings IPC helpers', () => {
     assert.equal(patch.botChat?.channels?.feishu?.appId, 'cli_123');
   });
 
-  test('maps runtime bot test results to legacy SettingsTestResult shape', () => {
+  test('maps runtime bot test results as credential checks, not operational readiness', () => {
     const result = toSettingsTestResult('telegram', {
       ok: true,
       identity: { id: '42', username: 'maka_bot', displayName: 'Maka' },
@@ -84,7 +84,7 @@ describe('settings IPC helpers', () => {
     });
 
     assert.equal(result.ok, true);
-    assert.equal(result.message, 'telegram 连接测试成功：maka_bot');
+    assert.equal(result.message, 'telegram 凭据测试成功：maka_bot。这不代表运行态已接收或发送成功。');
     assert.deepEqual(result.details?.identity, { id: '42', username: 'maka_bot', displayName: 'Maka' });
     assert.equal(result.details?.hint, 'ready');
   });

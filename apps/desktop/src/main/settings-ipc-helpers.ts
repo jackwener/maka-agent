@@ -105,7 +105,7 @@ export function toSettingsTestResult(provider: BotProvider, result: BotTestResul
   return {
     ok: result.ok,
     message: result.ok
-      ? `${provider} 连接测试成功${result.identity?.username ? `：${result.identity.username}` : ''}`
+      ? `${provider} 凭据测试成功${result.identity?.username ? `：${result.identity.username}` : ''}。这不代表运行态已接收或发送成功。`
       : generalizedErrorMessage(result.error ?? '', `${provider} 连接测试失败`),
     details: {
       ...(result.identity ? { identity: result.identity } : {}),

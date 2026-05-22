@@ -44,10 +44,27 @@ export type BotProvider =
   | 'dingtalk'
   | 'qq';
 
+export const BOT_READINESS_STATES = [
+  'unscaffolded',
+  'scaffolded',
+  'configured',
+  'credentials_valid',
+  'operational',
+  'degraded',
+] as const;
+export type BotReadinessState = typeof BOT_READINESS_STATES[number];
+
 export interface BotChannelSettings {
   provider: BotProvider;
   enabled: boolean;
+  /**
+   * Legacy credential-test boolean. Do not use this to mean runtime
+   * operational; prefer `readiness`.
+   */
   connected: boolean;
+  readiness: BotReadinessState;
+  readinessReason?: string;
+  readinessUpdatedAt?: number;
   token: string;
   proxyUrl: string;
   webhookUrl?: string;
@@ -56,6 +73,10 @@ export interface BotChannelSettings {
   botUserId?: string;
   lastTestAt?: number;
   lastError?: string;
+}
+
+export function isBotReadinessState(value: unknown): value is BotReadinessState {
+  return typeof value === 'string' && (BOT_READINESS_STATES as readonly string[]).includes(value);
 }
 
 export interface BotChatSettings {
@@ -201,6 +222,7 @@ export function createDefaultBotChannel(provider: BotProvider): BotChannelSettin
     provider,
     enabled: false,
     connected: false,
+    readiness: 'scaffolded',
     token: '',
     proxyUrl: provider === 'telegram' ? 'http://127.0.0.1:7890' : '',
   };
@@ -317,8 +339,46 @@ export function normalizeSettings(input: unknown): AppSettings {
       : undefined;
   return {
     ...base,
+    botChat: {
+      channels: Object.fromEntries(
+        BOT_PROVIDERS.map((provider) => {
+          const rawChannel = value.botChat?.channels?.[provider] as Partial<BotChannelSettings> | undefined;
+          return [
+            provider,
+            normalizeBotChannel(provider, base.botChat.channels[provider], rawChannel),
+          ];
+        }),
+      ) as Record<BotProvider, BotChannelSettings>,
+    },
     onboarding: {
       milestones: sanitizeOnboardingMilestones(rawMilestones),
     },
   };
+}
+
+function normalizeBotChannel(
+  provider: BotProvider,
+  channel: BotChannelSettings,
+  rawChannel: Partial<BotChannelSettings> | undefined,
+): BotChannelSettings {
+  const hasExplicitReadiness = rawChannel && 'readiness' in rawChannel;
+  const connected = channel.connected === true;
+  return {
+    ...channel,
+    provider,
+    connected,
+    readiness: hasExplicitReadiness && isBotReadinessState(rawChannel?.readiness)
+      ? channel.readiness
+      : (connected ? 'credentials_valid' : readinessFromChannel(channel)),
+    readinessReason: typeof channel.readinessReason === 'string' ? channel.readinessReason : undefined,
+    readinessUpdatedAt: typeof channel.readinessUpdatedAt === 'number' && Number.isFinite(channel.readinessUpdatedAt)
+      ? channel.readinessUpdatedAt
+      : undefined,
+  };
+}
+
+function readinessFromChannel(channel: BotChannelSettings): BotReadinessState {
+  if (!channel.enabled) return 'scaffolded';
+  if (!channel.token.trim() && !channel.appId && !channel.appSecret) return 'scaffolded';
+  return 'configured';
 }
