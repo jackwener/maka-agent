@@ -1933,6 +1933,9 @@ button:active {
 
 .maka-toast-viewport {
   position: fixed;
+  /* PR-UI-16: position now driven by `data-position` (default
+   * bottom-right preserves v1 behavior). Default anchors here are a
+   * safety fallback if data-position is missing or invalid. */
   right: 24px;
   bottom: 24px;
   z-index: var(--z-overlay);
@@ -1943,6 +1946,122 @@ button:active {
   padding: 0;
   list-style: none;
   pointer-events: none;
+}
+
+/* Reset position properties before each variant sets its own, so
+ * switching positions at runtime doesn't leave stale anchors. */
+.maka-toast-viewport[data-position] {
+  top: auto;
+  right: auto;
+  bottom: auto;
+  left: auto;
+  transform: none;
+}
+
+.maka-toast-viewport[data-position="top-left"] {
+  top: 24px;
+  left: 24px;
+}
+.maka-toast-viewport[data-position="top-center"] {
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.maka-toast-viewport[data-position="top-right"] {
+  top: 24px;
+  right: 24px;
+}
+.maka-toast-viewport[data-position="bottom-left"] {
+  bottom: 24px;
+  left: 24px;
+}
+.maka-toast-viewport[data-position="bottom-center"] {
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.maka-toast-viewport[data-position="bottom-right"] {
+  bottom: 24px;
+  right: 24px;
+}
+
+/* PR-UI-16: toast position picker in Theme settings page. Each option
+ * shows a tiny mock viewport with a dot in the chosen corner so the
+ * user can see at a glance where toasts will land. */
+.settingsToastPositionGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 8px 0 0;
+}
+.settingsToastPositionOption {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--background);
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.settingsToastPositionOption:hover {
+  border-color: var(--border-strong);
+  background: var(--foreground-3);
+}
+.settingsToastPositionOption[data-active="true"] {
+  border-color: var(--accent);
+  background: oklch(from var(--accent) l c h / 0.06);
+}
+.settingsToastPositionOption:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.settingsToastPositionSwatch {
+  position: relative;
+  width: 64px;
+  height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--foreground-3);
+}
+.settingsToastPositionDot {
+  position: absolute;
+  width: 12px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+.settingsToastPositionOption[data-position="top-left"] .settingsToastPositionDot {
+  top: 4px;
+  left: 4px;
+}
+.settingsToastPositionOption[data-position="top-center"] .settingsToastPositionDot {
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.settingsToastPositionOption[data-position="top-right"] .settingsToastPositionDot {
+  top: 4px;
+  right: 4px;
+}
+.settingsToastPositionOption[data-position="bottom-left"] .settingsToastPositionDot {
+  bottom: 4px;
+  left: 4px;
+}
+.settingsToastPositionOption[data-position="bottom-center"] .settingsToastPositionDot {
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.settingsToastPositionOption[data-position="bottom-right"] .settingsToastPositionDot {
+  bottom: 4px;
+  right: 4px;
+}
+.settingsToastPositionLabel {
+  font-size: 0.78rem;
+  color: var(--foreground-80);
 }
 
 .maka-toast {

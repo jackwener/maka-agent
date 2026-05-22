@@ -124,6 +124,30 @@ export function isThemePalette(value: unknown): value is ThemePalette {
   return typeof value === 'string' && (THEME_PALETTES as readonly string[]).includes(value);
 }
 
+/**
+ * PR-UI-16 (@yuejing 2026-05-22): user-pickable toast position.
+ *
+ * Audit §3.10 — Maka pinned toasts to bottom-right (PR55); some users
+ * prefer top-right (notification-center style) or center for
+ * full-attention dialogs. Six grid corners cover the practical needs;
+ * sticking with `bottom-right` as default preserves the v1 behavior
+ * so existing users see no change.
+ */
+export const TOAST_POSITIONS = [
+  'top-left',
+  'top-center',
+  'top-right',
+  'bottom-left',
+  'bottom-center',
+  'bottom-right',
+] as const;
+
+export type ToastPosition = typeof TOAST_POSITIONS[number];
+
+export function isToastPosition(value: unknown): value is ToastPosition {
+  return typeof value === 'string' && (TOAST_POSITIONS as readonly string[]).includes(value);
+}
+
 export interface AppearanceSettings {
   theme: ThemePreference;
   density: UiDensity;
@@ -134,6 +158,12 @@ export interface AppearanceSettings {
    * defaults missing values to `default`.
    */
   palette?: ThemePalette;
+  /**
+   * PR-UI-16: optional toast position override. When omitted, Maka
+   * defaults to `bottom-right` (the v1 hardcoded behavior). Older
+   * settings.json files without this field continue to work.
+   */
+  toastPosition?: ToastPosition;
 }
 
 export interface PersonalizationSettings {
@@ -293,6 +323,7 @@ export function createDefaultSettings(): AppSettings {
       theme: 'auto',
       density: 'comfortable',
       palette: 'default',
+      toastPosition: 'bottom-right',
     },
     personalization: {
       displayName: '',
@@ -399,6 +430,16 @@ export function normalizeSettings(input: unknown): AppSettings {
           ];
         }),
       ) as Record<BotProvider, BotChannelSettings>,
+    },
+    appearance: {
+      ...base.appearance,
+      // PR-UI-16: reject any toastPosition that doesn't match the closed
+      // enum. Without this guard, a manually-edited settings.json could
+      // leave the toast viewport without a corresponding CSS rule and
+      // toasts would render in an unstyled corner.
+      toastPosition: isToastPosition(base.appearance.toastPosition)
+        ? base.appearance.toastPosition
+        : 'bottom-right',
     },
     onboarding: {
       milestones: sanitizeOnboardingMilestones(rawMilestones),

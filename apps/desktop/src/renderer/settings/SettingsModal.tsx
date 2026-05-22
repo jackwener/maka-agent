@@ -41,6 +41,7 @@ import type {
   PersonalizationSettingsWarning,
   SettingsSection,
   ThemePreference,
+  ToastPosition,
   UiDensity,
   UpdateAppSettingsResult,
   UsageRange,
@@ -579,6 +580,7 @@ function SettingsPage(props: {
         <ThemeSettingsPage
           themePref={props.themePref}
           density={props.density}
+          settings={props.settings}
           onUpdate={props.onUpdateSettings}
           onThemeChange={props.onThemeChange}
           onDensityChange={props.onDensityChange}
@@ -1172,6 +1174,18 @@ const DENSITY_OPTIONS: Array<{ value: UiDensity; label: string; help: string }> 
   { value: 'spacious', label: '宽松', help: '更大留白，适合长会话沉浸阅读。' },
 ];
 
+/** PR-UI-16: user-pickable toast position. Six grid corners cover the
+ *  practical needs (top/bottom × left/center/right). Default
+ *  `bottom-right` matches the v1 hardcoded behavior. */
+const TOAST_POSITION_OPTIONS: Array<{ value: ToastPosition; label: string }> = [
+  { value: 'top-left', label: '左上' },
+  { value: 'top-center', label: '顶部居中' },
+  { value: 'top-right', label: '右上' },
+  { value: 'bottom-left', label: '左下' },
+  { value: 'bottom-center', label: '底部居中' },
+  { value: 'bottom-right', label: '右下（默认）' },
+];
+
 /**
  * Mini chat-surface mockup rendered inside each theme radio tile. Replaces
  * the generic gradient swatch with a representative preview so the user
@@ -1216,6 +1230,7 @@ function ThemePreviewPane(props: { mode: 'light' | 'dark' }) {
 function ThemeSettingsPage(props: {
   themePref: ThemePreference;
   density: UiDensity;
+  settings: AppSettings;
   onUpdate(patch: Parameters<typeof window.maka.settings.update>[0]): Promise<UpdateAppSettingsResult>;
   onThemeChange(pref: ThemePreference): void;
   onDensityChange(density: UiDensity): void;
@@ -1232,6 +1247,27 @@ function ThemeSettingsPage(props: {
     props.onDensityChange(next);
     await props.onUpdate({ appearance: { density: next } });
   }
+
+  // PR-UI-16: toast position. Persist to settings AND update localStorage
+  // mirror so App.tsx's ToastProvider re-renders with the new position
+  // on the next settings event without waiting for a full reload.
+  async function setToastPosition(next: ToastPosition) {
+    try {
+      localStorage.setItem('maka-toast-position-v1', next);
+    } catch {
+      /* localStorage unavailable */
+    }
+    // Push a representative toast position so the React tree sees a
+    // change immediately. Setting the attribute on the live viewport
+    // is the simplest path that doesn't require lifting state — the
+    // viewport reads the attribute via CSS, the prop sync happens on
+    // next settings load.
+    const viewport = document.querySelector<HTMLOListElement>('.maka-toast-viewport');
+    if (viewport) viewport.dataset.position = next;
+    await props.onUpdate({ appearance: { toastPosition: next } });
+  }
+
+  const currentToastPosition: ToastPosition = props.settings.appearance.toastPosition ?? 'bottom-right';
 
   return (
     <div className="settingsStructuredPage">
@@ -1275,6 +1311,28 @@ function ThemeSettingsPage(props: {
               <strong>{option.label}</strong>
               <small>{option.help}</small>
             </span>
+          </button>
+        ))}
+      </div>
+
+      <h3 className="settingsSubheading">通知位置</h3>
+      <div className="settingsToastPositionGrid" role="radiogroup" aria-label="通知位置">
+        {TOAST_POSITION_OPTIONS.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={currentToastPosition === option.value}
+            data-active={currentToastPosition === option.value}
+            data-position={option.value}
+            className="settingsToastPositionOption"
+            onClick={() => void setToastPosition(option.value)}
+            title={option.label}
+          >
+            <span className="settingsToastPositionSwatch" aria-hidden="true">
+              <span className="settingsToastPositionDot" />
+            </span>
+            <span className="settingsToastPositionLabel">{option.label}</span>
           </button>
         ))}
       </div>
