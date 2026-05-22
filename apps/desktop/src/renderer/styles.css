@@ -552,7 +552,9 @@ button:active {
   display: flex;
   align-items: stretch;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  /* PR-UI-LAYOUT-9: card radius family alignment 8 → 10 to match
+   * chips / search / tool cards / settings nav. */
+  border-radius: 10px;
   background: var(--foreground-2);
   color: var(--foreground);
   box-shadow: var(--shadow-minimal-flat);
@@ -1890,10 +1892,17 @@ button:active {
   grid-template-columns: 20px minmax(0, 1fr) auto auto;
   align-items: start;
   gap: 10px;
-  border: 1px solid var(--border-strong);
+  /* PR-UI-LAYOUT-9: toast chrome aligns with the new card family.
+   * Was: `--border-strong` + `--shadow-medium` (heavy 4-layer
+   * stack). Now: `--border` hairline + softer 2-layer shadow that
+   * still floats above the chat but doesn't drop a heavy shadow
+   * onto the warm canvas. */
+  border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--background);
-  box-shadow: var(--shadow-medium);
+  box-shadow:
+    0 1px 2px oklch(from var(--foreground) l c h / 0.04),
+    0 10px 24px oklch(from var(--foreground) l c h / 0.08);
   padding: 12px 14px;
   pointer-events: auto;
   opacity: 1;
