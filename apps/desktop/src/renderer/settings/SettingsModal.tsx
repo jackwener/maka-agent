@@ -215,7 +215,7 @@ const COMING_SOON_PAGES: Partial<Record<SettingsSection, ComingSoonCopy>> = {
     badge: 'V0.2 · opt-in · 本地汇总',
     description:
       '把当天的 Maka 会话、任务、工具调用本地聚合成一份精炼简报。整条管线默认关闭，启用后只读取 Maka 自己产生的数据。',
-    status: '当前未启用。V0.2 会作为单独的开关上线，默认仍是关闭状态。',
+    status: '当前尚未实现。V0.2 会作为单独的开关上线，默认仍是关闭状态。',
     willInclude: [
       '把当天会话按时段 / 主题聚类，凸显已完成的决策与进展',
       '汇总「使用统计」当天的 token / 费用，不重复算账',
@@ -240,7 +240,7 @@ const COMING_SOON_PAGES: Partial<Record<SettingsSection, ComingSoonCopy>> = {
     badge: 'V0.2 · per-session opt-in · 麦克风需授权',
     description:
       '为 Maka 接入本地或云端的 TTS / STT，让对话可以语音输入和回放。语音是单独的能力，必须显式启用，与文本通道分开管理。',
-    status: '当前未启用。麦克风权限尚未申请，应用不会主动调用任何音频设备。',
+    status: '当前尚未实现。麦克风权限尚未申请，应用不会主动调用任何音频设备。',
     willInclude: [
       '本地 TTS：piper / coqui，零网络延迟',
       '云端 STT：Whisper / GPT-4o Realtime / Gemini Live',
@@ -265,7 +265,7 @@ const COMING_SOON_PAGES: Partial<Record<SettingsSection, ComingSoonCopy>> = {
     badge: 'V0.2 · disabled-by-default · token-required · localhost-only',
     description:
       '把 Maka 当作本机的 OpenAI 兼容 API 暴露给其他工具（IDE / shell / 工作流引擎）。这是一个被严格收窄的本地网关：只代理模型调用，永远不暴露 Settings、tools、文件或 bot 控制权。',
-    status: '当前未启用。即使在 V0.2 上线后，默认状态仍是关闭，必须显式开启。',
+    status: '当前尚未实现。即使在 V0.2 上线后，默认状态仍是关闭，必须显式开启。',
     willInclude: [
       '本机 :3939 暴露 OpenAI 兼容端点 (chat / models / health)',
       '启用时生成一次性 gateway token，每个请求必须 Authorization: Bearer',
@@ -293,7 +293,7 @@ const COMING_SOON_PAGES: Partial<Record<SettingsSection, ComingSoonCopy>> = {
     badge: 'V0.2 · per-query opt-in · 走代理',
     description:
       '为助手挂接外部搜索能力，自动按提问类型选择源。每条搜索都经过权限策略与代理路由，UI 上可以单独关闭具体搜索源。',
-    status: '当前未启用。Maka 不会主动联网搜索，所有搜索都必须由用户显式开启。',
+    status: '当前尚未实现。Maka 不会主动联网搜索，所有搜索都必须由用户显式开启。',
     willInclude: [
       '主流引擎：Tavily / Brave Search / SerpAPI（自带凭据）',
       '自托管选项：SearxNG、MetaSo、本地索引',
@@ -301,7 +301,7 @@ const COMING_SOON_PAGES: Partial<Record<SettingsSection, ComingSoonCopy>> = {
       '按引擎单独关闭 / 启用，凭据测试通过后才放行真实查询',
     ],
     willNotDo: [
-      '不在未启用任何引擎时静默回退到默认搜索',
+      '没有可用引擎时不会静默回退到默认搜索',
       '不绕过 Settings 中配置的网络代理与超时',
       '不保留查询原文与返回 body，只保留 query hash / 引擎 / latency',
       '隐私模式下不写入会话 JSONL 以外的任何持久化存储',
