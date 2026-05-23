@@ -1047,8 +1047,6 @@ Doc convention used in every gate below:
 - `streamingBySession` state must be typed as
   `Record<string, { text: string; truncated: boolean }>`; no separate
   `streamingTruncatedBySession` map.
-- `<img src>` of `data:…` payloads must use `safeMime` only (this
-  belongs to S5 but the grep gates assistant bubble too).
 
 ### S7 — B2: disabled OAuth subscription card non-interactive
 
