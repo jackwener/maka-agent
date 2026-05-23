@@ -2807,9 +2807,12 @@ button:active {
   font-family: var(--font-mono);
   font-size: 12px;
   padding: 1px 6px;
-  border-radius: 4px;
+  /* PR-UI-LAYOUT-40: tool pill radius 4 → 5 to match the inline
+   * `<code>` family (LAYOUT-28 set inline code at 5). */
+  border-radius: 5px;
   background: var(--foreground-5);
   color: var(--foreground-80);
+  border: 1px solid oklch(from var(--foreground) l c h / 0.03);
 }
 
 .maka-permission-body {
@@ -2836,9 +2839,14 @@ button:active {
   font-family: var(--font-mono);
   font-size: 12.5px;
   padding: 2px 6px;
-  border-radius: 4px;
+  /* PR-UI-LAYOUT-40: radius 4 → 5 + hairline border to match the
+   * inline `<code>` family (LAYOUT-28 / 40). The path display in
+   * the Permission Dialog now reads as the same kind of element
+   * as inline code anywhere else. */
+  border-radius: 5px;
   background: var(--foreground-5);
   color: var(--foreground);
+  border: 1px solid oklch(from var(--foreground) l c h / 0.03);
 }
 
 .maka-permission-command,
