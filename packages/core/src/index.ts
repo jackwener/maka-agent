@@ -234,6 +234,24 @@ export {
   isRealConnection,
 } from './connection-readiness.js';
 
+// provider-auth.ts (PR-AUTH-0)
+export type {
+  ProviderAuthAction,
+  ProviderAuthActionAvailability,
+  ProviderAuthContract,
+  ProviderAuthContractInput,
+  ProviderAuthSetupMode,
+  ProviderAuthState,
+} from './provider-auth.js';
+export {
+  PROVIDER_AUTH_ACTIONS,
+  PROVIDER_AUTH_SETUP_MODES,
+  PROVIDER_AUTH_STATES,
+  deriveProviderAuthContract,
+  deriveProviderAuthContractFromConnection,
+  isProviderAuthState,
+} from './provider-auth.js';
+
 // onboarding.ts (PR110a)
 export type {
   DeriveOnboardingStateInput,
