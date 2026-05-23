@@ -211,29 +211,92 @@ describe('applyAssistantDelta — combined secret + oversize (kenji msg cd09bcac
     assert.equal(result.truncated, true);
   });
 
-  it('streaming append: secret straddling two deltas survives masking once both deltas have arrived', () => {
-    // Per-delta redaction is local to each delta. A secret split
-    // across two deltas may slip past per-delta redaction (the
-    // partial token doesn't match patterns). This is a known
-    // upstream limitation — the smoother / markdown layer downstream
-    // is supposed to catch the FULL accumulated text. The C1
-    // chokepoint also runs `prepareSmoothStreamText(props.text)` at
-    // the bubble, which re-runs `redactSecrets` on the full buffer.
-    //
-    // This test documents the per-delta helper's per-call behavior:
-    // it does NOT promise to redact a secret that straddles deltas;
-    // downstream `prepareSmoothStreamText` is the second gate. We
-    // assert ONLY that this helper does not pass the COMPLETED
-    // single-call secret through.
+  it('CROSS-DELTA: long opaque token split exactly at the delta seam (40+ hex chars) is caught (@kenji Blocker 1 hard gate)', () => {
+    // @kenji msg 3c01e901 Blocker 1 hard gate: the canonical
+    // cross-delta case. A 40+ char hex run matches the "long opaque
+    // token" pattern in `redactSecrets`. Splitting it across two
+    // deltas means per-delta redaction can't see the full match;
+    // ONLY the post-append L4 pass on the appended candidate catches
+    // it.
+    //   delta 1: 20 chars hex (innocuous by itself)
+    //   delta 2: 25 chars hex (innocuous by itself)
+    //   after append: 45 chars hex → matches pattern → must redact
+    const half1 = 'a1b2c3d4e5f60718293a4b5c'; // 24 hex chars
+    const half2 = '6d7e8f9012345678abcdef'; // 22 hex chars
+    const combined = half1 + half2; // 46 hex chars total
+    assert.equal(combined.length, 46);
+    const r1 = applyAssistantDelta('', half1);
+    // Half-1 by itself is 24 chars, below the 40-char threshold —
+    // per-delta redaction does NOT fire. Critical: ensures we are
+    // genuinely testing the cross-delta gate, not the per-delta one.
+    assert.equal(r1.redacted, false, 'half-1 alone should NOT match any redaction pattern');
+    assert.ok(r1.text.includes(half1), 'half-1 should be present in state pre-cross-delta');
+
+    const r2 = applyAssistantDelta(r1.text, half2);
+    // Now the appended candidate is 46 hex chars — matches the
+    // long-opaque-token pattern. L4 post-append redactSecrets MUST
+    // fire, and the stored text MUST NOT contain the combined raw
+    // string.
+    assert.ok(
+      !r2.text.includes(combined),
+      `cross-delta long-opaque token must be redacted by L4 post-append pass; got: ${r2.text}`,
+    );
+    assert.equal(
+      r2.redacted,
+      true,
+      'second call must report redacted=true because L4 cross-delta pass fired',
+    );
+  });
+
+  it('CROSS-DELTA: Authorization header partial-then-token (per-delta or post-append, either layer catches it)', () => {
+    // Documents that EITHER L1 (per-delta on "Authorization: Bearer
+    // sk-") OR L4 (post-append) may fire — the helper guarantees
+    // the COMBINED state has no raw secret, regardless of which
+    // layer caught it. (The Authorization regex in `redactSecrets`
+    // happens to fire on the partial because `[^\s"'<>]+` matches
+    // even a short token suffix.)
     const result1 = applyAssistantDelta('', 'Authorization: Bearer sk-');
-    const result2 = applyAssistantDelta(result1.text, 'abcdef1234567890');
-    // The combined text may or may not contain the full token shape
-    // (depending on `redactSecrets` semantics for partials). We do
-    // not assert here — this test is for documentation of the
-    // boundary, not a gate. Downstream `prepareSmoothStreamText`
-    // (PR-UI-C1) covers the combined-string redaction case.
-    assert.ok(result1.text.length > 0);
-    assert.ok(result2.text.length >= result1.text.length);
+    const result2 = applyAssistantDelta(result1.text, 'abcdef1234567890fedcba0987654321');
+    const combinedSecret = 'sk-abcdef1234567890fedcba0987654321';
+    assert.ok(
+      !result2.text.includes(combinedSecret),
+      `combined token must NOT appear in final state; got: ${result2.text}`,
+    );
+    // At least one of the two calls must have reported redaction.
+    assert.ok(
+      result1.redacted || result2.redacted,
+      'redaction must fire at some layer in the cross-delta sequence',
+    );
+  });
+
+  it('CROSS-DELTA: secret split across many tiny deltas — final accumulated state has no raw token', () => {
+    // Token "sk-deadbeef00000000deadbeef00000000" streamed as
+    // individual chars (worst-case per-delta is single char, far
+    // below any pattern threshold). Final stored text must still
+    // never contain the raw secret thanks to the post-append pass.
+    const secret = 'sk-deadbeef00000000deadbeef00000000';
+    const prefix = 'Authorization: Bearer ';
+    const full = prefix + secret;
+    let buf = '';
+    let anyRedacted = false;
+    for (const ch of full) {
+      const r = applyAssistantDelta(buf, ch);
+      buf = r.text;
+      anyRedacted = anyRedacted || r.redacted;
+    }
+    assert.ok(!buf.includes(secret), 'no raw token in final accumulated state');
+    assert.ok(anyRedacted, 'at least one call must have reported redaction');
+  });
+
+  it('CROSS-DELTA: prev already contains partial that becomes full secret after appending — caught', () => {
+    // The chokepoint is the only place this can fire correctly. If
+    // we ONLY redacted the delta, the prev's `"sk-"` prefix would
+    // survive and the appended bytes would complete the token in
+    // state. The L4 post-append redactSecrets pass catches this.
+    const result = applyAssistantDelta('Token: sk-', 'abcdef0123456789abcdef0123456789');
+    const expectedSecret = 'sk-abcdef0123456789abcdef0123456789';
+    assert.ok(!result.text.includes(expectedSecret), 'cross-delta token caught by post-append pass');
+    assert.equal(result.redacted, true);
   });
 
   it('non-string delta carrying ostensible secret: dropped, NO secret enters state', () => {

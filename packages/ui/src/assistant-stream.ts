@@ -79,21 +79,35 @@ export interface ApplyAssistantResult {
  * Apply a single `text_delta` to the prior accumulated assistant
  * text. Pure: no React state, no DOM, no IPC.
  *
- *   1. `redactSecrets(rawDelta)` — secondary mask BEFORE state.
+ * Pipeline (in order):
+ *   1. `redactSecrets(rawDelta)` — per-delta mask. Catches secrets
+ *      that arrive entirely within one delta.
  *   2. If the delta alone is over `maxDeltaChars`, tail-keep it
  *      with a head truncation marker. (A single multi-MB delta is
  *      a runtime misbehavior; renderer must not echo it raw into
  *      state. Tail-keep here mirrors thinking-stream — the user
  *      hasn't been reading inside the delta atomically.)
- *   3. Once `prev.length` is already at the total cap (the buffer
- *      ends with the trailing-truncation marker), subsequent
- *      deltas are dropped — the state is frozen and the
- *      `truncated` flag is propagated so callers can show "已截断"
- *      affordance.
- *   4. Otherwise append. If the result exceeds `maxTotalChars`,
- *      head-keep the prefix and append a trailing marker. (User
- *      reads the answer from top; we preserve what they've been
- *      reading and tell them the rest was cut.)
+ *   3. Append to `prev`.
+ *   4. `redactSecrets(appended)` — **cross-delta** mask. CRITICAL:
+ *      streaming naturally splits tokens across deltas (e.g.
+ *      `"Authorization: Bearer sk-"` arrives in delta N, then
+ *      `"abcdef1234567890"` in delta N+1). Per-delta redaction
+ *      alone can't catch a secret spanning the seam. This second
+ *      pass over the freshly-appended candidate is the chokepoint
+ *      that lets us assert: NO raw secret EVER enters
+ *      `streamingBySession` state. @kenji review @msg 3c01e901
+ *      Blocker 1 — this MUST run before total-cap + setState.
+ *   5. If the safe-appended exceeds `maxTotalChars`, head-keep
+ *      the prefix and append a trailing marker. (User reads the
+ *      answer from top; we preserve what they've been reading
+ *      and tell them the rest was cut.)
+ *
+ * Short-circuit: once the buffer is at the total cap (ends with
+ * the trailing-truncation marker), subsequent deltas are dropped
+ * entirely.
+ *
+ * `redactSecrets` is idempotent on already-masked text, so the
+ * double-redaction (per-delta + post-append) is correct.
  */
 export function applyAssistantDelta(
   prev: string,
@@ -123,9 +137,10 @@ export function applyAssistantDelta(
     return { text: previousText, redacted: false, truncated: true };
   }
 
-  // L1: secondary redaction.
+  // L1: per-delta redaction. Catches secrets that arrive whole
+  // within this single delta.
   const redactedDelta = redactSecrets(rawDelta);
-  const redactionHappened = redactedDelta !== rawDelta;
+  const perDeltaRedactionHappened = redactedDelta !== rawDelta;
 
   // L2: per-delta cap. A single oversize delta gets tail-kept with
   // a head marker. (Aligns with C0 thinking-stream; the user hasn't
@@ -141,19 +156,29 @@ export function applyAssistantDelta(
   // L3: append.
   const appended = previousText + delta;
 
-  // L4: total cap. Head-keep the prefix the user has been reading;
+  // L4: cross-delta redaction (@kenji review @msg 3c01e901 Blocker 1).
+  // Streaming splits tokens; a secret like `Authorization: Bearer
+  // sk-XXX...` can arrive as `"Authorization: Bearer sk-"` (delta N)
+  // + `"abcdef..."` (delta N+1). Per-delta redaction (L1) cannot see
+  // the whole token; only re-scanning the freshly-appended
+  // candidate catches it. `redactSecrets` is idempotent on
+  // already-masked text, so running it twice is correct.
+  const safeAppended = redactSecrets(appended);
+  const crossDeltaRedactionHappened = safeAppended !== appended;
+
+  // L5: total cap. Head-keep the prefix the user has been reading;
   // mark the tail.
-  let result = appended;
+  let result = safeAppended;
   let totalTruncated = false;
   if (result.length > maxTotal) {
     const keep = maxTotal - TRUNCATED_TAIL_MARKER.length;
-    result = appended.slice(0, keep) + TRUNCATED_TAIL_MARKER;
+    result = safeAppended.slice(0, keep) + TRUNCATED_TAIL_MARKER;
     totalTruncated = true;
   }
 
   return {
     text: result,
-    redacted: redactionHappened,
+    redacted: perDeltaRedactionHappened || crossDeltaRedactionHappened,
     truncated: deltaTruncated || totalTruncated,
   };
 }
