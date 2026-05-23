@@ -6416,6 +6416,20 @@ button:active {
   min-width: 0;
 }
 
+/* PR-UI-C0 review fixup (@kenji msg 7885a347) — "已截断" pill
+   fires when `applyThinkingDelta` / `applyThinkingComplete`
+   dropped content. Same family as the A3 tool-output truncated
+   pill: warning tone, rounded rect, cursor:help. */
+.maka-reasoning-panel-truncated[data-truncated="true"] {
+  font-size: 11px;
+  color: var(--warning-text, var(--info-text));
+  border: 1px solid oklch(from var(--warning) l c h / 0.30);
+  background: oklch(from var(--warning) l c h / 0.06);
+  border-radius: 4px;
+  padding: 0 4px;
+  cursor: help;
+}
+
 .maka-reasoning-panel-chevron {
   font-size: 14px;
   line-height: 1;
