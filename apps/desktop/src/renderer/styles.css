@@ -5670,16 +5670,23 @@ button:active {
 }
 
 .providerCatalogCard[data-status="coming-soon"]::after {
-  content: "Soon";
+  /* PR-UI-LAYOUT-41: badge "Soon" → "Roadmap" to match the
+   * Settings nav badge (LAYOUT-17). Same word everywhere we mean
+   * "not yet implemented, planned". Also raised the contrast a
+   * touch (info-tinted instead of neutral foreground) so the
+   * disabled card still reads "this is intentionally not active"
+   * rather than "this card failed to load". */
+  content: "Roadmap";
   position: absolute;
   top: 10px;
   right: 10px;
   border-radius: 999px;
-  background: var(--foreground-5);
-  color: var(--foreground-60);
-  padding: 2px 7px;
+  background: oklch(from var(--info) l c h / 0.12);
+  color: var(--info-text);
+  padding: 2px 8px;
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 /* PR-UI-13 (@yuejing 2026-05-22): ProviderLogo size normalization.

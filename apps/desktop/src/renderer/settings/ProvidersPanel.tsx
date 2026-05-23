@@ -307,23 +307,53 @@ function ProviderCatalogCard(props: { type: ProviderType; count: number; onSelec
   const display = providerDisplay(props.type);
   const disabled = defaults.status !== 'ready';
   const title = disabled
-    ? '即将推出 OAuth 订阅登录。当前可使用同一家厂商的 API key 在下方分类中接入。'
+    ? '路线图项：尚未实现。当前可使用同一家厂商的 API key 在下方分类中接入。'
     : `添加 ${display.name}`;
+
+  // PR-UI-LAYOUT-41 (@kenji review #my-ai:2f91befb gate):
+  // disabled future actions MUST NOT be focusable / clickable. The
+  // previous render was a real `<button>` with `onClick={disabled ?
+  // undefined : ...}` — that left it tabbable and screen-reader
+  // interactive even though click did nothing. For the
+  // not-yet-implemented OAuth subscription providers, render a
+  // non-interactive `<div role="status">` so keyboard tab skips
+  // it and assistive tech reads it as informational, not
+  // actionable. The ready providers stay as real buttons.
+  if (disabled) {
+    return (
+      <div
+        className="providerCatalogCard"
+        data-provider={props.type}
+        data-status="coming-soon"
+        role="status"
+        aria-label={`${display.name}（路线图，尚未实现）`}
+        title={title}
+      >
+        <ProviderLogo type={props.type} />
+        <span className="providerCatalogCopy">
+          <span className="providerCatalogTitle">
+            <strong>{display.name}</strong>
+          </span>
+          <small>{display.description}</small>
+        </span>
+      </div>
+    );
+  }
 
   return (
     <button
       className="providerCatalogCard"
       data-provider={props.type}
-      data-status={disabled ? 'coming-soon' : 'ready'}
+      data-status="ready"
       type="button"
       title={title}
-      onClick={disabled ? undefined : props.onSelect}
+      onClick={props.onSelect}
     >
       <ProviderLogo type={props.type} />
       <span className="providerCatalogCopy">
         <span className="providerCatalogTitle">
           <strong>{display.name}</strong>
-          {!disabled && display.badge && <em>{display.badge}</em>}
+          {display.badge && <em>{display.badge}</em>}
         </span>
         <small>{display.description}</small>
         {props.count > 0 && <span className="providerCatalogCount">已配置 {props.count} 个</span>}
@@ -916,12 +946,20 @@ export function providerDisplay(type: ProviderType): { name: string; description
       return { name: 'Ollama', description: '连接本机 localhost 的 Ollama 模型。', badge: 'Local' };
     case 'openai-compatible':
       return { name: 'OpenAI Compatible', description: '中转站、代理服务或自部署网关。', badge: 'Custom' };
+    // PR-UI-LAYOUT-41: subscription providers drop the "Soon" badge.
+    // When disabled (current state), the catalog card renders the
+    // "Roadmap" pseudo-badge via [data-status="coming-soon"]::after,
+    // and the description copy itself carries the "路线图" / "尚未
+    // 实现" framing. Once PR-AUTH-1 lands and these go enabled,
+    // they'll get an "OAuth" or "Account" badge then — until then,
+    // no badge prevents the unused field from rendering in some
+    // future code path.
     case 'claude-subscription':
-      return { name: 'Claude Subscription', description: 'Claude Pro / Max 订阅登录，后续支持。', badge: 'Soon' };
+      return { name: 'Claude Subscription', description: 'Claude Pro / Max 账号登录（路线图，尚未实现）。' };
     case 'codex-subscription':
-      return { name: 'Codex Subscription', description: 'ChatGPT / Codex 订阅登录，后续支持。', badge: 'Soon' };
+      return { name: 'Codex Subscription', description: 'ChatGPT / Codex 账号登录（路线图，尚未实现）。' };
     case 'gemini-cli':
-      return { name: 'Gemini CLI', description: 'Google 账号 OAuth 登录，后续支持。', badge: 'Soon' };
+      return { name: 'Gemini CLI', description: 'Google 账号 OAuth 登录（路线图，尚未实现）。' };
   }
 }
 
