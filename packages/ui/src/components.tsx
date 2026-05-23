@@ -1078,6 +1078,14 @@ export function ChatView(props: {
    * when true so the user knows the visible reasoning is bounded.
    */
   thinkingTruncated?: boolean;
+  /**
+   * PR-UI-Cx (@kenji msg cd09bcac): true when the renderer's
+   * `applyAssistantDelta` chokepoint either tail-kept a single
+   * oversize delta or head-capped the per-session total. The
+   * streaming bubble renders a small "已截断" affordance so the
+   * user knows the visible answer is bounded.
+   */
+  streamingTruncated?: boolean;
   tools: ToolActivityItem[];
   activeSession?: SessionSummary;
   activeConnectionLabel?: string;
@@ -1303,7 +1311,10 @@ export function ChatView(props: {
                 />
               )}
               {props.streamingText && (
-                <StreamingAssistantBubble text={props.streamingText} />
+                <StreamingAssistantBubble
+                  text={props.streamingText}
+                  truncated={props.streamingTruncated === true}
+                />
               )}
             </article>
           )}
@@ -2301,7 +2312,7 @@ const STATUS_FOOTER_PRIORITY: Record<TurnFooterActionMeta['id'], 'primary' | 'se
  * `streaming=true` while this component is mounted: by construction
  * the parent only renders it when the stream is in progress.
  */
-function StreamingAssistantBubble(props: { text: string }) {
+function StreamingAssistantBubble(props: { text: string; truncated?: boolean }) {
   // PR-UI-C1 review fixup (@kenji msg fbb8f119): the smoother
   // typewriters PREFIXES of its input string. If the raw text
   // contains a mid-delta secret like `Authorization: Bearer sk-...`,
@@ -2311,6 +2322,14 @@ function StreamingAssistantBubble(props: { text: string }) {
   // the full token. `prepareSmoothStreamText` runs `redactSecrets`
   // on the FULL raw text BEFORE the smoother sees it, so every
   // displayed prefix is guaranteed secret-free.
+  //
+  // PR-UI-Cx (@kenji msg cd09bcac): `props.text` is already the
+  // post-redaction post-cap output of `applyAssistantDelta` (parent
+  // ran the chokepoint inside `setStreamingBySession` updater),
+  // so the smoother only sees safe text. `prepareSmoothStreamText`
+  // here is defense-in-depth — `redactSecrets` is idempotent on
+  // already-masked text, and the gate guarantees the smoother
+  // contract holds even if a future caller forgets the chokepoint.
   const snap = useStreamSnap();
   const safeText = prepareSmoothStreamText(props.text);
   const { displayed } = useSmoothStreamContent(safeText, {
@@ -2320,6 +2339,16 @@ function StreamingAssistantBubble(props: { text: string }) {
   return (
     <div className="maka-bubble-assistant maka-bubble-streaming">
       <Markdown text={displayed} />
+      {props.truncated && (
+        <div
+          className="maka-bubble-truncated"
+          role="status"
+          aria-live="polite"
+          title="助手输出已超过单次回合上限，超出部分未渲染。如需完整内容请重新生成或查看持久化的会话日志。"
+        >
+          已截断
+        </div>
+      )}
     </div>
   );
 }

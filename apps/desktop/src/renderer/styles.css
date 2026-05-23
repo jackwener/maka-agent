@@ -6647,6 +6647,24 @@ button:active {
   cursor: help;
 }
 
+/* PR-UI-Cx (@kenji msg cd09bcac) — "已截断" pill on the streaming
+   assistant bubble. Fires when `applyAssistantDelta` either tail-kept
+   a single oversize delta or head-capped the per-session total. Same
+   visual family as the reasoning-panel truncated pill, positioned as
+   a footer affordance under the bubble's Markdown body so it doesn't
+   compete with the running text. */
+.maka-bubble-truncated {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--warning-text, var(--info-text));
+  border: 1px solid oklch(from var(--warning) l c h / 0.30);
+  background: oklch(from var(--warning) l c h / 0.06);
+  border-radius: 4px;
+  padding: 0 6px;
+  cursor: help;
+}
+
 .maka-reasoning-panel-chevron {
   font-size: 14px;
   line-height: 1;

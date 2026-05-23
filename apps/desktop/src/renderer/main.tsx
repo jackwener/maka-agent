@@ -14,6 +14,7 @@ import type {
   UiDensity,
 } from '@maka/core';
 import {
+  applyAssistantDelta,
   applyThinkingComplete,
   applyThinkingDelta,
   applyToolOutputChunk,
@@ -77,7 +78,16 @@ function AppShell() {
   const [activeId, setActiveId] = useState<string | undefined>();
   const [navSelection, setNavSelection] = useState<NavSelection>(() => readNavSelection());
   const [messages, setMessages] = useState<StoredMessage[]>([]);
-  const [streamingBySession, setStreamingBySession] = useState<Record<string, string>>({});
+  // PR-UI-Cx fixup v2 (@kenji msg 3c01e901 Blocker 2): combined
+  // per-session assistant streaming state. The `text` + `truncated`
+  // pair lives in a SINGLE useState so the `text_delta` handler can
+  // produce both fields from one functional updater — no
+  // cross-mutation between updaters, no closure-variable hack.
+  // `truncated` is monotonic per-session: once flipped to `true`
+  // within a streaming turn, stays true until `clearStreaming`
+  // resets the slot.
+  type AssistantStreamSlot = { text: string; truncated: boolean };
+  const [streamingBySession, setStreamingBySession] = useState<Record<string, AssistantStreamSlot>>({});
   /**
    * PR-UI-LAYOUT-42 (@kenji alma renderer audit, alma-re docs/12-renderer.md §15.3):
    * Alma displays Anthropic-style `reasoning_content` (extended thinking)
@@ -98,6 +108,10 @@ function AppShell() {
   // as `thinkingBySession[sessionId]`. The `<ReasoningPanel>` reads
   // it via the `truncated` prop to render the "已截断" pill.
   const [thinkingTruncatedBySession, setThinkingTruncatedBySession] = useState<Record<string, boolean>>({});
+  // PR-UI-Cx (@kenji msg 94b0063d → fixup v2 msg 3c01e901):
+  // `streamingTruncatedBySession` is now inlined into the combined
+  // `streamingBySession[sessionId].truncated` slot above. See the
+  // type definition near `useState<Record<string, AssistantStreamSlot>>`.
   const [liveToolsBySession, setLiveToolsBySession] = useState<Record<string, ToolActivityItem[]>>({});
   const [permissionBySession, setPermissionBySession] = useState<Record<string, PermissionRequestEvent | undefined>>({});
   const [connections, setConnections] = useState<LlmConnection[]>([]);
@@ -112,14 +126,16 @@ function AppShell() {
   const [paletteOpen, openPalette, closePalette] = useCommandPalette();
   const composerRef = useRef<ComposerHandle>(null);
   const activeIdRef = useRef<string | undefined>(undefined);
-  const activeStreaming = activeId ? streamingBySession[activeId] ?? '' : '';
+  const activeStreamingSlot = activeId ? streamingBySession[activeId] : undefined;
+  const activeStreaming = activeStreamingSlot?.text ?? '';
+  const activeStreamingTruncated = activeStreamingSlot?.truncated === true;
   const activeThinking = activeId ? thinkingBySession[activeId] ?? '' : '';
   const activeThinkingTruncated = activeId ? thinkingTruncatedBySession[activeId] === true : false;
   // Set of session ids with a live streaming delta — drives the sidebar
   // pulse indicator. Recomputed on every streamingBySession change; cheap
   // since the underlying map only has at most a handful of entries.
   const streamingSessionIds = useMemo(
-    () => new Set(Object.entries(streamingBySession).flatMap(([id, text]) => (text ? [id] : []))),
+    () => new Set(Object.entries(streamingBySession).flatMap(([id, slot]) => (slot.text ? [id] : []))),
     [streamingBySession],
   );
   // Set of session ids whose backend / connection is no longer usable —
@@ -593,7 +609,20 @@ function AppShell() {
     }
     document.documentElement.setAttribute('data-maka-visual-smoke', 'true');
     if (state.streamingBySession) {
-      setStreamingBySession((current) => ({ ...current, ...state.streamingBySession }));
+      // PR-UI-Cx fixup v2: `VisualSmokeState.streamingBySession` is a
+      // `Record<string, string>` (fixture-side contract; can stay
+      // simple since fixtures are pre-canned safe text). Map each
+      // entry into the combined `AssistantStreamSlot` shape on
+      // hydration. `truncated: false` because fixture text is
+      // explicitly authored and never exceeds caps.
+      const seed = state.streamingBySession;
+      setStreamingBySession((current) => {
+        const next = { ...current };
+        for (const [sid, text] of Object.entries(seed)) {
+          next[sid] = { text, truncated: false };
+        }
+        return next;
+      });
     }
     if (state.thinkingBySession) {
       // PR-UI-LAYOUT-42: mirror streamingBySession init pattern so
@@ -809,7 +838,15 @@ function AppShell() {
   }
 
   function clearStreaming(sessionId: string) {
-    setStreamingBySession((current) => ({ ...current, [sessionId]: '' }));
+    // PR-UI-Cx fixup v2 (@kenji msg 3c01e901 Blocker 2): the
+    // combined-state shape means clearing the streaming buffer +
+    // truncated flag is ONE functional update on `streamingBySession`,
+    // not two separate setStates that could observably race.
+    setStreamingBySession((current) => {
+      const prev = current[sessionId];
+      if (!prev || (prev.text === '' && prev.truncated === false)) return current;
+      return { ...current, [sessionId]: { text: '', truncated: false } };
+    });
     // PR-UI-LAYOUT-42: thinking is part of the same streaming turn —
     // any clearStreaming caller (abort / error / complete) means the
     // turn is done, so the Reasoning panel should also collapse.
@@ -828,12 +865,51 @@ function AppShell() {
 
   function handleEvent(sessionId: string, event: SessionEvent) {
     switch (event.type) {
-      case 'text_delta':
-        setStreamingBySession((current) => ({
-          ...current,
-          [sessionId]: (current[sessionId] ?? '') + event.text,
-        }));
+      case 'text_delta': {
+        // PR-UI-Cx (@kenji msg 94b0063d / cd09bcac / fixup v2 3c01e901):
+        // assistant `text_delta` chokepoint. The pure
+        // `applyAssistantDelta` helper from `@maka/ui/assistant-stream`
+        // is the single trust-boundary point for:
+        //   1. per-delta `redactSecrets` BEFORE state,
+        //   2. per-delta cap (tail-keep single misbehaving multi-MB
+        //      delta with a marker),
+        //   3. CROSS-DELTA `redactSecrets` on the freshly-appended
+        //      candidate — catches secrets that span delta seams
+        //      (e.g. `"Authorization: Bearer sk-"` + `"abcdef..."`).
+        //   4. per-session total cap (head-keep + trailing marker —
+        //      assistant text is read top-down).
+        //
+        // raw `event.text` only flows through the helper input; it
+        // never enters state un-redacted or un-capped.
+        //
+        // Combined state shape (fixup v2): a single
+        // `AssistantStreamSlot = { text, truncated }` lets us
+        // produce both fields from one functional updater without
+        // cross-mutating outer locals or chaining setStates. The
+        // `truncated` flag is monotonic per-session — once true,
+        // stays true until `clearStreaming`.
+        setStreamingBySession((current) => {
+          const prevSlot = current[sessionId];
+          const prevText = prevSlot?.text ?? '';
+          const applied = applyAssistantDelta(prevText, event.text);
+          const nextTruncated = (prevSlot?.truncated ?? false) || applied.truncated;
+          // Avoid a re-render when nothing materially changed (e.g.
+          // a non-string `event.text` defensively dropped by the
+          // helper, no truncated change).
+          if (
+            prevSlot !== undefined &&
+            prevSlot.text === applied.text &&
+            prevSlot.truncated === nextTruncated
+          ) {
+            return current;
+          }
+          return {
+            ...current,
+            [sessionId]: { text: applied.text, truncated: nextTruncated },
+          };
+        });
         break;
+      }
       case 'text_complete':
         clearStreaming(sessionId);
         void refreshMessages(sessionId);
@@ -1370,6 +1446,7 @@ function AppShell() {
               <ChatView
                 messages={messages}
                 streamingText={activeStreaming}
+                streamingTruncated={activeStreamingTruncated}
                 thinkingText={activeThinking}
                 thinkingTruncated={activeThinkingTruncated}
                 tools={liveTools}

@@ -8,6 +8,7 @@
   "exports": {
     ".": "./dist/index.js",
     "./artifact-preview-registry": "./dist/artifact-preview-registry.js",
+    "./assistant-stream": "./dist/assistant-stream.js",
     "./maka-uri": "./dist/maka-uri.js",
     "./smooth-stream": "./dist/smooth-stream.js"
   },
