@@ -373,6 +373,22 @@ export function normalizeSettings(input: unknown): AppSettings {
       : undefined;
   return {
     ...base,
+    // PR-UI-D1 (@kenji msg 68bf2b13): closed-enum fail-closed for
+    // appearance.palette. mergeSettings spreads the raw user value
+    // straight in, so an unknown/garbage palette string would
+    // otherwise survive the normalize pass and end up driving
+    // `[data-maka-theme="evil-unknown"]` on the renderer with no
+    // matching CSS block. Validate against the closed `THEME_PALETTES`
+    // allowlist and fall back to `'default'` on any miss (undefined,
+    // non-string, unknown string).
+    //
+    // Critical: this MUST NOT silently reset other appearance fields
+    // (theme / density). We only override palette when it fails the
+    // type guard; everything else keeps mergeSettings's behavior.
+    appearance: {
+      ...base.appearance,
+      palette: isThemePalette(base.appearance.palette) ? base.appearance.palette : 'default',
+    },
     botChat: {
       channels: Object.fromEntries(
         BOT_PROVIDERS.map((provider) => {
