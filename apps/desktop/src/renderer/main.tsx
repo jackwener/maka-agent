@@ -14,6 +14,8 @@ import type {
   UiDensity,
 } from '@maka/core';
 import {
+  applyThinkingComplete,
+  applyThinkingDelta,
   applyToolOutputChunk,
   type ChatHeaderAlert,
   ChatView,
@@ -86,6 +88,14 @@ function AppShell() {
    * existing streaming text.
    */
   const [thinkingBySession, setThinkingBySession] = useState<Record<string, string>>({});
+  // PR-UI-C0 review fixup (@kenji msg 7885a347): per-session monotonic
+  // truncated flag for the thinking buffer. Flipped to `true` when
+  // `applyThinkingDelta` / `applyThinkingComplete` drops content
+  // (per-delta cap or per-session total cap). Stays true until the
+  // panel collapses via `clearStreaming(sessionId)` — same lifecycle
+  // as `thinkingBySession[sessionId]`. The `<ReasoningPanel>` reads
+  // it via the `truncated` prop to render the "已截断" pill.
+  const [thinkingTruncatedBySession, setThinkingTruncatedBySession] = useState<Record<string, boolean>>({});
   const [liveToolsBySession, setLiveToolsBySession] = useState<Record<string, ToolActivityItem[]>>({});
   const [permissionBySession, setPermissionBySession] = useState<Record<string, PermissionRequestEvent | undefined>>({});
   const [connections, setConnections] = useState<LlmConnection[]>([]);
@@ -102,6 +112,7 @@ function AppShell() {
   const activeIdRef = useRef<string | undefined>(undefined);
   const activeStreaming = activeId ? streamingBySession[activeId] ?? '' : '';
   const activeThinking = activeId ? thinkingBySession[activeId] ?? '' : '';
+  const activeThinkingTruncated = activeId ? thinkingTruncatedBySession[activeId] === true : false;
   // Set of session ids with a live streaming delta — drives the sidebar
   // pulse indicator. Recomputed on every streamingBySession change; cheap
   // since the underlying map only has at most a handful of entries.
@@ -801,6 +812,16 @@ function AppShell() {
     // any clearStreaming caller (abort / error / complete) means the
     // turn is done, so the Reasoning panel should also collapse.
     setThinkingBySession((current) => ({ ...current, [sessionId]: '' }));
+    // PR-UI-C0 review fixup: also clear the truncated flag so the
+    // "已截断" pill doesn't stick around after the panel collapses.
+    // Next turn's thinking starts with a fresh `false` flag and the
+    // helper will re-set it if caps fire again.
+    setThinkingTruncatedBySession((current) => {
+      if (!current[sessionId]) return current;
+      const next = { ...current };
+      delete next[sessionId];
+      return next;
+    });
   }
 
   function handleEvent(sessionId: string, event: SessionEvent) {
@@ -816,19 +837,49 @@ function AppShell() {
         void refreshMessages(sessionId);
         break;
       case 'thinking_delta':
-        // PR-UI-LAYOUT-42: Anthropic extended thinking stream. Accumulate
-        // per-session so the Reasoning panel can render the live text.
-        setThinkingBySession((current) => ({
-          ...current,
-          [sessionId]: (current[sessionId] ?? '') + event.text,
-        }));
+        // PR-UI-LAYOUT-42 / C0 review fixup (@kenji msg 7885a347):
+        // Anthropic extended-thinking stream. The pure
+        // `applyThinkingDelta` helper from `@maka/ui/thinking-stream`
+        // is the single chokepoint for:
+        //   1. secondary `redactSecrets` BEFORE state (thinking can
+        //      echo prompts / env / tool stderr / pasted credentials;
+        //      raw text must not enter React state),
+        //   2. per-delta cap (tail-keep a single misbehaving multi-MB
+        //      delta with a truncation marker),
+        //   3. per-session total cap (tail-keep most recent reasoning
+        //      so the user sees the current chain of thought, not the
+        //      start of an old run).
+        // The renderer also tracks a per-session monotonic
+        // `outputTruncated`-style flag so the `ReasoningPanel` header
+        // can show a "已截断" pill.
+        setThinkingBySession((current) => {
+          const prev = current[sessionId] ?? '';
+          const applied = applyThinkingDelta(prev, event.text);
+          if (applied.truncated) {
+            setThinkingTruncatedBySession((flags) =>
+              flags[sessionId] ? flags : { ...flags, [sessionId]: true },
+            );
+          }
+          return { ...current, [sessionId]: applied.text };
+        });
         break;
       case 'thinking_complete':
-        // PR-UI-LAYOUT-42: final thinking block — keep visible until the
-        // model emits text. text_complete will then collapse the panel.
-        // (Don't clear here, otherwise the panel flicker-disappears as
-        // soon as thinking finishes but before the answer starts.)
-        setThinkingBySession((current) => ({ ...current, [sessionId]: event.text }));
+        // PR-UI-LAYOUT-42 / C0 review fixup: final thinking block —
+        // ProviderEvent's `text` is the FULL final reasoning string,
+        // so we replace rather than append (still through the
+        // redaction + cap chokepoint via `applyThinkingComplete`).
+        // Keep visible until `text_complete` collapses the panel via
+        // `clearStreaming`; this avoids the flicker between "thinking
+        // done" and "answer streaming".
+        setThinkingBySession((current) => {
+          const applied = applyThinkingComplete(event.text);
+          if (applied.truncated) {
+            setThinkingTruncatedBySession((flags) =>
+              flags[sessionId] ? flags : { ...flags, [sessionId]: true },
+            );
+          }
+          return { ...current, [sessionId]: applied.text };
+        });
         break;
       case 'tool_start':
         upsertTool(sessionId, event.toolUseId, {
@@ -1264,6 +1315,7 @@ function AppShell() {
                 messages={messages}
                 streamingText={activeStreaming}
                 thinkingText={activeThinking}
+                thinkingTruncated={activeThinkingTruncated}
                 tools={liveTools}
                 activeSession={activeSessionForView}
                 activeConnectionLabel={activeConnectionLabel}

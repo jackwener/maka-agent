@@ -1063,6 +1063,14 @@ export function ChatView(props: {
    * answer is being composed. Empty string = no thinking active.
    */
   thinkingText?: string;
+  /**
+   * PR-UI-C0 review fixup (@kenji msg 7885a347): true when the
+   * renderer's `applyThinkingDelta` / `applyThinkingComplete` helper
+   * dropped or truncated content (per-delta cap, per-session total
+   * cap). `<ReasoningPanel>` renders a "已截断" pill in the header
+   * when true so the user knows the visible reasoning is bounded.
+   */
+  thinkingTruncated?: boolean;
   tools: ToolActivityItem[];
   activeSession?: SessionSummary;
   activeConnectionLabel?: string;
@@ -1281,7 +1289,11 @@ export function ChatView(props: {
                * text_complete / abort / error (parent clears the
                * thinkingBySession entry). */}
               {props.thinkingText && (
-                <ReasoningPanel text={props.thinkingText} live={!props.streamingText} />
+                <ReasoningPanel
+                  text={props.thinkingText}
+                  live={!props.streamingText}
+                  truncated={props.thinkingTruncated === true}
+                />
               )}
               {props.streamingText && (
                 <div className="maka-bubble-assistant maka-bubble-streaming">
@@ -2157,7 +2169,7 @@ const STATUS_FOOTER_PRIORITY: Record<TurnFooterActionMeta['id'], 'primary' | 'se
  * don't pipe through Markdown — thinking is usually plain prose +
  * occasional code, and full markdown would slow the streaming.
  */
-function ReasoningPanel(props: { text: string; live: boolean }) {
+function ReasoningPanel(props: { text: string; live: boolean; truncated: boolean }) {
   return (
     <details className="maka-reasoning-panel" data-live={props.live ? 'true' : undefined} open>
       <summary className="maka-reasoning-panel-header">
@@ -2165,6 +2177,19 @@ function ReasoningPanel(props: { text: string; live: boolean }) {
         <span className="maka-reasoning-panel-label">
           {props.live ? '正在思考…' : '思考过程'}
         </span>
+        {/* PR-UI-C0 review fixup (@kenji msg 7885a347): "已截断" pill
+            fires when `applyThinkingDelta` / `applyThinkingComplete`
+            dropped content (per-delta cap or per-session total cap).
+            Same chrome family as the A3 tool-output truncated pill. */}
+        {props.truncated && (
+          <span
+            className="maka-reasoning-panel-truncated"
+            data-truncated="true"
+            title="部分 reasoning 已截断；显示的是最近的内容"
+          >
+            已截断
+          </span>
+        )}
         <span className="maka-reasoning-panel-chevron" aria-hidden="true">›</span>
       </summary>
       <pre className="maka-reasoning-panel-body">{props.text}</pre>
