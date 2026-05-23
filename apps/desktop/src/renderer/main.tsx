@@ -87,12 +87,23 @@ function App() {
   const [toastPosition, setToastPosition] = useState<ToastPosition>(() => readPersistedToastPosition());
   return (
     <ToastProvider position={toastPosition}>
-      <AppShell onToastPositionChange={setToastPosition} />
+      <AppShell toastPosition={toastPosition} onToastPositionChange={setToastPosition} />
     </ToastProvider>
   );
 }
 
-function AppShell(props: { onToastPositionChange(position: ToastPosition): void }) {
+function AppShell(props: {
+  /**
+   * PR-UI-D2 fixup v2 (@kenji msg b4dbfa91): the current toast position
+   * value, lifted from `App` so the Settings picker can read it as
+   * `aria-checked` source-of-truth and so the live picker click can
+   * notify `App` synchronously via `onToastPositionChange` — no
+   * `querySelector` DOM hack, no localStorage write before
+   * `onUpdate(...)` resolution.
+   */
+  toastPosition: ToastPosition;
+  onToastPositionChange(position: ToastPosition): void;
+}) {
   const toastApi = useToast();
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [activeId, setActiveId] = useState<string | undefined>();
@@ -516,10 +527,18 @@ function AppShell(props: { onToastPositionChange(position: ToastPosition): void 
       applyTheme(pref);
       applyDensity(den);
       applyThemePalette(palette);
-      // PR-UI-16: persist toast position back to localStorage so the
-      // next app boot lands toasts in the right corner without a
-      // settings round-trip, and notify App.tsx so the live toast
+      // PR-UI-16: persist normalized toast position back to localStorage
+      // so the next app boot lands toasts in the right corner without
+      // a settings round-trip, and notify App so the live toast
       // viewport repositions immediately.
+      //
+      // PR-UI-D2 fixup v2 (@kenji msg b4dbfa91): this write is the
+      // post-load mirror sync (read from disk → mirror = consistent).
+      // The user-driven picker click path (in `ThemeSettingsPage`)
+      // also writes the mirror, but only AFTER `props.onUpdate(...)`
+      // resolves with a normalized result — never before, never on
+      // failure. localStorage mirror therefore only ever holds a
+      // value that already survived `normalizeSettings`.
       try {
         localStorage.setItem('maka-toast-position-v1', toastPosition);
       } catch {
@@ -1561,6 +1580,8 @@ function AppShell(props: { onToastPositionChange(position: ToastPosition): void 
           onThemeChange={setThemePref}
           density={density}
           onDensityChange={setDensity}
+          toastPosition={props.toastPosition}
+          onToastPositionChange={props.onToastPositionChange}
           onUserLabelChange={setUserLabel}
           requestedSection={settingsRequestedSection}
         />
