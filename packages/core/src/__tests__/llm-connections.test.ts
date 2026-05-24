@@ -286,6 +286,62 @@ describe('normalizeConnectionBaseUrl (PR-UI-IPC-1 fixup v2, @kenji msg 8755ffb3 
     });
   });
 
+  describe('runtime-type guard (PR-UI-IPC-1 fixup v3, @kenji msg 57ac8a8c)', () => {
+    // IPC payloads cross a process boundary; the TS signature is a
+    // compile-time guarantee but the runtime renderer could send
+    // any JS value. The normalize helper MUST reject non-string
+    // inputs with a typed error, NOT throw TypeError on `.trim()`.
+
+    it('null → reject with typed error (not TypeError)', () => {
+      const result = normalizeConnectionBaseUrl(null);
+      assert.equal(result.ok, false);
+      if (!result.ok) {
+        assert.ok(result.error.includes('must be a string'));
+      }
+    });
+
+    it('undefined → reject with typed error (handler-side `!== undefined` guard should prevent this from being called)', () => {
+      const result = normalizeConnectionBaseUrl(undefined);
+      assert.equal(result.ok, false);
+    });
+
+    it('number → reject', () => {
+      assert.equal(normalizeConnectionBaseUrl(42).ok, false);
+      assert.equal(normalizeConnectionBaseUrl(0).ok, false);
+      assert.equal(normalizeConnectionBaseUrl(NaN).ok, false);
+    });
+
+    it('boolean → reject', () => {
+      assert.equal(normalizeConnectionBaseUrl(true).ok, false);
+      assert.equal(normalizeConnectionBaseUrl(false).ok, false);
+    });
+
+    it('object → reject', () => {
+      assert.equal(normalizeConnectionBaseUrl({}).ok, false);
+      assert.equal(normalizeConnectionBaseUrl({ baseUrl: 'https://example.com' }).ok, false);
+    });
+
+    it('array → reject (typeof returns "object")', () => {
+      assert.equal(normalizeConnectionBaseUrl([]).ok, false);
+      assert.equal(normalizeConnectionBaseUrl(['https://example.com']).ok, false);
+    });
+
+    it('symbol / function / bigint → reject', () => {
+      assert.equal(normalizeConnectionBaseUrl(Symbol('s')).ok, false);
+      assert.equal(normalizeConnectionBaseUrl(() => 'https://example.com').ok, false);
+      assert.equal(normalizeConnectionBaseUrl(BigInt(1)).ok, false);
+    });
+
+    it('never throws on bad runtime type — always returns typed result', () => {
+      // Sanity gate: if the guard ever regresses, `baseUrl.trim()`
+      // on null would throw TypeError, breaking the IPC handler's
+      // typed-reject promise. This test catches that regression.
+      for (const bad of [null, undefined, 42, true, {}, [], Symbol('x'), () => '', BigInt(1)]) {
+        assert.doesNotThrow(() => normalizeConnectionBaseUrl(bad), `bad input ${String(bad)} must not throw`);
+      }
+    });
+  });
+
   describe('store-boundary scenarios (IPC handler simulation)', () => {
     // Simulate the IPC handler's caller contract. The handler does:
     //   if (patch.baseUrl !== undefined) {

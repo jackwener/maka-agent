@@ -426,8 +426,19 @@ export function validateConnectionBaseUrl(baseUrl: string | undefined | null): s
  * needed to prevent whitespace from becoming a stored override.
  */
 export function normalizeConnectionBaseUrl(
-  baseUrl: string,
+  baseUrl: unknown,
 ): { ok: true; value: string } | { ok: false; error: string } {
+  // PR-UI-IPC-1 review fixup v3 (@kenji msg 57ac8a8c): defensive
+  // runtime-type guard. TypeScript signature `(input: string)` is
+  // a compile-time guarantee, but IPC payloads from the renderer
+  // arrive over a process boundary and could be `null` / number /
+  // object / array regardless. Without this guard, `baseUrl.trim()`
+  // would throw TypeError on non-string and the IPC handler would
+  // surface an opaque crash instead of the typed reject the gate
+  // promises.
+  if (typeof baseUrl !== 'string') {
+    return { ok: false, error: 'baseUrl must be a string' };
+  }
   // Validate first so bad schemes / malformed / oversize reject
   // before we report a normalized value.
   const error = validateConnectionBaseUrl(baseUrl);
