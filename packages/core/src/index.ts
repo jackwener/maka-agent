@@ -194,6 +194,35 @@ export {
   isHealthSignalStatus,
 } from './health.js';
 
+// search.ts (PR-SEARCH-0)
+export type {
+  SearchError,
+  SearchErrorReason,
+  SearchNormalizeResult,
+  SearchOk,
+  SearchProviderKind,
+  SearchRequest,
+  SearchResult,
+  SearchSourceKind,
+  SearchSourceSnapshot,
+  WebFetchRequest,
+} from './search.js';
+export {
+  SEARCH_DEFAULT_LIMIT,
+  SEARCH_DOMAIN_MAX_CHARS,
+  SEARCH_MAX_LIMIT,
+  SEARCH_QUERY_MAX_CHARS,
+  SEARCH_URL_MAX_CHARS,
+  normalizeSearchDomain,
+  normalizeSearchDomainList,
+  normalizeSearchLimit,
+  normalizeSearchQuery,
+  normalizeSearchUrl,
+  rewriteSearchQueryForFreshness,
+  searchDomainMatches,
+  stripSearchTrackingParams,
+} from './search.js';
+
 // backend-types.ts
 export type { BackendSendInput, PermissionDecision } from './backend-types.js';
 
