@@ -64,6 +64,11 @@ const VISUAL_SMOKE_SCENARIOS = new Set<VisualSmokeScenario>([
   'artifact-preview-image',
   'artifact-preview-unsupported',
   'artifact-preview-oversize',
+  // PR-SIDEBAR-IA-0 Phase 1: seed 60 active sessions so the sidebar
+  // scroll fix is verifiable end-to-end. Footer (Settings + Update
+  // placeholder) must stay visible in narrow / wide / light / dark
+  // variants. See `seedLongSidebarSessions()`.
+  'sidebar-long-sessions',
 ]);
 
 // Fixed clock for screenshot fixtures. All seeded timestamps and
@@ -334,6 +339,15 @@ export function getVisualSmokeState(fixture: VisualSmokeFixture | null): VisualS
       // must render NO branch banner and NO dead-link button. Path 15
       // asserts the absence of `.maka-session-branch-banner` here.
       return { ...state, activeSessionId: TURN_CONTROL_BRANCH_ORPHAN_SESSION_ID };
+    case 'sidebar-long-sessions':
+      // PR-SIDEBAR-IA-0 Phase 1: active = the FIRST session in the seed
+      // (newest by lastMessageAt). The 60-session list scrolls below
+      // the active row; the screenshot captures the scroll affordance
+      // plus the visible footer (Settings + Update placeholder) at the
+      // bottom of the sidebar. If the scroll fix regresses, the footer
+      // gets pushed off-screen and the regression is obvious in
+      // baseline diff.
+      return { ...state, activeSessionId: LONG_SIDEBAR_SESSION_PREFIX + '00' };
     case 'all':
       return {
         ...state,
@@ -397,6 +411,18 @@ export async function seedVisualSmokeFixture(input: {
       await writeSession(input.workspaceRoot, seed.header, seed.messages);
     }
   }
+  // PR-SIDEBAR-IA-0 Phase 1 (xuan msg `dc790a54` + kenji `0f7bb872`):
+  // sidebar-long-sessions seeds 60 active sessions so the sidebar
+  // scroll fix is verifiable end-to-end. Each row reuses the standard
+  // text content; only the name + timestamp differ so screenshots are
+  // deterministic. The hard gate: with 60 rows in a narrow window, the
+  // footer (Settings + Update placeholder) must remain visible without
+  // page-level scroll, and the inner list scroll container must work.
+  if (input.fixture.scenario === 'sidebar-long-sessions') {
+    for (const seed of longSidebarSessions(now)) {
+      await writeSession(input.workspaceRoot, seed.header, seed.messages);
+    }
+  }
 }
 
 /**
@@ -439,6 +465,16 @@ const TURN_CONTROL_PRIMARY_SESSION_ID = 'visual-smoke-turn-control-primary';
 const TURN_CONTROL_BRANCH_VISIBLE_SESSION_ID = 'visual-smoke-turn-control-branch-visible';
 const TURN_CONTROL_BRANCH_ORPHAN_SESSION_ID = 'visual-smoke-turn-control-branch-orphan';
 const TURN_CONTROL_ORPHAN_PARENT_ID = 'visual-smoke-turn-control-deleted-parent';
+
+/**
+ * PR-SIDEBAR-IA-0 Phase 1: sidebar-long-sessions scenario seeds many
+ * sessions with this prefix. Two digits → 60 distinct IDs (00..59).
+ * Active session is always `${LONG_SIDEBAR_SESSION_PREFIX}00` (newest by
+ * lastMessageAt). Path is short so it stays stable in screenshot
+ * baselines.
+ */
+const LONG_SIDEBAR_SESSION_PREFIX = 'visual-smoke-sidebar-long-';
+const LONG_SIDEBAR_SESSION_COUNT = 60;
 
 async function writeSettings(workspaceRoot: string): Promise<void> {
   const settings = createDefaultSettings();
@@ -1219,6 +1255,64 @@ function turnControlBranchMessages(now: number, kind: 'visible' | 'orphan'): Sto
       partialOutputRetained: true,
     },
   ];
+}
+
+/**
+ * PR-SIDEBAR-IA-0 Phase 1: long sidebar fixture.
+ *
+ * Seeds `LONG_SIDEBAR_SESSION_COUNT` (60) sessions so the sidebar
+ * scroll fix is verifiable end-to-end:
+ *
+ *   - In a narrow window, the list must scroll without pushing the
+ *     footer (Settings + Update placeholder) off-screen.
+ *   - The inner `.maka-list-stack` scroll container must engage.
+ *   - The fixture is deterministic: titles only differ by index;
+ *     timestamps walk backwards from `now` so the FIRST session
+ *     (`...-00`) is the newest and gets sorted to the top.
+ *
+ * Each session contains a single short user/assistant exchange so
+ * the message file is well-formed but visually inert. The screenshot
+ * baseline focuses on the sidebar, not the chat surface.
+ */
+function longSidebarSessions(now: number): Array<{ header: SessionHeader; messages: StoredMessage[] }> {
+  const seeds: Array<{ header: SessionHeader; messages: StoredMessage[] }> = [];
+  for (let i = 0; i < LONG_SIDEBAR_SESSION_COUNT; i++) {
+    const idSuffix = String(i).padStart(2, '0');
+    const sessionId = LONG_SIDEBAR_SESSION_PREFIX + idSuffix;
+    // First session is newest; subsequent walk backwards in 5-minute
+    // increments so the sort is stable and predictable.
+    const lastMessageAt = now - i * 5 * 60_000;
+    const sessionHeader = header({
+      id: sessionId,
+      name: '会话 ' + idSuffix,
+      connection: 'zai-live',
+      model: 'glm-5.1',
+      now,
+      lastMessageAt,
+      status: 'active',
+    });
+    const userTs = lastMessageAt - 30_000;
+    const assistantTs = lastMessageAt;
+    const messages: StoredMessage[] = [
+      {
+        type: 'user',
+        id: 'msg-long-user-' + idSuffix,
+        turnId: 'turn-long-' + idSuffix,
+        ts: userTs,
+        text: '示例对话 ' + idSuffix,
+      },
+      {
+        type: 'assistant',
+        id: 'msg-long-assistant-' + idSuffix,
+        turnId: 'turn-long-' + idSuffix,
+        ts: assistantTs,
+        text: '这是用于侧边栏滚动 fixture 的占位回复（条目 ' + idSuffix + ' / ' + LONG_SIDEBAR_SESSION_COUNT + '）。',
+        modelId: 'glm-5.1',
+      },
+    ];
+    seeds.push({ header: sessionHeader, messages });
+  }
+  return seeds;
 }
 
 function header(input: {
