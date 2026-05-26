@@ -224,6 +224,19 @@ export {
   stripSearchTrackingParams,
 } from './search.js';
 
+// incognito.ts (PR-INCOGNITO-0) — cross-lane privacy contract; no IPC/storage/UI.
+export type {
+  WorkspacePrivacyContext,
+  WorkspacePrivacyContextInvalidReason,
+  WorkspacePrivacyContextResult,
+} from './incognito.js';
+export {
+  WORKSPACE_PRIVACY_CONTEXT_INVALID_REASONS,
+  defaultWorkspacePrivacyContext,
+  isWorkspacePrivacyContext,
+  validateWorkspacePrivacyContext,
+} from './incognito.js';
+
 // memory.ts (PR-MEMORY-1) — core contract; no IPC/storage/embedding/UI.
 export type {
   DraftMemoryEntry,
