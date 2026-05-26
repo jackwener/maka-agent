@@ -91,6 +91,13 @@ const ALL_SCENARIOS = [
   'artifact-preview-image',
   'artifact-preview-unsupported',
   'artifact-preview-oversize',
+  // PR-SIDEBAR-IA-0 Phase 1 (xuan msg `c253abe0`): hard gate fixture
+  // for sidebar scroll fix. 60 deterministic sessions; baseline must
+  // show the list scrolling without pushing the footer (Settings /
+  // future Update placeholder) off-screen. Variant matrix (light /
+  // dark × 990 / 1280) doubles as the CI regression check that
+  // .maka-session-list scroll container did not regress.
+  'sidebar-long-sessions',
 ];
 
 const VARIANTS = [
