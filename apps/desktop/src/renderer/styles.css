@@ -300,10 +300,26 @@ button:active {
 }
 
 .maka-session-list {
+  /* PR-SIDEBAR-IA-0 Phase 1 (xuan msg `dc790a54`, kenji msg `0f7bb872`):
+   * scroll fix. The previous block layout let the inner `.maka-list-stack`
+   * grow to its natural content height, so `overflow: auto` on the
+   * stack was a no-op — once a workspace had enough sessions, the
+   * list overflowed the parent and the footer (Settings / Update) got
+   * pushed out of view. Defining a grid row template here pins the
+   * title at the top (`auto`) and gives the scroll body the remaining
+   * space (`minmax(0, 1fr)`), at which point the stack's own
+   * `overflow: auto` activates correctly.
+   *
+   * Hard gate: 50+ sessions in a narrow window must still let the
+   * footer stay visible. See the visual-smoke `sidebar-long-sessions`
+   * scenario.
+   */
   min-height: 0;
   position: relative;
   overflow: hidden;
   border-top: 1px solid var(--border);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 .maka-session-list-title {
