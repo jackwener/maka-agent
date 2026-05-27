@@ -13,6 +13,37 @@ and follow the per-path preconditions. All paths happen in a single
 launched build (`npm --workspace @maka/desktop run dev` or a packaged
 build).
 
+### Real Electron window smoke (PR-DESKTOP-SMOKE-0)
+
+Visual-smoke screenshots do **not** prove native desktop behavior. Any PR
+that touches the shell, sidebar, modal backdrop, window drag regions, or
+top-level renderer lifecycle must also run the real-window smoke gate:
+
+```bash
+npm --workspace @maka/desktop run smoke:real-window
+```
+
+The script builds `@maka/core`, `@maka/ui`, and desktop, launches a real
+Electron window with an isolated `--user-data-dir`, then prompts the
+reviewer to confirm the checks that screenshots cannot exercise:
+
+- clean launch with no ErrorBoundary / crash screen;
+- dragging left / right / top / bottom edges resizes the window;
+- dragging all four corners resizes diagonally;
+- dragging an allowed titlebar / blank header area moves the window;
+- rows, buttons, inputs, and modal controls do **not** drag the window;
+- Search modal opens and closes via close button, backdrop, and Esc;
+- Tab / Shift+Tab stays inside the modal and focus returns to the trigger;
+- with Search modal open, window edges and corners still resize;
+- after closing the modal and switching modules, no React hook error or
+  ErrorBoundary appears.
+
+Reports are written to
+`apps/desktop/tests/real-window-smoke/<timestamp>.md` and `.json`.
+If any check fails, the script exits non-zero. A UI-shell PR is not ready
+to merge until this report is attached or summarized in the review
+thread.
+
 For deterministic visual smoke, launch a dev build with an isolated
 fixture workspace:
 

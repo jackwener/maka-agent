@@ -17,6 +17,7 @@
     "test": "npm run build:main && node --test \"dist/main/**/*.test.js\"",
     "screenshots": "npm --workspace @maka/core run build && npm --workspace @maka/ui run build && npm run build && node ../../scripts/capture-screenshots.mjs --all",
     "screenshots:single": "npm --workspace @maka/core run build && npm --workspace @maka/ui run build && npm run build && node ../../scripts/capture-screenshots.mjs --scenario",
+    "smoke:real-window": "npm --workspace @maka/core run build && npm --workspace @maka/ui run build && npm run build && node ../../scripts/desktop-real-window-smoke.mjs",
     "screenshots:diff": "node ../../scripts/diff-screenshots.mjs",
     "screenshots:diff:stable": "node ../../scripts/diff-screenshots.mjs --subset stable",
     "screenshots:baseline": "node ../../scripts/diff-screenshots.mjs --update-baseline",

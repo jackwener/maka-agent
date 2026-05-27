@@ -1,0 +1,82 @@
+/**
+ * PR-DESKTOP-SMOKE-0 contract.
+ *
+ * The recent Sidebar work exposed failures that screenshot capture and
+ * grep-style CSS tests could not prove: real macOS edge/corner resize,
+ * titlebar drag, modal focus cycle, and renderer ErrorBoundary state.
+ * This test pins the human-in-the-loop real Electron smoke gate so it
+ * cannot silently disappear from package scripts or lose the checks that
+ * WAWQAQ had to catch manually.
+ */
+
+import { strict as assert } from 'node:assert';
+import { readFile } from 'node:fs/promises';
+import { describe, it } from 'node:test';
+import { join } from 'node:path';
+
+const DESKTOP_PACKAGE_JSON = join(process.cwd(), 'package.json');
+const ROOT_PACKAGE_JSON = join(process.cwd(), '..', '..', 'package.json');
+const REAL_WINDOW_SMOKE_SCRIPT = join(process.cwd(), '..', '..', 'scripts', 'desktop-real-window-smoke.mjs');
+const SMOKE_DOC = join(process.cwd(), 'tests', 'smoke.md');
+
+const REQUIRED_CHECK_IDS = [
+  'launch-clean-window',
+  'resize-left-edge',
+  'resize-right-edge',
+  'resize-top-edge',
+  'resize-bottom-edge',
+  'resize-corners',
+  'titlebar-drag',
+  'controls-no-drag',
+  'search-modal-cycle',
+  'keyboard-path',
+  'modal-resize-hit-area',
+  'renderer-health',
+];
+
+describe('real Electron window smoke gate (PR-DESKTOP-SMOKE-0)', () => {
+  it('desktop package exposes `smoke:real-window` and builds core/ui/desktop first', async () => {
+    const pkg = JSON.parse(await readFile(DESKTOP_PACKAGE_JSON, 'utf8')) as {
+      scripts?: Record<string, string>;
+    };
+    const script = pkg.scripts?.['smoke:real-window'] ?? '';
+    assert.match(script, /npm --workspace @maka\/core run build/);
+    assert.match(script, /npm --workspace @maka\/ui run build/);
+    assert.match(script, /npm run build/);
+    assert.match(script, /desktop-real-window-smoke\.mjs/);
+  });
+
+  it('root `dev` still builds the workspace before launching desktop', async () => {
+    const pkg = JSON.parse(await readFile(ROOT_PACKAGE_JSON, 'utf8')) as {
+      scripts?: Record<string, string>;
+    };
+    assert.match(
+      pkg.scripts?.dev ?? '',
+      /npm run build && npm --workspace @maka\/desktop run start/,
+      'root dev must build workspaces before starting Electron so reviewers do not smoke stale dist',
+    );
+  });
+
+  it('real-window smoke script contains the required native-window checks', async () => {
+    const src = await readFile(REAL_WINDOW_SMOKE_SCRIPT, 'utf8');
+    for (const id of REQUIRED_CHECK_IDS) {
+      assert.match(src, new RegExp(`id:\\s*['"]${escapeRegExp(id)}['"]`));
+    }
+    assert.match(src, /--user-data-dir=/, 'real-window smoke must isolate Electron user data');
+    assert.match(src, /MAKA_VISUAL_SMOKE_FIXTURE/, 'real-window smoke must launch a deterministic fixture');
+    assert.match(src, /apps\/desktop\/tests\/real-window-smoke/, 'real-window smoke must write durable reports');
+  });
+
+  it('smoke.md documents that real-window smoke is required for shell/modal PRs', async () => {
+    const doc = await readFile(SMOKE_DOC, 'utf8');
+    assert.match(doc, /Real Electron window smoke \(PR-DESKTOP-SMOKE-0\)/);
+    assert.match(doc, /npm --workspace @maka\/desktop run smoke:real-window/);
+    assert.match(doc, /four corners resizes diagonally/);
+    assert.match(doc, /Search modal opens and closes/);
+    assert.match(doc, /UI-shell PR.*not ready\s+to merge/s);
+  });
+});
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
