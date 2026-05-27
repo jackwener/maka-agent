@@ -439,6 +439,51 @@ button:active {
   border-top: 1px solid var(--border);
 }
 
+/* PR-UX-POLISH-1 commit 2 (yuejing UX audit P2 #10): tiny chip
+ * surfacing the `?` keyboard shortcut for the KeyboardHelpModal.
+ * Visually lighter than the `.maka-nav-row` buttons above (just
+ * a hint, not a primary nav action). Hover lifts slightly for
+ * affordance feedback. */
+.maka-session-panel-help-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--foreground-50);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+.maka-session-panel-help-chip:hover {
+  background: oklch(from var(--foreground) l c h / 0.04);
+  color: var(--foreground);
+}
+.maka-session-panel-help-chip:focus-visible {
+  outline: none;
+  background: oklch(from var(--foreground) l c h / 0.04);
+  color: var(--foreground);
+  box-shadow: 0 0 0 2px oklch(from var(--accent) l c h / 0.18);
+}
+.maka-session-panel-help-chip kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--background);
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1;
+}
+
 .maka-nav-rail {
   min-width: 0;
   min-height: 0;
@@ -614,14 +659,21 @@ button:active {
   background: transparent;
 }
 .maka-nav-row-state-badge {
+  /* PR-UX-POLISH-1 commit 2 (kenji `93ee9df0` #2): make the
+   * `即将推出` badge read as a passive informational tag, not a
+   * clickable pill. Drop bg alpha 0.06 → 0.04, lift cursor +
+   * pointer-events away from interactive, and use a 4px radius
+   * instead of fully rounded so it doesn't pattern-match a button. */
   margin-left: auto;
   padding: 1px 6px;
-  border-radius: 999px;
-  background: oklch(from var(--foreground) l c h / 0.06);
+  border-radius: 4px;
+  background: oklch(from var(--foreground) l c h / 0.04);
   color: var(--foreground-50);
   font-size: 10px;
   font-weight: 500;
   letter-spacing: 0.02em;
+  cursor: default;
+  pointer-events: none;
 }
 
 .maka-nav-row span:nth-child(2) {
@@ -728,10 +780,12 @@ button:active {
 }
 
 .maka-list-group-label {
-  /* PR-UX-POLISH-1 (yuejing UX audit P3 #8): give the label + count
-   * a flex gap so they don't collapse into "会话65" (no separator).
-   * The middle dot / colon visually separates the two semantic
-   * tokens (group name vs count). */
+  /* PR-UX-POLISH-1 (yuejing UX audit P3 #8 + kenji `93ee9df0` #1):
+   * give the label + count a flex gap + middle-dot separator span
+   * so they read as `会话 · 65` (one semantic phrase: "group · count")
+   * instead of `会话65` (no separator) or `会话 ... 65` (two visually
+   * disjoint columns). The separator span has its own muted style
+   * so the dot doesn't compete with the label/count text. */
   display: flex;
   align-items: baseline;
   gap: 6px;
@@ -740,6 +794,13 @@ button:active {
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.04em;
+}
+
+.maka-list-group-separator {
+  /* middle-dot separator between label and count */
+  color: var(--foreground-40);
+  font-weight: 400;
+  user-select: none;
 }
 
 /* PR-SIDEBAR-IA-0 Phase 3 (WAWQAQ msgs `14ed98b5`, `761141c5` —
@@ -1574,7 +1635,12 @@ button:active {
   border-radius: 4px;
 }
 .maka-list-group-count {
-  margin-left: auto;
+  /* PR-UX-POLISH-1 commit 2 (kenji `93ee9df0` #1): dropped
+   * `margin-left: auto` so the count sits IMMEDIATELY after the
+   * middle-dot separator, reading as one phrase `会话 · 65`. The
+   * previous right-aligned position made the count look like row
+   * meta (e.g. a timestamp), which violated the "this is part of
+   * the label" semantic. */
   font-variant-numeric: tabular-nums;
   color: var(--foreground-50);
   font-size: 11px;

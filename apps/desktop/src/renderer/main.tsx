@@ -154,7 +154,7 @@ function AppShell(props: {
   const [density, setDensity] = useState<UiDensity>('comfortable');
   const [userLabel, setUserLabel] = useState<string>('');
   const [skills, setSkills] = useState<SkillEntry[]>([]);
-  const [helpOpen, closeHelp] = useKeyboardHelp();
+  const [helpOpen, closeHelp, openHelp] = useKeyboardHelp();
   const [paletteOpen, openPalette, closePalette] = useCommandPalette();
   // PR-SIDEBAR-IA-0 Phase 2 fixup (xuan `91401163` + kenji `7c320898`):
   // Search modal state. Sidebar `搜索` nav row triggers `openSearchModal`;
@@ -1517,6 +1517,7 @@ function AppShell(props: {
             onNew={createSession}
             onOpenSkillFolder={() => void openSkillsFolder()}
             onOpenSearchModal={() => setSearchModalOpen(true)}
+            onOpenKeyboardHelp={openHelp}
             rowActions={{
               onToggleFlag: (sessionId, next) => void flagSession(sessionId, next),
               onArchive: (sessionId) => void archiveSession(sessionId),

@@ -103,7 +103,14 @@ export const SETTINGS_NAV: SettingsNavItem[] = [
   { id: 'open-gateway', label: '开放网关', Icon: Sparkles, enabled: true, comingSoon: true, group: 'AI' },
   // Group 3: 集成 — bot、搜索、网络
   { id: 'bot-chat', label: '机器人对话', Icon: Bot, enabled: true, group: '集成' },
-  { id: 'search', label: '搜索服务', Icon: Search, enabled: true, comingSoon: true, group: '集成' },
+  // PR-UX-POLISH-1 commit 2 (yuejing UX audit msg `9c779b56`):
+  // renamed `搜索服务` → `联网搜索` so it doesn't collide semantically
+  // with the sidebar's local-content search modal (which is a
+  // completely different feature — search across thread / session
+  // text, not web). Future Settings page wires per-engine credentials
+  // for web-search providers; the sidebar's modal stays the
+  // local-content search UI.
+  { id: 'search', label: '联网搜索', Icon: Search, enabled: true, comingSoon: true, group: '集成' },
   { id: 'network', label: '网络', Icon: Globe, enabled: true, group: '集成' },
   // Group 4: 数据与账号
   { id: 'data', label: '数据', Icon: Database, enabled: true, group: '数据与账号' },
@@ -238,7 +245,9 @@ const COMING_SOON_PAGES: Partial<Record<SettingsSection, ComingSoonCopy>> = {
   },
   search: {
     Icon: Search,
-    headline: '搜索服务',
+    // PR-UX-POLISH-1 commit 2: same rename as nav label —
+    // 联网搜索 vs sidebar local-content search.
+    headline: '联网搜索',
     badge: 'V0.2 · per-query opt-in · 走代理',
     description:
       '为助手提供外部搜索能力，自动按提问类型选择源。每条搜索都经过权限策略与代理路由，UI 上可以按引擎独立声明可用性。',
@@ -1975,20 +1984,15 @@ function CapabilityRow(props: { capability: CapabilitySnapshot }) {
           </ul>
         </div>
       )}
-      {(capability.canRevoke || capability.canPause) && (
-        <div className="settingsCapabilityActionHints" aria-label="未来可用的操作">
-          {capability.canPause && (
-            <span className="settingsCapabilityActionHint" data-disabled="true" title="权限引导模块接入后提供">
-              可暂停 · 即将可用
-            </span>
-          )}
-          {capability.canRevoke && (
-            <span className="settingsCapabilityActionHint" data-disabled="true" title="权限引导模块接入后提供">
-              可撤销 · 即将可用
-            </span>
-          )}
-        </div>
-      )}
+      {/*
+        PR-UX-POLISH-1 commit 2 (yuejing UX audit + xuan ROADMAP-SURFACE-0 +
+        kenji boundary 1): the `可暂停 · 即将可用` / `可撤销 · 即将可用`
+        chips read like disabled toggles, which violates the capability
+        presentation contract (`coming_soon` must be passive, not a fake
+        action). They're hidden here until the actual pause/revoke wiring
+        ships in PR-PERMISSION-GUIDE-0. Once available, render them as
+        real action buttons with `data-state="available"`.
+      */}
       <div className="settingsCapabilityAuditSlot" aria-hidden={capability.auditEvents.length === 0}>
         {capability.auditEvents.length === 0 ? (
           <small>审计日志接入后显示。</small>

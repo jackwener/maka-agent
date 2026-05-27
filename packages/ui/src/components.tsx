@@ -291,6 +291,14 @@ export function SessionListPanel(props: {
    * real backend behind the same callback.
    */
   onOpenSearchModal?(): void;
+  /**
+   * PR-UX-POLISH-1 commit 2 (yuejing UX audit P2 #10): open the
+   * KeyboardHelpModal. Wired from main.tsx via `useKeyboardHelp()`'s
+   * new `openHelp` return value. Powers the small `? 快捷键` chip
+   * in the sidebar footer that adds discoverability for the
+   * existing `?` keyboard shortcut.
+   */
+  onOpenKeyboardHelp?(): void;
   rowActions?: SessionRowActions;
 }) {
   // PR-SIDEBAR-IA-0 Phase 2 fixup (WAWQAQ `49309559` + kenji
@@ -692,6 +700,25 @@ export function SessionListPanel(props: {
           <Settings className="maka-nav-icon" strokeWidth={1.5} />
           <span>设置</span>
         </button>
+        {/*
+          PR-UX-POLISH-1 commit 2 (yuejing UX audit P2 #10):
+          small `? 快捷键` chip surfaces the existing keyboard
+          shortcut. Without it, users had to discover `?` by
+          accident (or never). Click opens KeyboardHelpModal via
+          the new `openHelp` return value from `useKeyboardHelp`.
+        */}
+        {props.onOpenKeyboardHelp && (
+          <button
+            className="maka-session-panel-help-chip"
+            type="button"
+            onClick={props.onOpenKeyboardHelp}
+            aria-label="查看键盘快捷键"
+            title="查看键盘快捷键 (按 ? 也可打开)"
+          >
+            <kbd aria-hidden="true">?</kbd>
+            <span>快捷键</span>
+          </button>
+        )}
       </footer>
     </aside>
   );
@@ -876,13 +903,21 @@ function SessionListGroups(props: {
                   }}
                 />
                 <span>{group.label}</span>
+                {/* PR-UX-POLISH-1 commit 2 (kenji `93ee9df0` #1):
+                  middle-dot separator reads `会话 · 65` as one
+                  semantic phrase ("group · count") instead of
+                  two visually-separated columns. */}
+                <span className="maka-list-group-separator" aria-hidden="true">·</span>
                 <span className="maka-list-group-count">{group.sessions.length}</span>
               </button>
             ) : (
               <div className="maka-list-group-label">
                 <span>{group.label}</span>
                 {group.sessions.length > 1 && (
-                  <span className="maka-list-group-count">{group.sessions.length}</span>
+                  <>
+                    <span className="maka-list-group-separator" aria-hidden="true">·</span>
+                    <span className="maka-list-group-count">{group.sessions.length}</span>
+                  </>
                 )}
               </div>
             )}

@@ -68,7 +68,17 @@ const SHORTCUTS: Section[] = [
  * Returned tuple gives callers the current open state and an imperative
  * close function for the rendered modal.
  */
-export function useKeyboardHelp(): [boolean, () => void] {
+/**
+ * Manages the global key listener that opens and closes the help modal.
+ *
+ * PR-UX-POLISH-1 commit 2 (yuejing UX audit P2 #10, discoverability):
+ * the returned tuple now also includes an `openHelp` imperative
+ * function so non-keyboard surfaces (e.g. the new `? 快捷键` chip
+ * in the sidebar footer) can open the modal without dispatching
+ * synthetic KeyboardEvent's. Existing callers that only need
+ * `[open, closeHelp]` can ignore the third element.
+ */
+export function useKeyboardHelp(): [boolean, () => void, () => void] {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -98,7 +108,7 @@ export function useKeyboardHelp(): [boolean, () => void] {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  return [open, () => setOpen(false)];
+  return [open, () => setOpen(false), () => setOpen(true)];
 }
 
 export function KeyboardHelpModal(props: { onClose(): void }) {
