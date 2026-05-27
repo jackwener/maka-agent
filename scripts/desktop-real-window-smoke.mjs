@@ -86,6 +86,8 @@ function parseArgs(argv) {
     cleanupStale: true,
     assumeYes: false,
     failNote: null,
+    unverifiedNote: null,
+    diagnosticWaitMs: 1500,
     help: false,
   };
   for (let i = 2; i < argv.length; i += 1) {
@@ -97,6 +99,8 @@ function parseArgs(argv) {
     else if (arg === '--no-cleanup-stale') args.cleanupStale = false;
     else if (arg === '--yes') args.assumeYes = true;
     else if (arg === '--fail-note') args.failNote = argv[++i] ?? '';
+    else if (arg === '--unverified-note') args.unverifiedNote = argv[++i] ?? '';
+    else if (arg === '--diagnostic-wait-ms') args.diagnosticWaitMs = Number(argv[++i]);
     else if (arg === '--help' || arg === '-h') args.help = true;
     else {
       console.error(`[real-window-smoke] unknown arg: ${arg}`);
@@ -107,7 +111,7 @@ function parseArgs(argv) {
 }
 
 function printHelp() {
-  console.log(`Usage: desktop-real-window-smoke.mjs [--scenario name] [--width n] [--height n] [--no-launch] [--no-cleanup-stale] [--fail-note text]
+  console.log(`Usage: desktop-real-window-smoke.mjs [--scenario name] [--width n] [--height n] [--no-launch] [--no-cleanup-stale] [--fail-note text] [--unverified-note text] [--diagnostic-wait-ms n]
 
 Launches a real Electron window with an isolated smoke workspace, then prompts
 the reviewer to confirm native desktop behavior that screenshots cannot prove.
@@ -233,27 +237,55 @@ async function launchElectron(args, diagnostics) {
     electronPid: child.pid ?? null,
     userDataDir,
   };
+  let stdoutBuffer = '';
+  diagnostics.windowDiagnostics = [];
   console.log(`[real-window-smoke] launched Electron pid=${child.pid ?? 'unknown'} userDataDir=${userDataDir}`);
-  child.stdout.on('data', (chunk) => process.stdout.write(chunk));
+  child.stdout.on('data', (chunk) => {
+    const text = chunk.toString();
+    process.stdout.write(chunk);
+    stdoutBuffer += text;
+    const lines = stdoutBuffer.split('\n');
+    stdoutBuffer = lines.pop() ?? '';
+    for (const line of lines) {
+      const match = /^\[real-window-smoke\] diagnostic (.+)$/.exec(line.trim());
+      if (!match) continue;
+      try {
+        const diagnostic = JSON.parse(match[1]);
+        diagnostics.windowDiagnostics.push(diagnostic);
+      } catch {
+        diagnostics.windowDiagnostics.push({ parseError: line.trim() });
+      }
+    }
+  });
   child.stderr.on('data', (chunk) => process.stderr.write(chunk));
   child.on('exit', (code, signal) => {
     if (code !== null) console.log(`[real-window-smoke] Electron exited with code ${code}`);
     else if (signal) console.log(`[real-window-smoke] Electron exited via ${signal}`);
   });
-  return { child, userDataDir, command: launchCommand, electronPid: child.pid ?? null };
+  return {
+    child,
+    userDataDir,
+    command: launchCommand,
+    electronPid: child.pid ?? null,
+    waitForDiagnostics: (timeoutMs = 1500) => new Promise((resolve) => setTimeout(resolve, Math.max(0, timeoutMs))),
+  };
 }
 
 async function promptChecks(args) {
+  if (args.unverifiedNote !== null) {
+    const note = args.unverifiedNote.trim() || 'real-window smoke could not verify the live window in this environment';
+    return REAL_WINDOW_SMOKE_CHECKS.map((check) => ({ ...check, status: 'UNVERIFIED', ok: false, note }));
+  }
   if (args.failNote !== null) {
     const note = args.failNote.trim() || 'real-window smoke was explicitly marked as failed by the reviewer';
-    return REAL_WINDOW_SMOKE_CHECKS.map((check) => ({ ...check, ok: false, note }));
+    return REAL_WINDOW_SMOKE_CHECKS.map((check) => ({ ...check, status: 'FAIL', ok: false, note }));
   }
   const rl = createInterface({ input, output });
   const results = [];
   try {
     for (const check of REAL_WINDOW_SMOKE_CHECKS) {
       if (args.assumeYes) {
-        results.push({ ...check, ok: true, note: 'auto-confirmed by --yes' });
+        results.push({ ...check, status: 'PASS', ok: true, note: 'auto-confirmed by --yes' });
         continue;
       }
       let answer = '';
@@ -265,7 +297,7 @@ async function promptChecks(args) {
       if (!ok) {
         note = await rl.question('[real-window-smoke] Failure note (what failed / where): ');
       }
-      results.push({ ...check, ok, note });
+      results.push({ ...check, status: ok ? 'PASS' : 'FAIL', ok, note });
     }
   } finally {
     rl.close();
@@ -278,9 +310,11 @@ async function writeReport(args, launchInfo, results, diagnostics) {
   const now = new Date();
   const stamp = now.toISOString().replace(/[:.]/g, '-');
   const git = await readGitHead();
-  const ok = results.every((result) => result.ok);
+  const status = deriveReportStatus(results);
+  const ok = status === 'PASS';
   const report = {
     ok,
+    status,
     createdAt: now.toISOString(),
     git,
     scenario: args.scenario,
@@ -288,7 +322,13 @@ async function writeReport(args, launchInfo, results, diagnostics) {
     platform: `${os.platform()} ${os.arch()} ${os.release()}`,
     userDataDir: launchInfo?.userDataDir ?? null,
     diagnostics,
-    checks: results.map(({ id, prompt, ok: resultOk, note }) => ({ id, prompt, ok: resultOk, note })),
+    checks: results.map(({ id, prompt, status: resultStatus, ok: resultOk, note }) => ({
+      id,
+      prompt,
+      status: resultStatus ?? (resultOk ? 'PASS' : 'FAIL'),
+      ok: resultOk,
+      note,
+    })),
   };
   const jsonPath = join(REPORT_DIR, `${stamp}.json`);
   const mdPath = join(REPORT_DIR, `${stamp}.md`);
@@ -296,6 +336,16 @@ async function writeReport(args, launchInfo, results, diagnostics) {
   await writeFile(mdPath, renderMarkdown(report));
   console.log(`[real-window-smoke] report: ${relative(REPO_ROOT, mdPath)}`);
   return report;
+}
+
+function deriveReportStatus(results) {
+  if (results.every((result) => result.status === 'PASS' || result.ok === true)) {
+    return 'PASS';
+  }
+  if (results.every((result) => result.status === 'PASS' || result.status === 'UNVERIFIED')) {
+    return 'UNVERIFIED';
+  }
+  return 'FAIL';
 }
 
 async function readGitHead() {
@@ -315,7 +365,7 @@ function renderMarkdown(report) {
   const lines = [
     '# Maka Real Window Smoke Report',
     '',
-    `- Result: ${report.ok ? 'PASS' : 'FAIL'}`,
+    `- Result: ${report.status}`,
     `- Created: ${report.createdAt}`,
     `- Git: ${report.git}`,
     `- Scenario: ${report.scenario}`,
@@ -325,12 +375,19 @@ function renderMarkdown(report) {
     report.diagnostics?.launch?.electronPid ? `- Electron PID: ${report.diagnostics.launch.electronPid}` : '- Electron PID: not launched by script',
     report.diagnostics?.launch?.command ? `- Launch command: \`${escapeMd(report.diagnostics.launch.command)}\`` : '- Launch command: not launched by script',
     `- Stale Electron processes cleaned: ${report.diagnostics?.staleElectronProcesses?.length ?? 0}`,
+    `- Window diagnostics captured: ${report.diagnostics?.windowDiagnostics?.length ?? 0}`,
     '',
     '| Check | Result | Note |',
     '|---|---|---|',
   ];
   for (const check of report.checks) {
-    lines.push(`| ${check.id} | ${check.ok ? 'PASS' : 'FAIL'} | ${escapeMd(check.note || check.prompt)} |`);
+    lines.push(`| ${check.id} | ${check.status ?? (check.ok ? 'PASS' : 'FAIL')} | ${escapeMd(check.note || check.prompt)} |`);
+  }
+  if ((report.diagnostics?.windowDiagnostics?.length ?? 0) > 0) {
+    lines.push('', '## Window Diagnostics', '');
+    for (const diagnostic of report.diagnostics.windowDiagnostics) {
+      lines.push(`\`\`\`json\n${JSON.stringify(diagnostic, null, 2)}\n\`\`\``);
+    }
   }
   if ((report.diagnostics?.staleElectronProcesses?.length ?? 0) > 0) {
     lines.push('', '## Cleaned Stale Electron Processes', '');
@@ -361,6 +418,10 @@ async function main() {
   console.log('[real-window-smoke] Build first via `npm --workspace @maka/desktop run smoke:real-window`.');
   console.log(`[real-window-smoke] scenario=${args.scenario} viewport=${args.width}x${args.height}`);
   const launchInfo = await launchElectron(args, diagnostics);
+  if (launchInfo?.waitForDiagnostics) {
+    await launchInfo.waitForDiagnostics(Number.isFinite(args.diagnosticWaitMs) ? args.diagnosticWaitMs : 1500);
+    diagnostics.windowDiagnosticObserved = (diagnostics.windowDiagnostics?.length ?? 0) > 0;
+  }
   const results = await promptChecks(args);
   const report = await writeReport(args, launchInfo, results, diagnostics);
   if (launchInfo?.child && !launchInfo.child.killed) {

@@ -67,7 +67,10 @@ describe('real Electron window smoke gate (PR-DESKTOP-SMOKE-0)', () => {
     assert.match(src, /cleanupStaleElectronProcesses/, 'real-window smoke must clean/report stale Electron smoke processes');
     assert.match(src, /electronPid/, 'real-window smoke report must record the launched Electron pid');
     assert.match(src, /Launch command/, 'real-window smoke report must record the launch command');
+    assert.match(src, /UNVERIFIED/, 'real-window smoke must distinguish environment/accessibility unverifiable runs from product failures');
     assert.match(src, /--fail-note/, 'real-window smoke must support durable fail reports when the live window cannot be verified');
+    assert.match(src, /--diagnostic-wait-ms/, 'real-window smoke must wait briefly for settled BrowserWindow diagnostics');
+    assert.match(src, /Window diagnostics/, 'real-window smoke report must include BrowserWindow/renderer diagnostics when available');
     assert.match(src, /apps\/desktop\/tests\/real-window-smoke/, 'real-window smoke must write durable reports');
   });
 
