@@ -4043,6 +4043,12 @@ function OverlayPreview(props: { content: ToolResultContent }) {
     return <FileDiffPreview diff={content.diff} paths={content.paths} />;
   }
 
+  if (content.kind === 'web_search') {
+    return (
+      <WebSearchPreview query={content.query} provider={content.provider} rows={content.rows} />
+    );
+  }
+
   if (content.kind === 'terminal') {
     return (
       <TerminalPreview
@@ -4093,6 +4099,52 @@ function OverlayPreview(props: { content: ToolResultContent }) {
  * for CSS to color. Doesn't try to parse the hunk semantics — we leave
  * that to a future inline editor view; this is just a readable preview.
  */
+/**
+ * PR-CHAT-WEB-SEARCH-RENDER-0 — plain-text card list for the gated
+ * WebSearch agent tool result. Matches the Settings → 联网搜索 试一下
+ * demo layout so the user gets the same shape whether the search came
+ * from a manual try-out or the agent. Never renders markdown / HTML;
+ * each cell is `redactSecrets`'d as a belt-and-braces guard against
+ * a provider response that happened to echo a token.
+ */
+function WebSearchPreview(props: {
+  query: string;
+  provider: string;
+  rows: ReadonlyArray<{ title: string; url: string; snippet: string; source: string }>;
+}) {
+  if (props.rows.length === 0) {
+    return (
+      <div className="maka-overlay-preview maka-web-search-preview" data-kind="web_search">
+        <header>
+          <strong>{redactSecrets(props.query)}</strong>
+          <small>{props.provider} · 没有结果</small>
+        </header>
+      </div>
+    );
+  }
+  return (
+    <div className="maka-overlay-preview maka-web-search-preview" data-kind="web_search">
+      <header>
+        <strong>{redactSecrets(props.query)}</strong>
+        <small>
+          {props.provider} · {props.rows.length} 条结果
+        </small>
+      </header>
+      <ul>
+        {props.rows.map((row, idx) => (
+          <li key={`${row.url}-${idx}`}>
+            <a href={row.url} target="_blank" rel="noreferrer">
+              {redactSecrets(row.title)}
+            </a>
+            <small>{redactSecrets(row.source)}</small>
+            <p>{redactSecrets(row.snippet)}</p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function FileDiffPreview(props: { diff: string; paths: string[] }) {
   // Apply UI-level redaction then cap the displayed lines. Both are
   // @kenji's PR76 review items: never echo a token a tool happened to dump

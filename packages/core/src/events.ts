@@ -147,7 +147,28 @@ export type ToolResultContent =
       stderr: string;
     }
   | { kind: 'image'; mimeType: string; ref: StorageRef }
-  | { kind: 'summary'; original: string; summarized: string; reason: 'too_large' };
+  | { kind: 'summary'; original: string; summarized: string; reason: 'too_large' }
+  /**
+   * PR-CHAT-WEB-SEARCH-RENDER-0: structured tool-result for the gated
+   * WebSearch agent tool. The chat renderer surfaces these as plain
+   * text cards (title + url + snippet + source); never markdown, never
+   * HTML, matching the Settings → 联网搜索 试一下 demo.
+   *
+   * Rows are an opaque `unknown[]` here so the storage layer does not
+   * need to import the `@maka/core/web-search` row type; the renderer
+   * narrows each row at render time.
+   */
+  | {
+      kind: 'web_search';
+      provider: string;
+      query: string;
+      rows: ReadonlyArray<{
+        title: string;
+        url: string;
+        snippet: string;
+        source: string;
+      }>;
+    };
 
 export interface PermissionRequestEvent extends BaseEvent {
   type: 'permission_request';

@@ -108,11 +108,27 @@ export function buildWebSearchAgentTool(deps: {
         };
         return response;
       }
-      return queryTavily({
+      const tavilyResponse = await queryTavily({
         apiKey,
         query: normalizedQuery,
         limit: normalizeWebSearchLimit(limit),
       });
+      if (!tavilyResponse.ok) return tavilyResponse;
+      // PR-CHAT-WEB-SEARCH-RENDER-0: wrap the success result as
+      // `kind: 'web_search'` so the chat-side OverlayPreview can
+      // render plain-text cards instead of dumping JSON. The LLM
+      // still reads the rows directly — same fields, just nested.
+      return {
+        kind: 'web_search' as const,
+        provider: 'tavily',
+        query: normalizedQuery,
+        rows: tavilyResponse.results.map((row) => ({
+          title: row.title,
+          url: row.url,
+          snippet: row.snippet,
+          source: row.source,
+        })),
+      };
     },
   };
 }
