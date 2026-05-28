@@ -24,6 +24,7 @@ import {
   WEB_SEARCH_MAX_LIMIT,
   normalizeWebSearchLimit,
   normalizeWebSearchQuery,
+  validateWorkspacePrivacyContext,
   type WebSearchResponse,
 } from '@maka/core';
 import { defaultWorkspacePrivacyContext } from '@maka/core/incognito';
@@ -35,6 +36,7 @@ export const WEB_SEARCH_TOOL_NAME = 'WebSearch';
 
 export function buildWebSearchAgentTool(deps: {
   settingsStore: SettingsStore;
+  getPrivacyContext?: () => Promise<unknown>;
 }): MakaTool {
   return {
     name: WEB_SEARCH_TOOL_NAME,
@@ -70,8 +72,17 @@ export function buildWebSearchAgentTool(deps: {
         };
         return response;
       }
-      const privacy = defaultWorkspacePrivacyContext();
-      if (privacy.incognitoActive) {
+      const privacyPayload = await (deps.getPrivacyContext?.() ?? defaultWorkspacePrivacyContext());
+      const privacy = validateWorkspacePrivacyContext(privacyPayload);
+      if (!privacy.ok) {
+        const response: WebSearchResponse = {
+          ok: false,
+          reason: 'incognito_active',
+          message: '联网搜索已关闭，因为工作区隐私状态无法确认。',
+        };
+        return response;
+      }
+      if (privacy.value.incognitoActive) {
         const response: WebSearchResponse = {
           ok: false,
           reason: 'incognito_active',

@@ -43,8 +43,9 @@ function makeSettingsStore(override: (s: AppSettings) => AppSettings): SettingsS
 async function runTool(
   store: SettingsStore,
   args: { query?: unknown; limit?: number } = { query: 'hello' },
+  extraDeps: Partial<Parameters<typeof buildWebSearchAgentTool>[0]> = {},
 ) {
-  const tool = buildWebSearchAgentTool({ settingsStore: store });
+  const tool = buildWebSearchAgentTool({ settingsStore: store, ...extraDeps });
   return tool.impl(args as Parameters<typeof tool.impl>[0], {
     sessionId: 's',
     turnId: 't',
@@ -92,6 +93,42 @@ describe('WebSearch agent tool (PR-AGENT-WEB-SEARCH-TOOL-0)', () => {
     const out = (await runTool(store)) as { ok: boolean; reason?: string };
     assert.equal(out.ok, false);
     assert.equal(out.reason, 'not_configured');
+  });
+
+  it('fails closed before reading settings when incognito is active', async () => {
+    let settingsReads = 0;
+    const store = {
+      ...makeSettingsStore((s) => s),
+      get: async () => {
+        settingsReads += 1;
+        return createDefaultSettings();
+      },
+    } as unknown as SettingsStore;
+    const out = (await runTool(store, { query: 'latest ai news' }, {
+      getPrivacyContext: async () => ({ incognitoActive: true }),
+    })) as { ok: boolean; reason?: string; message?: string };
+    assert.equal(out.ok, false);
+    assert.equal(out.reason, 'incognito_active');
+    assert.match(out.message ?? '', /隐身模式/);
+    assert.equal(settingsReads, 0);
+  });
+
+  it('fails closed before reading settings when privacy context is malformed', async () => {
+    let settingsReads = 0;
+    const store = {
+      ...makeSettingsStore((s) => s),
+      get: async () => {
+        settingsReads += 1;
+        return createDefaultSettings();
+      },
+    } as unknown as SettingsStore;
+    const out = (await runTool(store, { query: 'latest ai news' }, {
+      getPrivacyContext: async () => ({}),
+    })) as { ok: boolean; reason?: string; message?: string };
+    assert.equal(out.ok, false);
+    assert.equal(out.reason, 'incognito_active');
+    assert.match(out.message ?? '', /隐私状态无法确认/);
+    assert.equal(settingsReads, 0);
   });
 
   it('fails closed with not_configured when apiKey is empty', async () => {
