@@ -64,6 +64,8 @@ import type {
   ToolResultContent,
 } from '@maka/core';
 import {
+  derivePermissionRequestHealth,
+  formatPermissionRequestWait,
   formatRelativeTimestamp,
   normalizeSearchUrl,
   nextRelativeRefreshDelay,
@@ -4036,9 +4038,21 @@ export function PermissionDialog(props: {
   onRespond(response: PermissionResponse): void;
 }) {
   const [rememberForTurn, setRememberForTurn] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
   const dialogRef = useRef<HTMLElement>(null);
   // No onEscape — a permission request requires an explicit allow/deny decision.
   useModalA11y(dialogRef);
+
+  useEffect(() => {
+    setRememberForTurn(false);
+    setNow(Date.now());
+  }, [props.request.requestId]);
+
+  useEffect(() => {
+    const tick = () => setNow(Date.now());
+    const interval = window.setInterval(tick, 30_000);
+    return () => window.clearInterval(interval);
+  }, [props.request.requestId]);
 
   function submit(decision: PermissionResponse['decision']) {
     props.onRespond({
@@ -4051,6 +4065,8 @@ export function PermissionDialog(props: {
   const preset = REASON_PRESETS[props.request.reason] ?? REASON_PRESETS.custom;
   const summary = renderPermissionSummary(props.request);
   const isDestructive = preset.tone === 'destructive';
+  const health = derivePermissionRequestHealth({ requestedAt: props.request.ts, now });
+  const waitLabel = formatPermissionRequestWait(health.ageMs);
 
   return (
     <div className="maka-modal-backdrop permissionBackdrop">
@@ -4072,6 +4088,10 @@ export function PermissionDialog(props: {
               <code className="maka-permission-tool">{props.request.toolName}</code>
               <span aria-hidden="true"> · </span>
               <span className="maka-reason-text" data-reason={props.request.reason}>{preset.label}</span>
+              <span aria-hidden="true"> · </span>
+              <span className="maka-permission-age" data-status={health.status}>
+                已等待 {waitLabel}
+              </span>
             </p>
           </div>
         </div>
@@ -4095,6 +4115,11 @@ export function PermissionDialog(props: {
           {isDestructive && (
             <p className="maka-permission-danger-note" role="note">
               这类操作不可恢复，确认前请再读一遍上面的参数。
+            </p>
+          )}
+          {health.status !== 'fresh' && (
+            <p className="maka-permission-stale-note" role="note" data-status={health.status}>
+              这个请求已经等待较久。允许前请重新确认工具名和参数；如果上下文已经变了，直接拒绝后重新发送。
             </p>
           )}
         </div>
