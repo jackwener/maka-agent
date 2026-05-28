@@ -192,6 +192,7 @@ declare global {
           patch: { title?: string; note?: string; runAt?: number | string; recurrence?: PlanReminderRecurrence; cronExpression?: string; delivery?: PlanReminderDeliveryTarget; enabled?: boolean },
         ): Promise<PlanReminder>;
         setEnabled(id: string, enabled: boolean): Promise<PlanReminder>;
+        triggerNow(id: string): Promise<PlanReminder>;
         delete(id: string): Promise<void>;
         subscribeChanges(
           handler: (event: { type: 'plans_changed'; reason: string; reminderId?: string; ts: number }) => void,

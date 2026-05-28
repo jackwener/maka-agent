@@ -842,6 +842,28 @@ function registerIpc(): void {
     emitPlansChanged('updated', reminder);
     return reminder;
   });
+  ipcMain.handle('plans:triggerNow', async (_event, id: string) => {
+    const reminder = (await planReminderStore.list()).find((entry) => entry.id === id);
+    if (!reminder) throw new Error(`No such plan reminder: ${id}`);
+    if (!reminder.enabled) throw new Error('计划提醒已暂停，不能立即触发。');
+    const privacy = defaultWorkspacePrivacyContext();
+    const now = Date.now();
+    if (privacy.incognitoActive) {
+      const blocked = await planReminderStore.markBlocked(reminder.id, {
+        at: now,
+        message: '隐私模式已开启，计划提醒没有触发。',
+        blockReason: 'incognito_active',
+      });
+      schedulePlanReminder(blocked);
+      emitPlansChanged('blocked', blocked);
+      return blocked;
+    }
+    await deliverPlanReminder(reminder, now);
+    const updated = (await planReminderStore.list()).find((entry) => entry.id === id);
+    if (!updated) throw new Error(`No such plan reminder: ${id}`);
+    schedulePlanReminder(updated);
+    return updated;
+  });
   ipcMain.handle('plans:delete', async (_event, id: string) => {
     clearPlanReminderTimer(id);
     await planReminderStore.remove(id);

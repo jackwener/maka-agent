@@ -1067,6 +1067,17 @@ function AppShell(props: {
     }
   }
 
+  async function triggerPlanReminderNow(id: string) {
+    const reminder = planReminders.find((entry) => entry.id === id);
+    try {
+      await window.maka.plans.triggerNow(id);
+      await refreshPlanReminders();
+      toastApi.success('已触发计划提醒', reminder?.title);
+    } catch (error) {
+      toastApi.error('触发计划失败', cleanErrorMessage(error));
+    }
+  }
+
   async function deletePlanReminder(id: string) {
     const reminder = planReminders.find((entry) => entry.id === id);
     const ok = await toastApi.confirm({
@@ -1734,6 +1745,7 @@ function AppShell(props: {
             onOpenSearchModal={() => setSearchModalOpen(true)}
             onCreatePlanReminder={(input) => void createPlanReminder(input)}
             onTogglePlanReminder={(id, enabled) => void togglePlanReminder(id, enabled)}
+            onTriggerPlanReminderNow={(id) => void triggerPlanReminderNow(id)}
             onDeletePlanReminder={(id) => void deletePlanReminder(id)}
             dailyReviewBridge={dailyReviewBridge}
             rowActions={{
