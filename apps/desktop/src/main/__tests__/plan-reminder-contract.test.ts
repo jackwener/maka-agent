@@ -19,11 +19,13 @@ describe('Plan reminder MVP contract', () => {
       readRepo('apps/desktop/src/global.d.ts'),
     ]);
 
-    for (const channel of ['plans:list', 'plans:create', 'plans:update', 'plans:setEnabled', 'plans:delete']) {
+    for (const channel of ['plans:list', 'plans:create', 'plans:update', 'plans:setEnabled', 'plans:triggerNow', 'plans:delete']) {
       assert.match(main, new RegExp(`ipcMain\\.handle\\('${channel}'`), `${channel} must be handled in main`);
     }
     assert.match(preload, /plans:\s*\{[\s\S]*list\(\): Promise<PlanReminder\[]>/, 'preload must expose plans.list');
+    assert.match(preload, /triggerNow\(id: string\): Promise<PlanReminder>/, 'preload must expose manual trigger');
     assert.match(preload, /subscribeDue\(handler: \(reminder: PlanReminder\) => void\)/, 'preload must expose due event');
+    assert.match(globalTypes, /triggerNow\(id: string\): Promise<PlanReminder>/, 'global type must expose manual trigger');
     assert.match(globalTypes, /plans:\s*\{[\s\S]*create\(input: \{ title: string; note\?: string; runAt: number \| string; recurrence\?: PlanReminderRecurrence; cronExpression\?: string; delivery\?: PlanReminderDeliveryTarget \}\)/, 'global type must include delivery-aware plans API');
   });
 
@@ -37,6 +39,7 @@ describe('Plan reminder MVP contract', () => {
     assert.match(ui, /Cron/, '计划 UI must expose cron syntax instead of only fixed recurrence presets');
     assert.match(ui, /机器人聊天/, '计划 UI must expose bot delivery instead of hiding platform delivery behind code only');
     assert.match(ui, /Chat ID/, 'bot delivery must require an explicit target chat id');
+    assert.match(ui, /立即触发/, '计划 UI must expose a manual trigger path for smoke-testing delivery');
   });
 
   it('scheduler records trigger outcomes and emits due events', async () => {
