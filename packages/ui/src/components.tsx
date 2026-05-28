@@ -1218,21 +1218,26 @@ const PROMPT_SUGGESTIONS_BY_LOCALE: Record<PromptSuggestionLocale, PromptSuggest
 export type UiLocale = PromptSuggestionLocale;
 
 export function detectUiLocale(): UiLocale {
-  // PR-UI-VISUAL-SMOKE-LOCALE: visual-smoke deterministic override.
-  // The main process resolves `MAKA_VISUAL_SMOKE_LOCALE` env into
-  // `VisualSmokeState.locale`, and the renderer applies
-  // `data-maka-visual-smoke-locale="zh|en"` to `<html>` BEFORE any
-  // locale-dependent content (EmptyChatHero / Composer /
-  // OnboardingHero quickChat / hero copy) renders — the attribute
-  // lands inside the AppShell visual-smoke effect that runs ahead
-  // of `refreshSessions()`, which gates every locale-aware surface.
-  // Reading the attribute first lets the screenshot pipeline
-  // capture deterministic per-locale baselines regardless of host
-  // OS / browser `navigator.language`. Real users never reach this
-  // branch (the attribute is only set in visual-smoke fixture mode).
   if (typeof document !== 'undefined') {
-    const override = document.documentElement.dataset.makaVisualSmokeLocale;
-    if (override === 'zh' || override === 'en') return override;
+    // Precedence (highest to lowest), per kenji `7e532892` +
+    // xuan `54b56858` acceptance criteria:
+    //   1. visual-smoke fixture override (deterministic baselines).
+    //   2. user preference (PR-LANG-PREF-0): persisted in
+    //      `personalization.uiLocale`; the renderer mirrors a
+    //      resolved-value attribute (`data-maka-locale="zh|en"`)
+    //      to `<html>` on mount and on every settings save so we
+    //      can read it synchronously here without an async
+    //      settings round-trip.
+    //   3. `navigator.language` (today's behavior).
+    //
+    // Real users with `uiLocale === 'auto'` produce no
+    // `data-maka-locale` attribute, so this helper falls through
+    // to `navigator.language` exactly as before — backward
+    // compatible.
+    const smokeOverride = document.documentElement.dataset.makaVisualSmokeLocale;
+    if (smokeOverride === 'zh' || smokeOverride === 'en') return smokeOverride;
+    const userPref = document.documentElement.dataset.makaLocale;
+    if (userPref === 'zh' || userPref === 'en') return userPref;
   }
   if (typeof navigator === 'undefined') return 'zh';
   const lang = navigator.language?.toLowerCase() ?? '';
