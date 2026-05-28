@@ -1387,6 +1387,16 @@ button:active {
   line-height: 1.45;
   font-style: italic;
 }
+.maka-onboarding-quickchat-mode {
+  width: fit-content;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 8px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  font-size: 0.78rem;
+  line-height: 1;
+}
 .maka-onboarding-quickchat .maka-button {
   align-self: flex-end;
   min-width: 120px;

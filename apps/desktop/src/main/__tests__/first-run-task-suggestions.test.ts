@@ -7,10 +7,10 @@ import {
 
 describe('FIRST_RUN_TASK_SUGGESTIONS', () => {
   it('keeps the first-run task rows small and stable', () => {
-    assert.equal(FIRST_RUN_TASK_SUGGESTIONS.length, 3);
+    assert.equal(FIRST_RUN_TASK_SUGGESTIONS.length, 4);
     assert.deepEqual(
       FIRST_RUN_TASK_SUGGESTIONS.map((suggestion) => suggestion.id),
-      ['workspace-map', 'file-organize', 'web-research'] satisfies FirstRunTaskSuggestionId[],
+      ['workspace-map', 'deep-research', 'file-organize', 'web-research'] satisfies FirstRunTaskSuggestionId[],
     );
   });
 
@@ -24,6 +24,16 @@ describe('FIRST_RUN_TASK_SUGGESTIONS', () => {
       assert.equal(suggestion.prompt.includes('Coming Soon'), false);
       assert.equal(suggestion.prompt.includes('TODO'), false);
     }
+  });
+
+  it('marks deep research as an explicit read-only mode', () => {
+    const deepResearch = FIRST_RUN_TASK_SUGGESTIONS.find(
+      (suggestion) => suggestion.id === 'deep-research',
+    );
+    assert.ok(deepResearch);
+    assert.equal(deepResearch.mode, 'deep_research');
+    assert.match(deepResearch.prompt, /只读/);
+    assert.match(deepResearch.prompt, /不要修改文件/);
   });
 
   it('keeps file-management suggestions confirm-before-mutating', () => {

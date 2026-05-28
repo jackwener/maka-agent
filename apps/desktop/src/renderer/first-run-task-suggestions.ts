@@ -14,8 +14,11 @@
  *   before mutating files.
  */
 
+import type { QuickChatMode } from '@maka/core';
+
 export type FirstRunTaskSuggestionId =
   | 'workspace-map'
+  | 'deep-research'
   | 'file-organize'
   | 'web-research';
 
@@ -23,6 +26,7 @@ export interface FirstRunTaskSuggestion {
   id: FirstRunTaskSuggestionId;
   label: string;
   prompt: string;
+  mode?: QuickChatMode;
 }
 
 export const FIRST_RUN_TASK_SUGGESTIONS: readonly FirstRunTaskSuggestion[] = [
@@ -31,6 +35,13 @@ export const FIRST_RUN_TASK_SUGGESTIONS: readonly FirstRunTaskSuggestion[] = [
     label: '读一下这个项目',
     prompt:
       '帮我读一下这个项目的目录结构，先找出入口、核心模块和测试位置，再用简短列表告诉我如果要继续开发应该从哪里开始。',
+  },
+  {
+    id: 'deep-research',
+    label: '深度研究一个项目',
+    mode: 'deep_research',
+    prompt:
+      '进入深度研究模式，只读分析当前项目：先用目录、配置、入口文件、测试和关键模块建立架构图，再列出可以直接改进的功能点。不要修改文件，输出 borrow / diverge / risk / gate。',
   },
   {
     id: 'file-organize',
@@ -45,4 +56,3 @@ export const FIRST_RUN_TASK_SUGGESTIONS: readonly FirstRunTaskSuggestion[] = [
       '帮我联网研究一个主题：先问我主题是什么，然后用已配置的联网搜索找资料，最后给我来源、关键结论和还需要核实的点。',
   },
 ] as const;
-

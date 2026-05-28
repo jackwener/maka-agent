@@ -33,13 +33,21 @@ function fakeSession(overrides: Partial<SessionSummary> = {}): SessionSummary {
 function makeDeps(overrides: Partial<QuickChatDeps> = {}): QuickChatDeps & {
   spy: {
     createCalls: number;
+    createInputs: Array<{ defaultConnectionSlug: string; defaultModel: string; mode: 'chat' | 'deep_research' }>;
     emitCalls: string[];
     ensureCanSendCalls: string[];
     sendCalls: Array<{ sessionId: string; text: string }>;
   };
 } {
-  const spy = {
+  const spy: {
+    createCalls: number;
+    createInputs: Array<{ defaultConnectionSlug: string; defaultModel: string; mode: 'chat' | 'deep_research' }>;
+    emitCalls: string[];
+    ensureCanSendCalls: string[];
+    sendCalls: Array<{ sessionId: string; text: string }>;
+  } = {
     createCalls: 0,
+    createInputs: [],
     emitCalls: [] as string[],
     ensureCanSendCalls: [] as string[],
     sendCalls: [] as Array<{ sessionId: string; text: string }>,
@@ -52,8 +60,9 @@ function makeDeps(overrides: Partial<QuickChatDeps> = {}): QuickChatDeps & {
         defaultModel: 'claude-sonnet-4-5-20250929',
       } as OnboardingState;
     },
-    async createSession() {
+    async createSession(input) {
       spy.createCalls += 1;
+      spy.createInputs.push(input);
       return fakeSession();
     },
     emitCreated(sessionId) {
@@ -155,6 +164,27 @@ describe('handleQuickChatStart — non-empty prompt (send path)', () => {
     // entirely, but we verified above that the result references the
     // mock's hard-coded session id.
     assert.deepEqual(deps.spy.sendCalls, [{ sessionId: 'session-quickchat-1', text: 'hi' }]);
+  });
+
+  it('deep_research mode is accepted and passed to session creation', async () => {
+    const deps = makeDeps();
+    const result = await handleQuickChatStart({ prompt: 'study this project', mode: 'deep_research' }, deps);
+    assert.equal(result.ok, true);
+    assert.deepEqual(deps.spy.createInputs, [
+      {
+        defaultConnectionSlug: 'anthropic-live',
+        defaultModel: 'claude-sonnet-4-5-20250929',
+        mode: 'deep_research',
+      },
+    ]);
+    assert.deepEqual(deps.spy.sendCalls, [{ sessionId: 'session-quickchat-1', text: 'study this project' }]);
+  });
+
+  it('unknown mode fails closed to normal chat', async () => {
+    const deps = makeDeps();
+    const result = await handleQuickChatStart({ prompt: 'hello', mode: 'execute' }, deps);
+    assert.equal(result.ok, true);
+    assert.equal(deps.spy.createInputs[0]?.mode, 'chat');
   });
 });
 

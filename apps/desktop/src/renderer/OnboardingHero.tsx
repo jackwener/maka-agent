@@ -21,7 +21,7 @@
 
 import { ArrowRight, Sparkles, KeyRound, Settings as SettingsIcon, Cpu, AlertCircle } from 'lucide-react';
 import { useCallback, useRef, useState, type KeyboardEvent } from 'react';
-import type { LlmConnection, OnboardingState, ProviderType, SettingsSection } from '@maka/core';
+import type { LlmConnection, OnboardingState, ProviderType, QuickChatMode, SettingsSection } from '@maka/core';
 import { detectUiLocale, type UiLocale } from '@maka/ui';
 import { ProviderLogo, providerDisplay } from './settings/ProvidersPanel';
 import { FIRST_RUN_TASK_SUGGESTIONS } from './first-run-task-suggestions';
@@ -91,7 +91,7 @@ export interface OnboardingHeroProps {
    * for handling the discriminated-union result (setActiveId on
    * success, toast on `send_failed`, etc.).
    */
-  onQuickChatSubmit: (prompt: string) => void;
+  onQuickChatSubmit: (prompt: string, mode?: QuickChatMode) => void;
   /**
    * Flag set when a `quickChat:start` call is in flight, so the
    * composer can disable its submit button without owning the
@@ -380,10 +380,11 @@ function BlockedHero(props: {
 }
 
 function ReadyEmptyHero(props: {
-  onQuickChatSubmit: (prompt: string) => void;
+  onQuickChatSubmit: (prompt: string, mode?: QuickChatMode) => void;
   quickChatPending: boolean;
 }) {
   const [draft, setDraft] = useState('');
+  const [draftMode, setDraftMode] = useState<QuickChatMode | undefined>();
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const copy = READY_HERO_COPY_BY_LOCALE[detectUiLocale()];
 
@@ -392,9 +393,10 @@ function ReadyEmptyHero(props: {
     // PR110b contract: empty prompt is OK — main creates the session
     // without sending. Caller (main.tsx) decides whether to focus the
     // composer afterward.
-    props.onQuickChatSubmit(draft);
+    props.onQuickChatSubmit(draft, draftMode);
     setDraft('');
-  }, [draft, props]);
+    setDraftMode(undefined);
+  }, [draft, draftMode, props]);
 
   const handleKey = useCallback(
     (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -407,8 +409,9 @@ function ReadyEmptyHero(props: {
     [submit],
   );
 
-  const prefillSuggestion = useCallback((prompt: string) => {
+  const prefillSuggestion = useCallback((prompt: string, mode?: QuickChatMode) => {
     setDraft(prompt);
+    setDraftMode(mode);
     window.requestAnimationFrame(() => {
       const input = inputRef.current;
       if (!input) return;
@@ -443,6 +446,9 @@ function ReadyEmptyHero(props: {
         <small className="maka-onboarding-quickchat-example" aria-hidden="true">
           {copy.quickChatExample}
         </small>
+        {draftMode === 'deep_research' && (
+          <span className="maka-onboarding-quickchat-mode">深度研究 · 只读分析</span>
+        )}
         <button
           type="button"
           className="maka-button"
@@ -462,7 +468,7 @@ function ReadyEmptyHero(props: {
               key={suggestion.id}
               type="button"
               className="maka-first-run-task-suggestion"
-              onClick={() => prefillSuggestion(suggestion.prompt)}
+              onClick={() => prefillSuggestion(suggestion.prompt, suggestion.mode)}
               disabled={props.quickChatPending}
             >
               {suggestion.label}

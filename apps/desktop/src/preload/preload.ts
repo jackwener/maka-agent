@@ -64,6 +64,7 @@ import type {
   OnboardingMilestone,
   OnboardingMilestoneId,
   OnboardingState,
+  QuickChatMode,
 } from '@maka/core';
 
 // PR110b: Quick Chat result discriminated union — mirrors the
@@ -204,7 +205,7 @@ contextBridge.exposeInMainWorld('maka', {
      * connection/model overrides at this stage (PR110c/d will add
      * model picker UI).
      */
-    start(input?: { prompt?: string }): Promise<QuickChatResult> {
+    start(input?: { prompt?: string; mode?: QuickChatMode }): Promise<QuickChatResult> {
       return ipcRenderer.invoke('quickChat:start', input);
     },
   },

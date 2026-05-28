@@ -13,6 +13,9 @@ import {
   healthSignalFromConnectionRuntime,
   isPermissionMode,
   normalizeConnectionBaseUrl,
+  DEEP_RESEARCH_SESSION_LABEL,
+  buildDeepResearchSystemPromptFragment,
+  isDeepResearchSession,
 } from '@maka/core';
 import type {
   AppSettings,
@@ -29,6 +32,7 @@ import type {
   SessionChangedEvent,
   SessionChangedReason,
   SessionEvent,
+  SessionHeader,
   SessionListFilter,
   SettingsTestResult,
   UpdateAppSettingsResult,
@@ -281,7 +285,7 @@ backends.register('ai-sdk', async (ctx) => {
     permissionEngine,
     modelFactory: getAIModel,
     tools: builtinTools,
-    systemPrompt: ({ cwd }) => buildSystemPrompt(cwd),
+    systemPrompt: ({ cwd }) => buildSystemPrompt(ctx.header, cwd),
     recordLlmCall: (event) => recordLlmCall({ repo: telemetryRepo, lookupPricing }, event),
     recordToolInvocation: (event) =>
       recordToolInvocation(
@@ -1754,8 +1758,9 @@ async function handleQuickChatStart(rawInput: unknown): Promise<QuickChatResult>
         backend: 'ai-sdk',
         llmConnectionSlug: ready.connection.slug,
         model: ready.model,
-        permissionMode: 'ask',
-        name: 'New Chat',
+        permissionMode: input.mode === 'deep_research' ? 'explore' : 'ask',
+        name: input.mode === 'deep_research' ? 'Deep Research' : 'New Chat',
+        labels: input.mode === 'deep_research' ? [DEEP_RESEARCH_SESSION_LABEL] : [],
       });
     },
     emitCreated: (sessionId) => emitSessionsChanged('created', sessionId),
@@ -1772,13 +1777,15 @@ async function handleQuickChatStart(rawInput: unknown): Promise<QuickChatResult>
   });
 }
 
-async function buildSystemPrompt(cwd?: string): Promise<string | undefined> {
+async function buildSystemPrompt(header: Pick<SessionHeader, 'labels'>, cwd?: string): Promise<string | undefined> {
   const settings = await settingsStore.get();
   const personalization = buildPersonalizationPromptFragment(settings.personalization);
   const skills = await buildSkillsPromptFragment(workspaceRoot);
   const workspaceInstructions = cwd ? await buildWorkspaceInstructionsPromptFragment(cwd) : undefined;
+  const deepResearch = isDeepResearchSession(header.labels) ? buildDeepResearchSystemPromptFragment() : undefined;
   const fragments = [
     personalization.text,
+    deepResearch,
     skills,
     workspaceInstructions,
   ].filter((fragment): fragment is string => Boolean(fragment));

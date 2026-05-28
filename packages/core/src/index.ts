@@ -608,3 +608,14 @@ export {
   reconcileMaskedToken,
   webSearchCredentialStatusFromResponse,
 } from './web-search.js';
+
+// explore-agent.ts — read-only deep research session profile.
+export type { QuickChatMode } from './explore-agent.js';
+export {
+  DEEP_RESEARCH_SESSION_LABEL,
+  QUICK_CHAT_MODES,
+  buildDeepResearchSystemPromptFragment,
+  isDeepResearchSession,
+  isQuickChatMode,
+  normalizeQuickChatMode,
+} from './explore-agent.js';

@@ -6,6 +6,7 @@ import type {
   PermissionMode,
   PlanReminder,
   PlanReminderRecurrence,
+  QuickChatMode,
   PermissionRequestEvent,
   PermissionResponse,
   SessionEvent,
@@ -1341,11 +1342,11 @@ function AppShell(props: {
    *     generalized Chinese message via toast. The session may have
    *     been created already, so we also call `refreshSessions()`.
    */
-  async function handleQuickChatSubmit(prompt: string): Promise<void> {
+  async function handleQuickChatSubmit(prompt: string, mode?: QuickChatMode): Promise<void> {
     if (quickChatPending) return;
     setQuickChatPending(true);
     try {
-      const result = await window.maka.quickChat.start({ prompt });
+      const result = await window.maka.quickChat.start({ prompt, mode });
       if (result.ok) {
         await refreshSessions();
         setActiveId(result.sessionId);
@@ -1677,8 +1678,8 @@ function AppShell(props: {
                           if (section) openSettingsSection(section);
                           else openSettings();
                         }}
-                        onQuickChatSubmit={(prompt) => {
-                          void handleQuickChatSubmit(prompt);
+                        onQuickChatSubmit={(prompt, mode) => {
+                          void handleQuickChatSubmit(prompt, mode);
                         }}
                         quickChatPending={quickChatPending}
                         connections={connections}

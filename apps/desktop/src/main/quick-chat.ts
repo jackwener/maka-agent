@@ -16,8 +16,8 @@
  *     validation / status transitions reuse the canonical helper.
  */
 
-import type { OnboardingState, SessionSummary } from '@maka/core';
-import { generalizedErrorMessageChinese } from '@maka/core';
+import type { OnboardingState, QuickChatMode, SessionSummary } from '@maka/core';
+import { generalizedErrorMessageChinese, normalizeQuickChatMode } from '@maka/core';
 
 /**
  * PR110b: Quick Chat IPC result. The renderer pattern-matches on
@@ -50,6 +50,7 @@ export interface QuickChatDeps {
   createSession(input: {
     defaultConnectionSlug: string;
     defaultModel: string;
+    mode: QuickChatMode;
   }): Promise<SessionSummary>;
   /**
    * Emit a session-created event on the global bus (the renderer
@@ -81,6 +82,11 @@ export async function handleQuickChatStart(
       : undefined;
   const prompt = typeof promptRaw === 'string' ? promptRaw : '';
   const trimmed = prompt.trim();
+  const mode = normalizeQuickChatMode(
+    rawInput && typeof rawInput === 'object' && 'mode' in rawInput
+      ? (rawInput as { mode?: unknown }).mode
+      : undefined,
+  );
 
   // Fresh state to defeat any stale snapshot the renderer might hold.
   const state = await deps.getOnboardingState();
@@ -93,6 +99,7 @@ export async function handleQuickChatStart(
     session = await deps.createSession({
       defaultConnectionSlug: state.defaultConnectionSlug,
       defaultModel: state.defaultModel,
+      mode,
     });
     deps.emitCreated(session.id);
   } catch (error) {

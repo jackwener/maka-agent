@@ -64,6 +64,7 @@ import type {
   OnboardingMilestone,
   OnboardingMilestoneId,
   OnboardingState,
+  QuickChatMode,
 } from '@maka/core';
 
 // PR110b: shared union used by `quickChat:start`. Renderer pattern-
@@ -137,7 +138,7 @@ declare global {
         ): Promise<OnboardingSnapshot>;
       };
       quickChat: {
-        start(input?: { prompt?: string }): Promise<QuickChatResult>;
+        start(input?: { prompt?: string; mode?: QuickChatMode }): Promise<QuickChatResult>;
       };
       permissions: {
         getSnapshot(): Promise<PermissionSnapshot>;
