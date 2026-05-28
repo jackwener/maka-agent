@@ -105,6 +105,7 @@ export function maskAppSettings(settings: AppSettings, revealPatch: UpdateAppSet
       ...settings.webSearch,
       providers: {
         tavily: {
+          ...settings.webSearch.providers.tavily,
           apiKey: shouldReveal(revealPatch.webSearch?.providers?.tavily?.apiKey)
             ? settings.webSearch.providers.tavily.apiKey
             : maskSensitive(settings.webSearch.providers.tavily.apiKey) ?? '',

@@ -563,6 +563,7 @@ export {
 // web search contract. Renderer never sees the API key.
 export type {
   WebSearchErrorReason,
+  WebSearchCredentialStatus,
   WebSearchProvider,
   WebSearchProviderSettings,
   WebSearchResponse,
@@ -572,13 +573,16 @@ export type {
 export {
   MASKED_TOKEN_SENTINEL,
   WEB_SEARCH_DEFAULT_LIMIT,
+  WEB_SEARCH_CREDENTIAL_STATUSES,
   WEB_SEARCH_MAX_LIMIT,
   WEB_SEARCH_PROVIDERS,
   WEB_SEARCH_QUERY_MAX_CHARS,
   defaultWebSearchSettings,
+  isWebSearchCredentialStatus,
   isWebSearchProvider,
   maskedTokenForDisplay,
   normalizeWebSearchLimit,
   normalizeWebSearchQuery,
   reconcileMaskedToken,
+  webSearchCredentialStatusFromResponse,
 } from './web-search.js';

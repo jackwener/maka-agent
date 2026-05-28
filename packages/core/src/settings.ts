@@ -6,7 +6,9 @@ import type {
   WebSearchSettings,
 } from './web-search.js';
 import {
+  MASKED_TOKEN_SENTINEL,
   defaultWebSearchSettings,
+  isWebSearchCredentialStatus,
   isWebSearchProvider,
   reconcileMaskedToken,
 } from './web-search.js';
@@ -478,11 +480,38 @@ function mergeWebSearchSettings(
     tavilyPatch && typeof tavilyPatch.apiKey === 'string'
       ? reconcileMaskedToken(current.providers.tavily.apiKey, tavilyPatch.apiKey)
       : current.providers.tavily.apiKey;
+  const hasExplicitCredentialStatus =
+    tavilyPatch && isWebSearchCredentialStatus(tavilyPatch.credentialStatus);
+  const explicitCredentialCheckedAt =
+    tavilyPatch &&
+    typeof tavilyPatch.credentialCheckedAt === 'string' &&
+    tavilyPatch.credentialCheckedAt.length <= 64
+      ? tavilyPatch.credentialCheckedAt
+      : undefined;
+  const apiKeyChanged =
+    tavilyPatch &&
+    typeof tavilyPatch.apiKey === 'string' &&
+    tavilyPatch.apiKey !== MASKED_TOKEN_SENTINEL &&
+    nextApiKey !== current.providers.tavily.apiKey;
+  const credentialStatus = hasExplicitCredentialStatus
+    ? tavilyPatch.credentialStatus
+    : apiKeyChanged
+      ? 'untested'
+      : current.providers.tavily.credentialStatus;
+  const credentialCheckedAt = hasExplicitCredentialStatus
+    ? explicitCredentialCheckedAt
+    : apiKeyChanged
+      ? undefined
+      : current.providers.tavily.credentialCheckedAt;
   return {
     enabled: typeof patch.enabled === 'boolean' ? patch.enabled : current.enabled,
     defaultProvider: nextProvider,
     providers: {
-      tavily: { apiKey: nextApiKey },
+      tavily: {
+        apiKey: nextApiKey,
+        credentialStatus,
+        ...(credentialCheckedAt ? { credentialCheckedAt } : {}),
+      },
     },
   };
 }
@@ -585,10 +614,25 @@ function normalizeWebSearchSettings(settings: WebSearchSettings): WebSearchSetti
   const rawApiKey = settings.providers?.tavily?.apiKey;
   const apiKey =
     typeof rawApiKey === 'string' && rawApiKey.length <= 256 ? rawApiKey : '';
+  const rawCredentialStatus = settings.providers?.tavily?.credentialStatus;
+  const credentialStatus = isWebSearchCredentialStatus(rawCredentialStatus)
+    ? rawCredentialStatus
+    : 'untested';
+  const rawCredentialCheckedAt = settings.providers?.tavily?.credentialCheckedAt;
+  const credentialCheckedAt =
+    typeof rawCredentialCheckedAt === 'string' && rawCredentialCheckedAt.length <= 64
+      ? rawCredentialCheckedAt
+      : undefined;
   return {
     enabled,
     defaultProvider,
-    providers: { tavily: { apiKey } },
+    providers: {
+      tavily: {
+        apiKey,
+        credentialStatus,
+        ...(credentialCheckedAt ? { credentialCheckedAt } : {}),
+      },
+    },
   };
 }
 

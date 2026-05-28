@@ -8,11 +8,13 @@ import {
   WEB_SEARCH_QUERY_MAX_CHARS,
   WEB_SEARCH_PROVIDERS,
   defaultWebSearchSettings,
+  isWebSearchCredentialStatus,
   isWebSearchProvider,
   maskedTokenForDisplay,
   normalizeWebSearchLimit,
   normalizeWebSearchQuery,
   reconcileMaskedToken,
+  webSearchCredentialStatusFromResponse,
 } from '../web-search.js';
 
 describe('normalizeWebSearchQuery', () => {
@@ -100,5 +102,35 @@ describe('defaultWebSearchSettings', () => {
     assert.equal(s.enabled, false);
     assert.equal(s.defaultProvider, 'tavily');
     assert.equal(s.providers.tavily.apiKey, '');
+    assert.equal(s.providers.tavily.credentialStatus, 'untested');
+  });
+});
+
+describe('web search credential status helpers', () => {
+  it('accepts only the closed credential status enum', () => {
+    assert.equal(isWebSearchCredentialStatus('valid'), true);
+    assert.equal(isWebSearchCredentialStatus('invalid_credentials'), true);
+    assert.equal(isWebSearchCredentialStatus('unsupported_provider'), false);
+    assert.equal(isWebSearchCredentialStatus(''), false);
+  });
+
+  it('maps test responses to persisted credential status without leaking unsupported provider', () => {
+    assert.equal(webSearchCredentialStatusFromResponse({ ok: true, results: [] }), 'valid');
+    assert.equal(
+      webSearchCredentialStatusFromResponse({
+        ok: false,
+        reason: 'invalid_credentials',
+        message: 'bad',
+      }),
+      'invalid_credentials',
+    );
+    assert.equal(
+      webSearchCredentialStatusFromResponse({
+        ok: false,
+        reason: 'unsupported_provider',
+        message: 'no',
+      }),
+      'network_error',
+    );
   });
 });

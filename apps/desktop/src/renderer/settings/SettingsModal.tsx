@@ -48,6 +48,7 @@ import type {
   UsageRange,
   UsageStats,
   SubscriptionAccountState,
+  WebSearchCredentialStatus,
 } from '@maka/core';
 import type { BotStatus } from '@maka/runtime';
 import type { TestProxyInput } from '@maka/core/settings/network-settings';
@@ -56,6 +57,7 @@ import {
   OS_PERMISSION_IDS,
   deriveProviderAuthContractFromConnection,
   isToastPosition,
+  webSearchCredentialStatusFromResponse,
 } from '@maka/core';
 import { BOT_PROVIDERS, createDefaultSettings } from '@maka/core/settings';
 import { RelativeTime, redactSecrets, useModalA11y, useToast } from '@maka/ui';
@@ -1827,7 +1829,8 @@ function WebSearchSettingsPage(props: {
   onUpdate(patch: Parameters<typeof window.maka.settings.update>[0]): Promise<UpdateAppSettingsResult>;
 }) {
   const webSearch = props.settings.webSearch;
-  const tavilyKey = webSearch.providers.tavily.apiKey;
+  const tavily = webSearch.providers.tavily;
+  const tavilyKey = tavily.apiKey;
   const [draftKey, setDraftKey] = useState('');
   const [testing, setTesting] = useState(false);
   const [demoQuery, setDemoQuery] = useState('');
@@ -1838,6 +1841,19 @@ function WebSearchSettingsPage(props: {
 
   async function setEnabled(enabled: boolean) {
     await props.onUpdate({ webSearch: { enabled } });
+  }
+
+  async function persistCredentialStatus(status: WebSearchCredentialStatus) {
+    await props.onUpdate({
+      webSearch: {
+        providers: {
+          tavily: {
+            credentialStatus: status,
+            credentialCheckedAt: new Date().toISOString(),
+          },
+        },
+      },
+    });
   }
 
   async function saveDraftKey() {
@@ -1859,11 +1875,15 @@ function WebSearchSettingsPage(props: {
 
   async function runTest() {
     setTesting(true);
+    const usesDraftKey = draftKey.trim().length > 0;
     try {
       const result = await window.maka.webSearch.test({
         provider: 'tavily',
-        apiKey: draftKey.length > 0 ? draftKey : undefined,
+        apiKey: usesDraftKey ? draftKey : undefined,
       });
+      if (!usesDraftKey && tavilyKey.length > 0) {
+        await persistCredentialStatus(webSearchCredentialStatusFromResponse(result));
+      }
       if (result.ok) {
         toast.success('Tavily 凭据可用', `返回 ${result.results.length} 条结果。`);
       } else {
@@ -1890,8 +1910,14 @@ function WebSearchSettingsPage(props: {
       });
       if (result.ok) {
         setDemoResults(result.results);
+        if (hasStoredKey) {
+          await persistCredentialStatus('valid');
+        }
       } else {
         setDemoError(result.message);
+        if (hasStoredKey) {
+          await persistCredentialStatus(webSearchCredentialStatusFromResponse(result));
+        }
       }
     } catch (err) {
       setDemoError(err instanceof Error ? err.message : String(err));
@@ -1901,6 +1927,15 @@ function WebSearchSettingsPage(props: {
   }
 
   const hasStoredKey = tavilyKey.length > 0;
+  const statusCopy = presentWebSearchCredentialStatus(
+    hasStoredKey,
+    webSearch.enabled,
+    tavily.credentialStatus,
+  );
+  const checkedAtMs = tavily.credentialCheckedAt
+    ? Date.parse(tavily.credentialCheckedAt)
+    : Number.NaN;
+  const hasCheckedAt = Number.isFinite(checkedAtMs);
 
   return (
     <div className="settingsStructuredPage">
@@ -1908,6 +1943,16 @@ function WebSearchSettingsPage(props: {
         <div>
           <strong>启用联网搜索</strong>
           <small>开关启用后，UI 里显式触发的查询才会真的请求 Tavily。Agent 不会自动调用。</small>
+        </div>
+        <div className="settingsWebSearchStatusCluster">
+          <span className="settingsConnectionBadge" data-tone={statusCopy.tone}>
+            {statusCopy.label}
+          </span>
+          {hasCheckedAt && (
+            <small>
+              最近测试 <RelativeTime ts={checkedAtMs} />
+            </small>
+          )}
         </div>
         <Switch
           checked={webSearch.enabled}
@@ -2051,6 +2096,27 @@ function WebSearchSettingsPage(props: {
       })()}
     </div>
   );
+}
+
+function presentWebSearchCredentialStatus(
+  hasStoredKey: boolean,
+  enabled: boolean,
+  status: WebSearchCredentialStatus,
+): { label: string; tone: 'success' | 'info' | 'warning' | 'destructive' } {
+  if (!hasStoredKey) return { label: '未保存 key', tone: 'warning' };
+  if (status === 'valid') {
+    return enabled
+      ? { label: '已验证 · 已启用', tone: 'success' }
+      : { label: '已验证 · 未启用', tone: 'info' };
+  }
+  if (status === 'invalid_credentials') return { label: 'key 无效', tone: 'destructive' };
+  if (status === 'rate_limited') return { label: 'Tavily 限流', tone: 'warning' };
+  if (status === 'timeout') return { label: '测试超时', tone: 'warning' };
+  if (status === 'network_error') return { label: '网络异常', tone: 'warning' };
+  if (status === 'not_configured') return { label: '未配置', tone: 'warning' };
+  return enabled
+    ? { label: '未测试 · 已启用', tone: 'warning' }
+    : { label: '未测试', tone: 'info' };
 }
 
 function NetworkSettingsPage(props: {

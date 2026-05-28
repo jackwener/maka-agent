@@ -63,6 +63,18 @@ export const WEB_SEARCH_QUERY_MAX_CHARS = 200;
 export const WEB_SEARCH_DEFAULT_LIMIT = 5;
 export const WEB_SEARCH_MAX_LIMIT = 10;
 
+export const WEB_SEARCH_CREDENTIAL_STATUSES = [
+  'untested',
+  'valid',
+  'invalid_credentials',
+  'rate_limited',
+  'network_error',
+  'timeout',
+  'not_configured',
+] as const;
+
+export type WebSearchCredentialStatus = typeof WEB_SEARCH_CREDENTIAL_STATUSES[number];
+
 /**
  * Settings-layer placeholder for a stored API key. The renderer may
  * see this when the settings store mirrors back the current value;
@@ -105,6 +117,8 @@ export function isWebSearchProvider(value: unknown): value is WebSearchProvider 
  */
 export interface WebSearchProviderSettings {
   readonly apiKey: string;
+  readonly credentialStatus: WebSearchCredentialStatus;
+  readonly credentialCheckedAt?: string;
 }
 
 export interface WebSearchSettings {
@@ -117,7 +131,7 @@ export function defaultWebSearchSettings(): WebSearchSettings {
   return {
     enabled: false,
     defaultProvider: 'tavily',
-    providers: { tavily: { apiKey: '' } },
+    providers: { tavily: { apiKey: '', credentialStatus: 'untested' } },
   };
 }
 
@@ -134,4 +148,19 @@ export function reconcileMaskedToken(persisted: string, candidate: string): stri
 /** Returns the rendered representation (masked when non-empty). */
 export function maskedTokenForDisplay(persisted: string): string {
   return persisted.length === 0 ? '' : MASKED_TOKEN_SENTINEL;
+}
+
+export function isWebSearchCredentialStatus(value: unknown): value is WebSearchCredentialStatus {
+  return (
+    typeof value === 'string' &&
+    (WEB_SEARCH_CREDENTIAL_STATUSES as readonly string[]).includes(value)
+  );
+}
+
+export function webSearchCredentialStatusFromResponse(
+  response: WebSearchResponse,
+): WebSearchCredentialStatus {
+  if (response.ok) return 'valid';
+  if (isWebSearchCredentialStatus(response.reason)) return response.reason;
+  return 'network_error';
 }

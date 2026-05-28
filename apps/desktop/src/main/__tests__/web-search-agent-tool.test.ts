@@ -70,7 +70,7 @@ describe('WebSearch agent tool (PR-AGENT-WEB-SEARCH-TOOL-0)', () => {
       webSearch: {
         ...defaultWebSearchSettings(),
         enabled: true,
-        providers: { tavily: { apiKey: 'tvly-xxx' } },
+        providers: { tavily: { ...defaultWebSearchSettings().providers.tavily, apiKey: 'tvly-xxx' } },
       },
     }));
     const out1 = (await runTool(store, { query: '' })) as { ok: boolean; reason?: string };
@@ -87,7 +87,7 @@ describe('WebSearch agent tool (PR-AGENT-WEB-SEARCH-TOOL-0)', () => {
       webSearch: {
         ...defaultWebSearchSettings(),
         enabled: false,
-        providers: { tavily: { apiKey: 'tvly-real-key' } },
+        providers: { tavily: { ...defaultWebSearchSettings().providers.tavily, apiKey: 'tvly-real-key' } },
       },
     }));
     const out = (await runTool(store)) as { ok: boolean; reason?: string };
@@ -137,7 +137,7 @@ describe('WebSearch agent tool (PR-AGENT-WEB-SEARCH-TOOL-0)', () => {
       webSearch: {
         ...defaultWebSearchSettings(),
         enabled: true,
-        providers: { tavily: { apiKey: '' } },
+        providers: { tavily: { ...defaultWebSearchSettings().providers.tavily, apiKey: '' } },
       },
     }));
     const out = (await runTool(store)) as { ok: boolean; reason?: string; message?: string };

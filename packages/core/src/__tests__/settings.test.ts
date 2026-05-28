@@ -569,4 +569,60 @@ describe('open gateway settings contract', () => {
     expect(patched.openGateway.port).toBe(4940);
     expect(patched.openGateway.token).toBe('stored-token');
   });
+
+  test('web search credential status persists independently from masked key round-trips', () => {
+    const current = mergeSettings(createDefaultSettings(), {
+      webSearch: {
+        providers: {
+          tavily: {
+            apiKey: 'stored-key',
+            credentialStatus: 'valid',
+            credentialCheckedAt: '2026-05-29T00:00:00.000Z',
+          },
+        },
+      },
+    });
+
+    const patched = mergeSettings(current, {
+      webSearch: {
+        providers: {
+          tavily: {
+            apiKey: '••••••',
+          },
+        },
+      },
+    });
+
+    expect(patched.webSearch.providers.tavily.apiKey).toBe('stored-key');
+    expect(patched.webSearch.providers.tavily.credentialStatus).toBe('valid');
+    expect(patched.webSearch.providers.tavily.credentialCheckedAt).toBe('2026-05-29T00:00:00.000Z');
+  });
+
+  test('web search credential status resets when the saved key changes', () => {
+    const current = mergeSettings(createDefaultSettings(), {
+      webSearch: {
+        providers: {
+          tavily: {
+            apiKey: 'old-key',
+            credentialStatus: 'valid',
+            credentialCheckedAt: '2026-05-29T00:00:00.000Z',
+          },
+        },
+      },
+    });
+
+    const patched = mergeSettings(current, {
+      webSearch: {
+        providers: {
+          tavily: {
+            apiKey: 'new-key',
+          },
+        },
+      },
+    });
+
+    expect(patched.webSearch.providers.tavily.apiKey).toBe('new-key');
+    expect(patched.webSearch.providers.tavily.credentialStatus).toBe('untested');
+    expect(patched.webSearch.providers.tavily.credentialCheckedAt).toBeUndefined();
+  });
 });
