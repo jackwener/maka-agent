@@ -64,6 +64,7 @@ import type {
 } from '@maka/core';
 import {
   formatRelativeTimestamp,
+  normalizeSearchUrl,
   nextRelativeRefreshDelay,
 } from '@maka/core';
 import type { DailyReviewSummary, DailyReviewTopEntry } from '@maka/core';
@@ -4112,7 +4113,15 @@ function WebSearchPreview(props: {
   provider: string;
   rows: ReadonlyArray<{ title: string; url: string; snippet: string; source: string }>;
 }) {
-  if (props.rows.length === 0) {
+  const rows = props.rows
+    .map((row) => {
+      const normalizedUrl = normalizeSearchUrl(row.url);
+      if (!normalizedUrl.ok) return null;
+      return { ...row, url: redactSecrets(normalizedUrl.value) };
+    })
+    .filter((row): row is { title: string; url: string; snippet: string; source: string } => row !== null);
+
+  if (rows.length === 0) {
     return (
       <div className="maka-overlay-preview maka-web-search-preview" data-kind="web_search">
         <header>
@@ -4127,11 +4136,11 @@ function WebSearchPreview(props: {
       <header>
         <strong>{redactSecrets(props.query)}</strong>
         <small>
-          {props.provider} · {props.rows.length} 条结果
+          {props.provider} · {rows.length} 条结果
         </small>
       </header>
       <ul>
-        {props.rows.map((row, idx) => (
+        {rows.map((row, idx) => (
           <li key={`${row.url}-${idx}`}>
             <a href={row.url} target="_blank" rel="noreferrer">
               {redactSecrets(row.title)}
