@@ -43,6 +43,7 @@ import {
   useToast,
   type ToolActivityItem,
   type ToolOutputChunk,
+  formatDailyReviewMarkdown,
 } from '@maka/ui';
 import { SettingsModal } from './settings/SettingsModal';
 import { ErrorBoundary } from './error-boundary';
@@ -1857,6 +1858,22 @@ function AppShell(props: {
                 );
               } catch {
                 toastApi.error('复制失败', '剪贴板不可用');
+              }
+            },
+            onCopyTodayDailyReview: async () => {
+              try {
+                const summary = await dailyReviewBridge.fetchDay(0, 1);
+                const markdown = formatDailyReviewMarkdown(summary, '今天');
+                await navigator.clipboard.writeText(markdown);
+                toastApi.success(
+                  '已复制今日回顾为 Markdown',
+                  `${summary.totals.sessionCount} 个对话 · ${summary.totals.requestCount} 个请求`,
+                );
+              } catch (err) {
+                toastApi.error(
+                  '复制失败',
+                  err instanceof Error ? err.message : '剪贴板或数据不可用',
+                );
               }
             },
           })}

@@ -960,7 +960,7 @@ function DailyReviewPanel(props: {
  * we deliberately skip lastMessagePreview because the message body
  * may contain content the user does not want in a shared note.
  */
-function formatDailyReviewMarkdown(
+export function formatDailyReviewMarkdown(
   summary: DailyReviewSummary,
   dayLabel: string,
 ): string {

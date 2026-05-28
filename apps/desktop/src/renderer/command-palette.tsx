@@ -88,6 +88,12 @@ export function buildCommandList(args: {
   /** Copy the active conversation as Markdown to the clipboard. */
   onExportActiveConversation?(): Promise<void> | void;
   /**
+   * PR-CMD-PALETTE-COPY-DAILY-REVIEW-0: copy today's Daily Review
+   * as Markdown from anywhere via ⌘K. Same Markdown formatter
+   * `<DailyReviewPanel>` uses; renderer wires the bridge.
+   */
+  onCopyTodayDailyReview?(): Promise<void> | void;
+  /**
    * PR-CMD-PALETTE-ENRICH-0: jump to a sidebar module (会话 / 计划 /
    * 技能 / 每日回顾) directly from the palette. Search itself is
    * already covered by the existing thread-search hookup, so the
@@ -255,6 +261,18 @@ export function buildCommandList(args: {
       Icon: Download,
       keywords: ['export', 'markdown', 'copy', 'conversation', '导出', '对话', '剪贴板', 'md'],
       run: () => void args.onExportActiveConversation!(),
+    });
+  }
+  if (args.onCopyTodayDailyReview) {
+    cmds.push({
+      id: 'diag:copy-today-daily-review',
+      kind: 'action',
+      label: '复制今日回顾为 Markdown',
+      hint: '复制到剪贴板',
+      group: '诊断',
+      Icon: CalendarDays,
+      keywords: ['daily', 'review', 'today', 'copy', 'markdown', '今日', '回顾', '复制', '剪贴板'],
+      run: () => void args.onCopyTodayDailyReview!(),
     });
   }
   if (args.onTestConnection && args.defaultSlug) {
