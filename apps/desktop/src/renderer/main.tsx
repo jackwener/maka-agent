@@ -60,7 +60,7 @@ import {
 import { deriveTurnFooterActions } from './turn-footer-actions';
 import { readScrollMotionBehavior } from './scroll-motion-policy';
 import { deriveBranchBanner } from './branch-banner';
-import { applyDensity, applyTheme, applyThemePalette } from './theme';
+import { applyDensity, applyTheme, applyThemePalette, applyUiLocale } from './theme';
 import { openPathActionLabel, openPathFailureCopy } from './open-path';
 import './styles.css';
 
@@ -527,6 +527,12 @@ function AppShell(props: {
         ? next.appearance!.toastPosition!
         : 'bottom-right';
       const name = next.personalization?.displayName ?? '';
+      // PR-LANG-PREF-0: apply persisted UI locale preference to
+      // `<html data-maka-locale>` BEFORE first paint of any
+      // locale-aware surface. `'auto'` clears the attribute so
+      // `detectUiLocale()` falls through to `navigator.language`.
+      const uiLocale = next.personalization?.uiLocale ?? 'auto';
+      applyUiLocale(uiLocale);
       setThemePref(pref);
       setDensity(den);
       setUserLabel(name);
