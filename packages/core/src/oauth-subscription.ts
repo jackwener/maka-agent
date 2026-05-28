@@ -143,20 +143,26 @@ export type SubscriptionActionFailureReason =
 /**
  * Authorization URL payload returned by `claude-subscription:get-auth-url`.
  *
- * The renderer just receives the URL to open via `shell.openExternal`;
- * the verifier stays in the main process's pending state map. The
- * `state` value is returned only so the renderer can prefill the
- * paste-code modal with a hint ("paste your code ending in
- * `#abc123`"); the verification still happens main-side.
+ * The renderer gets ONLY an opaque request id + a short state hint —
+ * **never the URL itself** (kenji `027c93c0`). The URL stays in the
+ * main process's pending state map and is opened via the
+ * separate `claude-subscription:open-auth-url` IPC, which looks
+ * the URL up by the same request id. This way a malicious or
+ * compromised renderer cannot ask main to open an arbitrary URL.
  *
- * No token-shaped fields.
+ * `stateHint` is the first 8 chars of the OAuth state. The
+ * renderer surfaces it so the user knows which paste-code modal
+ * belongs to which authorization attempt (the redirect page on
+ * console.anthropic.com displays the matching state alongside the
+ * authorization code).
+ *
+ * No token-shaped fields. No URL field.
  */
 export interface AuthorizationUrlPayload {
-  url: string;
   /** First 8 chars of state, shown as a hint in the paste modal. */
   stateHint: string;
   /** Authorization request ID, opaque to the renderer; used to scope
-   *  the eventual completeAuthorization call. */
+   *  the eventual openAuthUrl / completeAuthorization / cancel calls. */
   authRequestId: string;
 }
 

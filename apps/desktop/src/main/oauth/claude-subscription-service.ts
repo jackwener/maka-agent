@@ -191,8 +191,12 @@ export class ClaudeSubscriptionService {
       createdAt: this.now(),
       url,
     });
+    // kenji `027c93c0`: do NOT return `url` to the renderer. The
+    // URL is stored in `pending.url` and opened by main when the
+    // renderer calls `openAuthorizationUrl(authRequestId)`. This
+    // keeps the URL surface narrow: renderer never holds or
+    // transmits it.
     return {
-      url,
       stateHint: state.slice(0, 8),
       authRequestId,
     };

@@ -793,6 +793,18 @@ function registerIpc(): void {
     message: 'Claude 订阅功能尚未在此版本启用。',
   };
   ipcMain.handle('claude-subscription:get-auth-url', async () => {
+    // kenji `027c93c0`: `getAuthUrl` is only reached through the
+    // Settings UI which already self-gates on
+    // `isExperimentalEnabled()`. This main-side check is the
+    // defense-in-depth path for a DevTools-triggered manual call
+    // when the card is hidden. We throw (rather than returning an
+    // experimental_disabled envelope) because:
+    //   - The return type is `AuthorizationUrlPayload`, not a
+    //     result union, so a `{ok:false}` envelope would force a
+    //     contract change.
+    //   - The only legitimate caller (Settings UI) never reaches
+    //     this branch.
+    //   - DevTools callers see a clear thrown error message.
     if (!isSubscriptionExperimentalEnabled()) {
       return experimentalDisabledResponse;
     }

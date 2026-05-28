@@ -79,10 +79,12 @@ describe('experimental kill-switch (kenji 1da909d5 + 45b31e16)', () => {
     for (const handler of handlers) {
       const handlerIdx = src.indexOf(handler);
       assert.notEqual(handlerIdx, -1, `handler ${handler} must be wired in main.ts`);
-      // Look at the surrounding 400 chars for the experimental
+      // Look at the surrounding 1200 chars for the experimental
       // check. Permissive: either an explicit `isSubscriptionExperimentalEnabled()`
       // call or the shared `experimentalDisabledResponse` constant.
-      const region = src.slice(handlerIdx, handlerIdx + 400);
+      // The window must be generous because handlers can carry
+      // multi-paragraph docstrings explaining the guard choice.
+      const region = src.slice(handlerIdx, handlerIdx + 1200);
       const guarded =
         /isSubscriptionExperimentalEnabled\(\)/.test(region) ||
         /experimentalDisabledResponse/.test(region) ||
@@ -158,6 +160,55 @@ describe('experimental kill-switch (kenji 1da909d5 + 45b31e16)', () => {
       src,
       /shell\.openExternal\(pending\.url\)/,
       'service must open pending.url (main-generated), not a renderer-provided URL',
+    );
+  });
+
+  it('AuthorizationUrlPayload has NO url field — renderer never holds the URL (kenji 027c93c0)', async () => {
+    const src = await readFile(CORE_TYPES_SOURCE, 'utf8');
+    // Find the `AuthorizationUrlPayload` interface block and
+    // confirm no `url:` field is declared.
+    const match = src.match(/export interface AuthorizationUrlPayload\s*\{([\s\S]*?)\}/);
+    assert.ok(match, 'AuthorizationUrlPayload export must exist');
+    const body = match[1]!;
+    assert.doesNotMatch(
+      body,
+      /\burl\s*:/,
+      'AuthorizationUrlPayload must NOT declare a url field (renderer must not hold the auth URL — kenji 027c93c0)',
+    );
+    // Sanity: the renderer DOES still need authRequestId + stateHint.
+    assert.match(body, /authRequestId\s*:\s*string/, 'AuthorizationUrlPayload must still expose authRequestId');
+    assert.match(body, /stateHint\s*:\s*string/, 'AuthorizationUrlPayload must still expose stateHint');
+  });
+
+  it('Settings UI does not reference payload.url (defensive — payload no longer has it)', async () => {
+    const src = await readFile(SETTINGS_SOURCE, 'utf8');
+    assert.doesNotMatch(
+      src,
+      /payload\.url\b/,
+      'Settings UI must not read payload.url — the field is gone',
+    );
+  });
+
+  it('service getAuthorizationUrl return statement does not include url key', async () => {
+    const src = await readFile(SERVICE_SOURCE, 'utf8');
+    // Find the getAuthorizationUrl method and check the return
+    // expression's keys. The method must return only
+    // { stateHint, authRequestId }; a `url` key would put the URL
+    // back into the IPC payload.
+    const start = src.indexOf('async getAuthorizationUrl');
+    assert.notEqual(start, -1, 'getAuthorizationUrl method must exist');
+    const end = src.indexOf('async openAuthorizationUrl', start);
+    assert.notEqual(end, -1, 'openAuthorizationUrl must follow getAuthorizationUrl');
+    const slice = src.slice(start, end);
+    // Look for a `return { ...url... }` pattern. The pending map
+    // assignment with `url,` shorthand is fine; only the RETURN
+    // statement matters.
+    const returnMatch = slice.match(/return\s*\{[^}]*\}/);
+    assert.ok(returnMatch, 'getAuthorizationUrl must have a return statement with object literal');
+    assert.doesNotMatch(
+      returnMatch[0]!,
+      /\burl\b/,
+      'getAuthorizationUrl return statement must NOT include url — pending.url stays in the service',
     );
   });
 });
