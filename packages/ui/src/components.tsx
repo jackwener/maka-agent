@@ -856,6 +856,19 @@ function DailyReviewPanel(props: {
             {option === 1 ? '今日' : option === 7 ? '本周' : '本月'}
           </button>
         ))}
+        {summary && summary.totals.sessionCount + summary.totals.requestCount > 0 && (
+          <button
+            type="button"
+            className="maka-button maka-button-ghost maka-daily-review-copy"
+            onClick={() => {
+              const md = formatDailyReviewMarkdown(summary, dayLabel);
+              void navigator.clipboard.writeText(md).catch(() => {});
+            }}
+            title="复制为 Markdown 摘要，方便分享 / 贴到笔记"
+          >
+            复制
+          </button>
+        )}
       </nav>
 
       {error ? (
@@ -939,6 +952,51 @@ function DailyReviewPanel(props: {
       )}
     </div>
   );
+}
+
+/**
+ * PR-DAILY-REVIEW-COPY-0: produce a Markdown summary of the current
+ * Daily Review for clipboard share. Sessions list is title-only —
+ * we deliberately skip lastMessagePreview because the message body
+ * may contain content the user does not want in a shared note.
+ */
+function formatDailyReviewMarkdown(
+  summary: DailyReviewSummary,
+  dayLabel: string,
+): string {
+  const lines: string[] = [];
+  lines.push(`# Maka · 每日回顾 · ${dayLabel}`);
+  lines.push('');
+  lines.push(`- 对话：${summary.totals.sessionCount}`);
+  lines.push(`- 请求：${summary.totals.requestCount}`);
+  lines.push(`- Tokens：${summary.totals.totalTokens.toLocaleString()}`);
+  lines.push(`- 费用：$${summary.totals.costUsd.toFixed(2)}`);
+  if (summary.totals.errorCount > 0) {
+    lines.push(`- 错误：${summary.totals.errorCount}`);
+  }
+  if (summary.sessions.length > 0) {
+    lines.push('');
+    lines.push('## 活跃对话');
+    for (const session of summary.sessions) {
+      lines.push(`- ${session.name}`);
+    }
+  }
+  if (summary.topModels.length > 0) {
+    lines.push('');
+    lines.push('## 模型使用');
+    for (const entry of summary.topModels) {
+      const cost = entry.costUsd > 0 ? ` · $${entry.costUsd.toFixed(2)}` : '';
+      lines.push(`- ${entry.label}：${entry.requests} 次 · ${entry.totalTokens.toLocaleString()} tok${cost}`);
+    }
+  }
+  if (summary.topTools.length > 0) {
+    lines.push('');
+    lines.push('## 工具调用');
+    for (const entry of summary.topTools) {
+      lines.push(`- ${entry.label}：${entry.requests} 次`);
+    }
+  }
+  return lines.join('\n');
 }
 
 function DailyReviewTotalsCell(props: { label: string; value: string; tone?: 'error' }) {
