@@ -12,6 +12,7 @@
     "./session": "./dist/session.js",
     "./session-event-health": "./dist/session-event-health.js",
     "./permission": "./dist/permission.js",
+    "./permission-request-health": "./dist/permission-request-health.js",
     "./connections": "./dist/connections.js",
     "./workspace": "./dist/workspace.js",
     "./artifacts": "./dist/artifacts.js",

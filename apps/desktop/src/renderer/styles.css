@@ -3409,6 +3409,20 @@ button:active {
   border: 1px solid oklch(from var(--foreground) l c h / 0.03);
 }
 
+.maka-permission-age {
+  color: var(--foreground-55);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.maka-permission-age[data-status="stale"] {
+  color: var(--warning-text);
+}
+
+.maka-permission-age[data-status="expired"] {
+  color: var(--destructive-text);
+}
+
 .maka-permission-body {
   display: grid;
   gap: 12px;
@@ -3474,6 +3488,23 @@ button:active {
   font-size: 12px;
   line-height: 1.5;
   font-weight: 600;
+}
+
+.maka-permission-stale-note {
+  margin: 0;
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--warning-text);
+  background: oklch(from var(--warning) l c h / 0.10);
+  border: 1px solid oklch(from var(--warning) l c h / 0.20);
+}
+
+.maka-permission-stale-note[data-status="expired"] {
+  color: var(--destructive-text);
+  background: oklch(from var(--destructive) l c h / 0.10);
+  border-color: oklch(from var(--destructive) l c h / 0.24);
 }
 
 .maka-permission-diff {
