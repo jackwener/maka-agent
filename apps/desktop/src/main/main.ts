@@ -172,7 +172,10 @@ const builtinTools = [
   // over settingsStore so the renderer never sees the API key; the
   // permission engine routes it through the `web_read` policy which
   // prompts the user in explore / ask modes.
-  buildWebSearchAgentTool({ settingsStore }),
+  buildWebSearchAgentTool({
+    settingsStore,
+    getPrivacyContext: async () => defaultWorkspacePrivacyContext(),
+  }),
 ];
 let lookupPricing = buildPricingLookup();
 const botRegistry = new BotRegistry({
