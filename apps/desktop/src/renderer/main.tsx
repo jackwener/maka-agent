@@ -9,6 +9,7 @@ import type {
   QuickChatMode,
   PermissionRequestEvent,
   PermissionResponse,
+  SessionEventStreamSnapshot,
   SessionEvent,
   SessionSummary,
   SettingsSection,
@@ -67,6 +68,12 @@ import { readScrollMotionBehavior } from './scroll-motion-policy';
 import { deriveBranchBanner } from './branch-banner';
 import { applyDensity, applyTheme, applyThemePalette, applyUiLocale } from './theme';
 import { openPathActionLabel, openPathFailureCopy } from './open-path';
+import {
+  createSessionEventStreamSubscription,
+  evaluateSessionEventStreamSnapshot,
+  recordSessionEventStreamChange,
+  recordSessionEventStreamEvent,
+} from './session-event-health';
 import './styles.css';
 
 const NO_REAL_CONNECTION_CODE = 'NO_REAL_CONNECTION';
@@ -151,6 +158,19 @@ function AppShell(props: {
   // type definition near `useState<Record<string, AssistantStreamSlot>>`.
   const [liveToolsBySession, setLiveToolsBySession] = useState<Record<string, ToolActivityItem[]>>({});
   const [permissionBySession, setPermissionBySession] = useState<Record<string, PermissionRequestEvent | undefined>>({});
+  const [sessionEventHealthBySessionState, setSessionEventHealthBySessionState] =
+    useState<Record<string, SessionEventStreamSnapshot>>({});
+  const sessionEventHealthBySessionRef = useRef<Record<string, SessionEventStreamSnapshot>>({});
+  const sessionEventHealthBySession = sessionEventHealthBySessionState;
+  function setSessionEventHealthBySession(
+    updater: (current: Record<string, SessionEventStreamSnapshot>) => Record<string, SessionEventStreamSnapshot>,
+  ): void {
+    setSessionEventHealthBySessionState((current) => {
+      const next = updater(current);
+      sessionEventHealthBySessionRef.current = next;
+      return next;
+    });
+  }
   const [connections, setConnections] = useState<LlmConnection[]>([]);
   const [defaultConnection, setDefaultConnection] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -203,6 +223,7 @@ function AppShell(props: {
     [sessions],
   );
   const liveTools = useMemo(() => (activeId ? liveToolsBySession[activeId] ?? [] : []), [activeId, liveToolsBySession]);
+  const activeSessionEventHealth = activeId ? sessionEventHealthBySession[activeId] : undefined;
   // PR-DAILY-REVIEW-MVP-0: bridge for the SessionListPanel's daily
   // review section. Memoized so the panel's `useEffect` cleanup keys
   // off a stable reference instead of refetching on every render.
@@ -275,6 +296,15 @@ function AppShell(props: {
     activeConnection?.lastTestStatus,
     defaultConnectionReady,
   ]);
+
+  const chatEventStreamAlert = useMemo<ChatHeaderAlert | undefined>(() => {
+    if (activeSessionEventHealth?.status !== 'stale') return undefined;
+    return {
+      tone: 'warning',
+      label: '事件流恢复中',
+      tooltip: '当前对话的实时事件暂未更新，Maka 正在从本地会话记录刷新。',
+    };
+  }, [activeSessionEventHealth?.status]);
 
   // PR109d-b: turn footer actions per turn. Derived from the
   // materialized turn list (status + lineage descendants) + pending
@@ -583,6 +613,16 @@ function AppShell(props: {
     const unsubscribeConnections = window.maka.connections.subscribeEvents(handleConnectionEvent);
     const unsubscribeSessionChanges = window.maka.sessions.subscribeChanges((event) => {
       void refreshSessions();
+      if (event.sessionId) {
+        setSessionEventHealthBySession((current) => {
+          const previous = current[event.sessionId!];
+          if (!previous) return current;
+          return {
+            ...current,
+            [event.sessionId!]: recordSessionEventStreamChange(previous, event.ts),
+          };
+        });
+      }
       if (
         event.sessionId &&
         (event.reason === 'turn-status-change' || event.reason === 'message-appended' || event.reason === 'deleted')
@@ -607,6 +647,11 @@ function AppShell(props: {
           return next;
         });
         setPermissionBySession((current) => {
+          const next = { ...current };
+          delete next[event.sessionId!];
+          return next;
+        });
+        setSessionEventHealthBySession((current) => {
           const next = { ...current };
           delete next[event.sessionId!];
           return next;
@@ -658,17 +703,72 @@ function AppShell(props: {
   useEffect(() => {
     if (!activeId) return;
     let disposed = false;
+    const subscribedAt = Date.now();
+    setSessionEventHealthBySession((current) => ({
+      ...current,
+      [activeId]: createSessionEventStreamSubscription({ sessionId: activeId, now: subscribedAt }),
+    }));
     void window.maka.sessions.readMessages(activeId).then((next) => {
       if (!disposed) setMessages(next);
     });
     const unsubscribe = window.maka.sessions.subscribeEvents(activeId, (event) => {
+      setSessionEventHealthBySession((current) => {
+        const previous = current[activeId];
+        if (!previous) return current;
+        return { ...current, [activeId]: recordSessionEventStreamEvent(previous, Date.now()) };
+      });
       handleEvent(activeId, event);
     });
     return () => {
       disposed = true;
       unsubscribe();
+      setSessionEventHealthBySession((current) => {
+        const previous = current[activeId];
+        if (!previous) return current;
+        return {
+          ...current,
+          [activeId]: {
+            ...previous,
+            status: 'closed',
+            checkedAt: Date.now(),
+            staleSince: undefined,
+          },
+        };
+      });
     };
   }, [activeId]);
+
+  useEffect(() => {
+    if (!activeId) return;
+    const hasLiveActivity = activeStreaming.length > 0 || liveTools.length > 0 || Boolean(activePermission);
+    const evaluate = () => {
+      const result = evaluateSessionEventStreamSnapshot({
+        previous: sessionEventHealthBySessionRef.current[activeId],
+        now: Date.now(),
+        sessionStatus: activeSession?.status,
+        hasLiveActivity,
+      });
+      if (!result.snapshot) return;
+      setSessionEventHealthBySession((current) => ({
+        ...current,
+        [activeId]: result.snapshot!,
+      }));
+      if (result.shouldRefresh) {
+        void refreshSessions();
+        void refreshMessages(activeId);
+      }
+    };
+    evaluate();
+    const interval = window.setInterval(evaluate, 5_000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') evaluate();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [activeId, activeSession?.status, activeStreaming.length, liveTools.length, activePermission?.requestId]);
 
   useEffect(() => {
     localStorage.setItem('maka-chat-list-width-v1', String(sessionListWidth));
@@ -1662,6 +1762,7 @@ function AppShell(props: {
                 userLabel={userLabel}
                 mode={navSelection.section}
                 connectionAlert={chatConnectionAlert}
+                eventStreamAlert={chatEventStreamAlert}
                 sessionStatusBadge={chatSessionStatusBadge}
                 turnFooterActionsByTurn={turnFooterActionsByTurn}
                 onTurnFooterAction={handleTurnFooterAction}

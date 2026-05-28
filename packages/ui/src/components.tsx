@@ -2082,6 +2082,12 @@ export function ChatView(props: {
    */
   connectionAlert?: ChatHeaderAlert;
   /**
+   * Visible health for the renderer's live session-event subscription.
+   * Used when the stream goes stale and the desktop shell is refreshing
+   * from persisted messages/session state.
+   */
+  eventStreamAlert?: ChatHeaderAlert;
+  /**
    * Lifecycle status badge for the active session (PR109b, design-system
    * §9.8). Separate from `connectionAlert` because the alert is an
    * ephemeral fault signal while status is the session's settled
@@ -2245,6 +2251,7 @@ export function ChatView(props: {
         <span className="maka-chat-header-spacer" />
         {props.sessionStatusBadge && <SessionStatusBadge badge={props.sessionStatusBadge} />}
         {props.connectionAlert && <ChatHeaderAlertBadge alert={props.connectionAlert} />}
+        {props.eventStreamAlert && <ChatHeaderAlertBadge alert={props.eventStreamAlert} />}
         <PermissionModeSwitcher
           mode={props.activeSession.permissionMode}
           disabled={switcherDisabled}

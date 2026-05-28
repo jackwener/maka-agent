@@ -68,6 +68,22 @@ export {
   isTurnStatus,
 } from './session.js';
 
+// session-event-health.ts
+export type {
+  SessionEventStreamSnapshot,
+  SessionEventStreamStatus,
+} from './session-event-health.js';
+export {
+  SESSION_EVENT_STREAM_REFRESH_COOLDOWN_MS,
+  SESSION_EVENT_STREAM_STALE_AFTER_MS,
+  SESSION_EVENT_STREAM_STATUSES,
+  deriveSessionEventStreamStatus,
+  isSessionEventStreamStatus,
+  newestSessionStreamObservation,
+  sessionExpectsEventStream,
+  shouldRefreshStaleSessionEventStream,
+} from './session-event-health.js';
+
 // permission.ts
 export type {
   PermissionMode,
