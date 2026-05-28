@@ -75,7 +75,7 @@ import {
   setActiveProxy,
   testConnection,
 } from '@maka/runtime';
-import type { ToolArtifactRecorderInput } from '@maka/runtime/tool-artifacts';
+import type { BotIncomingMessage, ToolArtifactRecorderInput } from '@maka/runtime';
 import { testProxyConnection } from '@maka/runtime/network/proxy-test';
 import { PROVIDER_DEFAULTS } from '@maka/core/llm-connections';
 import { createArtifactStore, createConnectionStore, createSessionStore, createSettingsStore, createTelemetryRepo, resolveArtifactPath } from '@maka/storage';
@@ -130,6 +130,7 @@ const botRegistry = new BotRegistry({
     if (process.env.VITE_DEV_SERVER_URL || process.env.NODE_ENV === 'development') {
       console.log('[bot] incoming message', message.platform, message.chatId);
     }
+    void handleBotIncomingMessage(message);
   },
   onStatusChange: (status) => {
     mainWindow?.webContents.send('settings:bots:statusChanged', status);
@@ -235,6 +236,8 @@ const runtime = new SessionManager({
   newId: randomUUID,
   now: Date.now,
 });
+const botConversationSessions = new Map<string, string>();
+const botConversationQueues = new Map<string, Promise<void>>();
 
 // PR110b: onboarding service composes existing stores + runtime to
 // derive `OnboardingState` and manage `OnboardingMilestone[]`.
@@ -1228,6 +1231,129 @@ async function streamEvents(
     if (!finalAppendBroadcasted) {
       emitSessionsChanged('message-appended', sessionId);
     }
+  }
+}
+
+async function handleBotIncomingMessage(message: BotIncomingMessage): Promise<void> {
+  const text = message.text.trim();
+  if (!text) return;
+  const key = `${message.platform}:${message.chatId}`;
+  const current = botConversationQueues.get(key) ?? Promise.resolve();
+  const next = current
+    .catch(() => {})
+    .then(() => processBotIncomingMessage(key, message, text));
+  const tracked = next.finally(() => {
+    if (botConversationQueues.get(key) === tracked) botConversationQueues.delete(key);
+  });
+  botConversationQueues.set(key, tracked);
+}
+
+async function processBotIncomingMessage(
+  conversationKey: string,
+  message: BotIncomingMessage,
+  text: string,
+): Promise<void> {
+  let sessionId = botConversationSessions.get(conversationKey);
+  try {
+    if (!sessionId) {
+      const ready = await getReadyConnection(await connectionStore.getDefault(), undefined);
+      const summary = await runtime.createSession({
+        cwd: process.cwd(),
+        backend: 'ai-sdk',
+        llmConnectionSlug: ready.connection.slug,
+        model: ready.model,
+        // Bot conversations must not execute local side effects without an
+        // in-app approval surface. Explore allows read/web-read only.
+        permissionMode: 'explore',
+        name: `${botPlatformLabel(message.platform)} 对话`,
+        labels: ['bot', message.platform],
+      });
+      sessionId = summary.id;
+      botConversationSessions.set(conversationKey, sessionId);
+      emitSessionsChanged('created', sessionId);
+    } else {
+      await ensureSessionCanSend(sessionId);
+    }
+
+    const turnId = randomUUID();
+    const iterator = runtime.sendMessage(sessionId, {
+      turnId,
+      text: `[${botPlatformLabel(message.platform)}:${message.userName}] ${text}`,
+    });
+    const reply = await collectBotReply(sessionId, iterator, turnId);
+    if (reply.trim()) {
+      const sent = await botRegistry.sendMessage(message.platform, message.chatId, reply.trim());
+      if (!sent) {
+        await botRegistry.sendMessage(message.platform, message.chatId, 'Maka 已生成回复，但当前机器人通道暂时无法发送。').catch(() => null);
+      }
+    }
+  } catch (error) {
+    const detail = generalizedErrorMessage(error, '机器人对话处理失败');
+    await botRegistry.sendMessage(message.platform, message.chatId, `Maka 暂时无法处理这条消息：${detail}`).catch(() => null);
+  }
+}
+
+async function collectBotReply(
+  sessionId: string,
+  iterator: AsyncIterable<SessionEvent>,
+  fallbackTurnId: string,
+): Promise<string> {
+  let userAppendBroadcasted = false;
+  let finalAppendBroadcasted = false;
+  let latestText = '';
+  try {
+    for await (const event of iterator) {
+      if (!userAppendBroadcasted) {
+        emitSessionsChanged('message-appended', sessionId);
+        userAppendBroadcasted = true;
+      }
+      mainWindow?.webContents.send(`sessions:event:${sessionId}`, event);
+      if (event.type === 'text_complete') latestText = event.text;
+      if (event.type === 'permission_request') {
+        return '这条请求需要在 Maka 桌面端审批后才能继续。';
+      }
+      if (event.type === 'error') {
+        return `Maka 处理失败：${event.message}`;
+      }
+      if (isStatusChangingSessionEvent(event)) {
+        emitSessionsChanged('status-change', sessionId);
+      }
+      if (isTurnStatusChangingSessionEvent(event)) {
+        emitSessionsChanged('turn-status-change', sessionId);
+      }
+      if (!finalAppendBroadcasted && isFinalSessionEvent(event)) {
+        emitSessionsChanged('message-appended', sessionId);
+        finalAppendBroadcasted = true;
+      }
+    }
+  } catch (error) {
+    mainWindow?.webContents.send(`sessions:event:${sessionId}`, {
+      type: 'error',
+      id: randomUUID(),
+      turnId: fallbackTurnId,
+      ts: Date.now(),
+      recoverable: false,
+      code: errorCode(error),
+      reason: errorReason(error),
+      message: errorMessage(error),
+    } satisfies SessionEvent);
+    emitSessionsChanged('status-change', sessionId);
+    emitSessionsChanged('turn-status-change', sessionId);
+    if (!finalAppendBroadcasted) emitSessionsChanged('message-appended', sessionId);
+    return `Maka 处理失败：${errorMessage(error)}`;
+  }
+  return latestText;
+}
+
+function botPlatformLabel(provider: BotProvider): string {
+  switch (provider) {
+    case 'telegram': return 'Telegram';
+    case 'feishu': return '飞书';
+    case 'wecom': return '企业微信';
+    case 'wechat': return '微信';
+    case 'discord': return 'Discord';
+    case 'dingtalk': return '钉钉';
+    case 'qq': return 'QQ';
   }
 }
 

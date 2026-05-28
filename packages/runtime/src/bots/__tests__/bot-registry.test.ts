@@ -92,7 +92,7 @@ describe('BotRegistry', () => {
   // are reserved for the live bridge write path (SimpleBotBridge etc.).
   test('unimplemented platform with credentials downgrades persisted credentials_valid to configured', () => {
     // F1b in audit catalog. Settings claim credentials_valid was persisted;
-    // since feishu has no live bridge, the read path must NOT honor the
+    // since discord has no live bridge, the read path must NOT honor the
     // claim — it returns `configured` (credentials present, never probed).
     const registry = new BotRegistry({
       onIncomingMessage: () => {},
@@ -101,7 +101,7 @@ describe('BotRegistry', () => {
 
     return registry
       .applySettings(settingsWith({
-        feishu: {
+        discord: {
           enabled: true,
           token: 'tenant-token',
           appId: 'cli_123',
@@ -111,7 +111,7 @@ describe('BotRegistry', () => {
         },
       }))
       .then(() => {
-        const status = registry.getStatus('feishu');
+        const status = registry.getStatus('discord');
         assert.equal(status.running, false);
         assert.equal(
           status.readiness,

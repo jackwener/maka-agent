@@ -6,6 +6,7 @@ import { proxiedFetch } from './proxied-fetch.js';
 
 const TELEGRAM_POLL_TIMEOUT_S = 15;
 const TELEGRAM_REQUEST_TIMEOUT_MS = 10_000;
+const FEISHU_REQUEST_TIMEOUT_MS = 10_000;
 
 export class SimpleBotBridge extends EventEmitter implements BotBridge, SendCapable {
   readonly platform: BotPlatform;
@@ -62,7 +63,12 @@ export class SimpleBotBridge extends EventEmitter implements BotBridge, SendCapa
       return;
     }
 
-    if (this.platform === 'discord' || this.platform === 'feishu') {
+    if (this.platform === 'feishu') {
+      await this.startFeishu();
+      return;
+    }
+
+    if (this.platform === 'discord') {
       this.running = false;
       this.reason = 'scaffold-only';
       this.readiness = 'configured';
@@ -101,7 +107,12 @@ export class SimpleBotBridge extends EventEmitter implements BotBridge, SendCapa
   }
 
   updateSettings(settings: BotChannelSettings): { needsRestart: boolean } {
-    const needsRestart = settings.enabled !== this.settings.enabled || settings.token !== this.settings.token;
+    const needsRestart =
+      settings.enabled !== this.settings.enabled ||
+      settings.token !== this.settings.token ||
+      settings.appId !== this.settings.appId ||
+      settings.appSecret !== this.settings.appSecret ||
+      settings.domain !== this.settings.domain;
     this.settings = settings;
     if (needsRestart) this.readiness = readinessFromSettings(settings);
     return { needsRestart };
@@ -130,6 +141,47 @@ export class SimpleBotBridge extends EventEmitter implements BotBridge, SendCapa
       this.emit('statusChange', this.getStatus());
       void this.pollTelegram();
     } catch (error) {
+      this.reason = generalizedErrorMessage(error);
+      this.readiness = this.readiness === 'operational' ? 'degraded' : readinessFromSettings(this.settings);
+      this.emit('statusChange', this.getStatus());
+    }
+  }
+
+  private async startFeishu(): Promise<void> {
+    try {
+      const appId = this.settings.appId?.trim() ?? '';
+      const appSecret = this.settings.appSecret?.trim() || this.settings.token.trim();
+      if (!appId || !appSecret) {
+        this.running = false;
+        this.reason = 'missing-feishu-credentials';
+        this.readiness = 'scaffolded';
+        this.emit('statusChange', this.getStatus());
+        return;
+      }
+      const token = await feishuTenantAccessToken(appId, appSecret);
+      if (!token.ok) {
+        this.running = false;
+        this.reason = token.error;
+        this.readiness = 'configured';
+        this.emit('statusChange', this.getStatus());
+        return;
+      }
+      this.identity = {
+        id: appId,
+        username: appId,
+        displayName: appId,
+      };
+      this.running = false;
+      this.startedAt = Date.now();
+      this.reason = this.settings.domain?.trim()
+        ? 'feishu-events-not-connected'
+        : 'feishu-domain-required';
+      // tenant_access_token proves app credentials. Feishu event delivery still
+      // needs a callback/long-connection runtime before it can be operational.
+      this.readiness = 'credentials_valid';
+      this.emit('statusChange', this.getStatus());
+    } catch (error) {
+      this.running = false;
       this.reason = generalizedErrorMessage(error);
       this.readiness = this.readiness === 'operational' ? 'degraded' : readinessFromSettings(this.settings);
       this.emit('statusChange', this.getStatus());
@@ -193,7 +245,7 @@ export class SimpleBotBridge extends EventEmitter implements BotBridge, SendCapa
 
 function readinessFromSettings(settings: BotChannelSettings): BotStatus['readiness'] {
   if (!settings.enabled) return 'scaffolded';
-  if (!settings.token.trim()) return 'scaffolded';
+  if (!settings.token.trim() && !settings.appId?.trim() && !settings.appSecret?.trim()) return 'scaffolded';
   return 'configured';
 }
 
@@ -209,6 +261,20 @@ async function telegramApi(token: string, method: string, body?: Record<string, 
     timeoutMs,
   });
   return response.json();
+}
+
+async function feishuTenantAccessToken(appId: string, appSecret: string): Promise<{ ok: true; token: string } | { ok: false; error: string }> {
+  const response = await proxiedFetch('https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ app_id: appId, app_secret: appSecret }),
+    timeoutMs: FEISHU_REQUEST_TIMEOUT_MS,
+  });
+  const json = await response.json();
+  if (json.code !== 0 || !json.tenant_access_token) {
+    return { ok: false, error: json.msg ?? 'Failed to issue tenant_access_token' };
+  }
+  return { ok: true, token: json.tenant_access_token };
 }
 
 function sleep(ms: number): Promise<void> {

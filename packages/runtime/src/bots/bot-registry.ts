@@ -3,7 +3,7 @@ import type { BotChannelSettings, BotChatSettings, BotProvider } from '@maka/cor
 import { generalizedErrorMessage } from '@maka/core/redaction';
 import { BOT_PROVIDERS } from '@maka/core/settings';
 import { SimpleBotBridge } from './simple-bridge.js';
-import type { BotBridge, BotIncomingMessage, BotPlatform, BotStatus } from './types.js';
+import type { BotBridge, BotIncomingMessage, BotPlatform, BotStatus, SendCapable } from './types.js';
 
 export interface BotRegistryDeps {
   onIncomingMessage: (message: BotIncomingMessage) => void;
@@ -34,6 +34,12 @@ export class BotRegistry extends EventEmitter {
 
   allStatuses(): Record<BotProvider, BotStatus> {
     return Object.fromEntries(BOT_PROVIDERS.map((provider) => [provider, this.getStatus(provider)])) as Record<BotProvider, BotStatus>;
+  }
+
+  async sendMessage(platform: BotPlatform, chatId: string, text: string): Promise<string | null> {
+    const bridge = this.bridges.get(platform) as (BotBridge & Partial<SendCapable>) | undefined;
+    if (!bridge || typeof bridge.sendMessage !== 'function') return null;
+    return bridge.sendMessage(chatId, text);
   }
 
   async stopAll(): Promise<void> {
@@ -95,7 +101,7 @@ export class BotRegistry extends EventEmitter {
 }
 
 function isImplemented(platform: BotPlatform): boolean {
-  return platform === 'telegram';
+  return platform === 'telegram' || platform === 'feishu';
 }
 
 function defaultStatus(platform: BotPlatform): BotStatus {

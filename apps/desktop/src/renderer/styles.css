@@ -4002,6 +4002,11 @@ button:active {
   transform: translateX(14px);
 }
 
+.settingsSwitch:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
 .settingsFormGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -4069,6 +4074,11 @@ button:active {
   padding: 11px 12px;
   font-size: 12px;
   line-height: 1.45;
+}
+
+.settingsNotice[data-tone="passive"] {
+  background: var(--foreground-5);
+  color: var(--foreground-55);
 }
 
 .settingsActionRow {
@@ -4482,7 +4492,7 @@ button:active {
 }
 
 .settingsBotHero {
-  min-height: 92px;
+  min-height: 74px;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: start;
@@ -4505,6 +4515,48 @@ button:active {
 
 .settingsHelpText {
   margin: 0;
+}
+
+.settingsBotStatusGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.settingsBotStatusGrid div {
+  min-height: 52px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--foreground-3);
+  padding: 10px 12px;
+}
+
+@media (max-width: 1100px) {
+  .settingsBotStatusGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.settingsBotStatusGrid dt {
+  margin-bottom: 4px;
+  color: var(--foreground-45);
+  font-size: 11px;
+}
+
+.settingsBotStatusGrid dd {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 12px;
+  word-break: break-word;
+}
+
+.settingsBotReason {
+  border-left: 2px solid var(--accent);
+  color: var(--foreground-60);
+  font-size: 12px;
+  line-height: 1.5;
+  padding-left: 10px;
 }
 
 .settingsUsagePage {

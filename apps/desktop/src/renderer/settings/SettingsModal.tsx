@@ -47,6 +47,7 @@ import type {
   UsageRange,
   UsageStats,
 } from '@maka/core';
+import type { BotStatus } from '@maka/runtime';
 import type { TestProxyInput } from '@maka/core/settings/network-settings';
 import {
   HEALTH_SIGNAL_LAYERS,
@@ -272,19 +273,27 @@ const COMING_SOON_PAGES: Partial<Record<SettingsSection, ComingSoonCopy>> = {
   },
 };
 
-const BOT_LABELS: Record<BotProvider, { label: string; help: string }> = {
-  telegram: { label: 'Telegram', help: '通过 BotFather 创建 Bot 并获取 Token' },
-  feishu: { label: '飞书', help: '配置飞书自建应用凭据' },
-  wecom: { label: '企业微信', help: '配置企业微信机器人回调' },
-  wechat: { label: '微信', help: '接入微信对话 bridge' },
-  discord: { label: 'Discord', help: '配置 Discord Bot Token' },
-  dingtalk: { label: '钉钉', help: '配置钉钉机器人 webhook' },
-  qq: { label: 'QQ', help: '配置 QQ Bot bridge' },
+const BOT_LABELS: Record<BotProvider, { label: string; help: string; support: 'runtime' | 'credentials' | 'planned' }> = {
+  telegram: {
+    label: 'Telegram',
+    help: '填写机器人 Token 后测试凭据；启动监听后，用户发给机器人的消息会进入 Maka，会话完成后自动回复。',
+    support: 'runtime',
+  },
+  feishu: {
+    label: '飞书',
+    help: '填写飞书自建应用的 App ID、App Secret 和事件订阅域名；当前先验证凭据，事件接收需要企业后台回调接入。',
+    support: 'credentials',
+  },
+  wecom: { label: '企业微信', help: '企业微信机器人运行时尚未接入。', support: 'planned' },
+  wechat: { label: '微信', help: '微信个人号/公众号接入涉及额外合规和授权，尚未接入。', support: 'planned' },
+  discord: { label: 'Discord', help: 'Discord 机器人运行时尚未接入。', support: 'planned' },
+  dingtalk: { label: '钉钉', help: '钉钉机器人运行时尚未接入。', support: 'planned' },
+  qq: { label: 'QQ', help: 'QQ 机器人运行时尚未接入。', support: 'planned' },
 };
 
 const BOT_READINESS_COPY: Record<BotReadinessState, { label: string; detail: string; tone: 'neutral' | 'info' | 'success' | 'warning' | 'destructive' }> = {
-  unscaffolded: { label: '未接入', detail: '代码中还没有这个平台的 bridge。', tone: 'neutral' },
-  scaffolded: { label: '仅有入口', detail: '设置入口已保留，但还没有运行态凭据或 bridge。', tone: 'neutral' },
+  unscaffolded: { label: '未接入', detail: '代码中还没有这个平台的运行时。', tone: 'neutral' },
+  scaffolded: { label: '待配置', detail: '还没有完成这个平台需要的凭据配置。', tone: 'neutral' },
   configured: { label: '已配置', detail: '已填写配置；还没有证明凭据或运行态可用。', tone: 'info' },
   credentials_valid: { label: '凭据有效', detail: '凭据探测通过；这不代表已能收发消息。', tone: 'warning' },
   operational: { label: '运行可用', detail: '最近一次运行态探测或收发 smoke 成功。', tone: 'success' },
@@ -485,6 +494,7 @@ function SettingsSurface(props: {
               toastPosition={props.toastPosition}
               onRefreshConnections={props.onRefresh}
               onUpdateSettings={updateSettings}
+              onReloadSettings={reloadSettings}
               onReloadUsage={reloadUsage}
               onThemeChange={props.onThemeChange}
               onDensityChange={props.onDensityChange}
@@ -510,6 +520,7 @@ function SettingsPage(props: {
   toastPosition: ToastPosition;
   onRefreshConnections(): Promise<void>;
   onUpdateSettings(patch: Parameters<typeof window.maka.settings.update>[0]): Promise<UpdateAppSettingsResult>;
+  onReloadSettings(): Promise<void>;
   onReloadUsage(range?: UsageRange): Promise<void>;
   onThemeChange(pref: ThemePreference): void;
   onDensityChange(density: UiDensity): void;
@@ -536,7 +547,13 @@ function SettingsPage(props: {
         />
       );
     case 'bot-chat':
-      return <BotChatSettingsPage settings={props.settings} onUpdate={props.onUpdateSettings} />;
+      return (
+        <BotChatSettingsPage
+          settings={props.settings}
+          onUpdate={props.onUpdateSettings}
+          onReload={props.onReloadSettings}
+        />
+      );
     case 'network':
       return <NetworkSettingsPage settings={props.settings} onUpdate={props.onUpdateSettings} />;
     case 'about':
@@ -1536,15 +1553,36 @@ function toProxyTestInput(proxy: NetworkProxySettings): TestProxyInput {
 function BotChatSettingsPage(props: {
   settings: AppSettings;
   onUpdate(patch: Parameters<typeof window.maka.settings.update>[0]): Promise<UpdateAppSettingsResult>;
+  onReload(): Promise<void>;
 }) {
   const [selected, setSelected] = useState<BotProvider>('telegram');
   const [testing, setTesting] = useState(false);
+  const [restarting, setRestarting] = useState(false);
+  const [statuses, setStatuses] = useState<Record<BotProvider, BotStatus> | null>(null);
   const channel = props.settings.botChat.channels[selected];
   const toast = useToast();
+  const selectedStatus = statuses?.[selected];
 
   async function updateChannel(patch: Partial<typeof channel>) {
     await props.onUpdate({ botChat: { channels: { [selected]: patch } } });
   }
+
+  useEffect(() => {
+    let active = true;
+    void window.maka.settings.bots.listStatuses().then((next) => {
+      if (active) setStatuses(next);
+    });
+    const unsubscribe = window.maka.settings.bots.subscribeStatusChanges((status) => {
+      setStatuses((current) => ({
+        ...(current ?? ({} as Record<BotProvider, BotStatus>)),
+        [status.platform]: status,
+      }));
+    });
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, []);
 
   async function testChannel() {
     setTesting(true);
@@ -1556,6 +1594,9 @@ function BotChatSettingsPage(props: {
       } else {
         toast.error(`${platform} 连接失败`, result.message);
       }
+      await props.onReload();
+      const nextStatuses = await window.maka.settings.bots.listStatuses();
+      setStatuses(nextStatuses);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       toast.error('Bot 测试出错', message);
@@ -1564,18 +1605,40 @@ function BotChatSettingsPage(props: {
     }
   }
 
+  async function restartChannel() {
+    setRestarting(true);
+    try {
+      const status = await window.maka.settings.bots.restart(selected);
+      setStatuses((current) => ({
+        ...(current ?? ({} as Record<BotProvider, BotStatus>)),
+        [status.platform]: status,
+      }));
+      toast.success(`${BOT_LABELS[selected].label} 已重新启动`, botStatusDetail(status));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      toast.error('机器人启动失败', message);
+    } finally {
+      setRestarting(false);
+    }
+  }
+
+  const support = BOT_LABELS[selected].support;
+  const readiness = selectedStatus?.readiness ?? channel.readiness;
+  const copy = BOT_READINESS_COPY[readiness] ?? BOT_READINESS_COPY.scaffolded;
+
   return (
     <div className="settingsBotLayout">
       <nav className="settingsBotList" aria-label="机器人频道列表">
         {BOT_PROVIDERS.map((provider) => {
-          const copy = BOT_READINESS_COPY[props.settings.botChat.channels[provider].readiness] ?? BOT_READINESS_COPY.scaffolded;
+          const status = statuses?.[provider];
+          const providerCopy = BOT_READINESS_COPY[status?.readiness ?? props.settings.botChat.channels[provider].readiness] ?? BOT_READINESS_COPY.scaffolded;
           return (
             <button key={provider} type="button" data-active={selected === provider} onClick={() => {
               setSelected(provider);
             }}>
               <span className="settingsBotLogo">{BOT_LABELS[provider].label.slice(0, 2)}</span>
               <span>{BOT_LABELS[provider].label}</span>
-              <em data-tone={copy.tone}>{copy.label}</em>
+              <em data-tone={providerCopy.tone}>{providerCopy.label}</em>
             </button>
           );
         })}
@@ -1587,38 +1650,113 @@ function BotChatSettingsPage(props: {
           <div>
             <h3>{BOT_LABELS[selected].label}</h3>
             <small>
-              {(BOT_READINESS_COPY[channel.readiness] ?? BOT_READINESS_COPY.scaffolded).label}
+              {copy.label}
               {' · '}
-              {(BOT_READINESS_COPY[channel.readiness] ?? BOT_READINESS_COPY.scaffolded).detail}
+              {copy.detail}
             </small>
           </div>
-          <Switch checked={channel.enabled} onChange={(enabled) => updateChannel({ enabled })} />
+          <Switch checked={channel.enabled} onChange={(enabled) => updateChannel({ enabled })} disabled={support === 'planned'} />
         </div>
 
         <p className="settingsHelpText">{BOT_LABELS[selected].help}</p>
 
-        <label className="settingsField">
-          <span>{selected === 'telegram' || selected === 'discord' ? 'Bot Token' : 'App Secret / Token'}</span>
-          <input type="password" value={channel.token} onChange={(event) => updateChannel({ token: event.currentTarget.value })} placeholder="123456:ABC-DEF…" />
-        </label>
+        {selected === 'telegram' && (
+          <>
+            <label className="settingsField">
+              <span>机器人 Token</span>
+              <input type="password" value={channel.token} onChange={(event) => updateChannel({ token: event.currentTarget.value })} placeholder="123456:ABC-DEF…" />
+            </label>
+            <label className="settingsField">
+              <span>代理地址</span>
+              <input value={channel.proxyUrl} onChange={(event) => updateChannel({ proxyUrl: event.currentTarget.value })} placeholder="http://127.0.0.1:7890" />
+            </label>
+            <div className="settingsNotice">
+              Telegram 国内网络通常需要代理。保存并测试凭据后，打开开关并重启监听；用户向机器人发消息后，Maka 会创建对话并自动回复。
+            </div>
+          </>
+        )}
 
-        <label className="settingsField">
-          <span>代理地址（国内网络必填）</span>
-          <input value={channel.proxyUrl} onChange={(event) => updateChannel({ proxyUrl: event.currentTarget.value })} placeholder="http://127.0.0.1:7890" />
-        </label>
+        {selected === 'feishu' && (
+          <>
+            <label className="settingsField">
+              <span>App ID</span>
+              <input value={channel.appId ?? ''} onChange={(event) => updateChannel({ appId: event.currentTarget.value })} placeholder="飞书应用 ID" />
+            </label>
+            <label className="settingsField">
+              <span>App Secret</span>
+              <input type="password" value={channel.appSecret ?? ''} onChange={(event) => updateChannel({ appSecret: event.currentTarget.value })} placeholder="飞书开放平台 App Secret" />
+            </label>
+            <label className="settingsField">
+              <span>事件订阅域名</span>
+              <input value={channel.domain ?? ''} onChange={(event) => updateChannel({ domain: event.currentTarget.value })} placeholder="https://maka.example.com/feishu/events" />
+            </label>
+            <div className="settingsNotice">
+              飞书凭据测试会申请 tenant_access_token；事件订阅域名用于企业后台回调。未接通事件回调前，状态只能到“凭据有效”，不会显示成运行可用。
+            </div>
+          </>
+        )}
 
-        <div className="settingsNotice">
-          提示：Telegram 等海外服务通常需要网络代理。先在“网络”页配置代理，再测试机器人连接。
-        </div>
+        {support === 'planned' && (
+          <div className="settingsNotice" data-tone="passive">
+            这个平台还没有运行时接入，当前不会保存为可用机器人。后续接入前需要先补凭据测试、收发 smoke、权限边界和失败日志。
+          </div>
+        )}
+
+        <dl className="settingsBotStatusGrid">
+          <div>
+            <dt>运行状态</dt>
+            <dd>{selectedStatus?.running ? '监听中' : '未监听'}</dd>
+          </div>
+          <div>
+            <dt>通道类型</dt>
+            <dd>{botConnectionLabel(selectedStatus?.connection ?? 'none')}</dd>
+          </div>
+          <div>
+            <dt>身份</dt>
+            <dd>{selectedStatus?.identity?.username ?? selectedStatus?.identity?.displayName ?? '未获取'}</dd>
+          </div>
+          <div>
+            <dt>最近事件</dt>
+            <dd>{selectedStatus?.lastEventAt ? new Date(selectedStatus.lastEventAt).toLocaleString() : '暂无'}</dd>
+          </div>
+        </dl>
+
+        {selectedStatus?.reason && <div className="settingsBotReason">{botStatusDetail(selectedStatus)}</div>}
 
         <div className="settingsActionRow">
-          <button className="maka-button" type="button" disabled={testing} onClick={testChannel}>
-            {testing ? '测试中…' : '测试并连接'}
+          <button className="maka-button" type="button" disabled={testing || support === 'planned'} onClick={testChannel}>
+            {testing ? '测试中…' : '测试凭据'}
+          </button>
+          <button className="maka-button subtle" type="button" disabled={restarting || !channel.enabled || support === 'planned'} onClick={restartChannel}>
+            {restarting ? '重启中…' : '重启监听'}
           </button>
         </div>
       </section>
     </div>
   );
+}
+
+function botConnectionLabel(connection: BotStatus['connection']): string {
+  switch (connection) {
+    case 'polling': return '长轮询';
+    case 'gateway': return '事件通道';
+    case 'webhook': return 'Webhook';
+    case 'none': return '无';
+  }
+}
+
+function botStatusDetail(status: BotStatus): string {
+  switch (status.reason) {
+    case 'disabled': return '开关关闭';
+    case 'no-token': return '缺少 Bot Token';
+    case 'missing-feishu-credentials': return '缺少飞书 App ID 或 App Secret';
+    case 'feishu-domain-required': return '飞书凭据有效，但还没有事件订阅域名';
+    case 'feishu-events-not-connected': return '飞书凭据有效，等待事件回调接入';
+    case 'scaffold-only': return '平台入口已保留，运行时尚未接入';
+    case 'unimplemented': return '平台运行时尚未接入';
+    case 'stopped': return '监听已停止';
+    default: return status.reason ?? '暂无运行细节';
+  }
 }
 
 function UsageSettingsPage(props: {
@@ -1760,9 +1898,17 @@ function Segmented<T extends string>(props: { value: T; options: Array<[T, strin
   );
 }
 
-function Switch(props: { checked: boolean; onChange(checked: boolean): void }) {
+function Switch(props: { checked: boolean; onChange(checked: boolean): void; disabled?: boolean }) {
   return (
-    <button className="settingsSwitch" type="button" role="switch" aria-checked={props.checked} data-checked={props.checked} onClick={() => props.onChange(!props.checked)}>
+    <button
+      className="settingsSwitch"
+      type="button"
+      role="switch"
+      aria-checked={props.checked}
+      data-checked={props.checked}
+      disabled={props.disabled}
+      onClick={() => props.onChange(!props.checked)}
+    >
       <span />
     </button>
   );

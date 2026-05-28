@@ -49,6 +49,7 @@ import type {
 import type { TestProxyInput } from '@maka/core/settings/network-settings';
 import type { Result } from '@maka/core/settings/result';
 import type { CreateSessionInput } from '@maka/core';
+import type { BotStatus } from '@maka/runtime';
 import type {
   OnboardingMilestone,
   OnboardingMilestoneId,
@@ -112,6 +113,11 @@ declare global {
         testNetworkProxy(input?: TestProxyInput): Promise<SettingsTestResult>;
         testBotChannel(provider: BotProvider): Promise<SettingsTestResult>;
         usageStats(range?: UsageRange): Promise<UsageStats>;
+        bots: {
+          listStatuses(): Promise<Record<BotProvider, BotStatus>>;
+          restart(provider: BotProvider): Promise<BotStatus>;
+          subscribeStatusChanges(handler: (status: BotStatus) => void): () => void;
+        };
       };
       onboarding: {
         getSnapshot(): Promise<OnboardingSnapshot>;

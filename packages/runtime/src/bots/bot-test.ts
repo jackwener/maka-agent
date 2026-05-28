@@ -5,7 +5,7 @@ import { proxiedFetch } from './proxied-fetch.js';
 const BOT_TEST_TIMEOUT_MS = 10_000;
 
 export async function testBotChannel(provider: BotProvider, channel: BotChannelSettings): Promise<BotTestResult> {
-  if (!channel.token.trim() && provider !== 'wechat') {
+  if (provider !== 'feishu' && provider !== 'wechat' && !channel.token.trim()) {
     return { ok: false, error: 'Bot token is required' };
   }
   switch (provider) {

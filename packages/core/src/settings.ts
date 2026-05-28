@@ -70,6 +70,8 @@ export interface BotChannelSettings {
   token: string;
   proxyUrl: string;
   webhookUrl?: string;
+  /** Public callback/domain configured in the bot platform console. */
+  domain?: string;
   appId?: string;
   appSecret?: string;
   botUserId?: string;

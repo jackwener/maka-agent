@@ -47,6 +47,7 @@ import type {
   UsageQuery,
   UsageSummaryV2,
 } from '@maka/core/usage-stats/types';
+import type { BotStatus } from '@maka/runtime';
 import type { TestProxyInput } from '@maka/core/settings/network-settings';
 import type { Result } from '@maka/core/settings/result';
 import type { CreateSessionInput } from '@maka/core';
@@ -238,6 +239,19 @@ contextBridge.exposeInMainWorld('maka', {
     },
     usageStats(range?: UsageRange): Promise<UsageStats> {
       return ipcRenderer.invoke('settings:usageStats', range);
+    },
+    bots: {
+      listStatuses(): Promise<Record<BotProvider, BotStatus>> {
+        return ipcRenderer.invoke('settings:bots:listStatuses');
+      },
+      restart(provider: BotProvider): Promise<BotStatus> {
+        return ipcRenderer.invoke('settings:bots:restart', provider);
+      },
+      subscribeStatusChanges(handler: (status: BotStatus) => void): () => void {
+        const listener = (_event: Electron.IpcRendererEvent, payload: BotStatus) => handler(payload);
+        ipcRenderer.on('settings:bots:statusChanged', listener);
+        return () => ipcRenderer.off('settings:bots:statusChanged', listener);
+      },
     },
   },
   usage: {
