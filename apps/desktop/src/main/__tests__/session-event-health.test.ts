@@ -1,0 +1,78 @@
+import { strict as assert } from 'node:assert';
+import { describe, it } from 'node:test';
+import {
+  createSessionEventStreamSubscription,
+  evaluateSessionEventStreamSnapshot,
+  recordSessionEventStreamChange,
+  recordSessionEventStreamEvent,
+} from '../../renderer/session-event-health.js';
+
+describe('renderer session event health projection', () => {
+  it('creates a connected subscription snapshot', () => {
+    assert.deepEqual(createSessionEventStreamSubscription({ sessionId: 's1', now: 1_000 }), {
+      sessionId: 's1',
+      status: 'connected',
+      subscribedAt: 1_000,
+      checkedAt: 1_000,
+    });
+  });
+
+  it('marks stale running sessions and asks for one throttled refresh', () => {
+    const previous = createSessionEventStreamSubscription({ sessionId: 's1', now: 1_000 });
+    const stale = evaluateSessionEventStreamSnapshot({
+      previous,
+      now: 16_000,
+      sessionStatus: 'running',
+      hasLiveActivity: false,
+    });
+    assert.equal(stale.snapshot?.status, 'stale');
+    assert.equal(stale.snapshot?.staleSince, 16_000);
+    assert.equal(stale.shouldRefresh, true);
+
+    const throttled = evaluateSessionEventStreamSnapshot({
+      previous: stale.snapshot,
+      now: 20_000,
+      sessionStatus: 'running',
+      hasLiveActivity: false,
+    });
+    assert.equal(throttled.snapshot?.status, 'stale');
+    assert.equal(throttled.snapshot?.refreshRequestedAt, 16_000);
+    assert.equal(throttled.shouldRefresh, false);
+  });
+
+  it('uses sessions:changed as a recovery signal when stream deltas are quiet', () => {
+    const previous = {
+      ...createSessionEventStreamSubscription({ sessionId: 's1', now: 1_000 }),
+      status: 'stale' as const,
+      staleSince: 16_000,
+    };
+    const changed = recordSessionEventStreamChange(previous, 16_500);
+    assert.equal(changed.status, 'recovered');
+    assert.equal(changed.lastChangedAt, 16_500);
+    assert.equal(changed.staleSince, undefined);
+  });
+
+  it('uses any direct session event as a recovery signal', () => {
+    const previous = {
+      ...createSessionEventStreamSubscription({ sessionId: 's1', now: 1_000 }),
+      status: 'stale' as const,
+      staleSince: 16_000,
+    };
+    const changed = recordSessionEventStreamEvent(previous, 16_250);
+    assert.equal(changed.status, 'recovered');
+    assert.equal(changed.lastEventAt, 16_250);
+    assert.equal(changed.staleSince, undefined);
+  });
+
+  it('closes the projection when no stream is expected', () => {
+    const previous = createSessionEventStreamSubscription({ sessionId: 's1', now: 1_000 });
+    const result = evaluateSessionEventStreamSnapshot({
+      previous,
+      now: 30_000,
+      sessionStatus: 'active',
+      hasLiveActivity: false,
+    });
+    assert.equal(result.snapshot?.status, 'closed');
+    assert.equal(result.shouldRefresh, false);
+  });
+});
