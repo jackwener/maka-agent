@@ -1,0 +1,137 @@
+/**
+ * PR-WEB-SEARCH-TAVILY-0 — pure contract for the explicit user-triggered
+ * web search lane. Borrows alma's "single provider per query, no silent
+ * fallback" stance but starts strictly with Tavily.
+ *
+ * borrow
+ * - alma `docs/search-engines.md` query / result shape (title / url /
+ *   snippet). We don't reuse alma's provider-rotation logic — that's
+ *   the whole "silent fallback" failure mode we're trying to avoid.
+ *
+ * diverge
+ * - No auto-rotation across providers. Renderer pinns a provider;
+ *   main process honors it; failure surfaces a closed error reason.
+ * - No agent tool call. This lane is *only* for user-triggered queries
+ *   from a UI button. Tool-runner integration is a separate future PR
+ *   with its own permission gate.
+ * - Results do not flow through markdown / HTML rendering. The
+ *   renderer shows plain text snippet + clickable URL.
+ *
+ * risk
+ * - Outbound HTTPS to api.tavily.com once enabled. Renderer never
+ *   sees the API key — it's stored masked in settings and replayed
+ *   from the main process. See `MASKED_TOKEN_SENTINEL`.
+ * - Incognito surfaces (PR-INCOGNITO-0) fail closed before any
+ *   network call.
+ *
+ * gate
+ * - Pure unit tests cover query normalization, masking, error
+ *   discriminants. The main-process fetch is exercised separately.
+ */
+
+/** Closed enum of providers V0.1 will accept. */
+export const WEB_SEARCH_PROVIDERS = ['tavily'] as const;
+export type WebSearchProvider = typeof WEB_SEARCH_PROVIDERS[number];
+
+/** Renderer-safe result row. No raw HTML, no provider tag soup. */
+export interface WebSearchResultRow {
+  readonly provider: WebSearchProvider;
+  readonly title: string;
+  readonly url: string;
+  readonly snippet: string;
+  /** Hostname extracted from `url` so the renderer doesn't reparse. */
+  readonly source: string;
+}
+
+export type WebSearchErrorReason =
+  | 'invalid_query'
+  | 'incognito_active'
+  | 'not_configured'
+  | 'invalid_credentials'
+  | 'rate_limited'
+  | 'network_error'
+  | 'timeout'
+  | 'unsupported_provider'
+  | 'experimental_disabled';
+
+/** Discriminated response: success = array, error = typed object. */
+export type WebSearchResponse =
+  | { readonly ok: true; readonly results: ReadonlyArray<WebSearchResultRow> }
+  | { readonly ok: false; readonly reason: WebSearchErrorReason; readonly message: string };
+
+export const WEB_SEARCH_QUERY_MAX_CHARS = 200;
+export const WEB_SEARCH_DEFAULT_LIMIT = 5;
+export const WEB_SEARCH_MAX_LIMIT = 10;
+
+/**
+ * Settings-layer placeholder for a stored API key. The renderer may
+ * see this when the settings store mirrors back the current value;
+ * an update that comes back with exactly this token MUST preserve
+ * the existing token instead of overwriting it. Same pattern as the
+ * existing bot token / proxy password mask in Maka.
+ */
+export const MASKED_TOKEN_SENTINEL = '••••••';
+
+/** Returns `null` when the raw value isn't a usable query. */
+export function normalizeWebSearchQuery(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) return null;
+  if (trimmed.length > WEB_SEARCH_QUERY_MAX_CHARS) {
+    return trimmed.slice(0, WEB_SEARCH_QUERY_MAX_CHARS);
+  }
+  return trimmed;
+}
+
+/** Clamps `raw` to `[1, WEB_SEARCH_MAX_LIMIT]`, default `WEB_SEARCH_DEFAULT_LIMIT`. */
+export function normalizeWebSearchLimit(raw: unknown): number {
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return WEB_SEARCH_DEFAULT_LIMIT;
+  const rounded = Math.trunc(raw);
+  if (rounded < 1) return 1;
+  if (rounded > WEB_SEARCH_MAX_LIMIT) return WEB_SEARCH_MAX_LIMIT;
+  return rounded;
+}
+
+export function isWebSearchProvider(value: unknown): value is WebSearchProvider {
+  return typeof value === 'string' && (WEB_SEARCH_PROVIDERS as readonly string[]).includes(value);
+}
+
+/**
+ * Settings shape persisted in `settings.json`. The `apiKey` field is
+ * stored in cleartext on disk (settings store sees the raw value);
+ * the IPC store boundary returns the masked sentinel to the renderer
+ * for display. An update where `apiKey === MASKED_TOKEN_SENTINEL`
+ * means "keep current" — the store preserves it.
+ */
+export interface WebSearchProviderSettings {
+  readonly apiKey: string;
+}
+
+export interface WebSearchSettings {
+  readonly enabled: boolean;
+  readonly defaultProvider: WebSearchProvider;
+  readonly providers: { readonly tavily: WebSearchProviderSettings };
+}
+
+export function defaultWebSearchSettings(): WebSearchSettings {
+  return {
+    enabled: false,
+    defaultProvider: 'tavily',
+    providers: { tavily: { apiKey: '' } },
+  };
+}
+
+/**
+ * Helper for the IPC store boundary: given a (possibly stale)
+ * persisted token and the renderer-sent update token, choose which
+ * to persist. Renderer sending exactly the mask means "keep current".
+ */
+export function reconcileMaskedToken(persisted: string, candidate: string): string {
+  if (candidate === MASKED_TOKEN_SENTINEL) return persisted;
+  return candidate;
+}
+
+/** Returns the rendered representation (masked when non-empty). */
+export function maskedTokenForDisplay(persisted: string): string {
+  return persisted.length === 0 ? '' : MASKED_TOKEN_SENTINEL;
+}

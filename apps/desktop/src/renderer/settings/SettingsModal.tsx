@@ -114,7 +114,7 @@ export const SETTINGS_NAV: SettingsNavItem[] = [
   // text, not web). Future Settings page wires per-engine credentials
   // for web-search providers; the sidebar's modal stays the
   // local-content search UI.
-  { id: 'search', label: '联网搜索', Icon: Search, enabled: true, comingSoon: true, group: '集成' },
+  { id: 'search', label: '联网搜索', Icon: Search, enabled: true, group: '集成' },
   { id: 'network', label: '网络', Icon: Globe, enabled: true, group: '集成' },
   // Group 4: 数据与账号
   { id: 'data', label: '数据', Icon: Database, enabled: true, group: '数据与账号' },
@@ -192,33 +192,6 @@ const COMING_SOON_PAGES: Partial<Record<SettingsSection, ComingSoonCopy>> = {
       '未来在「语音模型」内由用户显式选择语音通道，并经由 macOS 系统获取麦克风权限',
       '选择 TTS / STT 的具体引擎与 connection',
       '可选：单独为语音通道指定代理、缓存目录或本地模型路径',
-    ],
-  },
-  search: {
-    Icon: Search,
-    // PR-UX-POLISH-1 commit 2: same rename as nav label —
-    // 联网搜索 vs sidebar local-content search.
-    headline: '联网搜索',
-    badge: 'V0.2 · per-query opt-in · 走代理',
-    description:
-      '为助手提供外部搜索能力，自动按提问类型选择源。每条搜索都经过权限策略与代理路由，UI 上可以按引擎独立声明可用性。',
-    status: '当前尚未实现。Maka 不会主动联网搜索，所有搜索都需要由用户显式发起。',
-    willInclude: [
-      '主流引擎：Tavily / Brave Search / SerpAPI（自带凭据）',
-      '自托管选项：SearxNG、MetaSo、本地索引',
-      '查询缓存与隐私模式（含网络代理路由）',
-      '按引擎独立配置可用性，凭据通过连通性校验后才放行真实查询',
-    ],
-    willNotDo: [
-      '没有可用引擎时不会静默回退到默认搜索',
-      '不绕过 Settings 中指定的网络代理与超时',
-      '不保留查询原文与返回 body，只保留 query hash / 引擎 / latency',
-      '隐私模式下不写入会话 JSONL 以外的任何持久化存储',
-    ],
-    nextConfig: [
-      '未来在「搜索服务」内由用户逐个引擎填入凭据，先通过连通性校验再保存',
-      '选择代理路由策略（默认 / 直连 / 走 Maka 网络代理）',
-      '可选：切到隐私模式（不写缓存与日志）',
     ],
   },
 };
@@ -559,6 +532,13 @@ function SettingsPage(props: {
       return <HealthCenterPage />;
     case 'daily-review':
       return <DailyReviewSettingsPage onOpenDailyReview={props.onOpenDailyReview} />;
+    case 'search':
+      return (
+        <WebSearchSettingsPage
+          settings={props.settings}
+          onUpdate={props.onUpdateSettings}
+        />
+      );
     default: {
       const copy = COMING_SOON_PAGES[props.section];
       if (copy) {
@@ -1824,6 +1804,219 @@ function ThemeSettingsPage(props: {
       <p className="settingsHelpText">
         切换会立即生效，并保存在 <code className="maka-empty-state-code">settings.json</code> 里下次启动延续。
       </p>
+    </div>
+  );
+}
+
+/**
+ * PR-WEB-SEARCH-TAVILY-0: Settings → 联网搜索.
+ *
+ * V0.1 supports Tavily only. Renderer never sees the cleartext API
+ * key — `props.settings.webSearch.providers.tavily.apiKey` arrives
+ * pre-masked from the IPC store boundary (the bullet sentinel
+ * `MASKED_TOKEN_SENTINEL`). Re-submitting the sentinel is treated as
+ * "keep current" in `mergeWebSearchSettings`.
+ *
+ * The "测试" button calls `web-search:test` (main-process Tavily call)
+ * and surfaces ok/fail via toast. The "试一下" demo runs a real query
+ * and renders 3-5 plain-text rows.
+ */
+function WebSearchSettingsPage(props: {
+  settings: AppSettings;
+  onUpdate(patch: Parameters<typeof window.maka.settings.update>[0]): Promise<UpdateAppSettingsResult>;
+}) {
+  const webSearch = props.settings.webSearch;
+  const tavilyKey = webSearch.providers.tavily.apiKey;
+  const [draftKey, setDraftKey] = useState('');
+  const [testing, setTesting] = useState(false);
+  const [demoQuery, setDemoQuery] = useState('');
+  const [demoRunning, setDemoRunning] = useState(false);
+  const [demoResults, setDemoResults] = useState<readonly { title: string; url: string; snippet: string; source: string }[] | null>(null);
+  const [demoError, setDemoError] = useState<string | null>(null);
+  const toast = useToast();
+
+  async function setEnabled(enabled: boolean) {
+    await props.onUpdate({ webSearch: { enabled } });
+  }
+
+  async function saveDraftKey() {
+    if (draftKey.length === 0) return;
+    await props.onUpdate({
+      webSearch: { providers: { tavily: { apiKey: draftKey } } },
+    });
+    setDraftKey('');
+    toast.success('已保存 Tavily API key', '可点击「测试」做一次真实请求验证。');
+  }
+
+  async function clearKey() {
+    await props.onUpdate({
+      webSearch: { enabled: false, providers: { tavily: { apiKey: '' } } },
+    });
+    setDraftKey('');
+    toast.success('已清空 Tavily 凭据', '联网搜索已自动关闭。');
+  }
+
+  async function runTest() {
+    setTesting(true);
+    try {
+      const result = await window.maka.webSearch.test({
+        provider: 'tavily',
+        apiKey: draftKey.length > 0 ? draftKey : undefined,
+      });
+      if (result.ok) {
+        toast.success('Tavily 凭据可用', `返回 ${result.results.length} 条结果。`);
+      } else {
+        toast.error('Tavily 测试失败', result.message);
+      }
+    } catch (err) {
+      toast.error('Tavily 测试出错', err instanceof Error ? err.message : String(err));
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  async function runDemo() {
+    const trimmed = demoQuery.trim();
+    if (trimmed.length === 0) return;
+    setDemoRunning(true);
+    setDemoError(null);
+    setDemoResults(null);
+    try {
+      const result = await window.maka.webSearch.query({
+        provider: 'tavily',
+        query: trimmed,
+        limit: 5,
+      });
+      if (result.ok) {
+        setDemoResults(result.results);
+      } else {
+        setDemoError(result.message);
+      }
+    } catch (err) {
+      setDemoError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setDemoRunning(false);
+    }
+  }
+
+  const hasStoredKey = tavilyKey.length > 0;
+
+  return (
+    <div className="settingsStructuredPage">
+      <div className="settingsFormRow">
+        <div>
+          <strong>启用联网搜索</strong>
+          <small>开关启用后，UI 里显式触发的查询才会真的请求 Tavily。Agent 不会自动调用。</small>
+        </div>
+        <Switch
+          checked={webSearch.enabled}
+          disabled={!hasStoredKey}
+          onChange={(enabled) => void setEnabled(enabled)}
+        />
+      </div>
+
+      <div className="settingsFormGrid">
+        <label>
+          <span>Tavily API key</span>
+          <input
+            type="password"
+            value={draftKey}
+            onChange={(event) => setDraftKey(event.currentTarget.value)}
+            placeholder={hasStoredKey ? '已保存（输入新 key 可替换）' : 'tvly-xxxxxxxx'}
+            autoComplete="off"
+            spellCheck={false}
+          />
+          <small>
+            存在主进程 settings 中，渲染器永远看不到明文。在 <a href="https://tavily.com" target="_blank" rel="noreferrer">tavily.com</a> 申请。
+          </small>
+        </label>
+      </div>
+
+      <div className="settingsFormRow" style={{ gap: 8, flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          className="maka-button"
+          disabled={draftKey.length === 0}
+          onClick={() => void saveDraftKey()}
+        >
+          保存 key
+        </button>
+        <button
+          type="button"
+          className="maka-button maka-button-ghost"
+          disabled={testing || (draftKey.length === 0 && !hasStoredKey)}
+          onClick={() => void runTest()}
+        >
+          {testing ? '测试中…' : '测试凭据'}
+        </button>
+        {hasStoredKey && (
+          <button
+            type="button"
+            className="maka-button maka-button-ghost"
+            onClick={() => void clearKey()}
+          >
+            清空 key
+          </button>
+        )}
+      </div>
+
+      <div className="settingsFormRow">
+        <div style={{ flex: 1 }}>
+          <strong>试一下</strong>
+          <small>直接发一条真实查询，看到 Tavily 返回的标题 / 摘要 / 来源域名。结果只显示在此页面，不写入会话也不入 telemetry。</small>
+        </div>
+      </div>
+      <div className="settingsFormGrid">
+        <label>
+          <span>查询</span>
+          <input
+            value={demoQuery}
+            onChange={(event) => setDemoQuery(event.currentTarget.value)}
+            placeholder="例如：electron safeStorage best practice"
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !demoRunning) {
+                event.preventDefault();
+                void runDemo();
+              }
+            }}
+          />
+        </label>
+      </div>
+      <div>
+        <button
+          type="button"
+          className="maka-button"
+          disabled={demoRunning || demoQuery.trim().length === 0 || !webSearch.enabled || !hasStoredKey}
+          onClick={() => void runDemo()}
+        >
+          {demoRunning ? '搜索中…' : '搜索'}
+        </button>
+        {!webSearch.enabled && (
+          <small style={{ marginLeft: 12, color: 'var(--foreground-50)' }}>
+            先开关启用联网搜索
+          </small>
+        )}
+      </div>
+
+      {demoError && (
+        <div className="settingsConnectionMeta" role="alert">
+          <span>查询失败：{demoError}</span>
+        </div>
+      )}
+      {demoResults && demoResults.length === 0 && !demoError && (
+        <div className="settingsConnectionMeta">没有结果。</div>
+      )}
+      {demoResults && demoResults.length > 0 && (
+        <ul className="settingsWebSearchResults">
+          {demoResults.map((row, idx) => (
+            <li key={`${row.url}-${idx}`} className="settingsWebSearchResult">
+              <a href={row.url} target="_blank" rel="noreferrer">{row.title}</a>
+              <small>{row.source}</small>
+              <p>{row.snippet}</p>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

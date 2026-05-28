@@ -46,6 +46,12 @@ import {
   pickDailyReviewSessions,
   pickDailyReviewTopEntries,
 } from '@maka/core';
+import {
+  isWebSearchProvider,
+  normalizeWebSearchLimit,
+  normalizeWebSearchQuery,
+} from '@maka/core';
+import { queryTavily, TAVILY_TEST_QUERY, TAVILY_TEST_LIMIT } from './web-search/tavily.js';
 import { runThreadSearch } from './search/thread-search.js';
 import {
   ClaudeSubscriptionService,
@@ -928,6 +934,75 @@ function registerIpc(): void {
    */
   ipcMain.handle('claude-subscription:is-experimental-enabled', async () =>
     isSubscriptionExperimentalEnabled(),
+  );
+
+  // PR-WEB-SEARCH-TAVILY-0: explicit user-triggered web search. Token
+  // is read from settings inside main; renderer never sees it. Falls
+  // back to the `apiKey` carried by the request only when present (the
+  // Settings "测试" button passes a draft key so the user can validate
+  // before saving). Incognito workspaces fail closed before fetch.
+  ipcMain.handle(
+    'web-search:query',
+    async (
+      _event,
+      request: { query?: unknown; limit?: unknown; provider?: unknown; apiKey?: unknown },
+    ) => {
+      const provider = request?.provider;
+      if (provider !== undefined && !isWebSearchProvider(provider)) {
+        return {
+          ok: false,
+          reason: 'unsupported_provider' as const,
+          message: '该搜索引擎暂未支持。',
+        };
+      }
+      const query = normalizeWebSearchQuery(request?.query);
+      if (query === null) {
+        return { ok: false, reason: 'invalid_query' as const, message: '请输入有效的搜索关键词。' };
+      }
+      const privacy = defaultWorkspacePrivacyContext();
+      if (privacy.incognitoActive) {
+        return { ok: false, reason: 'incognito_active' as const, message: '隐身模式下禁用联网搜索。' };
+      }
+      const settings = await settingsStore.get();
+      if (!settings.webSearch.enabled) {
+        return {
+          ok: false,
+          reason: 'not_configured' as const,
+          message: '请先在 设置 · 联网搜索 中启用 Tavily。',
+        };
+      }
+      const persistedKey = settings.webSearch.providers.tavily.apiKey;
+      const draftKey = typeof request?.apiKey === 'string' ? request.apiKey : '';
+      const effectiveKey = draftKey.length > 0 ? draftKey : persistedKey;
+      const limit = normalizeWebSearchLimit(request?.limit);
+      return queryTavily({ apiKey: effectiveKey, query, limit });
+    },
+  );
+
+  ipcMain.handle(
+    'web-search:test',
+    async (
+      _event,
+      request: { provider?: unknown; apiKey?: unknown } | undefined,
+    ) => {
+      const provider = request?.provider;
+      if (provider !== undefined && !isWebSearchProvider(provider)) {
+        return {
+          ok: false,
+          reason: 'unsupported_provider' as const,
+          message: '该搜索引擎暂未支持。',
+        };
+      }
+      const settings = await settingsStore.get();
+      const persistedKey = settings.webSearch.providers.tavily.apiKey;
+      const draftKey = typeof request?.apiKey === 'string' ? request.apiKey : '';
+      const effectiveKey = draftKey.length > 0 ? draftKey : persistedKey;
+      return queryTavily({
+        apiKey: effectiveKey,
+        query: TAVILY_TEST_QUERY,
+        limit: TAVILY_TEST_LIMIT,
+      });
+    },
   );
 
   ipcMain.handle('search:thread', async (_event, request: unknown) => {

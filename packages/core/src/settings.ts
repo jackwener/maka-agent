@@ -1,5 +1,15 @@
 import type { OnboardingMilestone } from './onboarding.js';
 import { sanitizeOnboardingMilestones } from './onboarding.js';
+import type {
+  WebSearchProvider,
+  WebSearchProviderSettings,
+  WebSearchSettings,
+} from './web-search.js';
+import {
+  defaultWebSearchSettings,
+  isWebSearchProvider,
+  reconcileMaskedToken,
+} from './web-search.js';
 
 export type SettingsSection =
   | 'general'
@@ -240,6 +250,7 @@ export interface AppSettings {
   personalization: PersonalizationSettings;
   onboarding: OnboardingSettings;
   openGateway: OpenGatewaySettings;
+  webSearch: WebSearchSettings;
 }
 
 export interface UsageRequestLog {
@@ -294,6 +305,13 @@ export type UpdateAppSettingsInput = Partial<{
   appearance: Partial<AppearanceSettings>;
   personalization: Partial<PersonalizationSettings>;
   openGateway: Partial<OpenGatewaySettings>;
+  webSearch: Partial<{
+    enabled: boolean;
+    defaultProvider: WebSearchProvider;
+    providers: Partial<{
+      tavily: Partial<WebSearchProviderSettings>;
+    }>;
+  }>;
 }>;
 
 export type PersonalizationSettingsWarning =
@@ -388,6 +406,7 @@ export function createDefaultSettings(): AppSettings {
       port: 3939,
       token: '',
     },
+    webSearch: defaultWebSearchSettings(),
   };
 }
 
@@ -439,6 +458,32 @@ export function mergeSettings(current: AppSettings, patch: UpdateAppSettingsInpu
       ...current.openGateway,
       ...(patch.openGateway ?? {}),
     },
+    webSearch: mergeWebSearchSettings(current.webSearch, patch.webSearch),
+  };
+}
+
+function mergeWebSearchSettings(
+  current: WebSearchSettings,
+  patch: UpdateAppSettingsInput['webSearch'],
+): WebSearchSettings {
+  if (!patch) return current;
+  const tavilyPatch = patch.providers?.tavily;
+  const candidateProvider = patch.defaultProvider;
+  const nextProvider: WebSearchProvider = isWebSearchProvider(candidateProvider)
+    ? candidateProvider
+    : current.defaultProvider;
+  // Mask-sentinel preservation lives here so the IPC boundary does
+  // not have to special-case the round-tripped masked value.
+  const nextApiKey =
+    tavilyPatch && typeof tavilyPatch.apiKey === 'string'
+      ? reconcileMaskedToken(current.providers.tavily.apiKey, tavilyPatch.apiKey)
+      : current.providers.tavily.apiKey;
+  return {
+    enabled: typeof patch.enabled === 'boolean' ? patch.enabled : current.enabled,
+    defaultProvider: nextProvider,
+    providers: {
+      tavily: { apiKey: nextApiKey },
+    },
   };
 }
 
@@ -453,6 +498,7 @@ export function normalizeSettings(input: unknown): AppSettings {
     appearance: value.appearance,
     personalization: value.personalization,
     openGateway: value.openGateway,
+    webSearch: value.webSearch,
   });
   // PR110b: milestones bypass the generic patch surface so we can
   // sanitize them with the closed-enum + at-most-one validator on
@@ -525,6 +571,24 @@ export function normalizeSettings(input: unknown): AppSettings {
       milestones: sanitizeOnboardingMilestones(rawMilestones),
     },
     openGateway: normalizeOpenGatewaySettings(base.openGateway),
+    webSearch: normalizeWebSearchSettings(base.webSearch),
+  };
+}
+
+function normalizeWebSearchSettings(settings: WebSearchSettings): WebSearchSettings {
+  const enabled = settings.enabled === true;
+  const defaultProvider = isWebSearchProvider(settings.defaultProvider)
+    ? settings.defaultProvider
+    : 'tavily';
+  // Cap apiKey length defensively. Tavily keys are < 64 chars; anything
+  // longer is almost certainly garbage that would break log redaction.
+  const rawApiKey = settings.providers?.tavily?.apiKey;
+  const apiKey =
+    typeof rawApiKey === 'string' && rawApiKey.length <= 256 ? rawApiKey : '';
+  return {
+    enabled,
+    defaultProvider,
+    providers: { tavily: { apiKey } },
   };
 }
 

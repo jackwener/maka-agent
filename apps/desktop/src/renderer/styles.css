@@ -8235,6 +8235,54 @@ button:active {
 }
 
 /* ────────────────────────────────────────────────────────────────
+   PR-WEB-SEARCH-TAVILY-0: Settings → 联网搜索 demo result list.
+   Plain-text rows only (title + source + snippet); never markdown,
+   never HTML.
+   ──────────────────────────────────────────────────────────────── */
+.settingsWebSearchResults {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.settingsWebSearchResult {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--foreground-10);
+  border-radius: 8px;
+  background: var(--foreground-3);
+}
+
+.settingsWebSearchResult a {
+  font-weight: 600;
+  color: var(--foreground);
+  text-decoration: none;
+}
+
+.settingsWebSearchResult a:hover {
+  text-decoration: underline;
+}
+
+.settingsWebSearchResult small {
+  color: var(--foreground-50);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.settingsWebSearchResult p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--foreground-70);
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ────────────────────────────────────────────────────────────────
    PR-DAILY-REVIEW-MVP-0: 每日回顾 sidebar panel.
    ──────────────────────────────────────────────────────────────── */
 .maka-daily-review-panel {

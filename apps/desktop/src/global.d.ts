@@ -43,6 +43,8 @@ import type {
   SubscriptionActionResult,
   PlanReminder,
   DailyReviewSummary,
+  WebSearchProvider,
+  WebSearchResponse,
 } from '@maka/core';
 import type {
   PricingConfig,
@@ -191,6 +193,15 @@ declare global {
         listPricing(): Promise<Result<PricingConfig[]>>;
         putPricing(pricing: PricingConfig): Promise<Result<PricingConfig>>;
         resetPricing(modelKey: string): Promise<Result<void>>;
+      };
+      webSearch: {
+        query(input: {
+          query: string;
+          limit?: number;
+          provider?: WebSearchProvider;
+          apiKey?: string;
+        }): Promise<WebSearchResponse>;
+        test(input: { provider?: WebSearchProvider; apiKey?: string }): Promise<WebSearchResponse>;
       };
       dailyReview: {
         day(offsetDays: number): Promise<Result<DailyReviewSummary>>;

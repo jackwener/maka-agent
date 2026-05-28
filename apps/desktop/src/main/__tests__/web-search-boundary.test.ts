@@ -1,0 +1,65 @@
+/**
+ * PR-WEB-SEARCH-TAVILY-0 — static-analysis gate that the renderer
+ * never imports the Tavily client and never declares a cleartext
+ * `apiKey` field on the `web-search` boundary.
+ *
+ * The cleartext Tavily key only ever lives in the main process. The
+ * renderer can read a masked sentinel from settings and submit a new
+ * draft string to overwrite it, but it must NEVER pull the cleartext
+ * value back through any IPC channel.
+ */
+
+import { strict as assert } from 'node:assert';
+import { readFile } from 'node:fs/promises';
+import { describe, it } from 'node:test';
+import { join, resolve } from 'node:path';
+
+const REPO_ROOT = resolve(process.cwd(), '..', '..');
+
+const RENDERER_FILES = [
+  'apps/desktop/src/renderer/main.tsx',
+  'apps/desktop/src/renderer/settings/SettingsModal.tsx',
+  'apps/desktop/src/renderer/settings/ProvidersPanel.tsx',
+  'apps/desktop/src/preload/preload.ts',
+];
+
+describe('web-search renderer boundary (PR-WEB-SEARCH-TAVILY-0)', () => {
+  it('renderer never imports the main-process Tavily client', async () => {
+    for (const rel of RENDERER_FILES) {
+      const src = await readFile(join(REPO_ROOT, rel), 'utf8');
+      assert.doesNotMatch(
+        src,
+        /from\s+['"][^'"]*tavily['"]/,
+        `${rel} must not import tavily — main-process only`,
+      );
+      assert.doesNotMatch(
+        src,
+        /from\s+['"][^'"]*web-search\/[^'"]+['"]/,
+        `${rel} must not pull from apps/desktop main/web-search/* path`,
+      );
+    }
+  });
+
+  it('preload + global type declarations do not surface a cleartext WebSearch apiKey field on responses', async () => {
+    // The settings shape may carry `apiKey` (the masked sentinel is
+    // routed there). The query/test responses must not.
+    const preload = await readFile(join(REPO_ROOT, 'apps/desktop/src/preload/preload.ts'), 'utf8');
+    assert.doesNotMatch(
+      preload,
+      /webSearch:[\s\S]*?apiKey:\s*string;[^{]*?\):/,
+      'preload webSearch bridge must not declare an outgoing apiKey on its return types',
+    );
+    // The response type is `WebSearchResponse` from @maka/core which
+    // is a discriminated union of `{results}` / `{reason, message}`.
+    // Neither variant carries an `apiKey` field; this assertion is
+    // belt-and-braces.
+    const coreShape = await readFile(join(REPO_ROOT, 'packages/core/src/web-search.ts'), 'utf8');
+    const responseBlock = coreShape.match(/export type WebSearchResponse[\s\S]*?;/);
+    assert.ok(responseBlock, 'WebSearchResponse type block must exist');
+    assert.doesNotMatch(
+      responseBlock![0],
+      /apiKey/,
+      'WebSearchResponse must NOT carry apiKey in either variant',
+    );
+  });
+});

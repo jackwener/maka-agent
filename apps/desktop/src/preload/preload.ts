@@ -44,6 +44,8 @@ import type {
   SubscriptionActionResult,
   PlanReminder,
   DailyReviewSummary,
+  WebSearchProvider,
+  WebSearchResponse,
 } from '@maka/core';
 import type {
   PricingConfig,
@@ -364,6 +366,19 @@ contextBridge.exposeInMainWorld('maka', {
   dailyReview: {
     day(offsetDays: number): Promise<Result<DailyReviewSummary>> {
       return ipcRenderer.invoke('daily-review:day', { offsetDays });
+    },
+  },
+  webSearch: {
+    query(input: {
+      query: string;
+      limit?: number;
+      provider?: WebSearchProvider;
+      apiKey?: string;
+    }): Promise<WebSearchResponse> {
+      return ipcRenderer.invoke('web-search:query', input);
+    },
+    test(input: { provider?: WebSearchProvider; apiKey?: string }): Promise<WebSearchResponse> {
+      return ipcRenderer.invoke('web-search:test', input);
     },
   },
   appWindow: {
