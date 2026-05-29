@@ -925,7 +925,7 @@ function errorMessages(now: number): StoredMessage[] {
 function artifactSession(now: number): SessionHeader {
   return header({
     id: ARTIFACT_SESSION_ID,
-    name: 'Artifact Pane 验收',
+    name: '生成文件验收',
     connection: 'zai-live',
     model: 'glm-5.1',
     now,
@@ -941,7 +941,7 @@ function artifactMessages(now: number): StoredMessage[] {
       id: 'artifact-user',
       turnId,
       ts: now - 7 * 60_000,
-      text: '生成一个 HTML 报告、一个 diff 和一份 Markdown 说明，放到 artifact pane 里检查。',
+      text: '生成一个 HTML 报告、一个 diff 和一份 Markdown 说明，放到右侧生成文件面板里检查。',
     },
     {
       type: 'tool_call',
@@ -949,8 +949,8 @@ function artifactMessages(now: number): StoredMessage[] {
       turnId,
       ts: now - 7 * 60_000 + 1_000,
       toolName: 'Write',
-      displayName: '写入 artifact fixture',
-      intent: '生成 report.html / patch.diff / notes.md 三个 artifact',
+      displayName: '写入生成文件',
+      intent: '生成 report.html / patch.diff / notes.md 三个生成文件',
       args: { path: 'artifacts/visual-smoke' },
     },
     {
@@ -958,7 +958,7 @@ function artifactMessages(now: number): StoredMessage[] {
       id: 'artifact-assistant',
       turnId,
       ts: now - 6 * 60_000,
-      text: '已生成 3 个 artifact：HTML 报告、补丁 diff 和 Markdown 说明。请在右侧 Artifact pane 验证预览、大小限制与 HTML 沙箱边界。',
+      text: '已生成 3 个生成文件：HTML 报告、补丁 diff 和 Markdown 说明。请在右侧生成文件面板验证预览、大小限制与 HTML 沙箱边界。',
       modelId: 'glm-5.1',
     },
   ];
@@ -1534,7 +1534,7 @@ function staleFakeSession(now: number): SessionHeader {
 function staleLegacySession(now: number): SessionHeader {
   return header({
     id: STALE_LEGACY_SESSION_ID,
-    name: '旧的 Claude backend 会话',
+    name: '旧的 Claude 连接会话',
     connection: 'fake-claude',
     model: 'claude-3-sonnet',
     now,
@@ -1585,7 +1585,7 @@ function staleLegacyMessages(now: number): StoredMessage[] {
       id: 'stale-legacy-msg-1',
       turnId,
       ts: now - 7 * 24 * 3_600_000,
-      text: '这是历史 Claude backend 留下的会话。slug fake-claude 已不在连接列表里。',
+      text: '这是历史 Claude 连接留下的会话。原连接 fake-claude 已不在连接列表里。',
     },
     {
       type: 'assistant',
@@ -1731,10 +1731,10 @@ async function writeArtifacts(workspaceRoot: string, now: number, scenario: Visu
         '<!doctype html>',
         '<html lang="zh-CN">',
         '<meta charset="utf-8">',
-        '<title>Maka Artifact Smoke Report</title>',
+        '<title>Maka 生成文件自检报告</title>',
         '<style>body{font-family:system-ui;margin:24px;line-height:1.5}code{background:#eee;padding:2px 4px}</style>',
-        '<h1>Artifact Pane Smoke Report</h1>',
-        '<p>这个 HTML artifact 用于验证 sandboxed iframe view-only 预览。</p>',
+        '<h1>生成文件面板自检报告</h1>',
+        '<p>这个 HTML 生成文件用于验证 sandboxed iframe view-only 预览。</p>',
         '<p><a href="https://example.com">外部链接应被禁用</a></p>',
         '<script>document.body.dataset.scriptRan = "true";</script>',
         '</html>',
@@ -1762,7 +1762,7 @@ async function writeArtifacts(workspaceRoot: string, now: number, scenario: Visu
       kind: 'file' as const,
       mimeType: 'text/markdown',
       content: [
-        '# Artifact Pane Notes',
+        '# 生成文件面板说明',
         '',
         '- HTML preview is view-only.',
         '- Deleted tombstones must block reads.',

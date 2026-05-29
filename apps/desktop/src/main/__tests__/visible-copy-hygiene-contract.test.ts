@@ -119,6 +119,12 @@ const FORBIDDEN_VISIBLE_COPY: ForbiddenCopy[] = [
       "artifact preview fallback copy must explain the product capability boundary in user terms, not expose renderer implementation details like a preview registry or internal `artifact` naming.",
   },
   {
+    label: 'visual-smoke fixture seeded visible copy leaks implementation terms',
+    needle: /Artifact Pane|artifact pane|artifact fixture|(?:生成|已生成)\s*(?:\d+\s*个|三个)\s*artifact|Claude backend|HTML artifact|Artifact Smoke Report|Pane Smoke Report/,
+    reason:
+      "visual-smoke fixture chat messages and file contents appear in screenshots/baseline workspaces; they should use product-facing Chinese copy rather than internal fixture/backend/artifact labels.",
+  },
+  {
     label: 'English hidden-line markers in tool previews',
     needle: /more (?:stdout |stderr )?lines hidden/,
     reason:
