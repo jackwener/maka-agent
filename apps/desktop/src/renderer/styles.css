@@ -3492,6 +3492,29 @@ button:active {
   gap: 6px;
 }
 
+.maka-composer-tool-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--foreground-3);
+  color: var(--foreground-60);
+  cursor: pointer;
+}
+
+.maka-composer-tool-button:hover:not(:disabled) {
+  color: var(--foreground);
+  background: var(--foreground-5);
+}
+
+.maka-composer-tool-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 /* Composer streaming hint — replaces the Enter/Shift+Enter help text while
  * Maka is mid-stream. Pulsing dot signals "live", and the Stop button on
  * the right swaps in as the only primary action so Send isn't ambiguous. */

@@ -23,6 +23,7 @@ import {
   Hourglass,
   Loader2,
   MessageSquare,
+  Paperclip,
   Pencil,
   Pin,
   PinOff,
@@ -4058,6 +4059,7 @@ export const Composer = forwardRef<
     streaming?: boolean;
     onSend(text: string): boolean | void | Promise<boolean | void>;
     onStop(): void;
+    onImportTextFile?(): void;
   }
 >(function Composer(props, ref) {
   const formRef = useRef<HTMLFormElement>(null);
@@ -4171,6 +4173,18 @@ export const Composer = forwardRef<
             )}
           </span>
           <div>
+            {!props.streaming && props.onImportTextFile && (
+              <button
+                className="maka-composer-tool-button"
+                type="button"
+                disabled={props.disabled}
+                onClick={props.onImportTextFile}
+                aria-label="导入文本文件"
+                title="导入文本文件"
+              >
+                <Paperclip size={14} strokeWidth={1.75} aria-hidden="true" />
+              </button>
+            )}
             {props.streaming ? (
               <button className="maka-button" data-variant="primary" type="button" onClick={props.onStop}>
                 {buttonCopy.stopLabel}

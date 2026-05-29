@@ -1181,6 +1181,16 @@ function AppShell(props: {
     }
   }
 
+  async function importTextFileIntoComposer() {
+    const result = await window.maka.context.importTextFile();
+    if (!result.ok) {
+      if (result.reason !== 'cancelled') toastApi.error('导入文本失败', result.message);
+      return;
+    }
+    composerRef.current?.setText(result.prompt);
+    toastApi.success('已导入文本文件', `${result.name}${result.truncated ? ' · 已截断' : ''}`);
+  }
+
   async function stop() {
     if (activeId) await window.maka.sessions.stop(activeId);
   }
@@ -1899,6 +1909,7 @@ function AppShell(props: {
                 streaming={activeStreaming.length > 0}
                 onSend={send}
                 onStop={stop}
+                onImportTextFile={importTextFileIntoComposer}
               />
             </div>
             <ArtifactPane sessionId={activeId} />

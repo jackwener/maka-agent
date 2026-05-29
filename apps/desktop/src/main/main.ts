@@ -142,6 +142,7 @@ import {
 import { resolveBuildInfo } from './build-info.js';
 import { OpenGatewayService } from './open-gateway.js';
 import { LocalMemoryService } from './local-memory-service.js';
+import { readTextFileForPromptImport, type TextFileImportFailureReason } from './text-file-import.js';
 
 const buildInfo = resolveBuildInfo(app.isPackaged, app.getAppPath());
 
@@ -685,6 +686,19 @@ function workspaceInstructionOpenFailureCopy(reason: WorkspaceInstructionOpenFai
   }
 }
 
+function textFileImportFailureCopy(reason: TextFileImportFailureReason): string {
+  switch (reason) {
+    case 'missing':
+      return '所选文件不存在或不是普通文件。';
+    case 'too-large':
+      return '文件过大；请先截取需要讨论的部分。';
+    case 'binary':
+      return '这个文件不像纯文本，已取消导入。';
+    case 'read-failed':
+      return '读取文件失败。';
+  }
+}
+
 function registerIpc(): void {
   ipcMain.handle('app:info', () => ({
     appVersion: app.getVersion(),
@@ -731,6 +745,40 @@ function registerIpc(): void {
       if (!resolved.ok) return { ok: false, message: workspaceInstructionOpenFailureCopy(resolved.reason) };
       const error = await shell.openPath(resolved.path);
       return error ? { ok: false, message: workspaceInstructionOpenFailureCopy('open-failed') } : { ok: true };
+    },
+  );
+  ipcMain.handle(
+    'context:importTextFile',
+    async (): Promise<
+      | { ok: true; name: string; bytes: number; truncated: boolean; prompt: string }
+      | { ok: false; reason: 'cancelled'; message: string }
+      | { ok: false; reason: TextFileImportFailureReason; message: string }
+    > => {
+      const result = mainWindow
+        ? await dialog.showOpenDialog(mainWindow, {
+            title: '导入文本文件',
+            properties: ['openFile'],
+            filters: [
+              { name: 'Text', extensions: ['txt', 'md', 'markdown', 'json', 'jsonl', 'csv', 'tsv', 'log', 'yaml', 'yml', 'xml', 'html', 'css', 'js', 'ts', 'tsx', 'jsx', 'py', 'go', 'rs', 'java', 'c', 'cpp', 'h', 'hpp'] },
+              { name: 'All Files', extensions: ['*'] },
+            ],
+          })
+        : await dialog.showOpenDialog({
+            title: '导入文本文件',
+            properties: ['openFile'],
+            filters: [
+              { name: 'Text', extensions: ['txt', 'md', 'markdown', 'json', 'jsonl', 'csv', 'tsv', 'log', 'yaml', 'yml', 'xml', 'html', 'css', 'js', 'ts', 'tsx', 'jsx', 'py', 'go', 'rs', 'java', 'c', 'cpp', 'h', 'hpp'] },
+              { name: 'All Files', extensions: ['*'] },
+            ],
+          });
+      if (result.canceled || !result.filePaths[0]) {
+        return { ok: false, reason: 'cancelled', message: '已取消导入。' };
+      }
+      const imported = await readTextFileForPromptImport(result.filePaths[0]);
+      if (!imported.ok) {
+        return { ...imported, message: textFileImportFailureCopy(imported.reason) };
+      }
+      return imported;
     },
   );
   // Opens an artifact in Finder. Reuses the artifact-root realpath guard

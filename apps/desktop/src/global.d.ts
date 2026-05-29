@@ -105,6 +105,10 @@ export interface WorkspaceInstructionsState {
   promptCharLimit: number;
 }
 
+export type TextFileImportResult =
+  | { ok: true; name: string; bytes: number; truncated: boolean; prompt: string }
+  | { ok: false; reason: 'cancelled' | 'missing' | 'too-large' | 'binary' | 'read-failed'; message: string };
+
 declare global {
   interface Window {
     maka: {
@@ -182,6 +186,9 @@ declare global {
       workspaceInstructions: {
         getState(): Promise<WorkspaceInstructionsState>;
         openFile(file: string): Promise<{ ok: true } | { ok: false; message: string }>;
+      };
+      context: {
+        importTextFile(): Promise<TextFileImportResult>;
       };
       search: {
         thread(

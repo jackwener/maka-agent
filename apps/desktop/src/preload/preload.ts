@@ -108,6 +108,10 @@ export interface WorkspaceInstructionsState {
   promptCharLimit: number;
 }
 
+export type TextFileImportResult =
+  | { ok: true; name: string; bytes: number; truncated: boolean; prompt: string }
+  | { ok: false; reason: 'cancelled' | 'missing' | 'too-large' | 'binary' | 'read-failed'; message: string };
+
 contextBridge.exposeInMainWorld('maka', {
   sessions: {
     list(filter?: SessionListFilter): Promise<SessionSummary[]> {
@@ -273,6 +277,11 @@ contextBridge.exposeInMainWorld('maka', {
     },
     openFile(file: string): Promise<{ ok: true } | { ok: false; message: string }> {
       return ipcRenderer.invoke('workspaceInstructions:openFile', file);
+    },
+  },
+  context: {
+    importTextFile(): Promise<TextFileImportResult> {
+      return ipcRenderer.invoke('context:importTextFile');
     },
   },
   search: {
