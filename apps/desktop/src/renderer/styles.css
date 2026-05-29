@@ -1414,8 +1414,21 @@ button:active {
   line-height: 1;
 }
 .maka-onboarding-quickchat .maka-button {
-  align-self: flex-end;
   min-width: 120px;
+}
+
+.maka-onboarding-quickchat-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.maka-onboarding-quickchat-actions .maka-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .maka-first-run-task-suggestions {

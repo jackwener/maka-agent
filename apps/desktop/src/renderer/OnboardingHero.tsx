@@ -19,7 +19,7 @@
 //     `connectionName` promise) until sanitized display data is
 //     wired in a later PR.
 
-import { ArrowRight, Sparkles, KeyRound, Settings as SettingsIcon, Cpu, AlertCircle } from 'lucide-react';
+import { ArrowRight, Sparkles, KeyRound, Settings as SettingsIcon, Cpu, AlertCircle, Paperclip } from 'lucide-react';
 import { useCallback, useRef, useState, type KeyboardEvent } from 'react';
 import type { LlmConnection, OnboardingState, ProviderType, QuickChatMode, SettingsSection } from '@maka/core';
 import { detectUiLocale, type UiLocale } from '@maka/ui';
@@ -110,6 +110,7 @@ export interface OnboardingHeroProps {
    * the snapshot without restarting. Optional.
    */
   onRefreshConnections?: () => Promise<void> | void;
+  onImportTextFile?: () => Promise<string | undefined>;
 }
 
 export function OnboardingHero(props: OnboardingHeroProps) {
@@ -147,6 +148,7 @@ export function OnboardingHero(props: OnboardingHeroProps) {
         <ReadyEmptyHero
           onQuickChatSubmit={props.onQuickChatSubmit}
           quickChatPending={props.quickChatPending === true}
+          onImportTextFile={props.onImportTextFile}
         />
       );
     case 'blocked':
@@ -382,6 +384,7 @@ function BlockedHero(props: {
 function ReadyEmptyHero(props: {
   onQuickChatSubmit: (prompt: string, mode?: QuickChatMode) => void;
   quickChatPending: boolean;
+  onImportTextFile?: () => Promise<string | undefined>;
 }) {
   const [draft, setDraft] = useState('');
   const [draftMode, setDraftMode] = useState<QuickChatMode | undefined>();
@@ -420,6 +423,20 @@ function ReadyEmptyHero(props: {
     });
   }, []);
 
+  const importTextFile = useCallback(async () => {
+    if (!props.onImportTextFile || props.quickChatPending) return;
+    const prompt = await props.onImportTextFile();
+    if (!prompt) return;
+    setDraft(prompt);
+    setDraftMode(undefined);
+    window.requestAnimationFrame(() => {
+      const input = inputRef.current;
+      if (!input) return;
+      input.focus();
+      input.setSelectionRange(prompt.length, prompt.length);
+    });
+  }, [props]);
+
   return (
     <section className="maka-onboarding maka-onboarding-ready" aria-label={copy.ariaLabel}>
       <header>
@@ -449,15 +466,28 @@ function ReadyEmptyHero(props: {
         {draftMode === 'deep_research' && (
           <span className="maka-onboarding-quickchat-mode">深度研究 · 只读分析</span>
         )}
-        <button
-          type="button"
-          className="maka-button"
-          data-variant="primary"
-          onClick={submit}
-          disabled={props.quickChatPending}
-        >
-          {props.quickChatPending ? copy.submitPendingLabel : copy.submitIdleLabel}
-        </button>
+        <div className="maka-onboarding-quickchat-actions">
+          {props.onImportTextFile && (
+            <button
+              type="button"
+              className="maka-button maka-button-ghost"
+              onClick={() => void importTextFile()}
+              disabled={props.quickChatPending}
+            >
+              <Paperclip size={14} strokeWidth={1.75} aria-hidden="true" />
+              <span>导入文本文件</span>
+            </button>
+          )}
+          <button
+            type="button"
+            className="maka-button"
+            data-variant="primary"
+            onClick={submit}
+            disabled={props.quickChatPending}
+          >
+            {props.quickChatPending ? copy.submitPendingLabel : copy.submitIdleLabel}
+          </button>
+        </div>
       </div>
 
       <div className="maka-first-run-task-suggestions" aria-label="试试这些任务">
