@@ -107,7 +107,9 @@ describe('getOnboardingHeroCopy — per-variant mapping', () => {
     assert.equal(copy.kind, 'blocked');
     assert.equal(copy.tone, 'warning');
     assert.equal(copy.cta.settingsSection, 'account');
-    assert.match(copy.title, /不可用/);
+    assert.match(copy.eyebrow, /等待恢复模型连接/);
+    assert.match(copy.title, /没有通过验证/);
+    assert.doesNotMatch(renderedFields(copy).join('\n'), /连接暂不可用|所有模型连接都不可用/);
   });
 
   it('ready_with_history returns null (hero must NOT mount)', () => {
