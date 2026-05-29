@@ -222,9 +222,12 @@ describe('text file context import', () => {
     assert.match(onboardingSource, /appendPromptContextDraft\(current, prompt\)/);
     assert.match(onboardingSource, /onImportDroppedTextFiles/);
     assert.match(onboardingSource, /onDrop=\{handleDrop\}/);
+    assert.match(onboardingSource, /onPaste=\{handlePaste\}/);
     assert.match(uiSource, /aria-label="导入文本文件"/);
     assert.match(uiSource, /aria-label="导入文件夹目录"/);
     assert.match(uiSource, /onDrop=\{onComposerDrop\}/);
+    assert.match(uiSource, /onPaste=\{onTextareaPaste\}/);
+    assert.match(uiSource, /event\.clipboardData\.files/);
     assert.match(cssSource, /\.maka-composer\[data-drag-active="true"\]/);
     assert.match(stylesSource, /\.maka-onboarding-quickchat\[data-drag-active="true"\]/);
     assert.match(uiSource, /rememberComposerDraft\(draftStoreRef\.current, previousKey/);

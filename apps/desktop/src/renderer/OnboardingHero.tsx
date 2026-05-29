@@ -20,7 +20,7 @@
 //     wired in a later PR.
 
 import { ArrowRight, Sparkles, KeyRound, Settings as SettingsIcon, Cpu, AlertCircle, FolderOpen, Paperclip } from 'lucide-react';
-import { useCallback, useRef, useState, type DragEvent, type KeyboardEvent } from 'react';
+import { useCallback, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from 'react';
 import type { LlmConnection, OnboardingState, ProviderType, QuickChatMode, SettingsSection } from '@maka/core';
 import { appendPromptContextDraft, detectUiLocale, type UiLocale } from '@maka/ui';
 import { ProviderLogo, providerDisplay } from './settings/ProvidersPanel';
@@ -490,6 +490,10 @@ function ReadyEmptyHero(props: {
     Array.from(event.dataTransfer.types).includes('Files')
   ), []);
 
+  const hasPastedFiles = useCallback((event: ClipboardEvent<HTMLTextAreaElement>) => (
+    Array.from(event.clipboardData.types).includes('Files') || event.clipboardData.files.length > 0
+  ), []);
+
   const handleDragOver = useCallback((event: DragEvent<HTMLDivElement>) => {
     if (!canAcceptDroppedTextFiles() || !hasDraggedFiles(event)) return;
     event.preventDefault();
@@ -514,6 +518,18 @@ function ReadyEmptyHero(props: {
       if (prompt) appendImportedPrompt(prompt);
     })();
   }, [appendImportedPrompt, canAcceptDroppedTextFiles, hasDraggedFiles, props]);
+
+  const handlePaste = useCallback((event: ClipboardEvent<HTMLTextAreaElement>) => {
+    if (!hasPastedFiles(event)) return;
+    if (!canAcceptDroppedTextFiles()) return;
+    const files = Array.from(event.clipboardData.files);
+    if (files.length === 0) return;
+    event.preventDefault();
+    void (async () => {
+      const prompt = await props.onImportDroppedTextFiles?.(files);
+      if (prompt) appendImportedPrompt(prompt);
+    })();
+  }, [appendImportedPrompt, canAcceptDroppedTextFiles, hasPastedFiles, props]);
 
   return (
     <section className="maka-onboarding maka-onboarding-ready" aria-label={copy.ariaLabel}>
@@ -541,6 +557,7 @@ function ReadyEmptyHero(props: {
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={handleKey}
+          onPaste={handlePaste}
           disabled={props.quickChatPending}
           aria-label={copy.quickChatAria}
         />

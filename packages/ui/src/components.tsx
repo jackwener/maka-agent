@@ -1,4 +1,4 @@
-import React, { createContext, forwardRef, memo, useContext, useEffect, useImperativeHandle, useMemo, useRef, useState, type DragEvent, type FormEvent, type KeyboardEvent, type MouseEvent, type ReactNode, type RefObject } from 'react';
+import React, { createContext, forwardRef, memo, useContext, useEffect, useImperativeHandle, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type FormEvent, type KeyboardEvent, type MouseEvent, type ReactNode, type RefObject } from 'react';
 import {
   AlertOctagon,
   AlertTriangle,
@@ -4481,6 +4481,10 @@ export const Composer = forwardRef<
     return Array.from(event.dataTransfer.types).includes('Files');
   }
 
+  function hasPastedFiles(event: ClipboardEvent<HTMLTextAreaElement>): boolean {
+    return Array.from(event.clipboardData.types).includes('Files') || event.clipboardData.files.length > 0;
+  }
+
   function onComposerDragOver(event: DragEvent<HTMLFormElement>) {
     if (!canAcceptDroppedTextFiles() || !hasDraggedFiles(event)) return;
     event.preventDefault();
@@ -4503,6 +4507,15 @@ export const Composer = forwardRef<
     void props.onImportDroppedTextFiles?.(files);
   }
 
+  function onTextareaPaste(event: ClipboardEvent<HTMLTextAreaElement>) {
+    if (!hasPastedFiles(event)) return;
+    if (!canAcceptDroppedTextFiles()) return;
+    const files = Array.from(event.clipboardData.files);
+    if (files.length === 0) return;
+    event.preventDefault();
+    void props.onImportDroppedTextFiles?.(files);
+  }
+
   if (props.hidden) return null;
 
   return (
@@ -4522,6 +4535,7 @@ export const Composer = forwardRef<
           placeholder={copy.placeholder}
           disabled={props.disabled}
           onKeyDown={onTextareaKeyDown}
+          onPaste={onTextareaPaste}
           onInput={onTextareaInput}
           rows={1}
           autoComplete="off"
