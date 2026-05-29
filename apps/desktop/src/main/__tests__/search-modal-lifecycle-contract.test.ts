@@ -188,6 +188,18 @@ describe('SearchModal lifecycle contract (PR-SIDEBAR-IA-0 Phase 3 P0 fixup)', ()
     assert.match(styles, /\.maka-search-modal-result\[data-active="true"\]:not\(\[disabled\]\)/, 'Active search result must have dedicated styling');
   });
 
+  it('search query has an explicit clear button because the native search cancel is hidden', async () => {
+    const components = await readFile(COMPONENTS_PATH, 'utf8');
+    const styles = await readFile(STYLES_PATH, 'utf8');
+    const searchModal = components.slice(components.indexOf('export function SearchModal'), components.indexOf('/**\n * Render an ordered list of session groups'));
+
+    assert.match(styles, /\.maka-search-modal-input::-webkit-search-cancel-button\s*\{\s*display:\s*none;/, 'Native search cancel is intentionally hidden for visual consistency');
+    assert.match(searchModal, /query\.length > 0 && \(/, 'Clear button should appear only when the query has content');
+    assert.match(searchModal, /className="maka-search-modal-clear"[\s\S]*aria-label="清空搜索"/, 'Search modal must provide an explicit clear search button');
+    assert.match(searchModal, /setQuery\(''\);[\s\S]*inputRef\.current\?\.focus\(\);/, 'Clear search button must clear the query and return focus to input');
+    assert.match(styles, /\.maka-search-modal-clear/, 'Clear search button needs dedicated styling');
+  });
+
   it('search snippets highlight query matches without unsafe HTML rendering', async () => {
     const components = await readFile(COMPONENTS_PATH, 'utf8');
     const styles = await readFile(STYLES_PATH, 'utf8');

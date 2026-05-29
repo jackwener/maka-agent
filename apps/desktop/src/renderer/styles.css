@@ -264,7 +264,7 @@ button:active {
  */
 .maka-search-modal-input-row {
   display: grid;
-  grid-template-columns: 16px minmax(0, 1fr);
+  grid-template-columns: 16px minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   padding: 12px 20px 12px;
@@ -287,6 +287,26 @@ button:active {
 }
 .maka-search-modal-input::-webkit-search-cancel-button {
   display: none;
+}
+.maka-search-modal-clear {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--foreground-50);
+  cursor: pointer;
+}
+.maka-search-modal-clear:hover {
+  background: oklch(from var(--foreground) l c h / 0.06);
+  color: var(--foreground);
+}
+.maka-search-modal-clear:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
 }
 
 .maka-search-modal-body {

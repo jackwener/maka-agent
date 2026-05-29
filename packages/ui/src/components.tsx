@@ -39,6 +39,7 @@ import {
   Terminal,
   Trash2,
   Wifi,
+  X,
 } from 'lucide-react';
 import { redactSecrets } from './redact.js';
 import {
@@ -1933,6 +1934,19 @@ export function SearchModal(props: {
             autoComplete="off"
             spellCheck={false}
           />
+          {query.length > 0 && (
+            <button
+              type="button"
+              className="maka-search-modal-clear"
+              aria-label="清空搜索"
+              onClick={() => {
+                setQuery('');
+                inputRef.current?.focus();
+              }}
+            >
+              <X size={14} strokeWidth={1.8} aria-hidden="true" />
+            </button>
+          )}
         </div>
         <div className="maka-search-modal-body" role="region" aria-live="polite">
           {!searchThread && (
