@@ -25,7 +25,6 @@ import {
   type ReactNode,
 } from 'react';
 import { AlertCircle, AlertTriangle, CheckCircle2, Info, X } from 'lucide-react';
-import { isToastPosition, type ToastPosition } from '@maka/core';
 import { useModalA11y } from './components.js';
 
 export type ToastVariant = 'info' | 'success' | 'warning' | 'error';
@@ -73,9 +72,10 @@ interface PendingConfirm extends ConfirmInput {
 }
 
 const DEFAULT_DURATION = 4000;
+const TOAST_POSITION = 'bottom-right';
 const ToastContext = createContext<ToastApi | null>(null);
 
-export function ToastProvider(props: { children: ReactNode; position?: ToastPosition }) {
+export function ToastProvider(props: { children: ReactNode }) {
   const [toasts, setToasts] = useState<InternalToast[]>([]);
   const [confirmState, setConfirmState] = useState<PendingConfirm | null>(null);
   const idSeed = useRef(0);
@@ -133,15 +133,10 @@ export function ToastProvider(props: { children: ReactNode; position?: ToastPosi
     [push, confirm, dismiss],
   );
 
-  // PR-UI-16: sanitize incoming position so a manually-edited
-  // settings.json can't leave the viewport un-positioned. Defaults to
-  // the v1 hardcoded `bottom-right` so existing users see no change.
-  const position: ToastPosition = isToastPosition(props.position) ? props.position : 'bottom-right';
-
   return (
     <ToastContext.Provider value={api}>
       {props.children}
-      <ToastViewport toasts={toasts} onDismiss={dismiss} position={position} />
+      <ToastViewport toasts={toasts} onDismiss={dismiss} />
       {confirmState && (
         <ConfirmDialog request={confirmState} onResolve={resolveConfirm} />
       )}
@@ -166,12 +161,12 @@ const VARIANT_ICON: Record<ToastVariant, ReactNode> = {
   error: <AlertCircle size={16} strokeWidth={1.75} aria-hidden="true" />,
 };
 
-function ToastViewport(props: { toasts: InternalToast[]; onDismiss(id: string): void; position: ToastPosition }) {
+function ToastViewport(props: { toasts: InternalToast[]; onDismiss(id: string): void }) {
   if (props.toasts.length === 0) return null;
   return (
     <ol
       className="maka-toast-viewport"
-      data-position={props.position}
+      data-position={TOAST_POSITION}
       role="region"
       aria-live="polite"
       aria-label="通知"

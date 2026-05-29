@@ -96,6 +96,7 @@ export type {
 } from './permission.js';
 export {
   PERMISSION_MODES,
+  TOOL_CATEGORIES,
   PERMISSION_POLICY,
   BUILTIN_TOOL_CATEGORY,
   SAFE_SHELL_PREFIXES,
@@ -104,6 +105,7 @@ export {
   DESTRUCTIVE_GIT_PATTERNS,
   categorizeBash,
   isPermissionMode,
+  isToolCategory,
   preToolUse,
 } from './permission.js';
 
@@ -560,7 +562,6 @@ export type {
   PersonalizationSettingsWarning,
   ThemePalette,
   ThemePreference,
-  ToastPosition,
   UiDensity,
   UpdateAppSettingsInput,
   UpdateAppSettingsResult,
@@ -580,14 +581,12 @@ export {
   DEFAULT_PROXY_BYPASS_DOMAINS,
   MAX_ALLOWED_USER_IDS,
   THEME_PALETTES,
-  TOAST_POSITIONS,
   createDefaultBotChannel,
   createDefaultSettings,
   hasBotChannelCredentials,
   isBotDeliveryProvider,
   isBotReadinessState,
   isThemePalette,
-  isToastPosition,
   mergeSettings,
   normalizeAllowedUserIds,
   normalizeSettings,

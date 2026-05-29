@@ -18,10 +18,9 @@ import type {
   TextFileImportPreflightFailureReason,
   ThemePalette,
   ThemePreference,
-  ToastPosition,
   UiDensity,
 } from '@maka/core';
-import { MAX_IMPORTED_TEXT_FILE_SAMPLE_BYTES, isToastPosition, preflightDroppedTextFilesForPromptImport } from '@maka/core';
+import { MAX_IMPORTED_TEXT_FILE_SAMPLE_BYTES, preflightDroppedTextFilesForPromptImport } from '@maka/core';
 import {
   applyAssistantDelta,
   applyThinkingComplete,
@@ -97,44 +96,15 @@ function basenameFromPath(value: string): string {
   return name || trimmed || '当前项目';
 }
 
-/**
- * PR-UI-16: read the persisted toast position from localStorage on app
- * boot so the first toast lands in the user's chosen corner without a
- * round-trip to settings. AppShell later patches the same key when
- * settings load, so refresh / first-launch / settings-edit all behave
- * the same. Default `bottom-right` preserves the v1 hardcoded behavior.
- */
-function readPersistedToastPosition(): ToastPosition {
-  try {
-    const value = localStorage.getItem('maka-toast-position-v1');
-    if (isToastPosition(value)) return value;
-  } catch {
-    /* localStorage unavailable */
-  }
-  return 'bottom-right';
-}
-
 function App() {
-  const [toastPosition, setToastPosition] = useState<ToastPosition>(() => readPersistedToastPosition());
   return (
-    <ToastProvider position={toastPosition}>
-      <AppShell toastPosition={toastPosition} onToastPositionChange={setToastPosition} />
+    <ToastProvider>
+      <AppShell />
     </ToastProvider>
   );
 }
 
-function AppShell(props: {
-  /**
-   * PR-UI-D2 fixup v2 (@kenji msg b4dbfa91): the current toast position
-   * value, lifted from `App` so the Settings picker can read it as
-   * `aria-checked` source-of-truth and so the live picker click can
-   * notify `App` synchronously via `onToastPositionChange` — no
-   * `querySelector` DOM hack, no localStorage write before
-   * `onUpdate(...)` resolution.
-   */
-  toastPosition: ToastPosition;
-  onToastPositionChange(position: ToastPosition): void;
-}) {
+function AppShell() {
   const toastApi = useToast();
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [activeId, setActiveId] = useState<string | undefined>();
@@ -609,9 +579,6 @@ function AppShell(props: {
       const pref = next.appearance?.theme ?? 'auto';
       const den = next.appearance?.density ?? 'comfortable';
       const palette = next.appearance?.palette ?? 'default';
-      const toastPosition: ToastPosition = isToastPosition(next.appearance?.toastPosition)
-        ? next.appearance!.toastPosition!
-        : 'bottom-right';
       const name = next.personalization?.displayName ?? '';
       // PR-LANG-PREF-0: apply persisted UI locale preference to
       // `<html data-maka-locale>` BEFORE first paint of any
@@ -626,24 +593,6 @@ function AppShell(props: {
       applyTheme(pref);
       applyDensity(den);
       applyThemePalette(palette);
-      // PR-UI-16: persist normalized toast position back to localStorage
-      // so the next app boot lands toasts in the right corner without
-      // a settings round-trip, and notify App so the live toast
-      // viewport repositions immediately.
-      //
-      // PR-UI-D2 fixup v2 (@kenji msg b4dbfa91): this write is the
-      // post-load mirror sync (read from disk → mirror = consistent).
-      // The user-driven picker click path (in `ThemeSettingsPage`)
-      // also writes the mirror, but only AFTER `props.onUpdate(...)`
-      // resolves with a normalized result — never before, never on
-      // failure. localStorage mirror therefore only ever holds a
-      // value that already survived `normalizeSettings`.
-      try {
-        localStorage.setItem('maka-toast-position-v1', toastPosition);
-      } catch {
-        /* localStorage unavailable */
-      }
-      props.onToastPositionChange(toastPosition);
     });
     void refreshSkills();
     void refreshPlanReminders();
@@ -1311,7 +1260,7 @@ function AppShell(props: {
       case 'too-many-files':
         return '一次最多导入 5 个文本文件。';
       case 'unsupported-type':
-        return '只支持导入文本文件；图片、PDF 和 Office 文件请先转成文本。';
+        return '只支持直接导入文本文件；Office 文档请用 Office Documents 能力或对应技能处理。';
     }
   }
 
@@ -2177,8 +2126,6 @@ function AppShell(props: {
           onDensityChange={setDensity}
           themePalette={themePalette}
           onThemePaletteChange={setThemePalette}
-          toastPosition={props.toastPosition}
-          onToastPositionChange={props.onToastPositionChange}
           onUserLabelChange={setUserLabel}
           requestedSection={settingsRequestedSection}
           onOpenDailyReview={() => {
