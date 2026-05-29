@@ -1,12 +1,12 @@
 /**
  * PR-WEB-SEARCH-TAVILY-0 — pure contract for the explicit user-triggered
- * web search lane. Borrows alma's "single provider per query, no silent
- * fallback" stance but starts strictly with Tavily.
+ * web search lane. Adopts the "single provider per query, no silent
+ * fallback" stance from external research but starts strictly with Tavily.
  *
  * borrow
- * - alma `docs/search-engines.md` query / result shape (title / url /
- *   snippet). We don't reuse alma's provider-rotation logic — that's
- *   the whole "silent fallback" failure mode we're trying to avoid.
+ * - Reference query / result shape (title / url / snippet) from external
+ *   `docs/search-engines.md`. We don't reuse the upstream provider-rotation
+ *   logic — that's the whole "silent fallback" failure mode we're avoiding.
  *
  * diverge
  * - No auto-rotation across providers. Renderer pinns a provider;

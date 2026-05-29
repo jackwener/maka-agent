@@ -8,10 +8,10 @@
  * the existing telemetry repo + session store (no new persistence).
  *
  * borrow
- * - alma docs/19-time-driven.md describes a similar daily aggregation
- *   surface (their "today" digest) but our scope is intentionally
- *   smaller: read-only summary, no scheduling, no cloud sync, no
- *   missions/cron, no LLM-generated narrative yet.
+ * - External reference describes a similar daily aggregation surface
+ *   ("today" digest), but our scope is intentionally smaller: read-only
+ *   summary, no scheduling, no cloud sync, no missions/cron, no
+ *   LLM-generated narrative yet.
  *
  * diverge
  * - No background daemon — the summary is computed on demand when the

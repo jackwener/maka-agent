@@ -33,7 +33,7 @@ export interface BotBridge {
 }
 
 /**
- * PR-BOT-REPLY-TO-MESSAGE-0 (Hermes deep-dive): bot replies should
+ * PR-BOT-REPLY-TO-MESSAGE-0 (external bot research): bot replies should
  * thread under the originating user message so a Telegram group with
  * concurrent conversations does not visually scramble. `replyToMessageId`
  * is the platform-native message id of the message being replied to.
@@ -48,7 +48,7 @@ export interface BotBridge {
 export interface BotSendOptions {
   readonly replyToMessageId?: string;
   /**
-   * PR-BOT-EPHEMERAL-REPLY-0 (Hermes deep-dive): when set, the bridge
+   * PR-BOT-EPHEMERAL-REPLY-0 (external bot research): when set, the bridge
    * schedules a delete-message call N milliseconds after the send
    * completes. Use for transient system notices (reset ack / help
    * reply / "无法处理" fallback) that should not accumulate in the chat.
@@ -66,7 +66,7 @@ export interface BotSendOptions {
 export interface SendCapable {
   sendMessage(chatId: string, text: string, options?: BotSendOptions): Promise<string | null>;
   /**
-   * PR-BOT-TYPING-INDICATOR-0 (Hermes deep-dive): post a one-shot
+   * PR-BOT-TYPING-INDICATOR-0 (external bot research): post a one-shot
    * presence/typing signal. Telegram auto-clears it after ~5 seconds;
    * callers wanting sustained indication must call again periodically.
    * Returns `true` if the signal was delivered, `false` on any failure

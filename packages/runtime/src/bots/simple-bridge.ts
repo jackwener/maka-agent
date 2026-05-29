@@ -9,7 +9,7 @@ const TELEGRAM_REQUEST_TIMEOUT_MS = 10_000;
 const FEISHU_REQUEST_TIMEOUT_MS = 10_000;
 
 /**
- * PR-TELEGRAM-UTF16-LIMIT-0 (Hermes deep-dive #B3): Telegram's
+ * PR-TELEGRAM-UTF16-LIMIT-0 (external bot research #B3): Telegram's
  * 4096-character message cap is measured in UTF-16 code units, NOT
  * Python-style codepoints. Astral-plane characters (most emoji, CJK
  * Extension B, music symbols) consume 2 code units each. Without
@@ -118,7 +118,7 @@ function isAllowedUser(
 }
 
 /**
- * PR-BOT-NON-TEXT-MESSAGE-ACK-0 (Hermes deep-dive): map a Telegram
+ * PR-BOT-NON-TEXT-MESSAGE-ACK-0 (external bot research): map a Telegram
  * `message` object to a stable {@link BotAttachmentKind} so the handler
  * can choose between an ingest path (text-bearing) and an ack-only
  * path (non-text payload that Maka cannot interpret yet).
@@ -149,7 +149,7 @@ function telegramAttachmentKind(message: any): BotAttachmentKind | undefined {
 }
 
 /**
- * PR-BOT-EPHEMERAL-REPLY-0 (Hermes deep-dive): decide whether the
+ * PR-BOT-EPHEMERAL-REPLY-0 (external bot research): decide whether the
  * caller asked for ephemeral cleanup, and if so how long to wait.
  * Returns `undefined` when no cleanup should be scheduled. Telegram
  * silently refuses bot self-delete past 48 hours in DMs, so clamping
@@ -170,7 +170,7 @@ function ephemeralDelayFromOptions(options: BotSendOptions | undefined): number 
 }
 
 /**
- * PR-BOT-RATELIMIT-RETRY-0 (Hermes deep-dive): classify a Telegram
+ * PR-BOT-RATELIMIT-RETRY-0 (external bot research): classify a Telegram
  * sendMessage response so the caller can decide between "done", "retry
  * after Telegram's stated backoff", and "give up". Pure on the
  * response object so the decision can be unit-tested without mocking

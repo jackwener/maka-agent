@@ -1,5 +1,5 @@
 /**
- * PawWork-inspired read-only deep research mode.
+ * Read-only deep research mode (external reference design).
  *
  * Deep research is visible and bounded. The session profile pins
  * permissionMode=explore and may use the read-only ExploreAgent tool for

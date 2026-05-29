@@ -78,10 +78,10 @@ describe('ExploreAgent read-only worker', () => {
 
   it('runs through the tool impl with the session cwd only', async () => {
     await withWorkspace(async (workspaceRoot) => {
-      await writeFile(join(workspaceRoot, 'notes.md'), 'PawWork explore worker notes');
+      await writeFile(join(workspaceRoot, 'notes.md'), 'reference explore worker notes');
       const tool = buildExploreAgentTool();
       const result = await tool.impl(
-        { objective: 'find PawWork notes', queries: ['PawWork'] },
+        { objective: 'find reference notes', queries: ['reference'] },
         {
           sessionId: 's1',
           turnId: 't1',

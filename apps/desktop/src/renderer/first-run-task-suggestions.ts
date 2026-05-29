@@ -1,6 +1,6 @@
 /**
- * Concrete first-run task prompts inspired by PawWork's home
- * suggestion rows (`packages/app/src/components/home/home-suggestions-*`).
+ * Concrete first-run task prompts inspired by an external reference
+ * desktop-agent's home suggestion rows.
  *
  * borrow
  * - Show short, task-shaped rows near the first composer.

@@ -45,8 +45,9 @@ import {
 } from '@maka/core';
 
 // =============================================================
-// Endpoints + client id — alma's reverse-engineered constants.
-// Verified at `~/Downloads/alma-re/readable/main.js:15913-15919`.
+// Endpoints + client id — reverse-engineered from the upstream
+// Claude.ai web client. Verified against the external reference at
+// main.js:15913-15919.
 // =============================================================
 const CLAUDE_CLIENT_ID = '9d1c250a-e61b-44d9-88ed-5944d1962f5e';
 const CLAUDE_AUTHORIZE_ENDPOINT = 'https://claude.ai/oauth/authorize';
@@ -387,9 +388,9 @@ export class ClaudeSubscriptionService {
    *
    * **Local clear only** — remote OAuth revocation is NOT performed.
    * Anthropic does not publicly expose an RFC 7009 revocation
-   * endpoint as of 2026-05-28; alma's `ld.logout`
-   * (`~/Downloads/alma-re/readable/main.js:16280-16295`) also only
-   * unlinks the local token file. Access tokens remain server-valid
+   * endpoint as of 2026-05-28; the upstream Claude.ai client logout
+   * (verified against the external reference at main.js:16280-16295)
+   * also only unlinks the local token file. Access tokens remain server-valid
    * until natural expiry (~1 hour); refresh tokens remain valid
    * until their TTL or until the user explicitly revokes them via
    * the claude.ai account-side UI.

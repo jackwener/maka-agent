@@ -121,10 +121,10 @@ function AppShell() {
   type AssistantStreamSlot = { text: string; truncated: boolean };
   const [streamingBySession, setStreamingBySession] = useState<Record<string, AssistantStreamSlot>>({});
   /**
-   * PR-UI-LAYOUT-42 (@kenji alma renderer audit, alma-re docs/12-renderer.md §15.3):
-   * Alma displays Anthropic-style `reasoning_content` (extended thinking)
-   * in a collapsible "Reasoning" panel above the assistant answer.
-   * Maka already emits `ThinkingDeltaEvent` / `ThinkingCompleteEvent`
+   * PR-UI-LAYOUT-42 (@kenji reference renderer audit, external docs/12-renderer.md §15.3):
+   * The reference design displays Anthropic-style `reasoning_content`
+   * (extended thinking) in a collapsible "Reasoning" panel above the
+   * assistant answer. Maka already emits `ThinkingDeltaEvent` / `ThinkingCompleteEvent`
    * from `@ai-sdk/anthropic` (events.ts:76-88) but the renderer drops
    * them on the floor — users with thinking models see nothing while
    * the model is reasoning. This map accumulates thinking text per

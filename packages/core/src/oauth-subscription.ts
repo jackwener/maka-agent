@@ -15,7 +15,8 @@
  * the state enum + profile slice + quota snapshot ONLY.
  *
  * Anchor docs:
- *   - alma reverse engineering: `~/Downloads/alma-re/readable/main.js:15913-16400`
+ *   - upstream Claude.ai web client reverse engineering: external
+ *     reference at main.js:15913-16400
  *   - research note: `notes/oauth-subscription-research-2026-05-28.md`
  *   - gate checklist: `notes/pr-oauth-subscription-0-gate.md`
  */
@@ -58,7 +59,7 @@ export type OAuthSubscriptionRuntimeState =
  *
  * Note: `account_uuid` is intentionally exposed — it's part of the
  * OAuth scope grant and appears in `body.metadata.user_id` of every
- * inference request (per alma's pattern). Email and display name
+ * inference request (per the upstream pattern). Email and display name
  * come from the `/api/oauth/profile` endpoint.
  *
  * No token-shaped fields. xuan G-X3 contract test enforces this.
@@ -72,7 +73,7 @@ export interface SubscriptionAccountProfile {
 /**
  * Quota snapshot from Anthropic `/api/oauth/usage` endpoint.
  *
- * v1 mirrors alma's normalization: percentage utilization for the
+ * v1 mirrors the upstream normalization: percentage utilization for the
  * 5-hour rolling window and 7-day rolling window. We do NOT
  * fabricate `tokens used` / `window size` numbers since the
  * endpoint doesn't return them — kenji `cf41871b` decision #4.
@@ -174,7 +175,7 @@ export interface AuthorizationUrlPayload {
  * PKCE code_verifier requirements per RFC 7636 §4.1:
  *   - 43-128 chars in `[A-Z][a-z][0-9]-._~`
  *   - We generate exactly 43 chars from 32 random bytes (base64url
- *     encoding bloats to ~43 chars; matches alma's pattern).
+ *     encoding bloats to ~43 chars; matches the upstream pattern).
  */
 export const PKCE_VERIFIER_LENGTH_BYTES = 32;
 
@@ -218,8 +219,8 @@ export function pkceCodeChallenge(verifier: string, sha256: Sha256Digest): strin
 }
 
 /**
- * Build the Claude subscription authorization URL per alma's
- * pattern (`main.js:16091-16110`).
+ * Build the Claude subscription authorization URL per the upstream
+ * pattern (external reference at main.js:16091-16110).
  *
  * Caller MUST persist the verifier + state pair in pending storage
  * with TTL; this helper is pure and just returns the URL + state

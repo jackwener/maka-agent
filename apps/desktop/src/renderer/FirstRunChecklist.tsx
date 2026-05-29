@@ -6,10 +6,10 @@
  * that flips the bit; nothing is a marketing description.
  *
  * borrow
- * - alma's onboarding checklist concept (`docs/34-onboarding-tcc.md`):
- *   "explorable next steps" surfaced once the bare minimum is in
- *   place. We borrow the shape, NOT the OS-permission steps; this
- *   list is all software-side and reversible.
+ * - Reference onboarding checklist concept: "explorable next steps"
+ *   surfaced once the bare minimum is in place. We borrow the shape,
+ *   NOT the OS-permission steps; this list is all software-side and
+ *   reversible.
  *
  * diverge
  * - No new persisted state. The checklist naturally goes away once

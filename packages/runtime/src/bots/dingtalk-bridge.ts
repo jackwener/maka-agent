@@ -1,5 +1,5 @@
 /**
- * PR-BOT-DINGTALK-OPERATIONAL-0 (Hermes deep-dive: DingTalk Stream):
+ * PR-BOT-DINGTALK-OPERATIONAL-0 (external bot research: DingTalk Stream):
  * full DingTalk (钉钉) bot lifecycle — access_token cache, Stream
  * subscription open, WebSocket connect, frame dispatch + ack, bot
  * message receive, REST send via the open-platform messaging API,

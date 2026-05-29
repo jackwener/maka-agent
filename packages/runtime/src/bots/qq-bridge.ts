@@ -1,5 +1,5 @@
 /**
- * PR-BOT-QQ-OPERATIONAL-0 (Hermes deep-dive: QQ 官方机器人 Gateway):
+ * PR-BOT-QQ-OPERATIONAL-0 (external bot research: QQ 官方机器人 Gateway):
  * full QQ Channel Bot lifecycle — access_token cache, Gateway WebSocket
  * connect, identify, heartbeat, AT_MESSAGE_CREATE / DIRECT_MESSAGE_CREATE
  * / GROUP_AT_MESSAGE_CREATE / C2C_MESSAGE_CREATE dispatch, REST send via

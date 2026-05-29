@@ -2,7 +2,7 @@
  * Memory core contract (PR-MEMORY-1).
  *
  * Anchors:
- *   - Audit report: `notes/alma-memory-reverse-2026-05-25.md` (kenji msg `66fd3eab`).
+ *   - Audit report: external memory-reverse note 2026-05-25 (kenji msg `66fd3eab`).
  *   - Gate review:  `22209a1b` (xuan, MEMORY-0 audit sign-off + scope adjust).
  *   - Scope lock:   `e5072f5b` (yuejing accepting xuan adjust + kenji `fb95a158`).
  *
@@ -30,7 +30,7 @@
  * treat the .ts file as binary and break diff / merge gate source grep.
  *
  * @see docs/memory-threat-model.md for the full 9-gate threat model and
- *      Alma negative-reference list (sleep cycle / auto-extract /
+ *      external negative-reference list (sleep cycle / auto-extract /
  *      automatic LLM-mediated forget / activity-derived memory /
  *      unauthenticated local route / cloud embedding fallback / Soul tree).
  */
@@ -145,7 +145,7 @@ export type MemoryUsePolicy = typeof MEMORY_USE_POLICIES[number];
 /**
  * Closed enum of reasons a memory operation is blocked.
  *
- * Mirrors the audit catalog from `notes/alma-memory-reverse-2026-05-25.md`
+ * Mirrors the external memory-reverse audit catalog 2026-05-25
  * (kenji msg `66fd3eab`) + xuan's 9-gate list (`22209a1b`).
  */
 export const MEMORY_BLOCK_REASONS = [

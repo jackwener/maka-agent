@@ -102,7 +102,7 @@
   --hover:         oklch(from var(--foreground) l c h / 0.04);
   --active:        oklch(from var(--foreground) l c h / 0.08);
   /* User bubble color is intentionally distinct from `--accent` so users can
-     re-tint the accent without ruining chat legibility (alma 42-theme §15.1).
+     re-tint the accent without ruining chat legibility (external design reference §15.1).
      PR-DEFAULT-CANVAS-DEYELLOW-0: re-aligned with the cool-neutral
      canvas (hue 250). The bubble sits on `--background` so it must
      share the canvas hue family or it reads as a tinted island. */
@@ -201,7 +201,7 @@
      Three profiles map to the same set of tokens; see the `[data-ui-density]`
      selectors below maka-tokens.css for the active values. Components read
      these instead of hardcoded paddings so a single switch retunes the whole
-     surface (alma 42-theme-deep §7). */
+     surface (external design reference-deep §7). */
   --ui-density-message-gap: 18px;
   --ui-density-message-pad-x: 24px;
   --ui-density-message-pad-y: 10px;
@@ -924,7 +924,7 @@
        previous turn while it lands. */
   }
   /* User bubble: tinted slate distinct from --accent, with a notched
-     top-right corner to mark direction. Matches alma 42-theme §15.1. */
+     top-right corner to mark direction. Matches external design reference §15.1. */
   .maka-bubble-user {
     background: var(--chat-user-bg);
     border-radius: 18px 4px 18px 18px;
@@ -1230,7 +1230,7 @@
     background: oklch(from var(--success) l c h / 0.08);
     opacity: 1;
   }
-  /* Streaming caret — alma 42-theme uses the half-block glyph ▎ tinted with
+  /* Streaming caret — external design reference uses the half-block glyph ▎ tinted with
      --accent. Subtler than a full ▋ and gives the impression of motion via
      the glyph shape itself; we still gently pulse opacity. */
   .maka-bubble-streaming::after {
