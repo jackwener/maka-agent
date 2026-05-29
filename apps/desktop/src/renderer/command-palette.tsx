@@ -145,6 +145,13 @@ export function buildCommandList(args: {
    */
   onCopyEnvSummary?(): Promise<void> | void;
   /**
+   * PR-CMD-PALETTE-NETWORK-PROXY-TEST-0: ⌘K → 测试当前网络代理. Fires
+   * `window.maka.settings.testNetworkProxy()` and surfaces the result
+   * via toast so a user debugging a connection issue does not have to
+   * open Settings → 网络 first.
+   */
+  onTestNetworkProxy?(): Promise<void> | void;
+  /**
    * PR-CMD-PALETTE-ENRICH-0: jump to a sidebar module (会话 / 计划 /
    * 技能 / 每日回顾) directly from the palette. Search itself is
    * already covered by the existing thread-search hookup, so the
@@ -407,6 +414,18 @@ export function buildCommandList(args: {
       Icon: Database,
       keywords: ['env', 'environment', 'version', 'about', 'bug', 'report', '环境', '版本', '关于', '诊断', '汇报'],
       run: () => void args.onCopyEnvSummary!(),
+    });
+  }
+  if (args.onTestNetworkProxy) {
+    cmds.push({
+      id: 'diag:test-network-proxy',
+      kind: 'action',
+      label: '测试当前网络代理',
+      hint: '诊断 · 不打开设置',
+      group: '诊断',
+      Icon: Wifi,
+      keywords: ['network', 'proxy', 'test', 'ping', '网络', '代理', '测试', '连接', '诊断'],
+      run: () => void args.onTestNetworkProxy!(),
     });
   }
   if (args.onOpenLocalMemoryFile) {

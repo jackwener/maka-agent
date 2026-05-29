@@ -2436,6 +2436,27 @@ function AppShell(props: {
                 );
               }
             },
+            onTestNetworkProxy: async () => {
+              try {
+                // PR-CMD-PALETTE-NETWORK-PROXY-TEST-0: surface the
+                // proxy test result via toast so a user debugging a
+                // connection issue does not need to open Settings →
+                // 网络. `testNetworkProxy(undefined)` uses the
+                // current persisted proxy config.
+                const result = await window.maka.settings.testNetworkProxy(undefined);
+                if (result.ok) {
+                  const latency = result.latencyMs ? ` · ${result.latencyMs}ms` : '';
+                  toastApi.success('网络代理测试通过', `${result.message}${latency}`);
+                } else {
+                  toastApi.error('网络代理测试失败', result.message);
+                }
+              } catch (err) {
+                toastApi.error(
+                  '测试失败',
+                  err instanceof Error ? err.message : '网络代理测试异常',
+                );
+              }
+            },
           })}
         />
       )}
