@@ -144,7 +144,12 @@ import {
 import { resolveBuildInfo } from './build-info.js';
 import { OpenGatewayService } from './open-gateway.js';
 import { LocalMemoryService } from './local-memory-service.js';
-import { readTextFileForPromptImport, type TextFileImportFailureReason } from './text-file-import.js';
+import {
+  readFolderOutlineForPromptImport,
+  readTextFileForPromptImport,
+  type FolderOutlineImportFailureReason,
+  type TextFileImportFailureReason,
+} from './text-file-import.js';
 
 const buildInfo = resolveBuildInfo(app.isPackaged, app.getAppPath());
 
@@ -714,6 +719,17 @@ function textFileImportFailureCopy(reason: TextFileImportFailureReason): string 
   }
 }
 
+function folderOutlineImportFailureCopy(reason: FolderOutlineImportFailureReason): string {
+  switch (reason) {
+    case 'missing':
+      return '所选位置不存在或不是文件夹。';
+    case 'read-failed':
+      return '读取文件夹目录失败。';
+    case 'empty':
+      return '这个文件夹里没有可导入的文件目录。';
+  }
+}
+
 function registerIpc(): void {
   ipcMain.handle('app:info', () => ({
     appVersion: app.getVersion(),
@@ -800,6 +816,32 @@ function registerIpc(): void {
       const imported = await readTextFileForPromptImport(result.filePaths[0]);
       if (!imported.ok) {
         return { ...imported, message: textFileImportFailureCopy(imported.reason) };
+      }
+      return imported;
+    },
+  );
+  ipcMain.handle(
+    'context:importFolderOutline',
+    async (): Promise<
+      | { ok: true; name: string; entries: number; truncated: boolean; prompt: string }
+      | { ok: false; reason: 'cancelled'; message: string }
+      | { ok: false; reason: FolderOutlineImportFailureReason; message: string }
+    > => {
+      const result = mainWindow
+        ? await dialog.showOpenDialog(mainWindow, {
+            title: '导入文件夹目录',
+            properties: ['openDirectory'],
+          })
+        : await dialog.showOpenDialog({
+            title: '导入文件夹目录',
+            properties: ['openDirectory'],
+          });
+      if (result.canceled || !result.filePaths[0]) {
+        return { ok: false, reason: 'cancelled', message: '已取消导入。' };
+      }
+      const imported = await readFolderOutlineForPromptImport(result.filePaths[0]);
+      if (!imported.ok) {
+        return { ...imported, message: folderOutlineImportFailureCopy(imported.reason) };
       }
       return imported;
     },

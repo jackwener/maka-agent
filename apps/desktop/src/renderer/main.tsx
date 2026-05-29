@@ -1197,6 +1197,22 @@ function AppShell(props: {
     composerRef.current?.setText(prompt);
   }
 
+  async function importFolderOutlinePrompt(): Promise<string | undefined> {
+    const result = await window.maka.context.importFolderOutline();
+    if (!result.ok) {
+      if (result.reason !== 'cancelled') toastApi.error('导入目录失败', result.message);
+      return undefined;
+    }
+    toastApi.success('已导入文件夹目录', `${result.name} · ${result.entries} 项${result.truncated ? ' · 已截断' : ''}`);
+    return result.prompt;
+  }
+
+  async function importFolderOutlineIntoComposer() {
+    const prompt = await importFolderOutlinePrompt();
+    if (!prompt) return;
+    composerRef.current?.setText(prompt);
+  }
+
   async function stop() {
     if (activeId) await window.maka.sessions.stop(activeId);
   }
@@ -1882,6 +1898,7 @@ function AppShell(props: {
                         connections={connections}
                         onRefreshConnections={refreshConnections}
                         onImportTextFile={importTextFilePrompt}
+                        onImportFolderOutline={importFolderOutlinePrompt}
                       />
                       {onboardingState.kind === 'ready_empty' && (
                         <FirstRunChecklist
@@ -1917,6 +1934,7 @@ function AppShell(props: {
                 onSend={send}
                 onStop={stop}
                 onImportTextFile={importTextFileIntoComposer}
+                onImportFolderOutline={importFolderOutlineIntoComposer}
               />
             </div>
             <ArtifactPane sessionId={activeId} />
