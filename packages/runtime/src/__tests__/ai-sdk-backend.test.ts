@@ -6,6 +6,7 @@ import type { ToolResultMessage } from '@maka/core/session';
 import {
   AiSdkBackend,
   INVALID_TOOL_NAME,
+  MAX_ACTIVE_SUBAGENT_TOOLS_PER_TURN,
   TOOL_ERROR_RESULT_MAX_CHARS,
   formatSyntheticToolErrorText,
   repairMakaToolCall,
@@ -199,6 +200,69 @@ describe('AiSdkBackend tool permission category hints', () => {
     assert.deepEqual(result, { ok: true });
     assert.equal(events.some((event) => event.type === 'permission_request'), false);
     assert.equal(messages.some((message) => (message as { type?: string }).type === 'tool_result'), true);
+  });
+
+  test('caps concurrent read-only subagent tools in one turn', async () => {
+    const messages: unknown[] = [];
+    const events: SessionEvent[] = [];
+    const backend = new AiSdkBackend({
+      sessionId: 'session-1',
+      header: header('explore'),
+      appendMessage: async (message) => {
+        messages.push(message);
+      },
+      connection: connection(),
+      apiKey: 'sk-test',
+      modelId: 'claude-sonnet-4-5-20250929',
+      permissionEngine: new PermissionEngine({ newId: () => 'permission-id', now: () => 1 }),
+      modelFactory: () => ({}),
+      tools: [],
+      newId: idGenerator(),
+      now: () => 1,
+    });
+    let implStarted = 0;
+    const release: Array<() => void> = [];
+    const tool: MakaTool = {
+      name: 'ExploreAgent',
+      description: 'read-only worker',
+      parameters: {},
+      permissionRequired: true,
+      categoryHint: 'subagent',
+      impl: async () => {
+        implStarted += 1;
+        return new Promise((resolve) => {
+          release.push(() => resolve({ ok: true }));
+        });
+      },
+    };
+    const execute = (backend as unknown as {
+      wrapToolExecute(
+        tool: MakaTool,
+        turnId: string,
+        queue: { push(event: SessionEvent): void },
+      ): (args: unknown, ctx: { toolCallId: string; abortSignal: AbortSignal }) => Promise<unknown>;
+    }).wrapToolExecute(tool, 'turn-1', { push: (event) => events.push(event) });
+
+    const pending = Array.from({ length: MAX_ACTIVE_SUBAGENT_TOOLS_PER_TURN }, (_, index) => execute(
+      { objective: `research ${index}` },
+      { toolCallId: `tool-${index}`, abortSignal: new AbortController().signal },
+    ));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(implStarted, MAX_ACTIVE_SUBAGENT_TOOLS_PER_TURN);
+
+    const rejected = await execute(
+      { objective: 'overflow' },
+      { toolCallId: 'tool-overflow', abortSignal: new AbortController().signal },
+    );
+    assert.deepEqual(rejected, {
+      error: '只读探索并发过多：同一轮最多 5 个子代理。请等待已有探索完成后再继续。',
+    });
+    assert.equal(implStarted, MAX_ACTIVE_SUBAGENT_TOOLS_PER_TURN);
+    assert.equal(events.some((event) => event.type === 'tool_result' && event.toolUseId === 'tool-overflow' && event.isError), true);
+    assert.equal(JSON.stringify(messages).includes('tool-overflow'), true);
+
+    release.forEach((resume) => resume());
+    await Promise.all(pending);
   });
 });
 

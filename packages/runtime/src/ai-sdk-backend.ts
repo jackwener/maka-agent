@@ -151,6 +151,8 @@ export type ModelFactory = (input: ModelFactoryInput) => unknown;
 
 export const TOOL_ERROR_RESULT_MAX_CHARS = 4000;
 export const INVALID_TOOL_NAME = 'invalid';
+export const MAX_ACTIVE_SUBAGENT_TOOLS_PER_TURN = 5;
+const SUBAGENT_TOOL_LIMIT_MESSAGE = '只读探索并发过多：同一轮最多 5 个子代理。请等待已有探索完成后再继续。';
 
 export interface RepairableAiSdkToolCall {
   toolCallId: string;
@@ -242,6 +244,8 @@ export class AiSdkBackend implements AgentBackend {
   private currentQueue: AsyncEventQueue<SessionEvent> | null = null;
   /** Paused while the backend is waiting on a user permission decision. */
   private currentWatchdog: StreamWatchdog | null = null;
+  /** PawWork borrow: keep read-only subagent fan-out bounded per active turn. */
+  private activeSubagentToolCount = 0;
 
   constructor(input: AiSdkBackendInput) {
     this.input = input;
@@ -628,6 +632,11 @@ export class AiSdkBackend implements AgentBackend {
       } // end of: permissionRequired === false ? skip : evaluate
 
       // 3. Permission allowed (or skipped) → run the real impl.
+      const reservedSubagentSlot = this.reserveSubagentSlot(tool);
+      if (!reservedSubagentSlot) {
+        await this.writeSyntheticToolResult(toolUseId, turnId, SUBAGENT_TOOL_LIMIT_MESSAGE, queue);
+        return this.errorReturn(SUBAGENT_TOOL_LIMIT_MESSAGE);
+      }
       const startedAt = this.now();
       const output = createToolOutputDeltaEmitter({
         sessionId: this.sessionId,
@@ -732,6 +741,8 @@ export class AiSdkBackend implements AgentBackend {
           startedAt,
         });
         return this.errorReturn(msg);
+      } finally {
+        if (reservedSubagentSlot) this.releaseSubagentSlot(tool);
       }
     };
   }
@@ -871,6 +882,18 @@ export class AiSdkBackend implements AgentBackend {
     return { kind: 'text', text: String(raw ?? '') };
   }
 
+  private reserveSubagentSlot(tool: MakaTool): boolean {
+    if (tool.categoryHint !== 'subagent') return true;
+    if (this.activeSubagentToolCount >= MAX_ACTIVE_SUBAGENT_TOOLS_PER_TURN) return false;
+    this.activeSubagentToolCount += 1;
+    return true;
+  }
+
+  private releaseSubagentSlot(tool: MakaTool): void {
+    if (tool.categoryHint !== 'subagent') return;
+    this.activeSubagentToolCount = Math.max(0, this.activeSubagentToolCount - 1);
+  }
+
   /** Build the value we return to ai-sdk from a synthetic-error tool call. */
   private errorReturn(message: string): unknown {
     return { error: message };
@@ -950,6 +973,7 @@ export class AiSdkBackend implements AgentBackend {
     this.abortController = null;
     this.currentQueue = null;
     this.currentTurnId = null;
+    this.activeSubagentToolCount = 0;
     this.aborted = false;
   }
 }
