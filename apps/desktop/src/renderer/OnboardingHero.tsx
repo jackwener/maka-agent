@@ -372,8 +372,8 @@ function BlockedHero(props: {
   return (
     <SetupHero
       icon={<AlertCircle size={14} strokeWidth={2} aria-hidden="true" />}
-      eyebrow="连接暂不可用"
-      title="所有模型连接最近一次测试都没通过。"
+      eyebrow="等待恢复模型连接"
+      title="所有模型连接最近一次测试没有通过。"
       body={
         <>
           打开 <strong>设置 · 模型</strong>，对每个连接重新测试或更新 key；

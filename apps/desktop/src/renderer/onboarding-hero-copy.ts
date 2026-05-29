@@ -110,8 +110,8 @@ export function getOnboardingHeroCopy(state: OnboardingState): OnboardingHeroCop
       void state.reason;
       return {
         kind: state.kind,
-        eyebrow: '连接暂不可用',
-        title: '当前所有模型连接都不可用。',
+        eyebrow: '等待恢复模型连接',
+        title: '当前没有通过验证的模型连接。',
         body: '请到「设置 · 账号」查看每个连接的状态，重新测试或重新登录后再开始对话。',
         cta: { label: '打开设置 · 账号', settingsSection: 'account' },
         tone: 'warning',
