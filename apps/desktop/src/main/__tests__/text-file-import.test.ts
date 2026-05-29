@@ -1,12 +1,13 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
   MAX_IMPORTED_TEXT_FILE_BYTES,
   MAX_IMPORTED_TEXT_FILE_CHARS,
   formatImportedTextFilePrompt,
+  readFolderOutlineForPromptImport,
   readTextFileForPromptImport,
 } from '../text-file-import.js';
 
@@ -57,8 +58,35 @@ describe('text file context import', () => {
 
     assert.match(mainSource, /onImportTextFile=\{importTextFilePrompt\}/);
     assert.match(mainSource, /onImportTextFile=\{importTextFileIntoComposer\}/);
+    assert.match(mainSource, /onImportFolderOutline=\{importFolderOutlinePrompt\}/);
+    assert.match(mainSource, /onImportFolderOutline=\{importFolderOutlineIntoComposer\}/);
     assert.match(onboardingSource, /导入文本文件/);
+    assert.match(onboardingSource, /导入文件夹目录/);
     assert.match(uiSource, /aria-label="导入文本文件"/);
+    assert.match(uiSource, /aria-label="导入文件夹目录"/);
+  });
+
+  it('formats a selected folder into a bounded prompt outline', async () => {
+    await withTempDir(async (root) => {
+      await mkdir(join(root, 'src'));
+      await mkdir(join(root, 'node_modules'));
+      await writeFile(join(root, 'README.md'), '# Demo\n', 'utf8');
+      await writeFile(join(root, 'src', 'index.ts'), 'export {};\n', 'utf8');
+      await writeFile(join(root, 'node_modules', 'ignored.js'), 'ignored\n', 'utf8');
+
+      const result = await readFolderOutlineForPromptImport(root);
+
+      assert.equal(result.ok, true);
+      if (!result.ok) return;
+      assert.equal(result.entries, 3);
+      assert.equal(result.truncated, false);
+      assert.match(result.prompt, /<local-folder-outline name="maka-text-import-/);
+      assert.match(result.prompt, /- src\//);
+      assert.match(result.prompt, /- src\/index\.ts/);
+      assert.match(result.prompt, /- README\.md/);
+      assert.doesNotMatch(result.prompt, /node_modules/);
+      assert.doesNotMatch(result.prompt, new RegExp(root.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    });
   });
 });
 

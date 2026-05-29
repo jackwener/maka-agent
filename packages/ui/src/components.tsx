@@ -17,6 +17,7 @@ import {
   Eye,
   FileEdit,
   Flag,
+  FolderOpen,
   GitBranch,
   GitMerge,
   HelpCircle,
@@ -4099,6 +4100,7 @@ export const Composer = forwardRef<
     onSend(text: string): boolean | void | Promise<boolean | void>;
     onStop(): void;
     onImportTextFile?(): void;
+    onImportFolderOutline?(): void;
   }
 >(function Composer(props, ref) {
   const formRef = useRef<HTMLFormElement>(null);
@@ -4222,6 +4224,18 @@ export const Composer = forwardRef<
                 title="导入文本文件"
               >
                 <Paperclip size={14} strokeWidth={1.75} aria-hidden="true" />
+              </button>
+            )}
+            {!props.streaming && props.onImportFolderOutline && (
+              <button
+                className="maka-composer-tool-button"
+                type="button"
+                disabled={props.disabled}
+                onClick={props.onImportFolderOutline}
+                aria-label="导入文件夹目录"
+                title="导入文件夹目录"
+              >
+                <FolderOpen size={14} strokeWidth={1.75} aria-hidden="true" />
               </button>
             )}
             {props.streaming ? (

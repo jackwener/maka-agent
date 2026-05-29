@@ -19,7 +19,7 @@
 //     `connectionName` promise) until sanitized display data is
 //     wired in a later PR.
 
-import { ArrowRight, Sparkles, KeyRound, Settings as SettingsIcon, Cpu, AlertCircle, Paperclip } from 'lucide-react';
+import { ArrowRight, Sparkles, KeyRound, Settings as SettingsIcon, Cpu, AlertCircle, FolderOpen, Paperclip } from 'lucide-react';
 import { useCallback, useRef, useState, type KeyboardEvent } from 'react';
 import type { LlmConnection, OnboardingState, ProviderType, QuickChatMode, SettingsSection } from '@maka/core';
 import { detectUiLocale, type UiLocale } from '@maka/ui';
@@ -111,6 +111,7 @@ export interface OnboardingHeroProps {
    */
   onRefreshConnections?: () => Promise<void> | void;
   onImportTextFile?: () => Promise<string | undefined>;
+  onImportFolderOutline?: () => Promise<string | undefined>;
 }
 
 export function OnboardingHero(props: OnboardingHeroProps) {
@@ -149,6 +150,7 @@ export function OnboardingHero(props: OnboardingHeroProps) {
           onQuickChatSubmit={props.onQuickChatSubmit}
           quickChatPending={props.quickChatPending === true}
           onImportTextFile={props.onImportTextFile}
+          onImportFolderOutline={props.onImportFolderOutline}
         />
       );
     case 'blocked':
@@ -385,6 +387,7 @@ function ReadyEmptyHero(props: {
   onQuickChatSubmit: (prompt: string, mode?: QuickChatMode) => void;
   quickChatPending: boolean;
   onImportTextFile?: () => Promise<string | undefined>;
+  onImportFolderOutline?: () => Promise<string | undefined>;
 }) {
   const [draft, setDraft] = useState('');
   const [draftMode, setDraftMode] = useState<QuickChatMode | undefined>();
@@ -437,6 +440,20 @@ function ReadyEmptyHero(props: {
     });
   }, [props]);
 
+  const importFolderOutline = useCallback(async () => {
+    if (!props.onImportFolderOutline || props.quickChatPending) return;
+    const prompt = await props.onImportFolderOutline();
+    if (!prompt) return;
+    setDraft(prompt);
+    setDraftMode(undefined);
+    window.requestAnimationFrame(() => {
+      const input = inputRef.current;
+      if (!input) return;
+      input.focus();
+      input.setSelectionRange(prompt.length, prompt.length);
+    });
+  }, [props]);
+
   return (
     <section className="maka-onboarding maka-onboarding-ready" aria-label={copy.ariaLabel}>
       <header>
@@ -476,6 +493,17 @@ function ReadyEmptyHero(props: {
             >
               <Paperclip size={14} strokeWidth={1.75} aria-hidden="true" />
               <span>导入文本文件</span>
+            </button>
+          )}
+          {props.onImportFolderOutline && (
+            <button
+              type="button"
+              className="maka-button maka-button-ghost"
+              onClick={() => void importFolderOutline()}
+              disabled={props.quickChatPending}
+            >
+              <FolderOpen size={14} strokeWidth={1.75} aria-hidden="true" />
+              <span>导入文件夹目录</span>
             </button>
           )}
           <button

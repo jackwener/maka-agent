@@ -1,8 +1,21 @@
-import { basename } from 'node:path';
-import { readFile, stat } from 'node:fs/promises';
+import { basename, join, relative } from 'node:path';
+import { readFile, readdir, stat } from 'node:fs/promises';
 
 export const MAX_IMPORTED_TEXT_FILE_BYTES = 200_000;
 export const MAX_IMPORTED_TEXT_FILE_CHARS = 20_000;
+export const MAX_IMPORTED_FOLDER_ENTRIES = 200;
+export const MAX_IMPORTED_FOLDER_DEPTH = 4;
+
+const FOLDER_OUTLINE_SKIP_NAMES = new Set([
+  '.git',
+  '.next',
+  '.turbo',
+  '.vite',
+  'dist',
+  'build',
+  'coverage',
+  'node_modules',
+]);
 
 export type TextFileImportFailureReason =
   | 'missing'
@@ -21,6 +34,24 @@ export type TextFileImportResult =
   | {
       ok: false;
       reason: TextFileImportFailureReason;
+    };
+
+export type FolderOutlineImportFailureReason =
+  | 'missing'
+  | 'read-failed'
+  | 'empty';
+
+export type FolderOutlineImportResult =
+  | {
+      ok: true;
+      name: string;
+      entries: number;
+      truncated: boolean;
+      prompt: string;
+    }
+  | {
+      ok: false;
+      reason: FolderOutlineImportFailureReason;
     };
 
 export async function readTextFileForPromptImport(filePath: string): Promise<TextFileImportResult> {
@@ -66,6 +97,98 @@ export function formatImportedTextFilePrompt(input: { name: string; text: string
     input.text,
     '</local-text-file>',
   ].filter(Boolean).join('\n');
+}
+
+export async function readFolderOutlineForPromptImport(folderPath: string): Promise<FolderOutlineImportResult> {
+  let rootStat;
+  try {
+    rootStat = await stat(folderPath);
+  } catch {
+    return { ok: false, reason: 'missing' };
+  }
+  if (!rootStat.isDirectory()) return { ok: false, reason: 'missing' };
+
+  const lines: string[] = [];
+  let truncated = false;
+
+  try {
+    await scanFolderOutline({
+      root: folderPath,
+      dir: folderPath,
+      depth: 0,
+      lines,
+      markTruncated: () => { truncated = true; },
+    });
+  } catch {
+    return { ok: false, reason: 'read-failed' };
+  }
+
+  if (lines.length === 0) return { ok: false, reason: 'empty' };
+  const name = basename(folderPath) || 'folder';
+  return {
+    ok: true,
+    name,
+    entries: lines.length,
+    truncated,
+    prompt: formatImportedFolderOutlinePrompt({ name, outline: lines.join('\n'), truncated }),
+  };
+}
+
+export function formatImportedFolderOutlinePrompt(input: { name: string; outline: string; truncated: boolean }): string {
+  return [
+    `请结合下面导入的本地文件夹目录 "${input.name}" 回答。`,
+    input.truncated ? '目录较大，下面只包含前一部分。' : '',
+    '',
+    `<local-folder-outline name="${escapeXmlAttr(input.name)}">`,
+    input.outline,
+    '</local-folder-outline>',
+  ].filter(Boolean).join('\n');
+}
+
+async function scanFolderOutline(input: {
+  root: string;
+  dir: string;
+  depth: number;
+  lines: string[];
+  markTruncated: () => void;
+}): Promise<void> {
+  if (input.lines.length >= MAX_IMPORTED_FOLDER_ENTRIES || input.depth >= MAX_IMPORTED_FOLDER_DEPTH) {
+    input.markTruncated();
+    return;
+  }
+
+  const entries = await readdir(input.dir, { withFileTypes: true });
+  entries.sort((a, b) => {
+    const aDir = a.isDirectory() ? 0 : 1;
+    const bDir = b.isDirectory() ? 0 : 1;
+    if (aDir !== bDir) return aDir - bDir;
+    return a.name.localeCompare(b.name);
+  });
+
+  for (const entry of entries) {
+    if (input.lines.length >= MAX_IMPORTED_FOLDER_ENTRIES) {
+      input.markTruncated();
+      return;
+    }
+    if (entry.name.startsWith('.') || FOLDER_OUTLINE_SKIP_NAMES.has(entry.name)) continue;
+
+    const absolute = join(input.dir, entry.name);
+    const rel = relative(input.root, absolute).split(/[\\/]/).join('/');
+    if (!rel || rel.startsWith('..')) continue;
+
+    if (entry.isDirectory()) {
+      input.lines.push(`${'  '.repeat(input.depth)}- ${rel}/`);
+      await scanFolderOutline({
+        root: input.root,
+        dir: absolute,
+        depth: input.depth + 1,
+        lines: input.lines,
+        markTruncated: input.markTruncated,
+      });
+    } else if (entry.isFile()) {
+      input.lines.push(`${'  '.repeat(input.depth)}- ${rel}`);
+    }
+  }
 }
 
 function looksBinary(buffer: Buffer): boolean {
