@@ -133,6 +133,7 @@ import { handleQuickChatStart as runQuickChatStart, type QuickChatResult } from 
 import { connectionTestStatusPatch } from './connection-test-status.js';
 import { resolveOpenPath, type OpenPathResult } from './open-path-guard.js';
 import { buildPersonalizationPromptFragment } from './personalization-prompt.js';
+import { resolveProjectGitInfo } from './project-context.js';
 import { buildSettingsUpdateResult, maskAppSettings, preserveSensitivePlaceholders, toSettingsTestResult } from './settings-ipc-helpers.js';
 import { buildSkillsPromptFragment, createStarterSkill, listInstalledSkills, resolveSkillOpenPath } from './skills.js';
 import {
@@ -834,19 +835,23 @@ function folderOutlineImportFailureCopy(reason: FolderOutlineImportFailureReason
 }
 
 function registerIpc(): void {
-  ipcMain.handle('app:info', () => ({
-    appVersion: app.getVersion(),
-    electronVersion: process.versions.electron ?? '',
-    nodeVersion: process.versions.node ?? '',
-    chromeVersion: process.versions.chrome ?? '',
-    platform: process.platform,
-    arch: osArch(),
-    osRelease: osRelease(),
-    workspacePath: workspaceRoot,
-    projectPath: process.cwd(),
-    buildMode: buildInfo.mode,
-    buildCommit: buildInfo.commit,
-  }));
+  ipcMain.handle('app:info', async () => {
+    const projectPath = process.cwd();
+    return {
+      appVersion: app.getVersion(),
+      electronVersion: process.versions.electron ?? '',
+      nodeVersion: process.versions.node ?? '',
+      chromeVersion: process.versions.chrome ?? '',
+      platform: process.platform,
+      arch: osArch(),
+      osRelease: osRelease(),
+      workspacePath: workspaceRoot,
+      projectPath,
+      projectGit: await resolveProjectGitInfo(projectPath),
+      buildMode: buildInfo.mode,
+      buildCommit: buildInfo.commit,
+    };
+  });
   ipcMain.handle('app:openPath', async (_event, key: string): Promise<OpenPathResult> => {
     const resolved = await resolveOpenPath({ key, workspaceRoot, projectRoot: process.cwd() });
     if (!resolved.ok) return resolved;

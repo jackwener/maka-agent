@@ -271,6 +271,7 @@ export function SessionListPanel(props: {
   projectBadge?: {
     label: string;
     path: string;
+    branch?: string;
     onOpen(): void;
   };
   skills?: SkillEntry[];
@@ -459,11 +460,13 @@ export function SessionListPanel(props: {
             type="button"
             className="maka-project-badge"
             onClick={props.projectBadge.onOpen}
-            title={props.projectBadge.path}
-            aria-label={`打开项目目录：${props.projectBadge.label}`}
+            title={props.projectBadge.branch ? `${props.projectBadge.path}\n分支：${props.projectBadge.branch}` : props.projectBadge.path}
+            aria-label={props.projectBadge.branch
+              ? `打开项目目录：${props.projectBadge.label}，当前分支 ${props.projectBadge.branch}`
+              : `打开项目目录：${props.projectBadge.label}`}
           >
             <FolderOpen size={14} strokeWidth={1.6} aria-hidden="true" />
-            <span>项目 · {props.projectBadge.label}</span>
+            <span>项目 · {props.projectBadge.label}{props.projectBadge.branch ? ` · ${props.projectBadge.branch}` : ''}</span>
           </button>
         )}
       </header>

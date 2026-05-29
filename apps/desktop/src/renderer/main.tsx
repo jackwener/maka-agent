@@ -87,6 +87,7 @@ const NO_REAL_CONNECTION_REASON_RE = /NO_REAL_CONNECTION:([a-z_]+): /;
 
 interface RendererAppInfo {
   projectPath: string;
+  projectGit: { isGitRepo: boolean; branch?: string };
 }
 
 function basenameFromPath(value: string): string {
@@ -594,7 +595,7 @@ function AppShell(props: {
     void refreshSessions();
     void refreshConnections();
     void window.maka.app.info().then((next) => {
-      setAppInfo({ projectPath: next.projectPath });
+      setAppInfo({ projectPath: next.projectPath, projectGit: next.projectGit });
     }).catch(() => setAppInfo(null));
     // Pull the persisted theme preference (auto/light/dark) and apply it
     // before any first paint settles. If settings are unreadable we leave the
@@ -1963,6 +1964,7 @@ function AppShell(props: {
                 ? {
                     label: basenameFromPath(appInfo.projectPath),
                     path: appInfo.projectPath,
+                    branch: appInfo.projectGit.branch,
                     onOpen: () => void openProjectFolder(),
                   }
                 : undefined

@@ -287,6 +287,7 @@ declare global {
           osRelease: string;
           workspacePath: string;
           projectPath: string;
+          projectGit: { isGitRepo: boolean; branch?: string };
           buildMode: 'dev' | 'packaged';
           buildCommit: string | null;
         }>;
