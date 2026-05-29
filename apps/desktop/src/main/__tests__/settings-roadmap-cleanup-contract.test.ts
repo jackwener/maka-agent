@@ -40,11 +40,25 @@ describe('Settings coming-soon cleanup contract', () => {
   it('keeps feature status pages product-scoped instead of demo-version or future-roadmap copy', async () => {
     const settings = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
 
-    assert.doesNotMatch(settings, /V0\.1|capture smoke|之后会加|后续版本开放/, 'feature status pages must not read like demo-stage roadmap copy');
+    assert.doesNotMatch(settings, /V0\.1|V0\.2|capture smoke|之后会加|后续版本开放|阶段开放/, 'feature status pages must not read like demo-stage roadmap copy');
     assert.match(settings, /本地汇总/, 'Daily Review status badge should describe the shipped local aggregate mode');
     assert.match(settings, /今日 \/ 本周 \/ 本月/, 'Daily Review settings copy must mention the shipped range switcher');
     assert.match(settings, /复制 Markdown 摘要/, 'Daily Review settings copy must mention the shipped Markdown copy action');
     assert.match(settings, /本地自检/, 'Voice status badge should describe the shipped local smoke boundary');
+  });
+
+  it('keeps Data settings backup copy actionable instead of future export/import roadmap copy', async () => {
+    const settings = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
+    const dataPage = settings.match(/function DataSettingsPage\(\)[\s\S]*?function PersonalizationSettingsPage/);
+
+    assert.ok(dataPage, 'Data settings page block must exist');
+    assert.match(dataPage![0], /需要备份时先退出 Maka，再复制整个目录/, 'Data settings should give a current manual backup path');
+    assert.match(dataPage![0], /跨设备恢复后需要重新测试连接/, 'Data settings should explain safeStorage restore behavior');
+    assert.doesNotMatch(
+      dataPage![0],
+      /\.maka\.zip|schemaVersion|V0\.2|阶段开放|导入备份/,
+      'Data settings must not advertise future export/import roadmap copy',
+    );
   });
 
   it('keeps planned bot platforms out of the credentials-readiness flow', async () => {
