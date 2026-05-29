@@ -539,6 +539,7 @@ export class AiSdkBackend implements AgentBackend {
     ): Promise<unknown> => {
       const toolUseId = ctx.toolCallId;
       const now = this.now();
+      const toolIntent = describeToolIntent(tool, args);
 
       // 1. Always write tool_call FIRST (§6.2 invariant).
       const callMsg: ToolCallMessage = {
@@ -548,6 +549,7 @@ export class AiSdkBackend implements AgentBackend {
         ts: now,
         toolName: tool.name,
         ...(tool.displayName ? { displayName: tool.displayName } : {}),
+        ...(toolIntent ? { intent: toolIntent } : {}),
         args,
       };
       await this.input.appendMessage(callMsg);
@@ -560,6 +562,7 @@ export class AiSdkBackend implements AgentBackend {
         toolName: tool.name,
         args,
         ...(tool.displayName ? { displayName: tool.displayName } : {}),
+        ...(toolIntent ? { intent: toolIntent } : {}),
       };
       queue.push(startEv);
 
@@ -1039,6 +1042,17 @@ export function formatSyntheticToolErrorText(error: unknown): string {
 function summarizeArgs(args: unknown): string {
   const text = typeof args === 'string' ? args : JSON.stringify(args ?? null);
   return text.length <= 512 ? text : `${text.slice(0, 511)}…`;
+}
+
+function describeToolIntent(tool: MakaTool, args: unknown): string | undefined {
+  if (tool.categoryHint !== 'subagent' || tool.name !== 'ExploreAgent') return undefined;
+  if (!args || typeof args !== 'object') return undefined;
+  const objective = (args as { objective?: unknown }).objective;
+  if (typeof objective !== 'string') return undefined;
+  const normalized = redactSecrets(objective.replace(/\s+/g, ' ').trim());
+  if (normalized.length === 0) return undefined;
+  const capped = normalized.length <= 180 ? normalized : `${normalized.slice(0, 179)}…`;
+  return `只读探索：${capped}`;
 }
 
 function byteLength(value: unknown): number {

@@ -192,7 +192,7 @@ describe('AiSdkBackend tool permission category hints', () => {
       ): (args: unknown, ctx: { toolCallId: string; abortSignal: AbortSignal }) => Promise<unknown>;
     }).wrapToolExecute(tool, 'turn-1', { push: (event) => events.push(event) });
 
-    const result = await execute({}, {
+    const result = await execute({ objective: 'map PawWork subagent lifecycle' }, {
       toolCallId: 'tool-1',
       abortSignal: new AbortController().signal,
     });
@@ -200,6 +200,14 @@ describe('AiSdkBackend tool permission category hints', () => {
     assert.deepEqual(result, { ok: true });
     assert.equal(events.some((event) => event.type === 'permission_request'), false);
     assert.equal(messages.some((message) => (message as { type?: string }).type === 'tool_result'), true);
+    assert.equal(
+      (messages.find((message) => (message as { type?: string }).type === 'tool_call') as { intent?: string } | undefined)?.intent,
+      '只读探索：map PawWork subagent lifecycle',
+    );
+    assert.equal(
+      (events.find((event) => event.type === 'tool_start') as { intent?: string } | undefined)?.intent,
+      '只读探索：map PawWork subagent lifecycle',
+    );
   });
 
   test('caps concurrent read-only subagent tools in one turn', async () => {
