@@ -18,6 +18,7 @@ export interface OpenGatewayDeps {
   readMessages(sessionId: string): Promise<StoredMessage[]>;
   sendMessage?(sessionId: string, input: { text: string }): Promise<{ turnId: string }>;
   searchThread(query: string): Promise<SearchResult[] | { ok: false; reason: SearchErrorReason; message: string }>;
+  onStatusChanged?(status: OpenGatewayStatus): void;
   now?(): number;
 }
 
@@ -32,12 +33,13 @@ export class OpenGatewayService {
     port: 3939,
     baseUrl: null,
     tokenConfigured: false,
+    activeEventStreams: 0,
   };
 
   constructor(private readonly deps: OpenGatewayDeps) {}
 
   getStatus(): OpenGatewayStatus {
-    return { ...this.status };
+    return { ...this.status, activeEventStreams: this.countEventClients() };
   }
 
   publishSessionEvent(sessionId: string, event: SessionEvent): void {
@@ -64,6 +66,7 @@ export class OpenGatewayService {
         port: settings.port,
         baseUrl: null,
         tokenConfigured,
+        activeEventStreams: 0,
         ...(settings.enabled && !tokenConfigured ? { lastError: 'missing_token' } : {}),
       };
       return this.getStatus();
@@ -83,6 +86,7 @@ export class OpenGatewayService {
         ...this.status,
         enabled: true,
         tokenConfigured,
+        activeEventStreams: this.countEventClients(),
         lastError: undefined,
       };
       return this.getStatus();
@@ -114,6 +118,7 @@ export class OpenGatewayService {
         baseUrl: `http://${settings.host}:${port}`,
         startedAt: this.now(),
         tokenConfigured,
+        activeEventStreams: 0,
       };
     } catch (error) {
       await this.stop();
@@ -125,6 +130,7 @@ export class OpenGatewayService {
         port: settings.port,
         baseUrl: null,
         tokenConfigured,
+        activeEventStreams: 0,
         lastError: error instanceof Error ? error.message : 'gateway_start_failed',
       };
     }
@@ -267,6 +273,7 @@ export class OpenGatewayService {
     const clients = this.eventClients.get(sessionId) ?? new Set<GatewayEventClient>();
     clients.add(client);
     this.eventClients.set(sessionId, clients);
+    this.emitStatusChanged();
 
     req.on('close', () => this.removeEventClient(sessionId, client));
   }
@@ -279,6 +286,7 @@ export class OpenGatewayService {
       if (clients.size === 0) this.eventClients.delete(sessionId);
     }
     if (!client.response.writableEnded) client.response.end();
+    this.emitStatusChanged();
   }
 
   private closeEventClients(): void {
@@ -286,6 +294,16 @@ export class OpenGatewayService {
       for (const client of [...clients]) this.removeEventClient(sessionId, client);
     }
     this.eventClients.clear();
+  }
+
+  private countEventClients(): number {
+    let count = 0;
+    for (const clients of this.eventClients.values()) count += clients.size;
+    return count;
+  }
+
+  private emitStatusChanged(): void {
+    this.deps.onStatusChanged?.(this.getStatus());
   }
 }
 

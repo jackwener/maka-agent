@@ -2700,7 +2700,8 @@ function OpenGatewaySettingsPage(props: {
         <MetricCard title="状态" value={state.label} detail={state.detail} />
         <MetricCard title="监听地址" value={baseUrl} detail={gateway.host === '0.0.0.0' ? '局域网可访问' : '仅本机'} />
         <MetricCard title="访问凭据" value={gateway.token ? '已配置' : '未配置'} detail="Bearer token 保护所有 /v1 API" />
-        <MetricCard title="能力" value="5 个端点" detail="/health · sessions · events · search" />
+        <MetricCard title="实时连接" value={String(status?.activeEventStreams ?? 0)} detail="SSE 客户端" />
+        <MetricCard title="能力" value="6 类端点" detail="/health · sessions · send · events · search" />
       </div>
 
       <div className="settingsFormRow">

@@ -114,10 +114,16 @@ describe('OpenGatewayService', () => {
   });
 
   test('streams token-protected live session events as SSE', async () => {
-    const service = makeService();
+    const statusChanges: number[] = [];
+    const service = makeService({
+      onStatusChanged: (status) => {
+        statusChanges.push(status.activeEventStreams);
+      },
+    });
     activeServices.push(service);
     const status = await service.sync(createGatewaySettings({ enabled: true, port: 0, token: 'dev-token' }).openGateway);
     assert.ok(status.baseUrl);
+    assert.equal(status.activeEventStreams, 0);
 
     const unauthorized = await fetch(`${status.baseUrl}/v1/sessions/s1/events`);
     assert.equal(unauthorized.status, 401);
@@ -130,16 +136,23 @@ describe('OpenGatewayService', () => {
     });
     assert.equal(response.status, 200);
     assert.match(response.headers.get('content-type') ?? '', /^text\/event-stream/);
+    assert.equal(service.getStatus().activeEventStreams, 1);
+    assert.ok(statusChanges.includes(1), 'opening an SSE stream should publish activeEventStreams=1');
+
+    const health = await fetchJson(`${status.baseUrl}/health`);
+    assert.equal(health.body.gateway.activeEventStreams, 1);
 
     const reader = response.body!.getReader();
     service.publishSessionEvent('s1', textDeltaEvent({ id: 'event-1', turnId: 'turn-1', text: 'hello gateway stream' }));
     const chunk = await readUntil(reader, 'event: text_delta');
     controller.abort();
+    await waitFor(() => service.getStatus().activeEventStreams === 0);
 
     assert.match(chunk, /id: event-1/);
     assert.match(chunk, /event: text_delta/);
     assert.match(chunk, /data: \{"type":"text_delta"/);
     assert.match(chunk, /hello gateway stream/);
+    assert.ok(statusChanges.includes(0), 'closing an SSE stream should publish activeEventStreams=0');
   });
 
   test('closes existing SSE clients when the gateway token rotates', async () => {
@@ -302,6 +315,14 @@ async function readUntilClosed(reader: ReadableStreamDefaultReader<Uint8Array>):
     const read = await reader.read();
     if (read.done) return text;
     text += decoder.decode(read.value, { stream: true });
+  }
+}
+
+async function waitFor(predicate: () => boolean): Promise<void> {
+  const deadline = Date.now() + 2_000;
+  while (!predicate()) {
+    if (Date.now() > deadline) throw new Error('Timed out waiting for predicate');
+    await new Promise((resolve) => setTimeout(resolve, 10));
   }
 }
 

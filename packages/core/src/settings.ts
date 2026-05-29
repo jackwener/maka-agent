@@ -244,6 +244,7 @@ export interface OpenGatewayRuntimeStatus {
   startedAt?: number;
   lastError?: string;
   tokenConfigured: boolean;
+  activeEventStreams: number;
 }
 
 export interface WorkspaceInstructionsSettings {

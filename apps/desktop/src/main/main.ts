@@ -205,6 +205,9 @@ const openGateway = new OpenGatewayService({
       readMessages: (sessionId: string) => runtime.getMessages(sessionId),
       getPrivacyContext: async () => defaultWorkspacePrivacyContext(),
     }),
+  onStatusChanged: (status) => {
+    mainWindow?.webContents.send('gateway:statusChanged', status);
+  },
 });
 const backends = new BackendRegistry();
 const permissionEngine = new PermissionEngine({ newId: randomUUID, now: Date.now });
