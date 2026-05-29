@@ -2729,7 +2729,7 @@ export function ChatView(props: {
           title={props.activeSession.name}
           subtitle={props.activeModelLabel ?? props.activeConnectionLabel}
           subtitleHint={props.activeConnectionLabel && props.activeModelLabel
-            ? `${props.activeConnectionLabel} · ${props.activeModelLabel}`
+            ? `本会话固定模型：${props.activeConnectionLabel} · ${props.activeModelLabel}。设置里的默认模型只影响新建会话。`
             : undefined}
           providerMark={props.activeProviderType && props.renderProviderMark
             ? props.renderProviderMark(props.activeProviderType)
