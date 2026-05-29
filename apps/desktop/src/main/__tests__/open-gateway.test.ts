@@ -50,6 +50,7 @@ describe('OpenGatewayService', () => {
       'gateway.state',
       'incidents.list',
       'incidents.state',
+      'sessions.detail_state',
       'sessions.list',
       'sessions.state',
       'sessions.messages.read',
@@ -75,6 +76,12 @@ describe('OpenGatewayService', () => {
         endpoint: '/v1/sessions/state',
         includesPreviews: false,
         includesRecentIncidentCounts: true,
+      },
+      detailState: {
+        endpoint: '/v1/sessions/{sessionId}/state',
+        includesText: false,
+        includesPreviews: false,
+        includesPayloads: false,
       },
     });
     assert.deepEqual(authorized.body.sessionMessages, {
@@ -137,6 +144,7 @@ describe('OpenGatewayService', () => {
     assert.equal(authorized.body.components.securitySchemes.bearerAuth.scheme, 'bearer');
     assert.ok(authorized.body.paths['/v1/state'].get);
     assert.ok(authorized.body.paths['/v1/events/state'].get);
+    assert.ok(authorized.body.paths['/v1/sessions/{sessionId}/state'].get);
     assert.ok(authorized.body.paths['/v1/sessions/{sessionId}/events'].get);
     assert.ok(authorized.body.paths['/v1/sessions/{sessionId}/messages'].post);
     assert.doesNotMatch(JSON.stringify(authorized.body), /dev-token|hello gateway|sk-live/);
@@ -254,6 +262,59 @@ describe('OpenGatewayService', () => {
     });
     assert.equal(JSON.stringify(response.body).includes('Alpha'), false);
     assert.equal(JSON.stringify(response.body).includes('lastMessagePreview'), false);
+  });
+
+  test('exposes single-session state without title, text, or event payloads', async () => {
+    const sessions = [
+      session({ id: 's1', name: 'Alpha Secret', status: 'blocked', hasUnread: true, isFlagged: true, lastMessageAt: 20 }),
+    ];
+    const messages = [
+      userMessage('secret message token=abc', 'm1'),
+      userMessage('another secret message token=def', 'm2'),
+    ];
+    const service = makeService({
+      listSessions: async () => sessions,
+      readMessages: async (sessionId) => (sessionId === 's1' ? messages : []),
+    });
+    activeServices.push(service);
+    const status = await service.sync(createGatewaySettings({ enabled: true, port: 0, token: 'dev-token' }).openGateway);
+    assert.ok(status.baseUrl);
+    service.publishSessionEvent('s1', textDeltaEvent({
+      id: 'event-1',
+      turnId: 'turn-1',
+      text: 'stream payload must not leak',
+    }));
+    service.publishSessionEvent('s1', errorEvent({
+      id: 'event-error-s1',
+      turnId: 'turn-1',
+      message: 'Provider failed with Authorization: Bearer sk-live-secret-token-value',
+    }));
+
+    const response = await fetchJson(`${status.baseUrl}/v1/sessions/s1/state`, 'dev-token');
+    assert.equal(response.status, 200);
+    assert.equal(response.body.ok, true);
+    assert.deepEqual(response.body.state.session, {
+      id: 's1',
+      status: 'blocked',
+      lastMessageAt: 20,
+      recentIncidentCount: 1,
+      lastIncidentAt: 1_700_000_000_000,
+      isArchived: false,
+      hasUnread: true,
+      isFlagged: true,
+    });
+    assert.equal(response.body.state.includesText, false);
+    assert.equal(response.body.state.includesPreviews, false);
+    assert.equal(response.body.state.includesPayloads, false);
+    assert.equal(response.body.state.messages.messageCount, 2);
+    assert.equal(response.body.state.events.bufferedEvents, 2);
+    assert.equal(response.body.state.events.includesPayloads, false);
+    assert.equal(response.body.state.incidents.recentIncidentCount, 1);
+    assert.doesNotMatch(JSON.stringify(response.body), /Alpha Secret|secret message|stream payload|sk-live-secret-token-value/);
+
+    const missing = await fetchJson(`${status.baseUrl}/v1/sessions/missing/state`, 'dev-token');
+    assert.equal(missing.status, 404);
+    assert.equal(missing.body.error, 'session_not_found');
   });
 
   test('paginates session messages with a before cursor without changing default reads', async () => {

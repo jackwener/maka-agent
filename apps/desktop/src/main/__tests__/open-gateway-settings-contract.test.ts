@@ -10,7 +10,8 @@ const settingsSource = readFileSync(
 
 describe('Open Gateway Settings endpoint contract', () => {
   it('lists every shipped gateway endpoint instead of stale capability copy', () => {
-    assert.match(settingsSource, /16 个端点/);
+    assert.match(settingsSource, /17 个端点/);
+    assert.doesNotMatch(settingsSource, /16 个端点/);
     assert.doesNotMatch(settingsSource, /15 个端点/);
     assert.doesNotMatch(settingsSource, /14 个端点/);
     assert.doesNotMatch(settingsSource, /13 个端点/);
@@ -32,6 +33,7 @@ describe('Open Gateway Settings endpoint contract', () => {
       'GET /v1/capabilities',
       'GET /v1/sessions',
       'GET /v1/sessions/state',
+      'GET /v1/sessions/:id/state',
       'GET /v1/sessions/:id/messages',
       'GET /v1/sessions/:id/messages/state',
       'POST /v1/sessions/:id/messages',

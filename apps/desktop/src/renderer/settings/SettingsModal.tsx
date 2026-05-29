@@ -3036,7 +3036,7 @@ function OpenGatewaySettingsPage(props: {
         <MetricCard title="监听地址" value={baseUrl} detail={gateway.host === '0.0.0.0' ? '局域网可访问' : '仅本机'} />
         <MetricCard title="访问凭据" value={gateway.token ? '已配置' : '未配置'} detail="Bearer token 保护所有 /v1 API" />
         <MetricCard title="实时连接" value={String(status?.activeEventStreams ?? 0)} detail="SSE 客户端" />
-        <MetricCard title="能力" value="16 个端点" detail="/health · openapi · state · sessions · events · incidents" />
+        <MetricCard title="能力" value="17 个端点" detail="/health · openapi · state · sessions · events · incidents" />
       </div>
 
       <div className="settingsFormRow">
@@ -3131,6 +3131,7 @@ function OpenGatewaySettingsPage(props: {
         <SettingRow title="能力清单" detail="需要 Bearer token，返回当前开放的本机 API 能力。" value="GET /v1/capabilities" />
         <SettingRow title="会话列表" detail="需要 Bearer token，返回本地 session summary。" value="GET /v1/sessions" />
         <SettingRow title="会话状态" detail="需要 Bearer token，返回会话数量、未读数、状态分布和最近失败计数，不含标题或预览。" value="GET /v1/sessions/state" />
+        <SettingRow title="单会话状态" detail="需要 Bearer token，返回单个会话的状态、消息计数、事件缓冲和失败计数，不含标题、正文或预览。" value="GET /v1/sessions/:id/state" />
         <SettingRow title="会话消息" detail="需要 Bearer token，按 sessionId 读取本地消息；支持 limit / before 分页。" value="GET /v1/sessions/:id/messages" />
         <SettingRow title="消息状态" detail="需要 Bearer token，返回消息数量和边界摘要，不含正文。" value="GET /v1/sessions/:id/messages/state" />
         <SettingRow title="发送消息" detail="需要 Bearer token，向已有会话追加一条用户消息并返回 turnId。" value="POST /v1/sessions/:id/messages" />

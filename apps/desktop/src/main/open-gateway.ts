@@ -196,6 +196,12 @@ export class OpenGatewayService {
             includesPreviews: false,
             includesRecentIncidentCounts: true,
           },
+          detailState: {
+            endpoint: '/v1/sessions/{sessionId}/state',
+            includesText: false,
+            includesPreviews: false,
+            includesPayloads: false,
+          },
         },
         sessionMessages: {
           pagination: {
@@ -303,6 +309,29 @@ export class OpenGatewayService {
         return;
       }
       writeJson(res, 200, { ok: true, sessions: await this.deps.listSessions() });
+      return;
+    }
+    const sessionStateMatch = url.pathname.match(/^\/v1\/sessions\/([^/]+)\/state$/);
+    if (sessionStateMatch) {
+      if (req.method !== 'GET') {
+        writeJson(res, 405, { ok: false, error: 'method_not_allowed' });
+        return;
+      }
+      const sessionId = decodeURIComponent(sessionStateMatch[1]!);
+      const session = (await this.deps.listSessions()).find((candidate) => candidate.id === sessionId);
+      if (!session) {
+        writeJson(res, 404, { ok: false, error: 'session_not_found' });
+        return;
+      }
+      writeJson(res, 200, {
+        ok: true,
+        state: buildGatewaySessionState({
+          session,
+          messages: await this.deps.readMessages(sessionId),
+          replayState: this.buildReplayState(sessionId),
+          incidentState: summarizeGatewaySessionIncidentState(this.recentEvents.get(sessionId) ?? []),
+        }),
+      });
       return;
     }
     const messageMatch = url.pathname.match(/^\/v1\/sessions\/([^/]+)\/messages$/);
@@ -608,6 +637,7 @@ function buildGatewayCapabilities(sendAvailable: boolean): string[] {
     'gateway.state',
     'incidents.list',
     'incidents.state',
+    'sessions.detail_state',
     'sessions.list',
     'sessions.state',
     'sessions.messages.read',
@@ -670,6 +700,13 @@ function buildGatewayOpenApiSpec(sendAvailable: boolean): Record<string, unknown
         get: {
           summary: 'Session aggregate state',
           responses: jsonResponses('Counts and oldest/newest session summaries without titles or previews.'),
+        },
+      },
+      '/v1/sessions/{sessionId}/state': {
+        get: {
+          summary: 'Single session state',
+          parameters: [pathParam('sessionId', 'Session id')],
+          responses: jsonResponses('One session status, counts, replay state, and incident state without text or previews.'),
         },
       },
       '/v1/sessions/{sessionId}/messages': {
@@ -861,6 +898,20 @@ interface GatewaySessionSummary {
   lastIncidentAt?: number;
 }
 
+interface GatewaySessionState {
+  session: GatewaySessionSummary & {
+    isArchived: boolean;
+    hasUnread: boolean;
+    isFlagged: boolean;
+  };
+  includesText: false;
+  includesPreviews: false;
+  includesPayloads: false;
+  messages: GatewayMessageState;
+  events: GatewayReplayState;
+  incidents: GatewaySessionIncidentState;
+}
+
 function buildGatewaySessionsState(
   sessions: SessionSummary[],
   recentEvents: ReadonlyMap<string, readonly SessionEvent[]>,
@@ -909,6 +960,29 @@ function summarizeGatewaySession(
           lastIncidentAt: incidentState.lastIncidentAt,
         }
       : {}),
+  };
+}
+
+function buildGatewaySessionState(input: {
+  session: SessionSummary;
+  messages: StoredMessage[];
+  replayState: GatewayReplayState;
+  incidentState: GatewaySessionIncidentState;
+}): GatewaySessionState {
+  const incidentStateBySession = new Map([[input.session.id, input.incidentState]]);
+  return {
+    session: {
+      ...summarizeGatewaySession(input.session, incidentStateBySession),
+      isArchived: input.session.isArchived,
+      hasUnread: input.session.hasUnread,
+      isFlagged: input.session.isFlagged,
+    },
+    includesText: false,
+    includesPreviews: false,
+    includesPayloads: false,
+    messages: buildGatewayMessageState(input.messages),
+    events: input.replayState,
+    incidents: input.incidentState,
   };
 }
 
