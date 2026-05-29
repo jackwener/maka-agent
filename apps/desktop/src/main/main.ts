@@ -839,7 +839,7 @@ function textFileImportFailureCopy(reason: TextFileImportFailureReason): string 
     case 'too-many-files':
       return '一次最多导入 5 个文本文件。';
     case 'unsupported-type':
-      return '只支持导入文本文件；图片、PDF 和 Office 文件请先转成文本。';
+      return '只支持直接导入文本文件；Office 文档请用 Office Documents 能力或对应技能处理。';
     case 'read-failed':
       return '读取文件失败。';
   }
