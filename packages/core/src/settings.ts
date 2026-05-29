@@ -364,13 +364,14 @@ export const BOT_PROVIDERS: BotProvider[] = [
   'qq',
 ];
 
-export type BotDeliveryProvider = Extract<BotProvider, 'telegram' | 'wechat' | 'discord' | 'dingtalk'>;
+export type BotDeliveryProvider = Extract<BotProvider, 'telegram' | 'wechat' | 'discord' | 'dingtalk' | 'qq'>;
 
 export const BOT_DELIVERY_PROVIDERS: BotDeliveryProvider[] = [
   'telegram',
   'wechat',
   'discord',
   'dingtalk',
+  'qq',
 ];
 
 export function isBotDeliveryProvider(value: unknown): value is BotDeliveryProvider {

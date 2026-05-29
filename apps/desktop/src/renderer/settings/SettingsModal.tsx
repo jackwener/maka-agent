@@ -187,8 +187,8 @@ const BOT_LABELS: Record<BotProvider, { label: string; help: string; support: 'r
   },
   qq: {
     label: 'QQ',
-    help: '填入 QQ 官方机器人的 App ID 与 Client Secret 后测试凭据；当前先验证凭据，事件接入需要 QQ Gateway WebSocket，是独立后续。',
-    support: 'credentials',
+    help: '填入 QQ 官方机器人的 App ID 与 Client Secret 后测试凭据；启动监听后通过 QQ Gateway WebSocket 接收 AT_MESSAGE / DIRECT / GROUP / C2C 事件，会话完成后通过 REST 投递回原会话。',
+    support: 'runtime',
   },
 };
 

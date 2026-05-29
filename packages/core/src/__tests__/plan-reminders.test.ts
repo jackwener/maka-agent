@@ -116,11 +116,12 @@ describe('plan reminder contract', () => {
   });
 
   it('only accepts live send-capable bot platforms for reminder delivery', () => {
-    assert.deepEqual(BOT_DELIVERY_PROVIDERS, ['telegram', 'wechat', 'discord', 'dingtalk']);
+    assert.deepEqual(BOT_DELIVERY_PROVIDERS, ['telegram', 'wechat', 'discord', 'dingtalk', 'qq']);
     assert.equal(isBotDeliveryProvider('telegram'), true);
     assert.equal(isBotDeliveryProvider('wechat'), true);
     assert.equal(isBotDeliveryProvider('discord'), true);
     assert.equal(isBotDeliveryProvider('dingtalk'), true);
+    assert.equal(isBotDeliveryProvider('qq'), true);
     for (const provider of BOT_PROVIDERS) {
       const result = normalizePlanReminderDeliveryTarget({ channel: 'bot', platform: provider, chatId: '123' });
       assert.equal(

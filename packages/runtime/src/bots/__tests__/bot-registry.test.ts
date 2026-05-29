@@ -13,21 +13,22 @@ describe('BotRegistry', () => {
       onStatusChange: (status) => statuses.push(status),
     });
 
-    // PR-BOT-DINGTALK-OPERATIONAL-0: dingtalk used to be the
-    // unimplemented stand-in here, but now it has a live bridge. QQ is
-    // the remaining credentials-only platform; when QQ-operational
-    // lands, this assertion will need to move to whichever platform is
-    // still credentials-only.
+    // PR-BOT-QQ-OPERATIONAL-0: QQ used to be the unimplemented stand-in
+    // here (and dingtalk before that), but now QQ has a live bridge too.
+    // The remaining credentials-only platforms are WeCom + Feishu;
+    // WeCom is the stand-in here. When WeCom-operational lands, this
+    // assertion will need to move to Feishu (or to whichever credentials-
+    // only platform is still unimplemented).
     await registry.applySettings(settingsWith({
-      qq: { enabled: true, token: 'unused' },
+      wecom: { enabled: true, token: 'unused', appId: 'corp', appSecret: 'secret' },
     }));
 
     assert.equal(registry.getStatus('telegram').reason, 'disabled');
     assert.equal(registry.getStatus('telegram').readiness, 'scaffolded');
-    assert.equal(registry.getStatus('qq').reason, 'scaffold-only');
-    assert.equal(registry.getStatus('qq').running, false);
-    assert.equal(registry.getStatus('qq').readiness, 'configured');
-    assert.equal(statuses.some((status) => status.platform === 'qq' && status.readiness === 'configured'), true);
+    assert.equal(registry.getStatus('wecom').reason, 'scaffold-only');
+    assert.equal(registry.getStatus('wecom').running, false);
+    assert.equal(registry.getStatus('wecom').readiness, 'configured');
+    assert.equal(statuses.some((status) => status.platform === 'wecom' && status.readiness === 'configured'), true);
   });
 
   // PR-BOT-DISCORD-OPERATIONAL-0: Discord is now an implemented platform
