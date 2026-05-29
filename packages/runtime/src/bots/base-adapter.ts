@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import type { BotChannelSettings } from '@maka/core';
+import { hasBotChannelCredentials, type BotChannelSettings } from '@maka/core';
 import type { BotBridge, BotIncomingMessage, BotPlatform, BotStatus } from './types.js';
 
 export abstract class BaseBotAdapter extends EventEmitter implements BotBridge {
@@ -62,7 +62,7 @@ export abstract class BaseBotAdapter extends EventEmitter implements BotBridge {
 
 export function botReadinessFromSettings(settings: BotChannelSettings): BotStatus['readiness'] {
   if (!settings.enabled) return 'scaffolded';
-  if (!settings.token.trim() && !settings.appId?.trim() && !settings.appSecret?.trim()) return 'scaffolded';
+  if (!hasBotChannelCredentials(settings)) return 'scaffolded';
   return 'configured';
 }
 
@@ -71,5 +71,6 @@ export function botSettingsRequireRestart(previous: BotChannelSettings, next: Bo
     previous.token !== next.token ||
     previous.appId !== next.appId ||
     previous.appSecret !== next.appSecret ||
-    previous.domain !== next.domain;
+    previous.domain !== next.domain ||
+    previous.webhookUrl !== next.webhookUrl;
 }

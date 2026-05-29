@@ -2,8 +2,11 @@ import { EventEmitter } from 'node:events';
 import type { BotChannelSettings, BotChatSettings, BotProvider } from '@maka/core';
 import { generalizedErrorMessage } from '@maka/core/redaction';
 import { BOT_PROVIDERS } from '@maka/core/settings';
+import { DingTalkBotBridge } from './dingtalk-bridge.js';
+import { DiscordBotBridge } from './discord-bridge.js';
 import { SimpleBotBridge } from './simple-bridge.js';
 import type { BotBridge, BotIncomingMessage, BotPlatform, BotSendOptions, BotStatus, SendCapable } from './types.js';
+import { WechatBridge } from './wechat-bridge.js';
 
 export interface BotRegistryDeps {
   onIncomingMessage: (message: BotIncomingMessage) => void;
@@ -104,7 +107,14 @@ export class BotRegistry extends EventEmitter {
     }
     this.statuses.delete(platform);
 
-    const bridge = new SimpleBotBridge(platform, settings);
+    const bridge =
+      platform === 'wechat'
+        ? new WechatBridge(settings)
+        : platform === 'discord'
+          ? new DiscordBotBridge(platform, settings)
+          : platform === 'dingtalk'
+            ? new DingTalkBotBridge(platform, settings)
+            : new SimpleBotBridge(platform, settings);
     this.wire(bridge);
     this.bridges.set(platform, bridge);
     await bridge.start().catch((error) => console.error(`[BotRegistry] ${platform} start failed: ${generalizedErrorMessage(error)}`));
@@ -118,7 +128,13 @@ export class BotRegistry extends EventEmitter {
 }
 
 function isImplemented(platform: BotPlatform): boolean {
-  return platform === 'telegram' || platform === 'feishu';
+  return (
+    platform === 'telegram' ||
+    platform === 'feishu' ||
+    platform === 'wechat' ||
+    platform === 'discord' ||
+    platform === 'dingtalk'
+  );
 }
 
 function defaultStatus(platform: BotPlatform): BotStatus {

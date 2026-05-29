@@ -172,20 +172,24 @@ const BOT_LABELS: Record<BotProvider, { label: string; help: string; support: 'r
   },
   wechat: {
     label: '微信',
-    help: '填写微信公众号/服务号的 App ID 和 App Secret；当前只验证凭据，不表示已经接通消息收发。',
+    help: '填写公众号 App ID / App Secret 可测试官方凭据；连接本机 wechat-bridge 后可作为计划提醒投递目标发送到指定 wxid。',
     support: 'credentials',
   },
   discord: {
     label: 'Discord',
-    help: '填入 Bot Token 后测试凭据；当前先验证凭据对应一个真实 Bot 应用，Discord Gateway 长连接接入是独立后续。',
-    support: 'credentials',
+    help: '填入 Bot Token 后测试凭据；启动监听后通过 Discord Gateway 接收 MESSAGE_CREATE，会话完成后通过 REST 回复对应频道（含 reply threading）。',
+    support: 'runtime',
   },
   dingtalk: {
     label: '钉钉',
-    help: '填入自建应用的 appkey 与 appsecret 后测试凭据；当前先验证凭据，事件接收需要 outgoing 机器人或 Stream 模式独立配置。',
+    help: '填入自建应用的 appkey 与 appsecret 后测试凭据；启动监听后通过 DingTalk Stream（outbound WebSocket）接收 bot 消息，会话完成后通过 open-platform robot 接口投递回原会话。',
+    support: 'runtime',
+  },
+  qq: {
+    label: 'QQ',
+    help: '填入 QQ 官方机器人的 App ID 与 Client Secret 后测试凭据；当前先验证凭据，事件接入需要 QQ Gateway WebSocket，是独立后续。',
     support: 'credentials',
   },
-  qq: { label: 'QQ', help: '平台清单已保留；当前不会进入可用机器人列表或计划提醒投递目标。', support: 'planned' },
 };
 
 const BOT_READINESS_COPY: Record<BotReadinessState, { label: string; detail: string; tone: 'neutral' | 'info' | 'success' | 'warning' | 'destructive' }> = {
@@ -3256,6 +3260,10 @@ function BotChatSettingsPage(props: {
           </>
         )}
 
+        {/* PR-BOT-WECHAT-BRIDGE-0: WeChat has two credential-level
+            surfaces: official-account App credentials for token probing,
+            and the localhost-only wechat-bridge surface for local personal
+            WeChat delivery. Runtime keeps the bridge URL localhost-only. */}
         {selected === 'wechat' && (
           <>
             <label className="settingsField">
@@ -3267,7 +3275,37 @@ function BotChatSettingsPage(props: {
               <input type="password" value={channel.appSecret ?? ''} onChange={(event) => updateChannel({ appSecret: event.currentTarget.value })} placeholder="微信公众号 App Secret" />
             </label>
             <div className="settingsNotice">
-              微信凭据测试会向官方 token 接口申请 access_token；消息收发还需要公众号服务器地址、Token、EncodingAESKey 和回调验证，未接通前不会显示成运行可用。
+              微信公众号凭据测试会向官方 token 接口申请 access_token；若要让计划提醒投递到个人微信，需启动本机 `wechat-bridge` 并填写下面的 bridge 地址。
+            </div>
+            <label className="settingsField">
+              <span>本机 bridge 地址</span>
+              <input value={channel.webhookUrl ?? ''} onChange={(event) => updateChannel({ webhookUrl: event.currentTarget.value })} placeholder="http://127.0.0.1:18400" />
+            </label>
+            <label className="settingsField">
+              <span>Bearer Token（可选）</span>
+              <input type="password" value={channel.token} onChange={(event) => updateChannel({ token: event.currentTarget.value })} placeholder="本机 bridge Bearer Token" />
+            </label>
+            <div className="settingsNotice">
+              微信桥接只允许连接本机 `wechat-bridge`。凭据测试会请求 `/health`；计划提醒发送时会调用 `/send`，Chat ID 填 wxid、filehelper 或群 wxid。
+            </div>
+          </>
+        )}
+
+        {/* PR-BOT-QQ-CREDENTIALS-TEST-0: QQ 官方机器人凭据级配置。`appId` =
+            App ID，`appSecret` = Client Secret，跟 WeCom / DingTalk 同语义
+            不另开字段。事件接入需要 QQ Gateway WebSocket，是独立后续。 */}
+        {selected === 'qq' && (
+          <>
+            <label className="settingsField">
+              <span>App ID</span>
+              <input value={channel.appId ?? ''} onChange={(event) => updateChannel({ appId: event.currentTarget.value })} placeholder="QQ 开放平台 - 机器人 App ID" />
+            </label>
+            <label className="settingsField">
+              <span>Client Secret</span>
+              <input type="password" value={channel.appSecret ?? ''} onChange={(event) => updateChannel({ appSecret: event.currentTarget.value })} placeholder="QQ 开放平台 - 机器人 Client Secret" />
+            </label>
+            <div className="settingsNotice">
+              QQ 凭据测试会请求 `getAppAccessToken`，验证 App ID + Client Secret 真实存在。事件接入需要 QQ Gateway WebSocket，是独立后续，凭据有效不代表运行可用。
             </div>
           </>
         )}

@@ -580,6 +580,7 @@ export {
   TOAST_POSITIONS,
   createDefaultBotChannel,
   createDefaultSettings,
+  hasBotChannelCredentials,
   isBotDeliveryProvider,
   isBotReadinessState,
   isThemePalette,
