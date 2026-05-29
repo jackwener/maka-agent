@@ -3549,6 +3549,7 @@ function UsageSettingsPage(props: {
   const stats = props.stats;
   const normalizedModelFilter = usage.modelFilter.trim().toLowerCase();
   const hasRequestFilters = usage.status !== 'all' || normalizedModelFilter.length > 0;
+  const showRequestDetails = usage.activeTab === 'requests' && usage.showDetails;
   const filteredLogs = useMemo(() => {
     const logs = stats?.logs ?? [];
     return logs
@@ -3611,18 +3612,22 @@ function UsageSettingsPage(props: {
 
       {usage.activeTab === 'requests' && (
         <div className="settingsUsageFilters">
-          <input value={usage.modelFilter} onChange={(event) => void props.onUpdate({ usage: { modelFilter: event.currentTarget.value } })} placeholder="按模型筛选…" />
-          <select value={usage.status} onChange={(event) => void props.onUpdate({ usage: { status: event.currentTarget.value as typeof usage.status } })}>
-            <option value="all">全部状态</option>
-            <option value="success">成功</option>
-            <option value="error">错误</option>
-          </select>
+          {usage.showDetails && (
+            <>
+              <input value={usage.modelFilter} onChange={(event) => void props.onUpdate({ usage: { modelFilter: event.currentTarget.value } })} placeholder="按模型筛选…" />
+              <select value={usage.status} onChange={(event) => void props.onUpdate({ usage: { status: event.currentTarget.value as typeof usage.status } })}>
+                <option value="all">全部状态</option>
+                <option value="success">成功</option>
+                <option value="error">错误</option>
+              </select>
+            </>
+          )}
           <label>
             <span>详情记录</span>
             <Switch checked={usage.showDetails} onChange={(showDetails) => props.onUpdate({ usage: { showDetails } })} />
           </label>
-          <small>共 {filteredLogs.length} 条记录</small>
-          {hasRequestFilters && (
+          {usage.showDetails && <small>共 {filteredLogs.length} 条记录</small>}
+          {usage.showDetails && hasRequestFilters && (
             <button type="button" className="maka-button maka-button-ghost" data-size="sm" onClick={clearRequestFilters}>
               清除筛选
             </button>
@@ -3630,12 +3635,23 @@ function UsageSettingsPage(props: {
         </div>
       )}
 
-      <UsageTable
-        activeTab={usage.activeTab}
-        stats={stats}
-        logs={filteredLogs}
-        requestEmpty={hasRequestFilters ? '没有符合筛选条件的请求记录' : '暂无请求记录'}
-      />
+      {usage.activeTab === 'requests' && !usage.showDetails ? (
+        <div className="settingsNotice">
+          当前仅显示汇总指标。打开详情记录后，可以查看逐条请求、按模型或状态筛选，并用于排查费用与失败请求。
+          <div className="settingsActionRow" style={{ marginTop: 8 }}>
+            <button type="button" className="maka-button maka-button-ghost" data-size="sm" onClick={() => void props.onUpdate({ usage: { showDetails: true } })}>
+              显示明细
+            </button>
+          </div>
+        </div>
+      ) : (
+        <UsageTable
+          activeTab={usage.activeTab}
+          stats={stats}
+          logs={showRequestDetails ? filteredLogs : []}
+          requestEmpty={hasRequestFilters ? '没有符合筛选条件的请求记录' : '暂无请求记录'}
+        />
+      )}
     </div>
   );
 }

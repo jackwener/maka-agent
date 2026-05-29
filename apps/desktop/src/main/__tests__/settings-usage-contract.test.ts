@@ -26,6 +26,11 @@ describe('Settings usage dashboard contract', () => {
       /\{usage\.activeTab === 'requests' && \([\s\S]*?<div className="settingsUsageFilters">/,
       'Usage filters must live under the requests-only conditional block',
     );
+    assert.match(
+      usagePage![0],
+      /\{usage\.showDetails && \([\s\S]*?<input value=\{usage\.modelFilter\}/,
+      'model/status request filters must be hidden until detail records are enabled',
+    );
   });
 
   it('shows a distinct empty state when request filters hide all logs', async () => {
@@ -33,5 +38,18 @@ describe('Settings usage dashboard contract', () => {
 
     assert.match(src, /requestEmpty=\{hasRequestFilters \? '没有符合筛选条件的请求记录' : '暂无请求记录'\}/);
     assert.match(src, /empty=\{props\.requestEmpty\}/);
+  });
+
+  it('makes the detail-records toggle control request log rendering', async () => {
+    const src = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
+    const usagePage = src.match(/function UsageSettingsPage\([\s\S]*?function UsageTable/);
+
+    assert.ok(usagePage, 'Usage settings page block must exist');
+    assert.match(usagePage![0], /const showRequestDetails = usage\.activeTab === 'requests' && usage\.showDetails/);
+    assert.match(usagePage![0], /usage\.activeTab === 'requests' && !usage\.showDetails/);
+    assert.match(usagePage![0], /当前仅显示汇总指标/);
+    assert.match(usagePage![0], /显示明细/);
+    assert.match(usagePage![0], /showDetails: true/);
+    assert.match(usagePage![0], /logs=\{showRequestDetails \? filteredLogs : \[\]\}/);
   });
 });
