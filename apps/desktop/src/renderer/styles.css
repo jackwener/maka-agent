@@ -8316,6 +8316,26 @@ button:active {
   opacity: 0.78;
 }
 
+.settingsCapabilityGuidance {
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  background: var(--foreground-3);
+}
+.settingsCapabilityGuidance > span {
+  font-size: 0.72rem;
+  font-weight: 650;
+  color: var(--foreground-70);
+}
+.settingsCapabilityGuidance ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--foreground-60);
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
 .settingsCapabilityAuditSlot {
   border-top: 1px dashed var(--border);
   padding-top: 8px;

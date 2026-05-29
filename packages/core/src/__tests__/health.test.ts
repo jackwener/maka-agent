@@ -335,6 +335,7 @@ function capability(
     runtimeProbe: { state: readiness === 'degraded' ? 'degraded' : 'not_run', source: 'runtime_probe' },
     canRevoke: false,
     canPause: false,
+    guidance: [],
     auditEvents: [],
     updatedAt: 1,
     ...patch,

@@ -139,6 +139,7 @@ export interface CapabilitySnapshot {
   runtimeProbe: CapabilityRuntimeProbeSignal;
   canRevoke: boolean;
   canPause: boolean;
+  guidance: string[];
   auditEvents: string[];
   updatedAt: number;
 }

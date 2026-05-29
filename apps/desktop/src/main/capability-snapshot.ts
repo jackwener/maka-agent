@@ -167,6 +167,12 @@ function officeDocumentsCapability(probe: OfficeCliProbe | undefined, now: numbe
         lastCheckedAt: probe?.checkedAt ?? now,
         reason: officeCliProbeReason(probe),
       };
+  const guidance = available
+    ? []
+    : [
+        '安装 officecli 后重启 Maka 或刷新能力快照。',
+        '安装后在终端确认 `officecli --version` 可以输出版本号。',
+      ];
 
   return staticCapability({
     id: 'office_documents',
@@ -177,6 +183,7 @@ function officeDocumentsCapability(probe: OfficeCliProbe | undefined, now: numbe
     actionApproval: { state: 'required_per_action', source: 'capability_policy' },
     memoryAcceptance: { state: 'not_applicable', source: 'not_applicable' },
     runtimeProbe,
+    guidance,
   });
 }
 
@@ -202,6 +209,7 @@ function staticCapability(input: {
   actionApproval: CapabilityActionApprovalSignal;
   memoryAcceptance: CapabilityMemoryAcceptanceSignal;
   runtimeProbe: CapabilityRuntimeProbeSignal;
+  guidance?: string[];
 }): CapabilitySnapshot {
   const configuration: CapabilityConfigurationSignal = { state: 'not_required', source: 'not_applicable' };
   return {
@@ -221,6 +229,7 @@ function staticCapability(input: {
     runtimeProbe: input.runtimeProbe,
     canRevoke: false,
     canPause: input.feature.state === 'enabled',
+    guidance: input.guidance ?? [],
     auditEvents: [],
     updatedAt: input.now,
   };
@@ -264,6 +273,7 @@ function botCapability(
     runtimeProbe,
     canRevoke: channel.enabled || hasConfig,
     canPause: channel.enabled,
+    guidance: [],
     auditEvents: [],
     updatedAt: now,
   };

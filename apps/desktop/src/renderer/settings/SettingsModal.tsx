@@ -3924,6 +3924,16 @@ function CapabilityRow(props: { capability: CapabilitySnapshot }) {
           </ul>
         </div>
       )}
+      {capability.guidance.length > 0 && (
+        <div className="settingsCapabilityGuidance">
+          <span>处理建议</span>
+          <ul>
+            {capability.guidance.map((item, index) => (
+              <li key={`${capability.id}-guidance-${index}`}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       {/*
         PR-UX-POLISH-1 commit 2 (yuejing UX audit + xuan ROADMAP-SURFACE-0 +
         kenji boundary 1): unavailable pause/revoke chips looked like

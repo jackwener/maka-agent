@@ -20,9 +20,22 @@ describe('Office document capability contract', () => {
     assert.match(snapshot, /label:\s*'Office 文档'/);
     assert.match(snapshot, /officecli/);
     assert.match(snapshot, /读取与校验/);
+    assert.match(snapshot, /安装 officecli 后重启 Maka 或刷新能力快照/);
+    assert.match(snapshot, /officecli --version/);
     assert.doesNotMatch(snapshot, /读取、校验与生成/);
     assert.match(main, /probeOfficeCli\(\{ now: permissions\.checkedAt \}\)/);
     assert.match(main, /probeOfficeCli\(\{ now \}\)/);
+  });
+
+  it('renders capability guidance as visible action copy', async () => {
+    const [settings, styles] = await Promise.all([
+      readFile(join(REPO_ROOT, 'apps', 'desktop', 'src', 'renderer', 'settings', 'SettingsModal.tsx'), 'utf8'),
+      readFile(join(REPO_ROOT, 'apps', 'desktop', 'src', 'renderer', 'styles.css'), 'utf8'),
+    ]);
+
+    assert.match(settings, /capability\.guidance\.length > 0/);
+    assert.match(settings, /处理建议/);
+    assert.match(styles, /\.settingsCapabilityGuidance/);
   });
 
   it('allows only read-only officecli commands as safe shell prefixes', async () => {
