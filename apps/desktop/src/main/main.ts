@@ -1888,7 +1888,36 @@ async function processBotIncomingMessage(
       turnId,
       text: formatBotMessageForSession({ ...message, text }),
     });
-    const reply = await collectBotReply(sessionId, iterator, turnId);
+    // PR-BOT-TYPING-INDICATOR-0 (Hermes deep-dive): keep "Maka 正在
+    // 输入…" visible in the Telegram client while the agent generates
+    // its reply. Telegram auto-clears the indicator after ~5 seconds,
+    // so we refresh every 4 seconds. The loop is best-effort: every
+    // failure is swallowed so a typing-endpoint outage cannot block
+    // or corrupt the actual reply path.
+    const typingAbort = new AbortController();
+    const typingLoop = (async () => {
+      // Fire-and-forget first beat so the indicator shows immediately,
+      // not 4 seconds in.
+      await botRegistry.sendTypingIndicator(message.platform, message.chatId).catch(() => false);
+      while (!typingAbort.signal.aborted) {
+        await new Promise<void>((resolve) => {
+          const timer = setTimeout(resolve, 4000);
+          typingAbort.signal.addEventListener('abort', () => {
+            clearTimeout(timer);
+            resolve();
+          }, { once: true });
+        });
+        if (typingAbort.signal.aborted) break;
+        await botRegistry.sendTypingIndicator(message.platform, message.chatId).catch(() => false);
+      }
+    })();
+    let reply: string;
+    try {
+      reply = await collectBotReply(sessionId, iterator, turnId);
+    } finally {
+      typingAbort.abort();
+      await typingLoop.catch(() => {});
+    }
     // PR-BOT-REPLY-TO-MESSAGE-0 (Hermes deep-dive): thread the bot reply
     // under the originating user message. Group chats with concurrent
     // conversations otherwise visually scramble; even in DMs the threading
