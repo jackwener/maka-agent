@@ -3669,7 +3669,14 @@ function UsageTable(props: { activeTab: AppSettings['usage']['activeTab']; stats
   if (props.activeTab === 'pricing') {
     return <SimpleStatsTable headers={['供应商', '模型', '输入 / 1M', '输出 / 1M']} rows={(props.stats?.pricing ?? []).map((row) => [row.provider, row.model, `$${row.inputPerMTokUsd}`, `$${row.outputPerMTokUsd}`])} empty="暂无定价覆盖配置" />;
   }
-  return <SimpleStatsTable headers={['时间', '供应商', '模型', 'Token', '费用', '延迟', '状态']} rows={props.logs.map((row) => [new Date(row.ts).toLocaleString(), row.provider, row.model, row.inputTokens + row.outputTokens, `$${(row.costUsd ?? 0).toFixed(2)}`, row.latencyMs ? `${row.latencyMs}ms` : '-', row.status])} empty={props.requestEmpty} />;
+  return <SimpleStatsTable headers={['时间', '供应商', '模型', 'Token', '费用', '延迟', '状态']} rows={props.logs.map((row) => [new Date(row.ts).toLocaleString(), row.provider, row.model, row.inputTokens + row.outputTokens, `$${(row.costUsd ?? 0).toFixed(2)}`, row.latencyMs ? `${row.latencyMs}ms` : '-', usageRequestStatusLabel(row.status)])} empty={props.requestEmpty} />;
+}
+
+function usageRequestStatusLabel(status: UsageStats['logs'][number]['status']) {
+  switch (status) {
+    case 'success': return '成功';
+    case 'error': return '错误';
+  }
 }
 
 function SimpleStatsTable(props: { headers: string[]; rows: Array<Array<string | number>>; empty?: string }) {

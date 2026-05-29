@@ -52,4 +52,20 @@ describe('Settings usage dashboard contract', () => {
     assert.match(usagePage![0], /showDetails: true/);
     assert.match(usagePage![0], /logs=\{showRequestDetails \? filteredLogs : \[\]\}/);
   });
+
+  it('does not render raw request status enums in the usage table', async () => {
+    const src = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
+    const usageTable = src.match(/function UsageTable\([\s\S]*?function SimpleStatsTable/);
+
+    assert.ok(usageTable, 'Usage table block must exist');
+    assert.match(usageTable![0], /usageRequestStatusLabel\(row\.status\)/);
+    assert.match(src, /function usageRequestStatusLabel/);
+    assert.match(src, /case 'success': return '成功'/);
+    assert.match(src, /case 'error': return '错误'/);
+    assert.doesNotMatch(
+      usageTable![0],
+      /,\s*row\.status\]\)/,
+      'Usage request table must not render raw `success` / `error` enums directly',
+    );
+  });
 });
