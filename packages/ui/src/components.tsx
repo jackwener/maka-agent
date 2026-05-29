@@ -4194,7 +4194,7 @@ const COMPOSER_BUTTON_COPY_BY_LOCALE: Record<UiLocale, { sendLabel: string; stop
 export interface ComposerHandle {
   /** Replace the textarea value and resize, leaving focus on the input. */
   setText(text: string): void;
-  /** Append imported context after the existing draft instead of replacing it. */
+  /** Append a prompt/context fragment after the existing draft instead of replacing it. */
   appendText(text: string): void;
   /** Move focus to the textarea without changing its content. */
   focus(): void;

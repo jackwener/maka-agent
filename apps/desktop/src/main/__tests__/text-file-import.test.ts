@@ -182,6 +182,16 @@ describe('text file context import', () => {
     assert.doesNotMatch(uiSource, /localStorage\.setItem\([^)]*draft/i);
   });
 
+  it('appends prompt suggestions instead of replacing existing drafts', async () => {
+    const mainSource = await readFile(join(process.cwd(), 'src/renderer/main.tsx'), 'utf8');
+    const onboardingSource = await readFile(join(process.cwd(), 'src/renderer/OnboardingHero.tsx'), 'utf8');
+
+    assert.match(mainSource, /onPromptSuggestion=\{\(prompt\) => composerRef\.current\?\.appendText\(prompt\)\}/);
+    assert.doesNotMatch(mainSource, /onPromptSuggestion=\{\(prompt\) => composerRef\.current\?\.setText\(prompt\)\}/);
+    assert.match(onboardingSource, /const nextDraft = appendPromptContextDraft\(draft, prompt\)/);
+    assert.match(onboardingSource, /setDraft\(nextDraft\)/);
+  });
+
   it('formats a selected folder into a bounded prompt outline', async () => {
     await withTempDir(async (root) => {
       await mkdir(join(root, 'src'));

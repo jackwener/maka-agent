@@ -416,15 +416,16 @@ function ReadyEmptyHero(props: {
   );
 
   const prefillSuggestion = useCallback((prompt: string, mode?: QuickChatMode) => {
-    setDraft(prompt);
+    const nextDraft = appendPromptContextDraft(draft, prompt);
+    setDraft(nextDraft);
     setDraftMode(mode);
     window.requestAnimationFrame(() => {
       const input = inputRef.current;
       if (!input) return;
       input.focus();
-      input.setSelectionRange(prompt.length, prompt.length);
+      input.setSelectionRange(nextDraft.length, nextDraft.length);
     });
-  }, []);
+  }, [draft]);
 
   const importTextFile = useCallback(async () => {
     if (!props.onImportTextFile || props.quickChatPending) return;
