@@ -38,6 +38,16 @@ describe('FIRST_RUN_TASK_SUGGESTIONS', () => {
     assert.match(deepResearch.prompt, /不要修改文件/);
   });
 
+  it('starts project mapping through the read-only research profile', () => {
+    const workspaceMap = FIRST_RUN_TASK_SUGGESTIONS.find(
+      (suggestion) => suggestion.id === 'workspace-map',
+    );
+    assert.ok(workspaceMap);
+    assert.equal(workspaceMap.mode, 'deep_research');
+    assert.match(workspaceMap.prompt, /只读/);
+    assert.match(workspaceMap.prompt, /不要修改文件/);
+  });
+
   it('keeps file-management suggestions confirm-before-mutating', () => {
     const fileOrganize = FIRST_RUN_TASK_SUGGESTIONS.find(
       (suggestion) => suggestion.id === 'file-organize',

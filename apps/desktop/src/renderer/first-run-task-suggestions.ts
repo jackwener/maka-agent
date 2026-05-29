@@ -33,8 +33,9 @@ export const FIRST_RUN_TASK_SUGGESTIONS: readonly FirstRunTaskSuggestion[] = [
   {
     id: 'workspace-map',
     label: '读一下这个项目',
+    mode: 'deep_research',
     prompt:
-      '帮我读一下这个项目的目录结构，先找出入口、核心模块和测试位置，再用简短列表告诉我如果要继续开发应该从哪里开始。',
+      '进入深度研究模式，只读梳理这个项目的目录结构：先找出入口、核心模块和测试位置，再用简短列表告诉我如果要继续开发应该从哪里开始。不要修改文件。',
   },
   {
     id: 'deep-research',
