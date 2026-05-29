@@ -171,7 +171,11 @@ const BOT_LABELS: Record<BotProvider, { label: string; help: string; support: 'r
     support: 'credentials',
   },
   wechat: { label: '微信', help: '个人号/公众号接入涉及额外合规和授权；当前不会进入可用机器人列表或计划提醒投递目标。', support: 'planned' },
-  discord: { label: 'Discord', help: '平台清单已保留；当前不会进入可用机器人列表或计划提醒投递目标。', support: 'planned' },
+  discord: {
+    label: 'Discord',
+    help: '填入 Bot Token 后测试凭据；当前先验证凭据对应一个真实 Bot 应用，Discord Gateway 长连接接入是独立后续。',
+    support: 'credentials',
+  },
   dingtalk: { label: '钉钉', help: '平台清单已保留；当前不会进入可用机器人列表或计划提醒投递目标。', support: 'planned' },
   qq: { label: 'QQ', help: '平台清单已保留；当前不会进入可用机器人列表或计划提醒投递目标。', support: 'planned' },
 };
@@ -3187,6 +3191,22 @@ function BotChatSettingsPage(props: {
             </label>
             <div className="settingsNotice">
               飞书凭据测试会申请 tenant_access_token；事件订阅域名用于企业后台回调。未接通事件回调前，状态只能到“凭据有效”，不会显示成运行可用。
+            </div>
+          </>
+        )}
+
+        {/* PR-BOT-DISCORD-CREDENTIALS-LIVE-0: Discord 凭据级配置。`bot-test.ts`
+            已经有 `testDiscord` 调用 `/users/@me` 验证 token；UI 只缺一个
+            可见入口让用户填 token + 触发测试。事件接入需要 Gateway 长连接，
+            是独立后续。 */}
+        {selected === 'discord' && (
+          <>
+            <label className="settingsField">
+              <span>Bot Token</span>
+              <input type="password" value={channel.token} onChange={(event) => updateChannel({ token: event.currentTarget.value })} placeholder="Discord 开发者后台的 Bot Token" />
+            </label>
+            <div className="settingsNotice">
+              Discord 凭据测试会请求 `/users/@me` 验证 token 对应一个真实 Bot 应用。事件接入需要 Discord Gateway 长连接，是独立后续，凭据有效不代表运行可用。
             </div>
           </>
         )}
