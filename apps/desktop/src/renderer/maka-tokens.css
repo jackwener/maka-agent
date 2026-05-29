@@ -367,6 +367,50 @@
   --chat-user-bg: var(--user-message-bubble);
 }
 
+/* --- alma (warm coral accent, borrowed from alma's product palette) --- */
+[data-maka-theme="alma"] {
+  --background: oklch(0.99 0.005 25);
+  --foreground: oklch(0.22 0.015 25);
+  --accent: oklch(0.68 0.18 25);                /* coral / warm pink */
+  --info: oklch(0.70 0.13 60);                  /* honey amber */
+  --success: oklch(0.68 0.14 145);
+  --destructive: oklch(0.60 0.20 18);
+  --user-message-bubble: oklch(0.95 0.012 25);
+  --chat-user-bg: var(--user-message-bubble);
+}
+[data-maka-theme="alma"].dark {
+  --background: oklch(0.22 0.018 25);
+  --foreground: oklch(0.94 0.008 25);
+  --accent: oklch(0.76 0.18 25);
+  --info: oklch(0.78 0.13 60);
+  --success: oklch(0.72 0.13 145);
+  --destructive: oklch(0.70 0.20 18);
+  --user-message-bubble: oklch(0.30 0.020 25);
+  --chat-user-bg: var(--user-message-bubble);
+}
+
+/* --- niuma (clean product blue, borrowed from 牛马 AI's brand palette) --- */
+[data-maka-theme="niuma"] {
+  --background: oklch(0.98 0.005 250);
+  --foreground: oklch(0.20 0.015 250);
+  --accent: oklch(0.58 0.18 252);               /* product blue */
+  --info: oklch(0.68 0.13 240);
+  --success: oklch(0.66 0.15 150);
+  --destructive: oklch(0.62 0.18 22);
+  --user-message-bubble: oklch(0.94 0.010 250);
+  --chat-user-bg: var(--user-message-bubble);
+}
+[data-maka-theme="niuma"].dark {
+  --background: oklch(0.20 0.015 250);
+  --foreground: oklch(0.93 0.010 250);
+  --accent: oklch(0.70 0.18 252);
+  --info: oklch(0.74 0.13 240);
+  --success: oklch(0.72 0.14 150);
+  --destructive: oklch(0.72 0.18 22);
+  --user-message-bubble: oklch(0.28 0.018 250);
+  --chat-user-bg: var(--user-message-bubble);
+}
+
 /* =============================================================================
    TAILWIND v4 THEME INTEGRATION
    Make tokens addressable as Tailwind utilities:

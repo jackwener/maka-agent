@@ -42,6 +42,7 @@ import type {
   PermissionSnapshot,
   PersonalizationSettingsWarning,
   SettingsSection,
+  ThemePalette,
   ThemePreference,
   ToastPosition,
   UiDensity,
@@ -58,6 +59,7 @@ import type { TestProxyInput } from '@maka/core/settings/network-settings';
 import {
   HEALTH_SIGNAL_LAYERS,
   OS_PERMISSION_IDS,
+  THEME_PALETTES,
   deriveProviderAuthContractFromConnection,
   appendManualLocalMemoryEntryDraft,
   defaultVoiceCaptureCaps,
@@ -1768,6 +1770,29 @@ function ThemePreviewPane(props: { mode: 'light' | 'dark' }) {
   );
 }
 
+// PR-THEME-PRODUCT-PALETTES-0: user-facing labels + short description
+// for each palette. Kept inline (not in i18n strings) so the picker
+// label and accessibility text live next to the palette token.
+const PALETTE_LABEL: Record<ThemePalette, string> = {
+  'default': '默认',
+  'onedark': 'One Dark',
+  'catppuccin-mocha': 'Catppuccin Mocha',
+  'tokyo-night': 'Tokyo Night',
+  'nord': 'Nord',
+  'alma': 'alma · 暖粉',
+  'niuma': '牛马蓝',
+};
+
+const PALETTE_HELP: Record<ThemePalette, string> = {
+  'default': 'Maka 原本的紫色 accent',
+  'onedark': '编辑器经典深色',
+  'catppuccin-mocha': '紫调柔和深色',
+  'tokyo-night': '深蓝主题',
+  'nord': '北欧冷色',
+  'alma': '借 alma 产品色，暖粉 / 珊瑚 accent',
+  'niuma': '借牛马 AI 产品色，干净蓝 accent',
+};
+
 function ThemeSettingsPage(props: {
   themePref: ThemePreference;
   density: UiDensity;
@@ -1789,6 +1814,15 @@ function ThemeSettingsPage(props: {
   async function setDensity(next: UiDensity) {
     props.onDensityChange(next);
     await props.onUpdate({ appearance: { density: next } });
+  }
+
+  // PR-THEME-PRODUCT-PALETTES-0 (WAWQAQ msg `4472ee95`): persist the
+  // palette choice on click. Apply happens via the existing
+  // `appearance.palette` → `applyThemePalette` round-trip in main.tsx
+  // (the renderer-mount palette reader re-runs on settings change).
+  const currentPalette: ThemePalette = props.settings.appearance.palette ?? 'default';
+  async function setPalette(next: ThemePalette) {
+    await props.onUpdate({ appearance: { palette: next } });
   }
 
   // PR-UI-16 + PR-UI-D2 fixup v2 (@kenji msg b4dbfa91):
@@ -1874,6 +1908,28 @@ function ThemeSettingsPage(props: {
             <span className="settingsThemeLabel">
               <strong>{option.label}</strong>
               <small>{option.help}</small>
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <h3 className="settingsSubheading">调色板</h3>
+      <div className="settingsThemeOptions settingsPaletteOptions" role="radiogroup" aria-label="调色板">
+        {THEME_PALETTES.map((palette) => (
+          <button
+            key={palette}
+            type="button"
+            role="radio"
+            aria-checked={currentPalette === palette}
+            data-active={currentPalette === palette}
+            data-palette={palette}
+            className="settingsThemeOption settingsPaletteOption"
+            onClick={() => void setPalette(palette)}
+          >
+            <span className={`settingsPaletteSwatch settingsPaletteSwatch-${palette}`} aria-hidden="true" />
+            <span className="settingsThemeLabel">
+              <strong>{PALETTE_LABEL[palette]}</strong>
+              <small>{PALETTE_HELP[palette]}</small>
             </span>
           </button>
         ))}

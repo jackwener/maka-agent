@@ -5042,6 +5042,25 @@ button:active {
   background: oklch(from var(--accent) l c h / 0.06);
 }
 
+/* PR-THEME-PRODUCT-PALETTES-0: palette picker. Each option shows a
+   round swatch whose color is the palette's accent token. The swatch
+   colors are hard-coded here (not pulled from --accent) so a non-
+   active palette still previews its real color. */
+.settingsPaletteSwatch {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  box-shadow: inset 0 0 0 2px oklch(1 0 0 / 0.25);
+}
+.settingsPaletteSwatch-default { background: oklch(0.55 0.18 285); }
+.settingsPaletteSwatch-onedark { background: oklch(0.55 0.14 250); }
+.settingsPaletteSwatch-catppuccin-mocha { background: oklch(0.66 0.15 310); }
+.settingsPaletteSwatch-tokyo-night { background: oklch(0.55 0.17 265); }
+.settingsPaletteSwatch-nord { background: oklch(0.62 0.12 215); }
+.settingsPaletteSwatch-alma { background: oklch(0.68 0.18 25); }
+.settingsPaletteSwatch-niuma { background: oklch(0.58 0.18 252); }
+
 .settingsThemeSwatch {
   width: 56px;
   height: 40px;
