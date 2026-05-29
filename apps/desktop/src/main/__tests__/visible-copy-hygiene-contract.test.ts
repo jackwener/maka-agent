@@ -33,6 +33,7 @@ import { join, resolve } from 'node:path';
 const FILES_TO_SCAN = [
   resolve(process.cwd(), '..', '..', 'packages', 'ui', 'src', 'components.tsx'),
   join(process.cwd(), 'src', 'renderer', 'OnboardingHero.tsx'),
+  join(process.cwd(), 'src', 'renderer', 'artifact-pane.tsx'),
   join(process.cwd(), 'src', 'renderer', 'artifact-preview-registry-shell.tsx'),
   join(process.cwd(), 'src', 'renderer', 'onboarding-hero-copy.ts'),
   join(process.cwd(), 'src', 'renderer', 'chat-header-alert.ts'),
@@ -113,7 +114,7 @@ const FORBIDDEN_VISIBLE_COPY: ForbiddenCopy[] = [
   },
   {
     label: 'renderer implementation terms leaked into visible preview copy',
-    needle: /注册表中实现|(?:此类|已识别到|无法识别|超过 2 MB 的|无法读取)\s*artifact/,
+    needle: /注册表中实现|(?:此类|已识别到|无法识别|超过 2 MB 的|无法读取)\s*artifact|Artifact\s*(?:预览|列表|操作)|(?:打开|读取|复制|另存|保存|选择左侧|展开|折叠|不存在|路径检查未通过|已删除)[^'\n`]*artifact/,
     reason:
       "artifact preview fallback copy must explain the product capability boundary in user terms, not expose renderer implementation details like a preview registry or internal `artifact` naming.",
   },
