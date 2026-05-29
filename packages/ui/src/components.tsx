@@ -5187,7 +5187,7 @@ function OverlayPreview(props: { content: ToolResultContent }) {
     return (
       <pre className="maka-overlay-preview" data-kind="text">
         {body}
-        {capped > 0 && `\n\n… ${capped} more lines hidden`}
+        {capped > 0 && `\n\n… 已隐藏 ${capped} 行`}
       </pre>
     );
   }
@@ -5290,7 +5290,7 @@ function FileDiffPreview(props: { diff: string; paths: string[] }) {
         ))}
         {capped > 0 && (
           <span className="maka-tool-diff-line" data-line="meta">
-            {`\n… ${capped} more lines hidden\n`}
+            {`\n… 已隐藏 ${capped} 行\n`}
           </span>
         )}
       </pre>
@@ -5338,22 +5338,22 @@ function TerminalPreview(props: {
         <span
           className="maka-tool-terminal-exit"
           data-ok={succeeded ? 'true' : 'false'}
-          aria-label={`exit code ${props.exitCode}`}
+          aria-label={`退出码 ${props.exitCode}`}
         >
-          exit {props.exitCode}
+          退出码 {props.exitCode}
         </span>
       </header>
-      {!hasOutput && <p className="maka-tool-terminal-empty">(no output)</p>}
+      {!hasOutput && <p className="maka-tool-terminal-empty">（无输出）</p>}
       {props.stdout.length > 0 && (
         <pre className="maka-tool-terminal-stream" data-stream="stdout">
           {stdout.body}
-          {stdout.capped > 0 && `\n\n… ${stdout.capped} more stdout lines hidden`}
+          {stdout.capped > 0 && `\n\n… stdout 已隐藏 ${stdout.capped} 行`}
         </pre>
       )}
       {props.stderr.length > 0 && (
         <pre className="maka-tool-terminal-stream" data-stream="stderr">
           {stderr.body}
-          {stderr.capped > 0 && `\n\n… ${stderr.capped} more stderr lines hidden`}
+          {stderr.capped > 0 && `\n\n… stderr 已隐藏 ${stderr.capped} 行`}
         </pre>
       )}
     </div>

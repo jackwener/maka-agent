@@ -117,6 +117,24 @@ const FORBIDDEN_VISIBLE_COPY: ForbiddenCopy[] = [
     reason:
       "artifact preview fallback copy must explain the product capability boundary, not expose renderer implementation details like a preview registry.",
   },
+  {
+    label: 'English hidden-line markers in tool previews',
+    needle: /more (?:stdout |stderr )?lines hidden/,
+    reason:
+      "tool result previews are user-visible runtime output surfaces; truncation markers should use Chinese product copy such as `已隐藏 N 行`, not English debug copy.",
+  },
+  {
+    label: 'English terminal empty-output marker',
+    needle: /\(no output\)/,
+    reason:
+      "terminal previews should show a Chinese empty-output marker (`（无输出）`) instead of raw English debug copy.",
+  },
+  {
+    label: 'English terminal exit-code marker',
+    needle: /exit code|>\s*exit\s*\{/,
+    reason:
+      "terminal previews should label process status as `退出码 N` in visible and aria copy, not English `exit code` / `exit N`.",
+  },
 ];
 
 /**
