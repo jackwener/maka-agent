@@ -1005,14 +1005,14 @@ function workstationStatusSessions(now: number): Array<{ header: SessionHeader; 
         id: `${input.id}-user`,
         turnId: `${input.id}-turn`,
         ts: baseLastMessage - input.lastMessageOffset - 10_000,
-        text: `这是 ${input.name} 的占位用户消息，用于状态分组截图验证。`,
+        text: `请把「${input.name}」这条工作流的当前状态整理成可交接摘要。`,
       },
       {
         type: 'assistant',
         id: `${input.id}-assistant`,
         turnId: `${input.id}-turn`,
         ts: baseLastMessage - input.lastMessageOffset,
-        text: '占位回复。',
+        text: '已记录关键状态、下一步动作和需要人工确认的风险点。',
         modelId: 'glm-5.1',
       },
     ],
@@ -1451,7 +1451,7 @@ function longSidebarSessions(now: number): Array<{ header: SessionHeader; messag
         id: 'msg-long-assistant-' + idSuffix,
         turnId: 'turn-long-' + idSuffix,
         ts: assistantTs,
-        text: '这是用于侧边栏滚动 fixture 的占位回复（条目 ' + idSuffix + ' / ' + LONG_SIDEBAR_SESSION_COUNT + '）。',
+        text: '已把第 ' + idSuffix + ' 条研究记录归档到当前工作流，侧边栏应保持稳定滚动位置。',
         modelId: 'glm-5.1',
       },
     ];
@@ -1592,7 +1592,7 @@ function staleLegacyMessages(now: number): StoredMessage[] {
       id: 'stale-legacy-msg-2',
       turnId,
       ts: now - 7 * 24 * 3_600_000 + 3_000,
-      text: '占位回复。',
+      text: '这条历史会话需要切换到当前可用模型后才能继续发送。',
       modelId: 'claude-3-sonnet',
     },
   ];
@@ -1613,7 +1613,7 @@ function healthyMessages(now: number): StoredMessage[] {
       id: 'healthy-msg-2',
       turnId,
       ts: now - 12 * 60_000 + 1_500,
-      text: 'Z.ai Live fixture 路径的占位回复。',
+      text: '当前连接健康，后续发送会继续使用这个会话固定的 GLM 模型。',
       modelId: 'glm-5.1',
     },
   ];

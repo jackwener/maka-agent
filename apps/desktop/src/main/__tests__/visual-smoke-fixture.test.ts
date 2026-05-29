@@ -309,6 +309,11 @@ describe('visual smoke fixture mode', () => {
     assert.equal(state?.liveToolsBySession?.['visual-smoke-permission']?.[0]?.status, 'waiting_permission');
   });
 
+  it('fixture source does not seed visible placeholder chat copy', async () => {
+    const src = await readFile(join(process.cwd(), 'src', 'main', 'visual-smoke-fixture.ts'), 'utf8');
+    assert.doesNotMatch(src, /占位用户消息|占位回复/, 'visual smoke screenshots must use product-like chat copy, not placeholder text');
+  });
+
   it('first-run seed keeps the fixture workspace connection-free', async () => {
     const workspaceRoot = await mkdtemp(join(tmpdir(), 'maka-visual-smoke-first-run-'));
     try {
