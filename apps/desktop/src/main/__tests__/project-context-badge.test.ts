@@ -1,7 +1,9 @@
 import { strict as assert } from 'node:assert';
-import { readFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { resolveProjectGitInfo } from '../project-context.js';
 
 const repoRoot = process.cwd().endsWith('apps/desktop')
   ? join(process.cwd(), '..', '..')
@@ -12,14 +14,36 @@ async function readRepo(path: string): Promise<string> {
 }
 
 describe('project context badge', () => {
+  it('resolves git branch from normal and worktree-style .git metadata', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'maka-project-context-'));
+    const worktree = await mkdtemp(join(tmpdir(), 'maka-project-context-worktree-'));
+    const gitDir = await mkdtemp(join(tmpdir(), 'maka-project-context-gitdir-'));
+    try {
+      await mkdir(join(root, '.git'), { recursive: true });
+      await writeFile(join(root, '.git', 'HEAD'), 'ref: refs/heads/main\n', 'utf8');
+      assert.deepEqual(await resolveProjectGitInfo(root), { isGitRepo: true, branch: 'main' });
+
+      await writeFile(join(worktree, '.git'), `gitdir: ${gitDir}\n`, 'utf8');
+      await writeFile(join(gitDir, 'HEAD'), 'ref: refs/heads/feature/sidebar\n', 'utf8');
+      assert.deepEqual(await resolveProjectGitInfo(worktree), { isGitRepo: true, branch: 'feature/sidebar' });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+      await rm(worktree, { recursive: true, force: true });
+      await rm(gitDir, { recursive: true, force: true });
+    }
+  });
+
   it('exposes the main-owned project path through app info', async () => {
     const main = await readRepo('apps/desktop/src/main/main.ts');
     const preload = await readRepo('apps/desktop/src/preload/preload.ts');
     const globalTypes = await readRepo('apps/desktop/src/global.d.ts');
 
-    assert.match(main, /projectPath:\s*process\.cwd\(\)/);
+    assert.match(main, /projectPath = process\.cwd\(\)/);
+    assert.match(main, /projectGit:\s*await resolveProjectGitInfo\(projectPath\)/);
     assert.match(preload, /projectPath:\s*string;/);
+    assert.match(preload, /projectGit:\s*\{ isGitRepo: boolean; branch\?: string \};/);
     assert.match(globalTypes, /projectPath:\s*string;/);
+    assert.match(globalTypes, /projectGit:\s*\{ isGitRepo: boolean; branch\?: string \};/);
   });
 
   it('opens project directory by allowlisted key, not renderer-supplied path', async () => {
@@ -40,11 +64,13 @@ describe('project context badge', () => {
 
     assert.match(ui, /projectBadge\?:\s*\{/);
     assert.match(ui, /className="maka-project-badge"/);
-    assert.match(ui, /项目 · \{props\.projectBadge\.label\}/);
-    assert.match(ui, /aria-label=\{`打开项目目录：\$\{props\.projectBadge\.label\}`\}/);
+    assert.match(ui, /branch\?: string;/);
+    assert.match(ui, /项目 · \{props\.projectBadge\.label\}\{props\.projectBadge\.branch \? ` · \$\{props\.projectBadge\.branch\}` : ''\}/);
+    assert.match(ui, /当前分支 \$\{props\.projectBadge\.branch\}/);
     assert.match(styles, /\.maka-project-badge\s*\{/);
     assert.match(styles, /-webkit-app-region:\s*no-drag/);
     assert.match(renderer, /basenameFromPath\(appInfo\.projectPath\)/);
+    assert.match(renderer, /branch:\s*appInfo\.projectGit\.branch/);
   });
 
   it('adds a command palette action for the same guarded project open path', async () => {
