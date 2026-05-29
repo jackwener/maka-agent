@@ -2136,8 +2136,8 @@ function WebSearchSettingsPage(props: {
 
       <div className="settingsFormRow">
         <div style={{ flex: 1 }}>
-          <strong>试一下</strong>
-          <small>直接发一条真实查询，看到 Tavily 返回的标题 / 摘要 / 来源域名。结果只显示在此页面，不写入会话也不入 telemetry。</small>
+          <strong>真实查询验证</strong>
+          <small>直接发一条真实查询，看到 Tavily 返回的标题 / 摘要 / 来源域名。结果只显示在此页面，不写入会话也不写入遥测。</small>
         </div>
       </div>
       <div className="settingsFormGrid">
@@ -2146,7 +2146,7 @@ function WebSearchSettingsPage(props: {
           <input
             value={demoQuery}
             onChange={(event) => setDemoQuery(event.currentTarget.value)}
-            placeholder="例如：electron safeStorage best practice"
+            placeholder="例如：Electron safeStorage 最佳实践"
             onKeyDown={(event) => {
               if (event.key === 'Enter' && !demoRunning) {
                 event.preventDefault();

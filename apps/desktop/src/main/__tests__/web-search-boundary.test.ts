@@ -103,4 +103,16 @@ describe('web-search renderer boundary (PR-WEB-SEARCH-TAVILY-0)', () => {
       'Web search disabled copy must not tell users to enable a switch that may itself be blocked by a missing key',
     );
   });
+
+  it('Settings live query copy uses product language instead of demo/debug wording', async () => {
+    const settings = await readFile(join(REPO_ROOT, 'apps/desktop/src/renderer/settings/SettingsModal.tsx'), 'utf8');
+    const page = settings.match(/function WebSearchSettingsPage[\s\S]*?function webSearchQueryDisabledReason/);
+
+    assert.ok(page, 'Web search settings page block must exist');
+    assert.match(page![0], /真实查询验证/);
+    assert.match(page![0], /不写入会话也不写入遥测/);
+    assert.match(page![0], /Electron safeStorage 最佳实践/);
+    assert.doesNotMatch(page![0], />试一下</);
+    assert.doesNotMatch(page![0], />试一下<|不入 telemetry/);
+  });
 });
