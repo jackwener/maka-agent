@@ -214,6 +214,7 @@ describe('HealthSignal contract', () => {
     // independent of the bot layer.
     expect(connectionUnverified.scope).toBe('llm_connection');
     expect(connectionUnverified.status).toBe('unknown');
+    expect(connectionUnverified.message).toBe('等待验证连接。');
 
     // Bot capability layer reports its own status from runtime probe,
     // independent of the connection's lastTestStatus.
@@ -280,6 +281,7 @@ describe('HealthSignal contract', () => {
       healthSignalFromCapability(capability('bot:telegram', 'degraded')),
     ].filter((item): item is HealthSignal => Boolean(item));
     const englishImplementationCopy = /\b(?:Connection|Credential|endpoint|validation|Capability|runtime probe|agent send|errorClass|latency|model=)\b/;
+    const unfinishedStateCopy = /连接尚未验证|能力尚未完整配置/;
 
     for (const signal of signals) {
       if (englishImplementationCopy.test(signal.message)) {
@@ -287,6 +289,9 @@ describe('HealthSignal contract', () => {
       }
       if (signal.detail && englishImplementationCopy.test(signal.detail)) {
         throw new Error(`Health signal detail exposes English implementation copy: ${signal.detail}`);
+      }
+      if (unfinishedStateCopy.test(signal.message)) {
+        throw new Error(`Health signal message should describe an actionable state: ${signal.message}`);
       }
     }
   });

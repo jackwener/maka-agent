@@ -186,7 +186,7 @@ export function healthSignalFromConnection(connection: LlmConnection, checkedAt:
     status: 'unknown',
     source: 'connection_test',
     checkedAt,
-    message: '连接尚未验证。',
+    message: '等待验证连接。',
     blocksSend: false,
   };
 }
@@ -285,7 +285,7 @@ function capabilityMessage(readiness: CapabilityReadinessState): string {
     case 'paused':
       return '能力已关闭或暂停。';
     case 'not_configured':
-      return '能力尚未完整配置。';
+      return '等待补齐能力配置。';
     case 'denied':
       return '能力被必要系统权限阻塞。';
     case 'degraded':
