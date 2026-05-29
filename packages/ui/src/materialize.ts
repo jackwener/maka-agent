@@ -164,6 +164,7 @@ export interface TurnViewModel {
   branchOfTurnId?: string;
   parentSessionId?: string;
   abortedAt?: number;
+  abortSource?: string;
   errorClass?: string;
   partialOutputRetained: boolean;
   user?: ChatItem;
@@ -223,6 +224,7 @@ export function materializeTurns(
         ...(record?.branchOfTurnId ? { branchOfTurnId: record.branchOfTurnId } : {}),
         ...(record?.parentSessionId ? { parentSessionId: record.parentSessionId } : {}),
         ...(record?.abortedAt !== undefined ? { abortedAt: record.abortedAt } : {}),
+        ...(record?.abortSource ? { abortSource: record.abortSource } : {}),
         ...(record?.errorClass ? { errorClass: record.errorClass } : {}),
         partialOutputRetained: record?.partialOutputRetained ?? false,
         tools: [],

@@ -127,8 +127,8 @@ contextBridge.exposeInMainWorld('maka', {
     send(sessionId: string, command: SessionCommand): Promise<void> {
       return ipcRenderer.invoke('sessions:send', sessionId, command);
     },
-    stop(sessionId: string): Promise<void> {
-      return ipcRenderer.invoke('sessions:stop', sessionId);
+    stop(sessionId: string, input?: { source?: 'stop_button' }): Promise<void> {
+      return ipcRenderer.invoke('sessions:stop', sessionId, input);
     },
     readMessages(sessionId: string): Promise<StoredMessage[]> {
       return ipcRenderer.invoke('sessions:readMessages', sessionId);

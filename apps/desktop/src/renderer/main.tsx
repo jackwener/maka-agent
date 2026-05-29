@@ -1334,7 +1334,7 @@ function AppShell() {
   }
 
   async function stop() {
-    if (activeId) await window.maka.sessions.stop(activeId);
+    if (activeId) await window.maka.sessions.stop(activeId, { source: 'stop_button' });
   }
 
   async function respondToPermission(response: PermissionResponse) {

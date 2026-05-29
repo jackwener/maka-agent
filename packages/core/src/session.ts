@@ -246,6 +246,8 @@ export interface TurnStateMessage {
   branchOfTurnId?: string;
   parentSessionId?: string;
   abortedAt?: number;
+  /** Diagnostic source for user/renderer-triggered aborts, e.g. renderer.stop_button. */
+  abortSource?: string;
   errorClass?: string;
   partialOutputRetained: boolean;
 }
@@ -259,6 +261,7 @@ export interface TurnRecord {
   branchOfTurnId?: string;
   parentSessionId?: string;
   abortedAt?: number;
+  abortSource?: string;
   errorClass?: string;
   partialOutputRetained: boolean;
 }
@@ -312,6 +315,7 @@ export function deriveTurnRecords(messages: readonly StoredMessage[]): TurnRecor
         ...(latestState.branchOfTurnId ? { branchOfTurnId: latestState.branchOfTurnId } : {}),
         ...(latestState.parentSessionId ? { parentSessionId: latestState.parentSessionId } : {}),
         ...(latestState.abortedAt !== undefined ? { abortedAt: latestState.abortedAt } : {}),
+        ...(latestState.abortSource ? { abortSource: latestState.abortSource } : {}),
         ...(latestState.errorClass ? { errorClass: latestState.errorClass } : {}),
         partialOutputRetained: latestState.partialOutputRetained || partialOutputRetained,
       };

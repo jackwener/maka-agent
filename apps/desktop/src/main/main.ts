@@ -1473,7 +1473,9 @@ function registerIpc(): void {
       getPrivacyContext: async () => defaultWorkspacePrivacyContext(),
     });
   });
-  ipcMain.handle('sessions:stop', (_event, sessionId: string) => runtime.stopSession(sessionId));
+  ipcMain.handle('sessions:stop', (_event, sessionId: string, input?: { source?: 'stop_button' }) =>
+    runtime.stopSession(sessionId, input),
+  );
   ipcMain.handle('sessions:respondToPermission', (_event, sessionId: string, response) =>
     runtime.respondToPermission(sessionId, response),
   );

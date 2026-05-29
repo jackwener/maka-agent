@@ -335,6 +335,29 @@ describe('SessionManager permission mode updates', () => {
     )).toBe(true);
   });
 
+  test('stopSession records renderer abort source for diagnostics', async () => {
+    const store = new MemorySessionStore();
+    const backends = new BackendRegistry();
+    const gate = makeGate();
+    backends.register('fake', (ctx) => new TestBackend(ctx, gate));
+    const manager = new SessionManager({ store, backends, newId: nextId(), now: nextNow(12_500) });
+    const session = await manager.createSession(makeInput());
+
+    const iterator = manager.sendMessage(session.id, { turnId: 'turn-1', text: 'hello' })[Symbol.asyncIterator]();
+    await iterator.next();
+    await manager.stopSession(session.id, { source: 'stop_button' });
+
+    const [turn] = await store.listTurns(session.id);
+    expect(turn?.status).toBe('aborted');
+    expect(turn?.abortSource).toBe('renderer.stop_button');
+    const abortNote = (await store.readMessages(session.id)).find((message) =>
+      message.type === 'system_note' && message.kind === 'abort'
+    );
+    expect(abortNote?.type).toBe('system_note');
+    if (abortNote?.type !== 'system_note') throw new Error('abort note missing');
+    expect(abortNote.data).toEqual({ source: 'renderer.stop_button' });
+  });
+
   test('retry creates a new sibling turn and does not rewrite the aborted source turn', async () => {
     const store = new MemorySessionStore();
     const backends = new BackendRegistry();

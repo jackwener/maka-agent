@@ -120,7 +120,7 @@ declare global {
         list(filter?: SessionListFilter): Promise<SessionSummary[]>;
         create(input?: Partial<CreateSessionInput>): Promise<SessionSummary>;
         send(sessionId: string, command: SessionCommand): Promise<void>;
-        stop(sessionId: string): Promise<void>;
+        stop(sessionId: string, input?: { source?: 'stop_button' }): Promise<void>;
         readMessages(sessionId: string): Promise<StoredMessage[]>;
         listTurns(sessionId: string): Promise<TurnRecord[]>;
         retryTurn(sessionId: string, input: RetryTurnInput): Promise<void>;

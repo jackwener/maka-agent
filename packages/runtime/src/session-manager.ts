@@ -49,6 +49,10 @@ import { DEEP_RESEARCH_SESSION_LABEL, isDeepResearchSession } from '@maka/core';
 
 import type { AgentBackend } from './ai-sdk-backend.js';
 
+export interface StopSessionInput {
+  source?: 'stop_button';
+}
+
 // ============================================================================
 // SessionStore contract (matches the storage package surface)
 // ============================================================================
@@ -381,9 +385,10 @@ export class SessionManager {
     }
   }
 
-  async stopSession(sessionId: string): Promise<void> {
+  async stopSession(sessionId: string, input: StopSessionInput = {}): Promise<void> {
     const active = this.active.get(sessionId);
     if (!active) return;
+    const abortSource = normalizeStopSessionSource(input.source);
     await active.backend.stop('user_stop');
     await this.updateStatus(sessionId, 'aborted');
     for (const turnId of active.activeTurnIds) {
@@ -392,7 +397,7 @@ export class SessionManager {
         turnId,
         'aborted',
         active.activeTurnLineage.get(turnId) ?? {},
-        { ts: this.deps.now() },
+        { ts: this.deps.now(), abortSource },
       ).catch(() => {});
     }
     // Append the abort SystemNote synchronously (matches §9 Step 6 step 4).
@@ -401,6 +406,7 @@ export class SessionManager {
       id: this.deps.newId(),
       ts: this.deps.now(),
       kind: 'abort',
+      ...(abortSource ? { data: { source: abortSource } } : {}),
     } satisfies SystemNoteMessage);
   }
 
@@ -532,7 +538,7 @@ export class SessionManager {
     turnId: string,
     status: TurnRecord['status'],
     lineage: Partial<Pick<UserMessageInput, 'parentTurnId' | 'retriedFromTurnId' | 'regeneratedFromTurnId' | 'branchOfTurnId' | 'parentSessionId'>> = {},
-    options: { ts?: number; errorClass?: string } = {},
+    options: { ts?: number; errorClass?: string; abortSource?: string } = {},
   ): Promise<void> {
     const ts = options.ts ?? this.deps.now();
     await this.deps.store.appendMessage(sessionId, {
@@ -547,6 +553,7 @@ export class SessionManager {
       ...(lineage.branchOfTurnId ? { branchOfTurnId: lineage.branchOfTurnId } : {}),
       ...(lineage.parentSessionId ? { parentSessionId: lineage.parentSessionId } : {}),
       ...(status === 'aborted' ? { abortedAt: ts } : {}),
+      ...(status === 'aborted' && options.abortSource ? { abortSource: options.abortSource } : {}),
       ...(status === 'failed' ? { errorClass: options.errorClass ?? 'unknown' } : {}),
       partialOutputRetained: await this.turnHasRetainedOutput(sessionId, turnId),
     });
@@ -685,6 +692,13 @@ function blockedReasonFromErrorReason(reason: string | undefined): SessionBlocke
   if (reason === 'tool_failed') return 'tool_failed';
   if (reason === 'auth' || reason.includes('api_key') || reason.includes('connection')) return 'NO_REAL_CONNECTION';
   return 'unknown';
+}
+
+function normalizeStopSessionSource(source: StopSessionInput['source'] | undefined): string | undefined {
+  switch (source) {
+    case 'stop_button': return 'renderer.stop_button';
+    case undefined: return undefined;
+  }
 }
 
 // Re-export the suppressed-unused types so this file is the canonical home

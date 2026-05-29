@@ -3934,7 +3934,7 @@ function TurnView(props: {
             {turn.status === 'aborted' && (
               <div className="maka-turn-aborted-marker" role="status">
                 <Ban size={12} strokeWidth={2} aria-hidden="true" />
-                <em>(已中断)</em>
+                <em>{turnAbortMarkerLabel(turn.abortSource)}</em>
               </div>
             )}
             {/* PR109e-d: failed turn AlertOctagon banner with generalized
@@ -4059,6 +4059,13 @@ export interface TurnLineageBadge {
    * in different positions (forward at top, reverse at bottom).
    */
   direction: 'forward' | 'reverse';
+}
+
+function turnAbortMarkerLabel(abortSource: string | undefined) {
+  switch (abortSource) {
+    case 'renderer.stop_button': return '(已中断 · 由停止按钮触发)';
+    default: return '(已中断)';
+  }
 }
 
 function TurnFooterActions(props: {
