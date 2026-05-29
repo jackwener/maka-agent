@@ -14,15 +14,15 @@ describe('BotRegistry', () => {
     });
 
     await registry.applySettings(settingsWith({
-      wechat: { enabled: true, token: 'unused' },
+      dingtalk: { enabled: true, token: 'unused' },
     }));
 
     assert.equal(registry.getStatus('telegram').reason, 'disabled');
     assert.equal(registry.getStatus('telegram').readiness, 'scaffolded');
-    assert.equal(registry.getStatus('wechat').reason, 'scaffold-only');
-    assert.equal(registry.getStatus('wechat').running, false);
-    assert.equal(registry.getStatus('wechat').readiness, 'configured');
-    assert.equal(statuses.some((status) => status.platform === 'wechat' && status.readiness === 'configured'), true);
+    assert.equal(registry.getStatus('dingtalk').reason, 'scaffold-only');
+    assert.equal(registry.getStatus('dingtalk').running, false);
+    assert.equal(registry.getStatus('dingtalk').readiness, 'configured');
+    assert.equal(statuses.some((status) => status.platform === 'dingtalk' && status.readiness === 'configured'), true);
   });
 
   test('does not mark scaffold-only Discord as operational', async () => {

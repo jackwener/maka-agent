@@ -94,8 +94,11 @@ export {
   BotRegistry,
   botReadinessFromSettings,
   botSettingsRequireRestart,
+  normalizeWechatBridgeUrl,
   proxiedFetch,
   testBotChannel,
+  testWechatBridge,
+  WechatBridge,
 } from './bots/index.js';
 export { setActiveProxy, resolveActiveProxy } from './network/active-proxy-state.js';
 export type {

@@ -364,10 +364,11 @@ export const BOT_PROVIDERS: BotProvider[] = [
   'qq',
 ];
 
-export type BotDeliveryProvider = Extract<BotProvider, 'telegram'>;
+export type BotDeliveryProvider = Extract<BotProvider, 'telegram' | 'wechat'>;
 
 export const BOT_DELIVERY_PROVIDERS: BotDeliveryProvider[] = [
   'telegram',
+  'wechat',
 ];
 
 export function isBotDeliveryProvider(value: unknown): value is BotDeliveryProvider {
@@ -391,6 +392,7 @@ export function createDefaultBotChannel(provider: BotProvider): BotChannelSettin
     readiness: 'scaffolded',
     token: '',
     proxyUrl: provider === 'telegram' ? 'http://127.0.0.1:7890' : '',
+    ...(provider === 'wechat' ? { webhookUrl: 'http://127.0.0.1:18400' } : {}),
   };
 }
 
@@ -773,9 +775,15 @@ function normalizeBotChannel(
   };
 }
 
+export function hasBotChannelCredentials(channel: BotChannelSettings): boolean {
+  if (channel.token.trim().length > 0 || Boolean(channel.appId) || Boolean(channel.appSecret)) return true;
+  if (channel.provider === 'wechat' && Boolean(channel.webhookUrl?.trim())) return true;
+  return false;
+}
+
 function readinessFromChannel(channel: BotChannelSettings): BotReadinessState {
   if (!channel.enabled) return 'scaffolded';
-  if (!channel.token.trim() && !channel.appId && !channel.appSecret) return 'scaffolded';
+  if (!hasBotChannelCredentials(channel)) return 'scaffolded';
   return 'configured';
 }
 
@@ -808,8 +816,7 @@ function coerceReadinessForCurrentState(
   channel: BotChannelSettings,
   candidate: BotReadinessState,
 ): BotReadinessState {
-  const hasCredentials =
-    channel.token.trim().length > 0 || Boolean(channel.appId) || Boolean(channel.appSecret);
+  const hasCredentials = hasBotChannelCredentials(channel);
   const claimsCredentials =
     candidate === 'configured' ||
     candidate === 'credentials_valid' ||

@@ -5,10 +5,10 @@ import { testBotChannel } from '../bot-test.js';
 
 describe('testBotChannel copy', () => {
   test('all bot platforms now route to a real credential probe, not the planned fallback', async () => {
-    // PR-BOT-QQ-CREDENTIALS-TEST-0: with QQ landed, every BotProvider
-    // has a real credential probe. None of them should return the
-    // "当前不支持凭据测试" placeholder copy when given empty credentials
-    // — they all surface product-specific "X is required" errors.
+    // PR-BOT-QQ-CREDENTIALS-TEST-0 + PR-BOT-WECHAT-BRIDGE-0: every
+    // BotProvider now has a credential or local-bridge probe. None of
+    // them should return the "当前不支持凭据测试" placeholder copy when
+    // given empty credentials — they all surface product-specific errors.
     const providers: BotProvider[] = ['telegram', 'discord', 'feishu', 'wecom', 'wechat', 'dingtalk', 'qq'];
 
     for (const provider of providers) {
@@ -36,18 +36,14 @@ describe('testBotChannel copy', () => {
     assert.match(result.error ?? '', /appsecret/);
   });
 
-  test('wechat credentials require official account app credentials', async () => {
+  test('wechat rejects non-local bridge URLs instead of treating it as planned', async () => {
     const result = await testBotChannel('wechat', {
       ...createDefaultBotChannel('wechat'),
-      enabled: true,
-      token: '',
-      appId: '',
-      appSecret: '',
+      webhookUrl: 'https://example.com/wechat-bridge',
     });
-
     assert.equal(result.ok, false);
-    assert.match(result.error ?? '', /WeChat App ID and App Secret are required/);
-    assert.doesNotMatch(result.error ?? '', /当前不支持凭据测试/);
+    assert.match(result.error ?? '', /127\.0\.0\.1|localhost/);
+    assert.doesNotMatch(`${result.error ?? ''} ${result.hint ?? ''}`, /当前不支持凭据测试|planned|not implemented|scaffold/i);
   });
 
   test('qq rejects empty credentials with product copy (not a generic "Bot token required")', async () => {

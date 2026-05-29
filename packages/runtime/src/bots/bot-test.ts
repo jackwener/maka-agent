@@ -1,6 +1,7 @@
 import { botDisplayLabel, type BotChannelSettings, type BotProvider } from '@maka/core';
 import type { BotTestResult } from './types.js';
 import { proxiedFetch } from './proxied-fetch.js';
+import { testWechatBridge } from './wechat-bridge.js';
 
 const BOT_TEST_TIMEOUT_MS = 10_000;
 
@@ -30,7 +31,7 @@ async function testWechat(channel: BotChannelSettings): Promise<BotTestResult> {
   const appId = channel.appId?.trim() ?? '';
   const appSecret = channel.appSecret?.trim() || channel.token.trim();
   if (!appId || !appSecret) {
-    return { ok: false, error: 'WeChat App ID and App Secret are required' };
+    return testWechatBridge(channel);
   }
   try {
     const url = new URL('https://api.weixin.qq.com/cgi-bin/token');

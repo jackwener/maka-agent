@@ -172,7 +172,7 @@ const BOT_LABELS: Record<BotProvider, { label: string; help: string; support: 'r
   },
   wechat: {
     label: '微信',
-    help: '填写微信公众号/服务号的 App ID 和 App Secret；当前只验证凭据，不表示已经接通消息收发。',
+    help: '填写公众号 App ID / App Secret 可测试官方凭据；连接本机 wechat-bridge 后可作为计划提醒投递目标发送到指定 wxid。',
     support: 'credentials',
   },
   discord: {
@@ -3260,6 +3260,10 @@ function BotChatSettingsPage(props: {
           </>
         )}
 
+        {/* PR-BOT-WECHAT-BRIDGE-0: WeChat has two credential-level
+            surfaces: official-account App credentials for token probing,
+            and the localhost-only wechat-bridge surface for local personal
+            WeChat delivery. Runtime keeps the bridge URL localhost-only. */}
         {selected === 'wechat' && (
           <>
             <label className="settingsField">
@@ -3271,7 +3275,18 @@ function BotChatSettingsPage(props: {
               <input type="password" value={channel.appSecret ?? ''} onChange={(event) => updateChannel({ appSecret: event.currentTarget.value })} placeholder="微信公众号 App Secret" />
             </label>
             <div className="settingsNotice">
-              微信凭据测试会向官方 token 接口申请 access_token；消息收发还需要公众号服务器地址、Token、EncodingAESKey 和回调验证，未接通前不会显示成运行可用。
+              微信公众号凭据测试会向官方 token 接口申请 access_token；若要让计划提醒投递到个人微信，需启动本机 `wechat-bridge` 并填写下面的 bridge 地址。
+            </div>
+            <label className="settingsField">
+              <span>本机 bridge 地址</span>
+              <input value={channel.webhookUrl ?? ''} onChange={(event) => updateChannel({ webhookUrl: event.currentTarget.value })} placeholder="http://127.0.0.1:18400" />
+            </label>
+            <label className="settingsField">
+              <span>Bearer Token（可选）</span>
+              <input type="password" value={channel.token} onChange={(event) => updateChannel({ token: event.currentTarget.value })} placeholder="本机 bridge Bearer Token" />
+            </label>
+            <div className="settingsNotice">
+              微信桥接只允许连接本机 `wechat-bridge`。凭据测试会请求 `/health`；计划提醒发送时会调用 `/send`，Chat ID 填 wxid、filehelper 或群 wxid。
             </div>
           </>
         )}
