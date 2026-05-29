@@ -236,6 +236,14 @@ export class OpenGatewayService {
       });
       return;
     }
+    if (url.pathname === '/v1/openapi.json') {
+      if (req.method !== 'GET') {
+        writeJson(res, 405, { ok: false, error: 'method_not_allowed' });
+        return;
+      }
+      writeJson(res, 200, buildGatewayOpenApiSpec(Boolean(this.deps.sendMessage)));
+      return;
+    }
     if (url.pathname === '/v1/state') {
       if (req.method !== 'GET') {
         writeJson(res, 405, { ok: false, error: 'method_not_allowed' });
@@ -557,6 +565,7 @@ interface GatewayIncidentIndexState {
 
 function buildGatewayCapabilities(sendAvailable: boolean): string[] {
   return [
+    'gateway.openapi',
     'gateway.state',
     'incidents.list',
     'incidents.state',
@@ -573,6 +582,189 @@ function buildGatewayCapabilities(sendAvailable: boolean): string[] {
     'sessions.incidents.read',
     'search.thread',
   ];
+}
+
+function buildGatewayOpenApiSpec(sendAvailable: boolean): Record<string, unknown> {
+  const bearerSecurity = [{ bearerAuth: [] }];
+  return {
+    openapi: '3.1.0',
+    info: {
+      title: 'Maka Open Gateway',
+      version: '0.1.0',
+      description: 'Local token-protected Maka gateway API. State endpoints avoid message text, previews, and event payloads.',
+    },
+    servers: [{ url: 'http://127.0.0.1:3939', description: 'Default local gateway address' }],
+    security: bearerSecurity,
+    paths: {
+      '/health': {
+        get: {
+          summary: 'Gateway health',
+          security: [],
+          responses: jsonResponses('Gateway runtime health; does not require bearer auth.'),
+        },
+      },
+      '/v1/openapi.json': {
+        get: {
+          summary: 'OpenAPI description',
+          responses: jsonResponses('Machine-readable description of the token-protected gateway surface.'),
+        },
+      },
+      '/v1/capabilities': {
+        get: {
+          summary: 'Gateway capabilities',
+          responses: jsonResponses('Current capability keys and endpoint metadata.'),
+        },
+      },
+      '/v1/state': {
+        get: {
+          summary: 'Gateway overview state',
+          responses: jsonResponses('Gateway, session, incident, and capability state without payloads or previews.'),
+        },
+      },
+      '/v1/sessions': {
+        get: {
+          summary: 'List sessions',
+          responses: jsonResponses('Session summaries visible to the local app.'),
+        },
+      },
+      '/v1/sessions/state': {
+        get: {
+          summary: 'Session aggregate state',
+          responses: jsonResponses('Counts and oldest/newest session summaries without titles or previews.'),
+        },
+      },
+      '/v1/sessions/{sessionId}/messages': {
+        get: {
+          summary: 'Read session messages',
+          parameters: [
+            pathParam('sessionId', 'Session id'),
+            queryParam('limit', 'Optional page size, capped at 200.'),
+            queryParam('before', 'Optional message id cursor for backward pagination.'),
+          ],
+          responses: jsonResponses('Message page for one session.'),
+        },
+        ...(sendAvailable
+          ? {
+              post: {
+                summary: 'Send a message',
+                parameters: [pathParam('sessionId', 'Session id')],
+                requestBody: jsonRequestBody({
+                  type: 'object',
+                  required: ['text'],
+                  properties: { text: { type: 'string', minLength: 1, maxLength: 20000 } },
+                  additionalProperties: false,
+                }),
+                responses: jsonResponses('Accepted turn id.'),
+              },
+            }
+          : {}),
+      },
+      '/v1/sessions/{sessionId}/messages/state': {
+        get: {
+          summary: 'Message aggregate state',
+          parameters: [pathParam('sessionId', 'Session id')],
+          responses: jsonResponses('Message count and oldest/newest summaries without text.'),
+        },
+      },
+      '/v1/sessions/{sessionId}/events': {
+        get: {
+          summary: 'Stream session events',
+          parameters: [
+            pathParam('sessionId', 'Session id'),
+            queryParam('after', 'Optional event replay cursor; equivalent to Last-Event-ID.'),
+          ],
+          responses: {
+            200: { description: 'Server-sent event stream.' },
+            401: { description: 'Missing or invalid bearer token.' },
+          },
+        },
+      },
+      '/v1/sessions/{sessionId}/events/state': {
+        get: {
+          summary: 'Event replay state',
+          parameters: [pathParam('sessionId', 'Session id')],
+          responses: jsonResponses('Replay buffer and active stream state without event payloads.'),
+        },
+      },
+      '/v1/sessions/{sessionId}/incidents': {
+        get: {
+          summary: 'Session incident summaries',
+          parameters: [pathParam('sessionId', 'Session id')],
+          responses: jsonResponses('Bounded recent error/abort summaries without event payload replay.'),
+        },
+      },
+      '/v1/incidents': {
+        get: {
+          summary: 'Incident index',
+          responses: jsonResponses('Bounded recent incident summaries across sessions.'),
+        },
+      },
+      '/v1/incidents/state': {
+        get: {
+          summary: 'Incident aggregate state',
+          responses: jsonResponses('Incident counts and oldest/newest summaries.'),
+        },
+      },
+      '/v1/search/thread': {
+        get: {
+          summary: 'Thread search',
+          parameters: [queryParam('q', 'Search query.')],
+          responses: jsonResponses('Thread search results or normalized search failure.'),
+        },
+      },
+    },
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+        },
+      },
+    },
+  };
+}
+
+function jsonResponses(description: string): Record<string, unknown> {
+  return {
+    200: {
+      description,
+      content: {
+        'application/json': {
+          schema: { type: 'object', additionalProperties: true },
+        },
+      },
+    },
+    401: { description: 'Missing or invalid bearer token.' },
+  };
+}
+
+function jsonRequestBody(schema: Record<string, unknown>): Record<string, unknown> {
+  return {
+    required: true,
+    content: {
+      'application/json': { schema },
+    },
+  };
+}
+
+function pathParam(name: string, description: string): Record<string, unknown> {
+  return {
+    name,
+    in: 'path',
+    required: true,
+    description,
+    schema: { type: 'string' },
+  };
+}
+
+function queryParam(name: string, description: string): Record<string, unknown> {
+  return {
+    name,
+    in: 'query',
+    required: false,
+    description,
+    schema: { type: 'string' },
+  };
 }
 
 interface GatewayOverviewState {

@@ -45,6 +45,7 @@ describe('OpenGatewayService', () => {
     const authorized = await fetchJson(`${status.baseUrl}/v1/capabilities`, 'dev-token');
     assert.equal(authorized.status, 200);
     assert.deepEqual(authorized.body.capabilities, [
+      'gateway.openapi',
       'gateway.state',
       'incidents.list',
       'incidents.state',
@@ -111,6 +112,28 @@ describe('OpenGatewayService', () => {
       limit: 50,
       includesPayloads: false,
     });
+  });
+
+  test('serves a token-protected OpenAPI gateway description', async () => {
+    const service = makeService();
+    activeServices.push(service);
+    const status = await service.sync(createGatewaySettings({ enabled: true, port: 0, token: 'dev-token' }).openGateway);
+    assert.ok(status.baseUrl);
+
+    const unauthorized = await fetchJson(`${status.baseUrl}/v1/openapi.json`);
+    assert.equal(unauthorized.status, 401);
+    assert.equal(unauthorized.body.error, 'unauthorized');
+
+    const authorized = await fetchJson(`${status.baseUrl}/v1/openapi.json`, 'dev-token');
+    assert.equal(authorized.status, 200);
+    assert.equal(authorized.body.openapi, '3.1.0');
+    assert.equal(authorized.body.info.title, 'Maka Open Gateway');
+    assert.deepEqual(authorized.body.security, [{ bearerAuth: [] }]);
+    assert.equal(authorized.body.components.securitySchemes.bearerAuth.scheme, 'bearer');
+    assert.ok(authorized.body.paths['/v1/state'].get);
+    assert.ok(authorized.body.paths['/v1/sessions/{sessionId}/events'].get);
+    assert.ok(authorized.body.paths['/v1/sessions/{sessionId}/messages'].post);
+    assert.doesNotMatch(JSON.stringify(authorized.body), /dev-token|hello gateway|sk-live/);
   });
 
   test('exposes a token-protected overview state for external dashboards', async () => {
