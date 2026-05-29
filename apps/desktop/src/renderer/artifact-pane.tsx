@@ -125,7 +125,7 @@ export function ArtifactPane(props: { sessionId: string | undefined }) {
   async function openInFinder(artifactId: string) {
     const result = await window.maka.app.openArtifactPath(artifactId);
     if (!result.ok) {
-      toast.error('无法在 Finder 中打开 artifact', openPathFailureCopy(result.reason));
+      toast.error('无法在 Finder 中打开生成文件', openPathFailureCopy(result.reason));
     }
   }
 
@@ -137,12 +137,12 @@ export function ArtifactPane(props: { sessionId: string | undefined }) {
     if (!record || !isTextKind(record.kind)) return;
     const result = await window.maka.artifacts.readText(artifactId);
     if (!result.ok) {
-      toast.error('复制失败', '无法读取 artifact 文本内容。');
+      toast.error('复制失败', '无法读取生成文件文本内容。');
       return;
     }
     try {
       await navigator.clipboard.writeText(result.text);
-      toast.success('已复制 artifact 文本', `${record.name} · ${formatBytes(record.sizeBytes)}`);
+      toast.success('已复制生成文件文本', `${record.name} · ${formatBytes(record.sizeBytes)}`);
     } catch {
       toast.error('复制失败', '剪贴板不可用。');
     }
@@ -152,7 +152,7 @@ export function ArtifactPane(props: { sessionId: string | undefined }) {
     const result = await window.maka.app.saveArtifactAs(artifactId);
     if (result.ok) {
       const record = records.find((entry) => entry.id === artifactId);
-      toast.success('已另存 artifact', record?.name ?? result.saved);
+      toast.success('已另存生成文件', record?.name ?? result.saved);
       return;
     }
     if (result.reason === 'canceled') return;
@@ -161,10 +161,10 @@ export function ArtifactPane(props: { sessionId: string | undefined }) {
 
   async function deleteArtifact(artifactId: string) {
     const record = records.find((entry) => entry.id === artifactId);
-    const name = record?.name ?? 'artifact';
+    const name = record?.name ?? '生成文件';
     const ok = await toast.confirm({
       title: `删除 "${name}"`,
-      description: '软删除：metadata 中标记为 deleted，文件保留 6 小时可恢复。',
+      description: '软删除：在记录中标记为已删除，文件保留 6 小时可恢复。',
       confirmLabel: '删除',
       cancelLabel: '取消',
       destructive: true,
@@ -241,7 +241,7 @@ export function ArtifactPane(props: { sessionId: string | undefined }) {
       className="maka-artifact-pane"
       data-collapsed={collapsed ? 'true' : 'false'}
       data-layout="responsive-bottom-sheet"
-      aria-label="Artifact 预览面板"
+      aria-label="生成文件预览面板"
       onKeyDown={handlePaneKeyDown}
     >
       <header className="maka-artifact-pane-header">
@@ -256,14 +256,14 @@ export function ArtifactPane(props: { sessionId: string | undefined }) {
           // both "pressed" + "expanded" meaningfully).
           aria-pressed={collapsed}
           aria-expanded={!collapsed}
-          aria-label={collapsed ? '展开 artifact 面板' : '折叠 artifact 面板'}
-          title={collapsed ? '展开 artifact 面板' : '折叠 artifact 面板'}
+          aria-label={collapsed ? '展开生成文件面板' : '折叠生成文件面板'}
+          title={collapsed ? '展开生成文件面板' : '折叠生成文件面板'}
         >
           {collapsed ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
         </button>
         {!collapsed && (
           <>
-            <span className="maka-artifact-pane-title">Artifact</span>
+            <span className="maka-artifact-pane-title">生成文件</span>
             <span className="maka-artifact-pane-count">{records.length}</span>
           </>
         )}
@@ -274,7 +274,7 @@ export function ArtifactPane(props: { sessionId: string | undefined }) {
             ref={listRef}
             className="maka-artifact-list"
             role="listbox"
-            aria-label="Artifact 列表"
+            aria-label="生成文件列表"
             aria-activedescendant={selectedId ? `maka-artifact-row-${selectedId}` : undefined}
             tabIndex={0}
             onKeyDown={handleListKeyDown}
@@ -320,7 +320,7 @@ export function ArtifactPane(props: { sessionId: string | undefined }) {
             // tabIndex=-1 make the div programmatically focusable without
             // adding a Tab stop (the list is the single Tab stop).
             role="region"
-            aria-label={selected ? `预览 ${selected.name}` : 'Artifact 预览'}
+            aria-label={selected ? `预览 ${selected.name}` : '生成文件预览'}
             tabIndex={-1}
           >
             {selected ? (
@@ -333,11 +333,11 @@ export function ArtifactPane(props: { sessionId: string | undefined }) {
                 onShowInFolder={() => void openInFinder(selected.id)}
               />
             ) : (
-              <div className="maka-artifact-preview-empty">选择左侧 artifact 查看预览。</div>
+              <div className="maka-artifact-preview-empty">选择左侧生成文件查看预览。</div>
             )}
           </div>
           {selected && (
-            <div className="maka-artifact-toolbar" role="toolbar" aria-label="Artifact 操作">
+            <div className="maka-artifact-toolbar" role="toolbar" aria-label="生成文件操作">
               <button
                 type="button"
                 className="maka-artifact-toolbar-button"
@@ -389,15 +389,15 @@ function isTextKind(kind: ArtifactKind): boolean {
 function saveArtifactFailureCopy(reason: string): string {
   switch (reason) {
     case 'not_found':
-      return 'artifact 文件不存在。';
+      return '生成文件不存在。';
     case 'not_allowed':
-      return 'artifact 路径检查未通过。';
+      return '生成文件路径检查未通过。';
     case 'deleted':
-      return 'artifact 已删除，不能另存。';
+      return '生成文件已删除，不能另存。';
     case 'write_failed':
       return '目标位置无法写入。';
     default:
-      return '无法保存 artifact。';
+      return '无法保存生成文件。';
   }
 }
 
