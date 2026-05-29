@@ -1576,8 +1576,8 @@ function DataSettingsPage() {
         </button>
       </div>
       <div className="settingsNotice">
-        提示：导出整个 workspace 为 .maka.zip、按 schemaVersion 升级导入备份等
-        能力会在 V0.2 阶段开放。现在可以在 Finder 里直接打包整个目录做手动备份。
+        本机数据保存在工作区。需要备份时先退出 Maka，再复制整个目录；恢复时替换同一路径后重启。
+        API key 使用系统 safeStorage 加密，跨设备恢复后需要重新测试连接。
       </div>
     </div>
   );
