@@ -63,7 +63,7 @@ import type {
   PermissionDecision,
 } from '@maka/core/backend-types';
 import { PROVIDER_DEFAULTS, type LlmConnection } from '@maka/core/llm-connections';
-import { generalizedErrorMessage } from '@maka/core/redaction';
+import { generalizedErrorMessage, redactSecrets } from '@maka/core/redaction';
 import type { LlmCallRecord, ToolInvocationRecord } from '@maka/core/usage-stats/types';
 
 import { PermissionEngine } from './permission-engine.js';
@@ -146,6 +146,8 @@ export interface ModelFactoryInput {
   modelId: string;
 }
 export type ModelFactory = (input: ModelFactoryInput) => unknown;
+
+export const TOOL_ERROR_RESULT_MAX_CHARS = 4000;
 
 // ============================================================================
 // Constructor input — single object matches @kabi's BackendRegistry call site
@@ -566,9 +568,10 @@ export class AiSdkBackend implements AgentBackend {
           this.currentWatchdog?.resume();
         } catch (err) {
           this.currentWatchdog?.resume();
-          const msg = err instanceof Error ? err.message : String(err);
-          await this.writeSyntheticToolResult(toolUseId, turnId, `Permission flow aborted: ${msg}`, queue);
-          return this.errorReturn(`Permission flow aborted: ${msg}`);
+          const msg = formatSyntheticToolErrorText(err);
+          const reason = formatSyntheticToolErrorText(`Permission flow aborted: ${msg}`);
+          await this.writeSyntheticToolResult(toolUseId, turnId, reason, queue);
+          return this.errorReturn(reason);
         }
 
         // Persist the decision and ack it on the event stream.
@@ -689,7 +692,7 @@ export class AiSdkBackend implements AgentBackend {
         return result;
       } catch (err) {
         output.flush();
-        const msg = err instanceof Error ? err.message : String(err);
+        const msg = formatSyntheticToolErrorText(err);
         await this.writeSyntheticToolResult(toolUseId, turnId, msg, queue);
         this.input.recordToolInvocation?.({
           sessionId: this.sessionId,
@@ -812,7 +815,7 @@ export class AiSdkBackend implements AgentBackend {
     text: string,
     queue: AsyncEventQueue<SessionEvent>,
   ): Promise<void> {
-    const content: ToolResultContent = { kind: 'text', text };
+    const content: ToolResultContent = { kind: 'text', text: formatSyntheticToolErrorText(text) };
     const msg: ToolResultMessage = {
       type: 'tool_result',
       id: this.newId(),
@@ -961,6 +964,13 @@ function classifyError(error: unknown): string {
   if (text.includes('timeout')) return 'Timeout';
   if (text.includes('network') || text.includes('fetch')) return 'Network';
   return error.name || 'Other';
+}
+
+export function formatSyntheticToolErrorText(error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error);
+  const redacted = redactSecrets(raw || 'Tool failed');
+  if (redacted.length <= TOOL_ERROR_RESULT_MAX_CHARS) return redacted;
+  return `${redacted.slice(0, TOOL_ERROR_RESULT_MAX_CHARS - 1)}…`;
 }
 
 function summarizeArgs(args: unknown): string {

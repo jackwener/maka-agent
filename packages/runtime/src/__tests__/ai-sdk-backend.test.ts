@@ -2,7 +2,12 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import type { LlmConnection, SessionHeader } from '@maka/core';
 import type { SessionEvent } from '@maka/core/events';
-import { AiSdkBackend } from '../ai-sdk-backend.js';
+import type { ToolResultMessage } from '@maka/core/session';
+import {
+  AiSdkBackend,
+  TOOL_ERROR_RESULT_MAX_CHARS,
+  formatSyntheticToolErrorText,
+} from '../ai-sdk-backend.js';
 import { PermissionEngine } from '../permission-engine.js';
 
 describe('AiSdkBackend error surfaces', () => {
@@ -31,6 +36,54 @@ describe('AiSdkBackend error surfaces', () => {
     const error = events.find((event): event is Extract<SessionEvent, { type: 'error' }> => event.type === 'error');
     assert.equal(error?.message, 'Authentication failed');
     assert.equal(JSON.stringify(events).includes('sk-live-secret-token-value'), false);
+  });
+
+  test('redacts and caps synthetic tool error text before storage and model return', () => {
+    const raw = `provider exploded: Authorization: Bearer sk-live-secret-token-value ${'x'.repeat(5000)}`;
+    const text = formatSyntheticToolErrorText(new Error(raw));
+
+    assert.equal(text.includes('sk-live-secret-token-value'), false);
+    assert.ok(text.includes('[redacted]'));
+    assert.equal(text.length, TOOL_ERROR_RESULT_MAX_CHARS);
+    assert.equal(text.endsWith('…'), true);
+  });
+
+  test('writeSyntheticToolResult never persists raw secret-shaped errors', async () => {
+    const messages: ToolResultMessage[] = [];
+    const events: SessionEvent[] = [];
+    const backend = new AiSdkBackend({
+      sessionId: 'session-1',
+      header: header(),
+      appendMessage: async (message) => {
+        if (message.type === 'tool_result') messages.push(message);
+      },
+      connection: connection(),
+      apiKey: 'sk-test',
+      modelId: 'claude-sonnet-4-5-20250929',
+      permissionEngine: new PermissionEngine({ newId: () => 'permission-id', now: () => 1 }),
+      modelFactory: () => ({}),
+      tools: [],
+      newId: idGenerator(),
+      now: () => 1,
+    });
+
+    await (backend as unknown as {
+      writeSyntheticToolResult(
+        toolUseId: string,
+        turnId: string,
+        text: string,
+        queue: { push(event: SessionEvent): void },
+      ): Promise<void>;
+    }).writeSyntheticToolResult(
+      'tool-1',
+      'turn-1',
+      'failed with api_key=sk-live-secret-token-value',
+      { push: (event) => events.push(event) },
+    );
+
+    assert.equal(JSON.stringify(messages).includes('sk-live-secret-token-value'), false);
+    assert.equal(JSON.stringify(events).includes('sk-live-secret-token-value'), false);
+    assert.deepEqual(messages[0]?.content, events.find((event) => event.type === 'tool_result')?.content);
   });
 });
 
