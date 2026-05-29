@@ -3358,7 +3358,7 @@ function PermissionCenterPage() {
           <h3>权限与能力中心</h3>
           <p>
             这里只读取系统权限与功能能力的当前快照，不会代替你修改任何 OS 权限。
-            撤销与引导流程会在原生 helper 上线后单独提供。
+            需要变更权限时，请前往「系统设置 → 隐私与安全性」完成授权或撤销。
           </p>
         </div>
         <div className="settingsPermissionMeta">
@@ -3401,8 +3401,8 @@ function PermissionCenterPage() {
       </section>
 
       <p className="settingsPermissionFootnote">
-        想要新增「拖拽 .app 完成 Accessibility 授权」「逐 target 申请 Automation」「Screen Recording 引导」等真正能修改 OS 权限的流程？
-        权限引导模块（Computer Use 原生 helper）接入后会替换这里的只读视图。
+        本页不会自动授予 Accessibility、Automation 或 Screen Recording。
+        高风险自动化能力必须保持逐项审批、可审计、可撤销。
       </p>
     </div>
   );
@@ -3473,16 +3473,14 @@ function CapabilityRow(props: { capability: CapabilitySnapshot }) {
       )}
       {/*
         PR-UX-POLISH-1 commit 2 (yuejing UX audit + xuan ROADMAP-SURFACE-0 +
-        kenji boundary 1): the `可暂停 · 即将可用` / `可撤销 · 即将可用`
-        chips read like disabled toggles, which violates the capability
-        presentation contract (`coming_soon` must be passive, not a fake
-        action). They're hidden here until the actual pause/revoke wiring
-        ships in PR-PERMISSION-GUIDE-0. Once available, render them as
-        real action buttons with `data-state="available"`.
+        kenji boundary 1): unavailable pause/revoke chips looked like
+        disabled toggles, which violates the capability presentation
+        contract. Keep them hidden until there are real actions with
+        `data-state="available"`.
       */}
       <div className="settingsCapabilityAuditSlot" aria-hidden={capability.auditEvents.length === 0}>
         {capability.auditEvents.length === 0 ? (
-          <small>审计日志接入后显示。</small>
+          <small>暂无审计记录。</small>
         ) : (
           <ul>
             {capability.auditEvents.slice(-3).map((event, index) => (

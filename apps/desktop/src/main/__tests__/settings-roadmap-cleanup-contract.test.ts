@@ -56,4 +56,18 @@ describe('Settings coming-soon cleanup contract', () => {
     assert.doesNotMatch(settings, /机器人运行时尚未接入|代码中还没有这个平台的运行时|平台运行时尚未接入/, 'planned bot copy must not expose implementation-status placeholder language');
     assert.doesNotMatch(settings, /providerSupport === 'planned'\s*\?\s*\{\s*label: '未接入'/, 'planned bot list tags should use the shared planned copy');
   });
+
+  it('keeps Permission Center copy scoped to current product boundaries', async () => {
+    const settings = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
+    const permissionPage = settings.match(/function PermissionCenterPage\(\)[\s\S]*?function CapabilityRow/);
+
+    assert.ok(permissionPage, 'Permission Center page block must exist');
+    assert.match(permissionPage![0], /只读取系统权限与功能能力的当前快照/, 'Permission Center must explain the current read-only snapshot boundary');
+    assert.match(permissionPage![0], /系统设置 → 隐私与安全性/, 'Permission Center must point users to the current OS permission path');
+    assert.doesNotMatch(
+      permissionPage![0],
+      /原生 helper|上线后|接入后|即将可用|未接入/,
+      'Permission Center visible copy must not expose implementation roadmap/helper language',
+    );
+  });
 });
