@@ -1122,7 +1122,7 @@ function registerIpc(): void {
   const experimentalDisabledResponse = {
     ok: false as const,
     reason: 'experimental_disabled' as const,
-    message: 'Claude 订阅功能尚未在此版本启用。',
+    message: 'Claude 订阅账号为内部实验，当前未开启。',
   };
   ipcMain.handle('claude-subscription:get-auth-url', async () => {
     // kenji `027c93c0` + xuan `2e5be5a`: when the experimental
