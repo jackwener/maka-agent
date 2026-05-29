@@ -1984,7 +1984,7 @@ function AppShell(props: {
                   ) : undefined
                 }
                 onNew={createSession}
-                onPromptSuggestion={(prompt) => composerRef.current?.setText(prompt)}
+                onPromptSuggestion={(prompt) => composerRef.current?.appendText(prompt)}
                 onPermissionModeChange={(mode) => void setPermissionMode(mode)}
               />
               <Composer
