@@ -302,7 +302,7 @@ export function formatImportedTextFilesPrompt(input: { count: number; fragments:
 function formatImportedTextFileBlock(input: { name: string; text: string; truncated: boolean }): string {
   return [
     `<local-text-file name="${escapeXmlAttr(input.name)}"${input.truncated ? ' truncated="true"' : ''}>`,
-    input.text,
+    escapeXmlText(input.text),
     '</local-text-file>',
   ].join('\n');
 }
@@ -434,7 +434,7 @@ export function formatImportedFolderOutlinesPrompt(input: { count: number; outli
 function formatImportedFolderOutlineBlock(input: { name: string; outline: string; truncated: boolean }): string {
   return [
     `<local-folder-outline name="${escapeXmlAttr(input.name)}"${input.truncated ? ' truncated="true"' : ''}>`,
-    input.outline,
+    escapeXmlText(input.outline),
     '</local-folder-outline>',
   ].join('\n');
 }
@@ -502,6 +502,13 @@ function escapeXmlAttr(value: string): string {
   return value
     .replace(/&/g, '&amp;')
     .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function escapeXmlText(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 }
