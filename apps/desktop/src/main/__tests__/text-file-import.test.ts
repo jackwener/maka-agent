@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
@@ -48,6 +48,17 @@ describe('text file context import', () => {
 
     assert.match(prompt, /文件内容过长/);
     assert.match(prompt, /name="a&quot;b&lt;\.md"/);
+  });
+
+  it('wires the import action into both Composer and first-run Quick Chat', async () => {
+    const mainSource = await readFile(join(process.cwd(), 'src/renderer/main.tsx'), 'utf8');
+    const onboardingSource = await readFile(join(process.cwd(), 'src/renderer/OnboardingHero.tsx'), 'utf8');
+    const uiSource = await readFile(join(process.cwd(), '../../packages/ui/src/components.tsx'), 'utf8');
+
+    assert.match(mainSource, /onImportTextFile=\{importTextFilePrompt\}/);
+    assert.match(mainSource, /onImportTextFile=\{importTextFileIntoComposer\}/);
+    assert.match(onboardingSource, /导入文本文件/);
+    assert.match(uiSource, /aria-label="导入文本文件"/);
   });
 });
 

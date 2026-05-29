@@ -1181,14 +1181,20 @@ function AppShell(props: {
     }
   }
 
-  async function importTextFileIntoComposer() {
+  async function importTextFilePrompt(): Promise<string | undefined> {
     const result = await window.maka.context.importTextFile();
     if (!result.ok) {
       if (result.reason !== 'cancelled') toastApi.error('导入文本失败', result.message);
-      return;
+      return undefined;
     }
-    composerRef.current?.setText(result.prompt);
     toastApi.success('已导入文本文件', `${result.name}${result.truncated ? ' · 已截断' : ''}`);
+    return result.prompt;
+  }
+
+  async function importTextFileIntoComposer() {
+    const prompt = await importTextFilePrompt();
+    if (!prompt) return;
+    composerRef.current?.setText(prompt);
   }
 
   async function stop() {
@@ -1875,6 +1881,7 @@ function AppShell(props: {
                         quickChatPending={quickChatPending}
                         connections={connections}
                         onRefreshConnections={refreshConnections}
+                        onImportTextFile={importTextFilePrompt}
                       />
                       {onboardingState.kind === 'ready_empty' && (
                         <FirstRunChecklist
