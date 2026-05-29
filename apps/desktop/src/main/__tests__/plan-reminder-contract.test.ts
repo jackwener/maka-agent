@@ -80,6 +80,11 @@ describe('Plan reminder MVP contract', () => {
     assert.match(ui, /planReminderDisplayRows/, 'all-reminders view must group rows by status');
     assert.match(ui, /maka-plan-group-header/, 'plan reminder groups must have visible headers');
     assert.match(ui, /planReminderStatusGroupLabel/, 'group labels must come from a centralized status mapper');
+    assert.equal(
+      (ui.match(/className="maka-plan-card-note"/g) ?? []).length,
+      1,
+      'plan reminder note must render once per card, not duplicate the same note line',
+    );
   });
 
   it('scheduler records trigger outcomes and emits due events', async () => {
