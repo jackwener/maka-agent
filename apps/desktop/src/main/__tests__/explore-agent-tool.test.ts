@@ -81,6 +81,7 @@ describe('ExploreAgent read-only worker', () => {
     await withWorkspace(async (workspaceRoot) => {
       await writeFile(join(workspaceRoot, 'notes.md'), 'reference explore worker notes');
       const tool = buildExploreAgentTool();
+      const output: string[] = [];
       const result = await tool.impl(
         { objective: 'find reference notes', queries: ['reference'] },
         {
@@ -89,12 +90,39 @@ describe('ExploreAgent read-only worker', () => {
           cwd: workspaceRoot,
           toolCallId: 'tool-1',
           abortSignal: new AbortController().signal,
-          emitOutput: () => {},
+          emitOutput: (_stream, chunk) => output.push(chunk),
         },
       );
       assert.equal(result.kind, 'explore_agent');
       assert.equal(result.ok, true);
       assert.ok(result.matches.some((match) => match.path === 'notes.md'));
+      assert.ok(output.some((chunk) => /准备范围/.test(chunk)));
+      assert.ok(output.some((chunk) => /完成/.test(chunk)));
+      assert.equal(output.join('').includes(workspaceRoot), false);
+    });
+  });
+
+  it('emits bounded progress checkpoints for long scans', async () => {
+    await withWorkspace(async (workspaceRoot) => {
+      for (let index = 0; index < 25; index++) {
+        await writeFile(join(workspaceRoot, `file-${index}.md`), `alpha reference ${index}`);
+      }
+      const progress: string[] = [];
+      const result = await runReadOnlyExplore({
+        cwd: workspaceRoot,
+        objective: 'find alpha references',
+        queries: ['alpha'],
+        maxFiles: 25,
+        maxMatches: 25,
+        onProgress: (message) => progress.push(message),
+      });
+
+      assert.equal(result.ok, true);
+      assert.ok(progress.length >= 5);
+      assert.ok(progress.length <= 12);
+      assert.ok(progress.some((message) => /已读取 10 个文件/.test(message)));
+      assert.ok(progress.some((message) => /完成，读取/.test(message)));
+      assert.equal(progress.join('\n').includes(workspaceRoot), false);
     });
   });
 
