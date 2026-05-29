@@ -217,6 +217,21 @@ describe('text file context import', () => {
     });
   });
 
+  it('routes unsupported Office files toward the Office Documents workflow', async () => {
+    const repoRoot = process.cwd().endsWith('apps/desktop')
+      ? join(process.cwd(), '..', '..')
+      : process.cwd();
+    const [main, renderer] = await Promise.all([
+      readFile(join(repoRoot, 'apps/desktop/src/main/main.ts'), 'utf8'),
+      readFile(join(repoRoot, 'apps/desktop/src/renderer/main.tsx'), 'utf8'),
+    ]);
+
+    assert.match(main, /Office Documents 能力或对应技能/);
+    assert.match(renderer, /Office Documents 能力或对应技能/);
+    assert.doesNotMatch(main, /Office 文件请先转成文本/);
+    assert.doesNotMatch(renderer, /Office 文件请先转成文本/);
+  });
+
   it('truncates long text by character count and escapes filenames', () => {
     const prompt = formatImportedTextFilePrompt({
       name: 'a"b<.md',

@@ -43,6 +43,12 @@ export const MAX_SKILL_BODY_CHARS = 4000;
 export const MAX_SKILL_TOOL_BODY_CHARS = 24_000;
 export const MAX_SKILLS_PROMPT_CHARS = 18000;
 
+const BUNDLED_OFFICE_SKILLS: Array<{ id: string; body: string }> = [
+  { id: 'officecli-docx', body: officeCliDocxSkillTemplate() },
+  { id: 'officecli-xlsx', body: officeCliXlsxSkillTemplate() },
+  { id: 'officecli-pptx', body: officeCliPptxSkillTemplate() },
+];
+
 /**
  * Scan `{workspaceRoot}/skills/` for directories that contain a SKILL.md.
  * Parse the YAML front-matter for `name`, `description`, and `allowed-tools`.
@@ -55,6 +61,54 @@ export const MAX_SKILLS_PROMPT_CHARS = 18000;
 export async function listInstalledSkills(root: string): Promise<InstalledSkill[]> {
   const definitions = await readInstalledSkillDefinitions(root);
   return definitions.map(({ content: _content, ...skill }) => skill);
+}
+
+export async function ensureBundledOfficeSkills(root: string): Promise<{ created: string[]; skipped: string[]; failed: string[] }> {
+  const created: string[] = [];
+  const skipped: string[] = [];
+  const failed: string[] = [];
+  const skillsDir = join(root, 'skills');
+
+  let rootReal: string;
+  let skillsReal: string;
+  try {
+    await mkdir(skillsDir, { recursive: true, mode: 0o700 });
+    const skillsStat = await lstat(skillsDir);
+    if (!skillsStat.isDirectory() || skillsStat.isSymbolicLink()) {
+      return { created, skipped, failed: BUNDLED_OFFICE_SKILLS.map((skill) => skill.id) };
+    }
+    [rootReal, skillsReal] = await Promise.all([realpath(root), realpath(skillsDir)]);
+    if (!isContainedPath(rootReal, skillsReal)) {
+      return { created, skipped, failed: BUNDLED_OFFICE_SKILLS.map((skill) => skill.id) };
+    }
+  } catch {
+    return { created, skipped, failed: BUNDLED_OFFICE_SKILLS.map((skill) => skill.id) };
+  }
+
+  for (const skill of BUNDLED_OFFICE_SKILLS) {
+    const skillDir = join(skillsDir, skill.id);
+    const skillFile = join(skillDir, 'SKILL.md');
+    try {
+      await mkdir(skillDir, { mode: 0o700 }).catch((error: NodeJS.ErrnoException) => {
+        if (error.code !== 'EEXIST') throw error;
+      });
+      const skillReal = await realpath(skillDir);
+      if (!isContainedPath(skillsReal, skillReal)) {
+        failed.push(skill.id);
+        continue;
+      }
+      await writeFile(skillFile, skill.body, { encoding: 'utf8', flag: 'wx', mode: 0o600 });
+      created.push(skill.id);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
+        skipped.push(skill.id);
+        continue;
+      }
+      failed.push(skill.id);
+    }
+  }
+
+  return { created, skipped, failed };
 }
 
 export async function createStarterSkill(root: string): Promise<CreateStarterSkillResult> {
@@ -373,5 +427,105 @@ allowed-tools:
 - 这个技能声明的工具只是需求提示，不会自动获得权限。
 - 不要把敏感内容写进这里；它会作为本地技能指令进入模型上下文。
 - 如果这个模板不适合你的工作流，可以直接改名或删除 ${id}。
+`;
+}
+
+function officeCliDocxSkillTemplate(): string {
+  return `---
+name: OfficeCLI DOCX
+description: Use when a .docx, Word document, report, memo, proposal, letter, tracked changes, comments, header/footer, table of contents, or Word template is involved.
+allowed-tools:
+  - Bash
+  - Read
+---
+
+# OfficeCLI DOCX
+
+Use this skill for Word document work. It is adapted from PawWork's OfficeCLI DOCX skill for Maka's permission model.
+
+## Boundary
+
+- Check \`officecli --version\` first. If missing, tell the user Office document automation is unavailable on this machine instead of parsing .docx as plain text.
+- Prefer \`officecli help docx\` and \`officecli help docx <element>\` before guessing flags. Installed help is authoritative.
+- Quote semantic paths: \`"/body/p[1]"\`, \`"/footer[1]"\`.
+- Read-only inspection commands are safe: \`view\`, \`get\`, \`query\`, \`validate\`, \`help\`.
+- Mutating commands such as \`create\`, \`open\`, \`add\`, \`set\`, \`remove\`, \`batch\`, and \`close\` require the normal shell permission flow.
+
+## Workflow
+
+1. Orient with \`officecli view "$FILE" outline\`, then \`view text\` or \`get\` the needed paths.
+2. For edits, use resident mode: \`officecli open "$FILE"\`, make small incremental changes, verify each structural step with \`get\`, then \`officecli close "$FILE"\`.
+3. For generated documents, build hierarchy first: Title, Heading 1, Heading 2, body; then tables/images/fields; then headers/footers.
+4. Use explicit typography. Body 11-12pt; H1 at least 18pt; H2 around 14pt; spacing via paragraph properties, not blank paragraphs.
+5. Add live page-number fields for documents longer than one page. Verify fields exist with \`get "$FILE" "/footer[1]" --depth 3\`.
+6. Final QA: \`officecli validate "$FILE"\` and \`officecli view "$FILE" html\`. Fix placeholder tokens, clipped tables, empty-paragraph spacing, static page numbers, and missing TOC on heading-heavy documents before reporting done.
+`;
+}
+
+function officeCliXlsxSkillTemplate(): string {
+  return `---
+name: OfficeCLI XLSX
+description: Use when a .xlsx, Excel workbook, spreadsheet, CSV/TSV import, tracker, dashboard, financial model, formula, chart, pivot table, or worksheet template is involved.
+allowed-tools:
+  - Bash
+  - Read
+---
+
+# OfficeCLI XLSX
+
+Use this skill for spreadsheet work. It is adapted from PawWork's OfficeCLI XLSX skill for Maka's permission model.
+
+## Boundary
+
+- Check \`officecli --version\` first. If missing, report that Excel automation is unavailable on this machine.
+- Prefer \`officecli help xlsx\` and \`officecli help xlsx <element>\` before guessing flags. Installed help is authoritative.
+- Quote paths such as \`"/Sheet1/A1"\`, \`"/Sheet1/col[B]"\`, and \`"/Sheet1/row[1]"\`.
+- Single-quote values containing \`$\`, especially number formats: \`--prop numFmt='$#,##0'\`.
+- Read-only inspection commands are safe: \`view\`, \`get\`, \`query\`, \`validate\`, \`help\`.
+- Mutating workbook commands require the normal shell permission flow.
+
+## Workflow
+
+1. Orient with \`officecli view "$FILE" outline\`; use \`view text\`, \`get\`, and \`query\` for targeted inspection.
+2. For CSV/TSV, prefer native import, then set widths and number formats.
+3. For generated workbooks, create sheets, enter assumptions, formulas, formats, charts, then validate.
+4. Use formulas rather than hardcoded derived values. Put assumptions in cells and cite sources in adjacent notes or comments.
+5. Set readable widths explicitly; default Excel widths often render as \`###\`.
+6. Financial-model convention: blue font for hardcoded inputs, black for formulas, green for same-workbook links, red for external links, yellow fill for assumptions needing review.
+7. Final QA: \`officecli validate "$FILE"\` and \`officecli view "$FILE" html\`. Fix formula errors, \`###\`, truncated headers, hidden assumptions, placeholder tokens, and chart labels before reporting done.
+`;
+}
+
+function officeCliPptxSkillTemplate(): string {
+  return `---
+name: OfficeCLI PPTX
+description: Use when a .pptx, slide deck, presentation, pitch deck, speaker notes, layout, chart, template, or slides file is involved.
+allowed-tools:
+  - Bash
+  - Read
+---
+
+# OfficeCLI PPTX
+
+Use this skill for presentation work. It is adapted from PawWork's OfficeCLI PPTX skill for Maka's permission model.
+
+## Boundary
+
+- Check \`officecli --version\` first. If missing, report that slide automation is unavailable on this machine.
+- Prefer \`officecli help pptx\` and \`officecli help pptx <element>\` before guessing flags. Installed help is authoritative.
+- Quote paths such as \`"/slide[1]"\` and \`"/slide[1]/shape[2]"\`.
+- Single-quote text containing \`$\`: \`--prop text='$15M ARR'\`.
+- Read-only inspection commands are safe: \`view\`, \`get\`, \`query\`, \`validate\`, \`help\`.
+- Mutating slide commands require the normal shell permission flow.
+
+## Workflow
+
+1. Orient with \`officecli view "$FILE" outline\`, \`view text\`, and targeted \`get\` calls.
+2. For generated decks, use one idea per slide. Dense multi-topic slides should be split.
+3. Set explicit type hierarchy: titles at least 36pt, body text at least 18pt, captions 10-12pt.
+4. Use two fonts max and one coherent palette. Every content slide should carry a non-text visual: chart, shape, icon, screenshot, or image region.
+5. Add speaker notes to content slides.
+6. Check layout math. For 16:9 slides, keep shapes inside 33.87cm x 19.05cm and maintain edge margins.
+7. Final QA: \`officecli validate "$FILE"\` and \`officecli view "$FILE" html\`. Fix placeholders, overflow, clipped text, low contrast, bullet-only slides, and missing notes before reporting done.
 `;
 }

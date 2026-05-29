@@ -20,12 +20,14 @@ function evaluate(
   args: unknown,
   mode: PermissionMode,
   remembered: string[] = [],
+  categoryHint?: ToolCategory,
 ) {
   return preToolUse({
     toolName,
     args,
     mode,
     turnRemembered: new Set(remembered),
+    ...(categoryHint !== undefined ? { categoryHint } : {}),
   });
 }
 
@@ -35,6 +37,10 @@ describe('categorizeBash', () => {
     expect(categorizeBash('git status')).toBe('shell_safe');
     expect(categorizeBash('git log --oneline -n 5')).toBe('shell_safe');
     expect(categorizeBash('grep -r foo .')).toBe('shell_safe');
+    expect(categorizeBash('officecli view deck.pptx outline')).toBe('shell_safe');
+    expect(categorizeBash('officecli get deck.pptx "/slide[1]"')).toBe('shell_safe');
+    expect(categorizeBash('officecli validate model.xlsx')).toBe('shell_safe');
+    expect(categorizeBash('officecli help pptx chart')).toBe('shell_safe');
   });
 
   test('cd is NOT safe (excluded by design)', () => {
@@ -115,6 +121,8 @@ describe('categorizeBash', () => {
     expect(categorizeBash('npm install lodash')).toBe('shell_unsafe');
     expect(categorizeBash('curl https://example.com')).toBe('shell_unsafe');
     expect(categorizeBash('python script.py')).toBe('shell_unsafe');
+    expect(categorizeBash('officecli set deck.pptx "/slide[1]" --prop title=Hi')).toBe('shell_unsafe');
+    expect(categorizeBash('officecli close deck.pptx')).toBe('shell_unsafe');
   });
 
   test('precedence: privileged > fs_destructive > git_destructive > safe', () => {
@@ -155,6 +163,19 @@ describe('preToolUse — explore mode', () => {
     const r = evaluate('Bash', { command: 'rm foo.txt' }, 'explore');
     expect(r.proceed).toBe(false);
     expect(r.category).toBe('fs_destructive');
+  });
+
+  test('trusted read-only subagent tool → allow', () => {
+    const r = evaluate(
+      'ExploreAgent',
+      { objective: 'map the repo', queries: ['permission'] },
+      'explore',
+      [],
+      'subagent',
+    );
+    expect(r.proceed).toBe(true);
+    expect(r.needsPrompt).toBe(false);
+    expect(r.category).toBe('subagent');
   });
 });
 
@@ -301,7 +322,7 @@ describe('PERMISSION_POLICY matrix invariants', () => {
     expect(PERMISSION_POLICY.explore.git_destructive).toBe('block');
     expect(PERMISSION_POLICY.explore.network_send).toBe('block');
     expect(PERMISSION_POLICY.explore.privileged).toBe('block');
-    expect(PERMISSION_POLICY.explore.subagent).toBe('block');
+    expect(PERMISSION_POLICY.explore.subagent).toBe('allow');
   });
 
   test('web_read prompts in non-autonomous modes (PR-AGENT-WEB-SEARCH-TOOL-0)', () => {

@@ -9,6 +9,7 @@ import {
   buildSkillAgentTool,
   buildSkillsPromptFragment,
   createStarterSkill,
+  ensureBundledOfficeSkills,
   loadSkillInstructions,
   listInstalledSkills,
   parseSkillFrontMatter,
@@ -172,12 +173,44 @@ name: Existing
     });
   });
 
+  it('seeds bundled OfficeCLI skills without overwriting user edits', async () => {
+    await withWorkspace(async (workspaceRoot) => {
+      const first = await ensureBundledOfficeSkills(workspaceRoot);
+      assert.deepEqual(first.created.sort(), ['officecli-docx', 'officecli-pptx', 'officecli-xlsx']);
+      assert.deepEqual(first.skipped, []);
+      assert.deepEqual(first.failed, []);
+
+      const skills = await listInstalledSkills(workspaceRoot);
+      assert.equal(skills.length, 3);
+      assert.deepEqual(skills.map((skill) => skill.id).sort(), ['officecli-docx', 'officecli-pptx', 'officecli-xlsx']);
+      assert.ok(skills.every((skill) => skill.declaredTools.includes('Bash')));
+
+      const docxPath = join(workspaceRoot, 'skills', 'officecli-docx', 'SKILL.md');
+      const before = await readFile(docxPath, 'utf8');
+      assert.match(before, /Check `officecli --version` first/);
+      assert.match(before, /Mutating commands/);
+      assert.equal((await lstat(docxPath)).mode & 0o077, 0);
+
+      await writeFile(docxPath, `${before}\n\n# User edit\n`, 'utf8');
+      const second = await ensureBundledOfficeSkills(workspaceRoot);
+      assert.deepEqual(second.created, []);
+      assert.deepEqual(second.skipped.sort(), ['officecli-docx', 'officecli-pptx', 'officecli-xlsx']);
+      assert.deepEqual(second.failed, []);
+      assert.match(await readFile(docxPath, 'utf8'), /# User edit/);
+    });
+  });
+
   it('rejects a symlinked skills directory instead of writing through it', async () => {
     await withWorkspace(async (workspaceRoot) => {
       const outside = await mkdtemp(join(tmpdir(), 'maka-skills-outside-'));
       try {
         await symlink(outside, join(workspaceRoot, 'skills'));
         assert.deepEqual(await createStarterSkill(workspaceRoot), { ok: false, reason: 'blocked_path' });
+        assert.deepEqual(await ensureBundledOfficeSkills(workspaceRoot), {
+          created: [],
+          skipped: [],
+          failed: ['officecli-docx', 'officecli-xlsx', 'officecli-pptx'],
+        });
         assert.deepEqual(await listInstalledSkills(workspaceRoot), []);
       } finally {
         await rm(outside, { recursive: true, force: true });

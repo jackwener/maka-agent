@@ -31,6 +31,7 @@ import type {
   CapabilitySnapshotCollection,
   HealthSignal,
   HealthSignalLayer,
+  HealthSignalSource,
   HealthSignalStatus,
   HealthSnapshot,
   LlmConnection,
@@ -44,7 +45,6 @@ import type {
   SettingsSection,
   ThemePalette,
   ThemePreference,
-  ToastPosition,
   UiDensity,
   UpdateAppSettingsResult,
   UsageRange,
@@ -63,7 +63,6 @@ import {
   deriveProviderAuthContractFromConnection,
   appendManualLocalMemoryEntryDraft,
   defaultVoiceCaptureCaps,
-  isToastPosition,
   setLocalMemoryEntryStatusDraft,
   validateVoiceCaptureRequest,
   webSearchCredentialStatusFromResponse,
@@ -233,15 +232,6 @@ export function SettingsModal(props: {
    */
   themePalette: ThemePalette;
   onThemePaletteChange(palette: ThemePalette): void;
-  /**
-   * PR-UI-D2 fixup v2 (@kenji msg b4dbfa91): current toast position
-   * (source-of-truth lifted from `App`) and live setter. The Theme
-   * Settings picker calls `onToastPositionChange(next)` synchronously
-   * on click so `ToastProvider` re-renders with the new `position`
-   * prop — no `querySelector('.maka-toast-viewport')` DOM hack.
-   */
-  toastPosition: ToastPosition;
-  onToastPositionChange(position: ToastPosition): void;
   onUserLabelChange?(label: string): void;
   /**
    * Force the modal to a specific section when it (re-)mounts or when the
@@ -282,8 +272,6 @@ export function SettingsModal(props: {
           onDensityChange={props.onDensityChange}
           themePalette={props.themePalette}
           onThemePaletteChange={props.onThemePaletteChange}
-          toastPosition={props.toastPosition}
-          onToastPositionChange={props.onToastPositionChange}
           onUserLabelChange={props.onUserLabelChange}
           requestedSection={props.requestedSection}
           onOpenDailyReview={props.onOpenDailyReview}
@@ -304,8 +292,6 @@ function SettingsSurface(props: {
   onDensityChange(density: UiDensity): void;
   themePalette: ThemePalette;
   onThemePaletteChange(palette: ThemePalette): void;
-  toastPosition: ToastPosition;
-  onToastPositionChange(position: ToastPosition): void;
   onUserLabelChange?(label: string): void;
   requestedSection?: SettingsSection;
   onOpenDailyReview?(): void;
@@ -427,7 +413,6 @@ function SettingsSurface(props: {
               themePref={props.themePref}
               density={props.density}
               themePalette={props.themePalette}
-              toastPosition={props.toastPosition}
               onRefreshConnections={props.onRefresh}
               onUpdateSettings={updateSettings}
               onReloadSettings={reloadSettings}
@@ -435,7 +420,6 @@ function SettingsSurface(props: {
               onThemeChange={props.onThemeChange}
               onDensityChange={props.onDensityChange}
               onThemePaletteChange={props.onThemePaletteChange}
-              onToastPositionChange={props.onToastPositionChange}
               onOpenDailyReview={props.onOpenDailyReview}
             />
           )}
@@ -456,7 +440,6 @@ function SettingsPage(props: {
   themePref: ThemePreference;
   density: UiDensity;
   themePalette: ThemePalette;
-  toastPosition: ToastPosition;
   onRefreshConnections(): Promise<void>;
   onUpdateSettings(patch: Parameters<typeof window.maka.settings.update>[0]): Promise<UpdateAppSettingsResult>;
   onReloadSettings(): Promise<void>;
@@ -464,7 +447,6 @@ function SettingsPage(props: {
   onThemeChange(pref: ThemePreference): void;
   onDensityChange(density: UiDensity): void;
   onThemePaletteChange(palette: ThemePalette): void;
-  onToastPositionChange(position: ToastPosition): void;
   onOpenDailyReview?(): void;
 }) {
   switch (props.section) {
@@ -515,13 +497,11 @@ function SettingsPage(props: {
           themePref={props.themePref}
           density={props.density}
           themePalette={props.themePalette}
-          toastPosition={props.toastPosition}
           settings={props.settings}
           onUpdate={props.onUpdateSettings}
           onThemeChange={props.onThemeChange}
           onDensityChange={props.onDensityChange}
           onThemePaletteChange={props.onThemePaletteChange}
-          onToastPositionChange={props.onToastPositionChange}
         />
       );
     case 'personalization':
@@ -1736,18 +1716,6 @@ const DENSITY_OPTIONS: Array<{ value: UiDensity; label: string; help: string }> 
   { value: 'spacious', label: '宽松', help: '更大留白，适合长会话沉浸阅读。' },
 ];
 
-/** PR-UI-16: user-pickable toast position. Six grid corners cover the
- *  practical needs (top/bottom × left/center/right). Default
- *  `bottom-right` matches the v1 hardcoded behavior. */
-const TOAST_POSITION_OPTIONS: Array<{ value: ToastPosition; label: string }> = [
-  { value: 'top-left', label: '左上' },
-  { value: 'top-center', label: '顶部居中' },
-  { value: 'top-right', label: '右上' },
-  { value: 'bottom-left', label: '左下' },
-  { value: 'bottom-center', label: '底部居中' },
-  { value: 'bottom-right', label: '右下（默认）' },
-];
-
 /**
  * Mini chat-surface mockup rendered inside each theme radio tile. Replaces
  * the generic gradient swatch with a representative preview so the user
@@ -1816,13 +1784,11 @@ function ThemeSettingsPage(props: {
   themePref: ThemePreference;
   density: UiDensity;
   themePalette: ThemePalette;
-  toastPosition: ToastPosition;
   settings: AppSettings;
   onUpdate(patch: Parameters<typeof window.maka.settings.update>[0]): Promise<UpdateAppSettingsResult>;
   onThemeChange(pref: ThemePreference): void;
   onDensityChange(density: UiDensity): void;
   onThemePaletteChange(palette: ThemePalette): void;
-  onToastPositionChange(position: ToastPosition): void;
 }) {
   async function setTheme(next: ThemePreference) {
     // Apply immediately for instant feedback, then persist. If persistence
@@ -1849,71 +1815,6 @@ function ThemeSettingsPage(props: {
     props.onThemePaletteChange(next);
     await props.onUpdate({ appearance: { palette: next } });
   }
-
-  // PR-UI-16 + PR-UI-D2 fixup v2 (@kenji msg b4dbfa91):
-  // user-driven toast position picker.
-  //
-  // v1 had two real bugs:
-  //   1. Used `querySelector('.maka-toast-viewport')` to write
-  //      `data-position` on the DOM directly. ToastViewport returns
-  //      `null` when there are no live toasts, so the DOM node didn't
-  //      exist — the change was invisible until the next render.
-  //   2. Wrote `localStorage` BEFORE `await onUpdate(...)`. If
-  //      `onUpdate` failed, the mirror would diverge from
-  //      `settings.json` and a subsequent pre-React boot would read
-  //      a position that doesn't match disk.
-  //
-  // v2 (this version):
-  //   - Calls `onToastPositionChange(next)` SYNCHRONOUSLY first. This
-  //     bubbles up to `App`'s `setToastPosition`, which re-renders
-  //     `<ToastProvider position={toastPosition}>` with the new prop.
-  //     `ToastViewport` reads `position` from context and emits
-  //     `data-position={position}` on its own — no DOM mutation
-  //     from outside React.
-  //   - Awaits `onUpdate({ appearance: { toastPosition: next } })`.
-  //   - On success, writes the localStorage mirror using the
-  //     normalized value returned by the server
-  //     (`result.settings.appearance.toastPosition`). If the server
-  //     ever rejects or rewrites the value (e.g. closed-enum
-  //     fail-closed), the mirror stays consistent with disk.
-  //   - On failure, does NOT touch localStorage. The mirror keeps
-  //     its previous value, which still matches `settings.json`.
-  async function setToastPosition(next: ToastPosition) {
-    props.onToastPositionChange(next);
-    let result: UpdateAppSettingsResult;
-    try {
-      result = await props.onUpdate({ appearance: { toastPosition: next } });
-    } catch {
-      // Persistence failed. React state reverts to disk's value on
-      // the next settings load; localStorage stays at the previous
-      // value, so pre-React boot remains consistent.
-      return;
-    }
-    const normalized = result.settings.appearance.toastPosition;
-    if (normalized && isToastPosition(normalized)) {
-      try {
-        localStorage.setItem('maka-toast-position-v1', normalized);
-      } catch {
-        /* localStorage unavailable; ignore */
-      }
-      // If the server normalized the value to something different
-      // (e.g. closed-enum fail-closed to 'bottom-right'), also push
-      // the normalized value through React state so the picker
-      // reflects the persisted truth.
-      if (normalized !== next) {
-        props.onToastPositionChange(normalized);
-      }
-    }
-  }
-
-  // PR-UI-D2 fixup v2: source-of-truth is the LIFTED `App` state, not
-  // `settings.appearance.toastPosition`. The two are kept in sync on
-  // settings load by `AppShell.onToastPositionChange` and on user
-  // click by `setToastPosition` above. Reading from `props.toastPosition`
-  // means the picker's `aria-checked` reflects the live state in
-  // ToastProvider, not a value that's about to be settled by a
-  // pending IPC.
-  const currentToastPosition: ToastPosition = props.toastPosition;
 
   return (
     <div className="settingsStructuredPage">
@@ -1984,7 +1885,7 @@ function ThemeSettingsPage(props: {
       </div>
 
       <p className="settingsHelpText">
-        切换会立即生效，并保存在 <code className="maka-empty-state-code">settings.json</code> 里下次启动延续。通知统一显示在屏幕右下角（与 macOS / Windows 系统通知一致）。
+        切换会立即生效，并保存在 <code className="maka-empty-state-code">settings.json</code> 里下次启动延续。通知统一显示在屏幕右下角。
       </p>
     </div>
   );
@@ -4155,12 +4056,12 @@ function runtimeProbeTone(state: CapabilitySnapshot['runtimeProbe']['state']): '
  * will be wired in PR-HC-2 once typed actions are exposed.
  */
 const HEALTH_LAYER_COPY: Record<HealthSignalLayer, { label: string; description: string }> = {
-  configuration: { label: '配置', description: '是否填齐了 settings 里的必填项。' },
-  validation: { label: '验证', description: '凭据 / 端点的连通性测试结果，仅代表 validation 通过，不等于 agent 通路可用。' },
+  configuration: { label: '配置', description: '是否填齐了设置页里的必填项。' },
+  validation: { label: '验证', description: '凭据 / 端点的连通性测试结果，仅代表验证通过，不等于发送通路可用。' },
   permission: { label: '系统权限', description: '所需 OS / TCC 权限是否已授权。' },
-  feature: { label: '功能开关', description: '功能是否被显式启用、是否已实现。' },
+  feature: { label: '功能开关', description: '功能是否被显式启用、当前是否可使用。' },
   action_approval: { label: '操作审批', description: '每次工具调用 / 高危操作的审批策略状态。' },
-  memory_acceptance: { label: '记忆写入', description: '是否接受了 memory contract、是否启用了记忆写入。' },
+  memory_acceptance: { label: '记忆写入', description: '是否接受了记忆写入约定、是否启用了记忆写入。' },
   runtime_probe: { label: '运行态探测', description: '最近一次真实运行（发送 / 流式 / 接收事件）的探测结果。' },
   storage: { label: '存储', description: '工作区文件、JSONL、SQLite 等本地存储健康度。' },
 };
@@ -4179,6 +4080,15 @@ const HEALTH_SCOPE_LABEL: Record<HealthSignal['scope'], string> = {
   bot: '机器人',
   capability: '能力',
   storage: '存储',
+};
+
+const HEALTH_SOURCE_LABEL: Record<HealthSignalSource, string> = {
+  connection_test: '连接测试',
+  capability_snapshot: '能力快照',
+  permission_snapshot: '权限快照',
+  runtime_probe: '运行态探测',
+  settings: '设置',
+  storage: '本地存储',
 };
 
 function HealthCenterPage() {
@@ -4245,7 +4155,7 @@ function HealthCenterPage() {
           <h3>健康中心</h3>
           <p>
             按层级（配置 · 验证 · 权限 · 功能 · 操作审批 · 记忆 · 运行态 · 存储）展示当前快照。
-            <strong>验证通过 ≠ 运行可用</strong> — 凭据测试只属于 validation 层；发送通路以运行态探测结果为准。
+            <strong>验证通过 ≠ 运行可用</strong> — 凭据测试只属于验证层；发送通路以运行态探测结果为准。
           </p>
         </div>
         <div className="settingsHealthMeta">
@@ -4275,12 +4185,12 @@ function HealthCenterPage() {
         <div className="settingsHealthBlockers" role="status">
           {blocksSendCount > 0 && (
             <span className="pill" data-tone="destructive">
-              {blocksSendCount} 条 signal 会阻塞发送
+              {blocksSendCount} 条健康信号会阻塞发送
             </span>
           )}
           {blocksCapabilityCount > 0 && (
             <span className="pill" data-tone="warning">
-              {blocksCapabilityCount} 条 signal 会阻塞 capability
+              {blocksCapabilityCount} 条健康信号会阻塞能力
             </span>
           )}
         </div>
@@ -4291,7 +4201,7 @@ function HealthCenterPage() {
         if (!signals || signals.length === 0) return null;
         const copy = HEALTH_LAYER_COPY[layer];
         return (
-          <section key={layer} className="settingsHealthLayer" aria-label={`${copy.label} signals`}>
+          <section key={layer} className="settingsHealthLayer" aria-label={`${copy.label}健康信号`}>
             <header>
               <h4>{copy.label}</h4>
               <small>{copy.description}</small>
@@ -4341,9 +4251,9 @@ function HealthSignalRow(props: { signal: HealthSignal }) {
       <p className="settingsHealthSignalMessage">{signal.message}</p>
       {signal.detail && <small className="settingsHealthSignalDetail">{signal.detail}</small>}
       <div className="settingsHealthSignalMeta">
-        <span>source: <code>{signal.source}</code></span>
+        <span>来源：{HEALTH_SOURCE_LABEL[signal.source]}</span>
         <span>
-          checked: <RelativeTime ts={signal.checkedAt} className="settingsHelpInlineTime" />
+          读取：<RelativeTime ts={signal.checkedAt} className="settingsHelpInlineTime" />
         </span>
         {signal.blocksSend && <span className="settingsHealthSignalBlocker" data-tone="destructive">阻塞发送</span>}
         {signal.blocksCapability && <span className="settingsHealthSignalBlocker" data-tone="warning">阻塞能力</span>}

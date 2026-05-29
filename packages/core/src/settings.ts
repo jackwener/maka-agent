@@ -159,30 +159,6 @@ export function isThemePalette(value: unknown): value is ThemePalette {
   return typeof value === 'string' && (THEME_PALETTES as readonly string[]).includes(value);
 }
 
-/**
- * PR-UI-16 (@yuejing 2026-05-22): user-pickable toast position.
- *
- * Audit §3.10 — Maka pinned toasts to bottom-right (PR55); some users
- * prefer top-right (notification-center style) or center for
- * full-attention dialogs. Six grid corners cover the practical needs;
- * sticking with `bottom-right` as default preserves the v1 behavior
- * so existing users see no change.
- */
-export const TOAST_POSITIONS = [
-  'top-left',
-  'top-center',
-  'top-right',
-  'bottom-left',
-  'bottom-center',
-  'bottom-right',
-] as const;
-
-export type ToastPosition = typeof TOAST_POSITIONS[number];
-
-export function isToastPosition(value: unknown): value is ToastPosition {
-  return typeof value === 'string' && (TOAST_POSITIONS as readonly string[]).includes(value);
-}
-
 export interface AppearanceSettings {
   theme: ThemePreference;
   density: UiDensity;
@@ -193,12 +169,6 @@ export interface AppearanceSettings {
    * defaults missing values to `default`.
    */
   palette?: ThemePalette;
-  /**
-   * PR-UI-16: optional toast position override. When omitted, Maka
-   * defaults to `bottom-right` (the v1 hardcoded behavior). Older
-   * settings.json files without this field continue to work.
-   */
-  toastPosition?: ToastPosition;
 }
 
 /**
@@ -437,7 +407,6 @@ export function createDefaultSettings(): AppSettings {
       theme: 'auto',
       density: 'comfortable',
       palette: 'default',
-      toastPosition: 'bottom-right',
     },
     personalization: {
       displayName: '',
@@ -615,6 +584,8 @@ export function normalizeSettings(input: unknown): AppSettings {
     rawOnboarding && typeof rawOnboarding === 'object'
       ? (rawOnboarding as { milestones?: unknown }).milestones
       : undefined;
+  const { toastPosition: _legacyToastPosition, ...appearanceWithoutLegacyToastPosition } =
+    base.appearance as AppearanceSettings & Record<string, unknown>;
   return {
     ...base,
     // PR-UI-D1 (@kenji msg 68bf2b13): closed-enum fail-closed for
@@ -629,27 +600,13 @@ export function normalizeSettings(input: unknown): AppSettings {
     // Critical: this MUST NOT silently reset other appearance fields
     // (theme / density). We only override palette when it fails the
     // type guard; everything else keeps mergeSettings's behavior.
-    // PR-UI-D1 + PR-UI-D2 (@kenji msg 68bf2b13 / eef6f7a5): closed-
-    // enum fail-closed for both `appearance.palette` and
-    // `appearance.toastPosition`. mergeSettings spreads the raw user
-    // value straight in, so an unknown/garbage palette string would
-    // otherwise survive the normalize pass and end up driving
-    // `[data-maka-theme="evil-unknown"]` on the renderer with no
-    // matching CSS block (palette case), or position toasts in an
-    // unstyled corner (toastPosition case). Validate each against its
-    // closed allowlist and fall back to defaults on any miss
-    // (undefined, non-string, unknown string).
-    //
-    // Critical: this MUST NOT silently reset other appearance fields
-    // (theme / density). We only override the offending field when it
-    // fails the type guard; everything else keeps mergeSettings's
-    // behavior.
+    // Legacy `appearance.toastPosition` is intentionally stripped here.
+    // Toasts are fixed to one app-wide position; keeping the old
+    // persisted setting would make the removed picker a hidden behavior
+    // surface.
     appearance: {
-      ...base.appearance,
+      ...appearanceWithoutLegacyToastPosition,
       palette: isThemePalette(base.appearance.palette) ? base.appearance.palette : 'default',
-      toastPosition: isToastPosition(base.appearance.toastPosition)
-        ? base.appearance.toastPosition
-        : 'bottom-right',
     },
     // PR-LANG-PREF-0: closed-enum fail-closed for the new
     // `personalization.uiLocale` preference. mergeSettings spreads

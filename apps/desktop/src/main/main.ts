@@ -132,12 +132,20 @@ import { createSafeStorageCredentialStore } from './credential-store.js';
 import { bindOnboardingDeps, createOnboardingService } from './onboarding-service.js';
 import { handleQuickChatStart as runQuickChatStart, type QuickChatResult } from './quick-chat.js';
 import { connectionTestStatusPatch } from './connection-test-status.js';
+import { probeOfficeCli } from './officecli-probe.js';
 import { resolveOpenPath, type OpenPathResult } from './open-path-guard.js';
 import { buildPersonalizationPromptFragment } from './personalization-prompt.js';
 import { resolveProjectGitInfo } from './project-context.js';
 import { buildSessionEnvironmentPromptFragment } from './session-environment-prompt.js';
 import { buildSettingsUpdateResult, maskAppSettings, preserveSensitivePlaceholders, toSettingsTestResult } from './settings-ipc-helpers.js';
-import { buildSkillAgentTool, buildSkillsPromptFragment, createStarterSkill, listInstalledSkills, resolveSkillOpenPath } from './skills.js';
+import {
+  buildSkillAgentTool,
+  buildSkillsPromptFragment,
+  createStarterSkill,
+  ensureBundledOfficeSkills,
+  listInstalledSkills,
+  resolveSkillOpenPath,
+} from './skills.js';
 import {
   buildWorkspaceInstructionsPromptFragment,
   createWorkspaceInstructionFile,
@@ -168,6 +176,7 @@ import {
   type FolderOutlineImportFailureReason,
   type TextFileImportFailureReason,
 } from './text-file-import.js';
+import { buildExploreAgentTool } from './explore-agent-tool.js';
 
 const buildInfo = resolveBuildInfo(app.isPackaged, app.getAppPath());
 
@@ -234,6 +243,11 @@ const builtinTools = [
   // PawWork lazy-skill pattern: the prompt lists available skills, and this
   // read-only tool loads the full SKILL.md only when the task matches.
   buildSkillAgentTool(workspaceRoot),
+  // PawWork plan-mode borrow: a bounded read-only local worker for
+  // self-contained code/repo investigations. The tool advertises the
+  // `subagent` category; explore mode allows it, but the implementation
+  // itself only reads filenames/text snippets under the session cwd.
+  buildExploreAgentTool(),
   // PR-AGENT-WEB-SEARCH-TOOL-0: Tavily-backed WebSearch tool. Closed
   // over settingsStore so the renderer never sees the API key; the
   // permission engine routes it through the `web_read` policy which
@@ -521,6 +535,7 @@ function visualSmokeWindowBounds(defaults: SavedBounds): SavedBounds {
 
 async function createWindow(): Promise<void> {
   await mkdir(workspaceRoot, { recursive: true });
+  await ensureBundledOfficeSkills(workspaceRoot);
   installApplicationMenu();
   // Restore previously-saved bounds when available; first launch and
   // legacy installs both fall back to the default 1240x820 frame. After
@@ -830,7 +845,7 @@ function textFileImportFailureCopy(reason: TextFileImportFailureReason): string 
     case 'too-many-files':
       return '一次最多导入 5 个文本文件。';
     case 'unsupported-type':
-      return '只支持导入文本文件；图片、PDF 和 Office 文件请先转成文本。';
+      return '只支持直接导入文本文件；Office 文档请用 Office Documents 能力或对应技能处理。';
     case 'read-failed':
       return '读取文件失败。';
   }
@@ -1667,10 +1682,12 @@ function registerIpc(): void {
   ipcMain.handle('capabilities:getSnapshot', async () => {
     const permissions = buildPermissionSnapshot();
     const settings = await settingsStore.get();
+    const officeCliProbe = await probeOfficeCli({ now: permissions.checkedAt });
     return buildCapabilitySnapshotCollection({
       settings,
       permissions,
       botStatuses: botRegistry.allStatuses(),
+      officeCliProbe,
       now: permissions.checkedAt,
     });
   });
@@ -1678,10 +1695,12 @@ function registerIpc(): void {
     const now = Date.now();
     const permissions = buildPermissionSnapshot(now);
     const settings = await settingsStore.get();
+    const officeCliProbe = await probeOfficeCli({ now });
     const capabilitySnapshot = buildCapabilitySnapshotCollection({
       settings,
       permissions,
       botStatuses: botRegistry.allStatuses(),
+      officeCliProbe,
       now,
     });
     const connections = await connectionStore.list();
