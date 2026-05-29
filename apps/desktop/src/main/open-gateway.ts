@@ -189,6 +189,10 @@ export class OpenGatewayService {
             beforeQuery: 'before',
             maxLimit: OPEN_GATEWAY_MESSAGE_PAGE_MAX_LIMIT,
           },
+          state: {
+            endpoint: '/v1/sessions/{sessionId}/messages/state',
+            includesText: false,
+          },
         },
         sessionEvents: {
           stream: true,
@@ -248,6 +252,16 @@ export class OpenGatewayService {
       }
       const result = await this.deps.sendMessage(sessionId, { text: input.text });
       writeJson(res, 202, { ok: true, turnId: result.turnId });
+      return;
+    }
+    const messageStateMatch = url.pathname.match(/^\/v1\/sessions\/([^/]+)\/messages\/state$/);
+    if (messageStateMatch) {
+      if (req.method !== 'GET') {
+        writeJson(res, 405, { ok: false, error: 'method_not_allowed' });
+        return;
+      }
+      const sessionId = decodeURIComponent(messageStateMatch[1]!);
+      writeJson(res, 200, { ok: true, state: buildGatewayMessageState(await this.deps.readMessages(sessionId)) });
       return;
     }
     const eventsMatch = url.pathname.match(/^\/v1\/sessions\/([^/]+)\/events$/);
@@ -472,6 +486,7 @@ function buildGatewayCapabilities(sendAvailable: boolean): string[] {
     'sessions.list',
     'sessions.messages.read',
     'sessions.messages.page',
+    'sessions.messages.state',
     ...(sendAvailable ? ['sessions.messages.send'] : []),
     'sessions.events.stream',
     'sessions.events.replay',
@@ -480,6 +495,40 @@ function buildGatewayCapabilities(sendAvailable: boolean): string[] {
     'sessions.incidents.read',
     'search.thread',
   ];
+}
+
+interface GatewayMessageState {
+  messageCount: number;
+  includesText: false;
+  oldestMessage?: GatewayMessageSummary;
+  newestMessage?: GatewayMessageSummary;
+}
+
+interface GatewayMessageSummary {
+  id: string;
+  type: string;
+  turnId?: string;
+  ts?: number;
+}
+
+function buildGatewayMessageState(messages: StoredMessage[]): GatewayMessageState {
+  const oldest = messages[0];
+  const newest = messages.at(-1);
+  return {
+    messageCount: messages.length,
+    includesText: false,
+    ...(oldest ? { oldestMessage: summarizeGatewayMessage(oldest) } : {}),
+    ...(newest ? { newestMessage: summarizeGatewayMessage(newest) } : {}),
+  };
+}
+
+function summarizeGatewayMessage(message: StoredMessage): GatewayMessageSummary {
+  return {
+    id: capReplayCursor(redactSecrets(message.id)),
+    type: message.type,
+    ...('turnId' in message && message.turnId ? { turnId: capReplayCursor(redactSecrets(message.turnId)) } : {}),
+    ...('ts' in message ? { ts: message.ts } : {}),
+  };
 }
 
 type MessagePaginationResult =

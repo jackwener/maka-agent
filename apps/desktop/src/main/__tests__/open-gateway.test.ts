@@ -48,6 +48,7 @@ describe('OpenGatewayService', () => {
       'sessions.list',
       'sessions.messages.read',
       'sessions.messages.page',
+      'sessions.messages.state',
       'sessions.messages.send',
       'sessions.events.stream',
       'sessions.events.replay',
@@ -61,6 +62,10 @@ describe('OpenGatewayService', () => {
         limitQuery: 'limit',
         beforeQuery: 'before',
         maxLimit: 200,
+      },
+      state: {
+        endpoint: '/v1/sessions/{sessionId}/messages/state',
+        includesText: false,
       },
     });
     assert.deepEqual(authorized.body.sessionEvents, {
@@ -145,6 +150,40 @@ describe('OpenGatewayService', () => {
     const invalidResponse = await fetchJson(`${status.baseUrl}/v1/sessions/s1/messages?limit=2&before=missing`, 'dev-token');
     assert.equal(invalidResponse.status, 400);
     assert.equal(invalidResponse.body.error, 'invalid_before_cursor');
+  });
+
+  test('exposes message state without message text payloads', async () => {
+    const messages = [
+      userMessage('secret one token=abc', 'm1'),
+      userMessage('secret two token=def', 'm2'),
+    ];
+    const service = makeService({
+      readMessages: async () => messages,
+    });
+    activeServices.push(service);
+    const status = await service.sync(createGatewaySettings({ enabled: true, port: 0, token: 'dev-token' }).openGateway);
+    assert.ok(status.baseUrl);
+
+    const response = await fetchJson(`${status.baseUrl}/v1/sessions/s1/messages/state`, 'dev-token');
+    assert.equal(response.status, 200);
+    assert.deepEqual(response.body.state, {
+      messageCount: 2,
+      includesText: false,
+      oldestMessage: {
+        id: 'm1',
+        type: 'user',
+        turnId: 't1',
+        ts: 1_700_000_000_000,
+      },
+      newestMessage: {
+        id: 'm2',
+        type: 'user',
+        turnId: 't1',
+        ts: 1_700_000_000_000,
+      },
+    });
+    assert.equal(JSON.stringify(response.body).includes('secret'), false);
+    assert.equal(JSON.stringify(response.body).includes('token='), false);
   });
 
   test('accepts token-protected session sends and returns the turn id', async () => {
