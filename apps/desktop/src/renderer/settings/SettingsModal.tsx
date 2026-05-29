@@ -2486,7 +2486,7 @@ function MemorySettingsPage(props: {
       <div className="settingsFormRow">
         <div>
           <strong>模型上下文可读取</strong>
-          <small>默认关闭。开启后才允许后续 prompt 注入读取本地记忆；隐身模式下仍会禁用。</small>
+          <small>默认关闭。开启后才允许发送消息时把本地记忆加入 prompt；隐身模式下仍会禁用。</small>
         </div>
         <Switch
           checked={effective.agentReadEnabled}

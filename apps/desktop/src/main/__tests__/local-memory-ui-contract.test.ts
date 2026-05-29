@@ -37,6 +37,20 @@ describe('local MEMORY.md Settings UI contract', () => {
     assert.doesNotMatch(css, /coming soon|todo|not implemented/i);
   });
 
+  it('describes agent memory reads as a current send-time prompt boundary', async () => {
+    const src = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
+    const memoryPage = src.match(/function MemorySettingsPage\([\s\S]*?function MemoryEntryList/);
+
+    assert.ok(memoryPage, 'Memory settings page block must exist');
+    assert.match(memoryPage![0], /发送消息时把本地记忆加入 prompt/);
+    assert.match(memoryPage![0], /隐身模式下仍会禁用/);
+    assert.doesNotMatch(
+      memoryPage![0],
+      /后续 prompt 注入|之后会|V0\.|coming soon|not implemented/i,
+      'Memory settings read-boundary copy must not sound like a future roadmap or implementation placeholder',
+    );
+  });
+
   it('manual add stays draft-only and routes through the core helper', async () => {
     const src = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
     const manualAddBlock = src.match(/function addManualMemoryDraftEntry\(\) \{[\s\S]*?\n  \}\n\n  async function updateMemoryEntryStatus/)?.[0] ?? '';
