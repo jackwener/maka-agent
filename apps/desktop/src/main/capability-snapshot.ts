@@ -49,7 +49,7 @@ export function buildCapabilitySnapshotCollection(input: {
       id: 'computer_use',
       label: 'Computer Use',
       now,
-      feature: { state: 'not_available', source: 'scaffold', reason: '原生控制 helper 未接入；需要独立 permission / audit gate' },
+      feature: { state: 'not_available', source: 'scaffold', reason: '本机控制需要独立权限确认与审计；当前不可执行' },
       requiredPermissions: [
         { id: 'accessibility', required: true, status: permissions.accessibility.status },
         { id: 'screen_recording', required: true, status: permissions.screen_recording.status },
@@ -65,7 +65,7 @@ export function buildCapabilitySnapshotCollection(input: {
       feature: {
         state: 'partial',
         source: 'runtime',
-        reason: 'Daily Review 已聚合本地会话 / 工具 / 模型活动；屏幕与应用级录制未接入',
+        reason: 'Daily Review 已聚合本地会话 / 工具 / 模型活动；当前不包含屏幕与应用级录制',
       },
       requiredPermissions: [
         { id: 'screen_recording', required: true, status: permissions.screen_recording.status },
@@ -85,7 +85,7 @@ export function buildCapabilitySnapshotCollection(input: {
       feature: {
         state: 'partial',
         source: 'runtime',
-        reason: '本地麦克风录音自检已可用；STT/TTS 通道尚未接入',
+        reason: '本地麦克风录音自检已可用；当前不包含 STT/TTS 生成通道',
       },
       requiredPermissions: [
         { id: 'microphone', required: true, status: permissions.microphone.status },

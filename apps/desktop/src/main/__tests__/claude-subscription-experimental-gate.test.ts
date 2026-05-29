@@ -115,6 +115,11 @@ describe('experimental kill-switch (kenji 1da909d5 + 45b31e16)', () => {
       /reason:\s*'experimental_disabled'\s*as\s*const/,
       'main.ts experimentalDisabledResponse must use experimental_disabled reason (kenji 45b31e16)',
     );
+    assert.doesNotMatch(
+      src,
+      /尚未在此版本启用/,
+      'experimental-disabled user copy must describe the current product gate, not version/timeline status',
+    );
   });
 
   it('Settings UI gates the Claude subscription card on isExperimentalEnabled', async () => {

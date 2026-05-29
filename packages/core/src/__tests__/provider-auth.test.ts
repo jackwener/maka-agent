@@ -88,6 +88,10 @@ describe('ProviderAuth contract', () => {
     expect(contract.actionAvailability.start_oauth).toBe('preview_only');
     expect(contract.actionAvailability.refresh_oauth).toBe('preview_only');
     expect(contract.actionAvailability.revoke_auth).toBe('preview_only');
+    expect(contract.copy.label).toContain('账号登录预览');
+    expect(contract.copy.detail).toContain('API key 连接仍是聊天模型的可用路径');
+    expect(contract.copy.label.includes('待接入')).toBe(false);
+    expect(contract.copy.detail.includes('尚未开放')).toBe(false);
   });
 
   test('no-auth local providers can send without secret but are still not validated runtime probes', () => {

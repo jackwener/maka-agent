@@ -99,8 +99,8 @@ export function deriveProviderAuthContract(input: ProviderAuthContractInput): Pr
         revoke_auth: 'preview_only',
       },
       copy: {
-        label: `${defaults.label} 登录方案待接入`,
-        detail: '当前只展示订阅登录入口的预览状态；登录、刷新和撤销操作尚未开放。',
+        label: `${defaults.label} 账号登录预览`,
+        detail: '当前仅展示账号登录状态入口；API key 连接仍是聊天模型的可用路径。',
       },
     };
   }

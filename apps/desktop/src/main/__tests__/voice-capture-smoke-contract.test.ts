@@ -51,7 +51,7 @@ describe('voice capture smoke Settings contract', () => {
     assert.ok(activityBlock, 'activity recorder capability block must exist');
     assert.match(activityBlock![0], /state:\s*'partial'/, 'activity recorder must be partial, not not_available');
     assert.match(activityBlock![0], /Daily Review 已聚合本地会话/, 'activity reason must name the shipped local aggregation path');
-    assert.match(activityBlock![0], /屏幕与应用级录制未接入/, 'activity reason must keep the unshipped recorder boundary visible');
+    assert.match(activityBlock![0], /当前不包含屏幕与应用级录制/, 'activity reason must keep the unshipped recorder boundary visible without implementation-status copy');
     assert.doesNotMatch(activityBlock![0], /activity timeline not implemented/, 'old placeholder reason must not return');
   });
 
@@ -62,8 +62,8 @@ describe('voice capture smoke Settings contract', () => {
     ]);
     assert.match(settings, /case\s+'not_available':\s*return\s+'未开放'/, 'not_available label should be product-facing copy');
     assert.doesNotMatch(settings, /尚未实现/, 'Settings capability UI must not render not_available as unfinished implementation copy');
-    assert.doesNotMatch(snapshot, /not implemented|missing_token|local gateway disabled/, 'capability reasons must not leak internal placeholder/error identifiers');
-    assert.match(snapshot, /原生控制 helper 未接入/, 'Computer Use must keep a clear product boundary reason');
+    assert.doesNotMatch(snapshot, /not implemented|missing_token|local gateway disabled|未接入|尚未接入|helper/, 'capability reasons must not leak internal placeholder/error identifiers');
+    assert.match(snapshot, /本机控制需要独立权限确认与审计/, 'Computer Use must keep a clear product boundary reason');
     assert.match(snapshot, /本地 Gateway 已关闭/, 'Open Gateway disabled state must use user-facing copy');
     assert.match(snapshot, /缺少访问 token/, 'Open Gateway missing token state must use user-facing copy');
   });
