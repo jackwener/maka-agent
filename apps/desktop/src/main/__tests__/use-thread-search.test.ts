@@ -40,6 +40,7 @@ describe('normalizeHits drops hits without a thread sessionId', () => {
       {
         source: 'thread',
         title: 'My Chat',
+        summary: '用户消息',
         snippet: 'hello world',
         target: { kind: 'thread', sessionId: 's1', turnId: 't1' },
       },
@@ -49,6 +50,7 @@ describe('normalizeHits drops hits without a thread sessionId', () => {
     assert.equal(hits[0]!.sessionId, 's1');
     assert.equal(hits[0]!.turnId, 't1');
     assert.equal(hits[0]!.title, 'My Chat');
+    assert.equal(hits[0]!.summary, '用户消息');
     assert.equal(hits[0]!.snippet, 'hello world');
   });
 
@@ -57,6 +59,7 @@ describe('normalizeHits drops hits without a thread sessionId', () => {
       {
         source: 'thread',
         title: 'Renamed Chat',
+        summary: '会话标题',
         target: { kind: 'thread', sessionId: 's2' },
       },
     ];
@@ -64,6 +67,7 @@ describe('normalizeHits drops hits without a thread sessionId', () => {
     assert.equal(hits.length, 1);
     assert.equal(hits[0]!.sessionId, 's2');
     assert.equal(hits[0]!.turnId, undefined);
+    assert.equal(hits[0]!.summary, '会话标题');
   });
 
   it('drops a hit with no target', () => {
@@ -407,15 +411,29 @@ describe('buildContentSearchCommands — palette commands per state', () => {
       kind: 'results',
       query: 'hello',
       hits: [
-        { sessionId: 's1', turnId: 't1', title: 'A', snippet: 'hello A' },
-        { sessionId: 's2', title: 'B', snippet: 'hello B' },
+        { sessionId: 's1', turnId: 't1', title: 'A', summary: '用户消息', snippet: 'hello A' },
+        { sessionId: 's2', title: 'B', summary: '会话标题', snippet: 'hello B' },
       ],
     });
     assert.equal(cmds.length, 2);
     assert.equal(cmds[0]!.group, '内容搜索');
     assert.equal(cmds[0]!.label, 'A');
-    assert.equal(cmds[0]!.hint, 'hello A');
+    assert.equal(cmds[0]!.hint, '用户消息 · hello A');
     assert.equal(cmds[1]!.label, 'B');
+    assert.equal(cmds[1]!.hint, '会话标题 · hello B');
+  });
+
+  it('results with summary-only or snippet-only hits keep a useful hint', () => {
+    const cmds = buildContentSearchCommands({
+      kind: 'results',
+      query: 'hello',
+      hits: [
+        { sessionId: 's1', title: 'A', summary: '会话标题' },
+        { sessionId: 's2', title: 'B', snippet: 'hello B' },
+      ],
+    });
+    assert.equal(cmds[0]!.hint, '会话标题');
+    assert.equal(cmds[1]!.hint, 'hello B');
   });
 
   it('clicking a hit calls onSelectSession with the sessionId', () => {

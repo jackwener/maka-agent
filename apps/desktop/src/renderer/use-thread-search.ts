@@ -77,6 +77,7 @@ export interface NormalizedThreadHit {
   sessionId: string;
   turnId?: string;
   title: string;
+  summary?: string;
   snippet?: string;
   truncated?: boolean;
 }
@@ -244,6 +245,7 @@ export function normalizeHits(results: SearchResult[]): NormalizedThreadHit[] {
       sessionId: target.sessionId,
       ...(target.turnId ? { turnId: target.turnId } : {}),
       title: result.title,
+      ...(result.summary ? { summary: result.summary } : {}),
       ...(result.snippet ? { snippet: result.snippet } : {}),
       ...(result.truncated ? { truncated: result.truncated } : {}),
     });

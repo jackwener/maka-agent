@@ -109,7 +109,7 @@ function contentSearchHitCommand(
     id: `thread-search:hit:${hit.sessionId}:${hit.turnId ?? 'session'}:${index}`,
     kind: 'session',
     label: hit.title,
-    hint: hit.snippet,
+    hint: formatContentSearchHint(hit),
     group: '内容搜索',
     Icon: Search,
     keywords: [],
@@ -117,6 +117,11 @@ function contentSearchHitCommand(
       if (onSelectSession) onSelectSession(hit.sessionId);
     },
   };
+}
+
+function formatContentSearchHint(hit: NormalizedThreadHit): string | undefined {
+  if (hit.summary && hit.snippet) return `${hit.summary} · ${hit.snippet}`;
+  return hit.summary ?? hit.snippet;
 }
 
 /** Keep palette hints short — long queries overflow the row. */
