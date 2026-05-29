@@ -664,20 +664,17 @@ export function isCloakEnabled(): boolean {
  * permit third-party developers to offer Claude.ai login or
  * route Free/Pro/Max credentials on behalf of users.
  *
- * Until WAWQAQ / product / legal explicitly accepts the ToS risk
- * (or Anthropic loosens this), Claude subscription is gated
- * behind `MAKA_CLAUDE_SUBSCRIPTION_EXPERIMENTAL=1`. When the env
- * var is NOT set:
- *   - Settings UI does NOT render the Claude subscription card.
- *   - IPC handlers return `experimental_disabled` immediately so a
- *     manual `window.maka.claudeSubscription.*` call from
- *     DevTools also fails closed.
+ * WAWQAQ msg `fd421634` on 2026-05-29 explicitly accepted the
+ * ToS risk and asked why the OAuth card was missing from
+ * Settings · 账号. The kill-switch now defaults to ON; setting
+ * `MAKA_CLAUDE_SUBSCRIPTION_EXPERIMENTAL=0` explicitly disables
+ * it for users who need to opt out (e.g. corp deployments with
+ * tighter compliance requirements).
  *
- * This is the kill-switch for the entire feature; the cloak flag
- * (`isCloakEnabled`) is a finer-grained switch inside the
- * subscription send path that the future PR-OAUTH-SUBSCRIPTION-1
- * will respect. Both are off by default.
+ * The cloak flag (`isCloakEnabled`) is a separate, finer-grained
+ * switch inside the subscription send path that PR-OAUTH-SUBSCRIPTION-1
+ * will respect; it remains opt-in.
  */
 export function isSubscriptionExperimentalEnabled(): boolean {
-  return process.env.MAKA_CLAUDE_SUBSCRIPTION_EXPERIMENTAL === '1';
+  return process.env.MAKA_CLAUDE_SUBSCRIPTION_EXPERIMENTAL !== '0';
 }
