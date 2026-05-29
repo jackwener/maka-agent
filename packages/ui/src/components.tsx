@@ -1056,6 +1056,7 @@ function PlanReminderPanel(props: {
   const visibleReminders = listFilter === 'all'
     ? props.reminders
     : props.reminders.filter((reminder) => reminder.status === listFilter);
+  const sortedReminders = [...visibleReminders].sort(comparePlanReminderForDisplay);
   const filterCounts: Record<PlanReminderListFilter, number> = {
     all: props.reminders.length,
     scheduled: props.reminders.filter((reminder) => reminder.status === 'scheduled').length,
@@ -1306,7 +1307,7 @@ function PlanReminderPanel(props: {
             extraClassName="maka-plan-empty"
           />
         ) : (
-          visibleReminders.map((reminder) => (
+          sortedReminders.map((reminder) => (
             <article key={reminder.id} className="maka-plan-card" data-status={reminder.status}>
               <div className="maka-plan-card-main">
                 <div className="maka-plan-card-title">{reminder.title}</div>
@@ -1456,6 +1457,33 @@ function planReminderFormValidationMessage(input: {
     return '选择机器人聊天时需要填写 Chat ID。';
   }
   return null;
+}
+
+function comparePlanReminderForDisplay(a: PlanReminder, b: PlanReminder): number {
+  const statusDelta = planReminderStatusDisplayRank(a) - planReminderStatusDisplayRank(b);
+  if (statusDelta !== 0) return statusDelta;
+  if (a.status === 'scheduled' && b.status === 'scheduled') {
+    return planReminderNextRunSortValue(a) - planReminderNextRunSortValue(b);
+  }
+  if (a.status === 'completed' && b.status === 'completed') {
+    return planReminderLastRunSortValue(b) - planReminderLastRunSortValue(a);
+  }
+  return a.title.localeCompare(b.title, 'zh-Hans-CN');
+}
+
+function planReminderStatusDisplayRank(reminder: PlanReminder): number {
+  if (reminder.status === 'scheduled') return 0;
+  if (reminder.status === 'paused') return 1;
+  if (reminder.status === 'completed') return 2;
+  return 3;
+}
+
+function planReminderNextRunSortValue(reminder: PlanReminder): number {
+  return typeof reminder.nextRunAt === 'number' ? reminder.nextRunAt : Number.MAX_SAFE_INTEGER;
+}
+
+function planReminderLastRunSortValue(reminder: PlanReminder): number {
+  return reminder.lastRun?.at ?? 0;
 }
 
 function planReminderEditableRunAt(reminder: PlanReminder, now: number = Date.now()): number {

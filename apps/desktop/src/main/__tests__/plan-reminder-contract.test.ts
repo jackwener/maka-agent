@@ -67,6 +67,9 @@ describe('Plan reminder MVP contract', () => {
     assert.match(ui, /Cron 需要 5 段表达式/, 'create/edit form must explain invalid cron shape');
     assert.match(ui, /选择机器人聊天时需要填写 Chat ID/, 'create/edit form must explain missing bot delivery target');
     assert.match(ui, /role="status"/, 'create/edit form must expose validation feedback to assistive tech');
+    assert.match(ui, /comparePlanReminderForDisplay/, 'list must sort reminders as an actionable queue, not raw storage order');
+    assert.match(ui, /planReminderNextRunSortValue/, 'scheduled reminders must sort by next run time');
+    assert.match(ui, /planReminderLastRunSortValue/, 'completed reminders must sort by recent run history');
   });
 
   it('scheduler records trigger outcomes and emits due events', async () => {
