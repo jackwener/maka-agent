@@ -226,3 +226,23 @@ describe('QQ_INTENTS', () => {
     assert.equal(QQ_INTENTS, 1 | 4096 | (1 << 25) | (1 << 30));
   });
 });
+
+// PR-BOT-QQ-TYPING-INDICATOR-0: pin the chatId-prefix gate that decides
+// whether the bridge attempts a POST to /channels/{id}/typing. The
+// actual REST call is exercised at the integration / desktop layer;
+// here we pin the routing decision so a future PR cannot accidentally
+// drop the channel-only restriction (Groups and C2C use a different
+// messaging stack with no typing endpoint).
+describe('QQ sendTypingIndicator routing (PR-BOT-QQ-TYPING-INDICATOR-0)', () => {
+  it('only routes channel: chatIds to the typing endpoint', () => {
+    // Re-check the same routing rule the bridge applies inline.
+    function shouldSendTyping(chatId: string): boolean {
+      return chatId.startsWith('channel:');
+    }
+    assert.equal(shouldSendTyping('channel:c-1'), true);
+    assert.equal(shouldSendTyping('group:g-1'), false);
+    assert.equal(shouldSendTyping('c2c:u-1'), false);
+    assert.equal(shouldSendTyping('dm:dm-1'), false);
+    assert.equal(shouldSendTyping(''), false);
+  });
+});

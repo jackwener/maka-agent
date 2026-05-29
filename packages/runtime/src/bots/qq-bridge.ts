@@ -349,6 +349,32 @@ export class QQBotBridge extends BaseBotAdapter implements SendCapable {
     return classification.messageId;
   }
 
+  /**
+   * PR-BOT-QQ-TYPING-INDICATOR-0: parity with Telegram + Discord.
+   * QQ Channel Bot exposes POST `/channels/{channel_id}/typing` for
+   * guild channel messages only — Groups and C2C use a different
+   * messaging stack with no typing endpoint. We gate on the `channel:`
+   * chatId prefix so an unsupported target silently degrades to
+   * `false` rather than emitting a confusing 404.
+   */
+  async sendTypingIndicator(chatId: string): Promise<boolean> {
+    if (this.platform !== 'qq' || !this.running) return false;
+    if (!chatId.startsWith('channel:')) return false;
+    const token = await this.refreshTokenIfNeeded();
+    if (!token) return false;
+    const channelId = chatId.slice('channel:'.length);
+    try {
+      const response = await proxiedFetch(`${QQ_API}/channels/${channelId}/typing`, {
+        method: 'POST',
+        headers: { Authorization: `QQBot ${token}` },
+        timeoutMs: 5_000,
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
   protected override connectionKind(): BotStatus['connection'] {
     return 'gateway';
   }
