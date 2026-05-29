@@ -152,7 +152,7 @@ export const SAFE_SHELL_PREFIXES: readonly string[] = [
   'git diff',
   'git branch',
   'git show',
-  // PawWork borrow: OfficeCLI read-only inspection commands are safe in
+  // External reference borrow: OfficeCLI read-only inspection commands are safe in
   // explore mode. Mutating verbs such as open/add/set/remove/close/batch stay
   // outside this allowlist and therefore prompt or block through Bash policy.
   'officecli --version',

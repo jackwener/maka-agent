@@ -5,7 +5,7 @@
  * so each `text_delta` event triggered an immediate re-render. The
  * visible result was "jumpy" output: chunks landed in clumps,
  * sometimes the whole sentence appeared at once, and the user never
- * saw the calm typewriter cadence Claude/GPT/Alma produce.
+ * saw the calm typewriter cadence other modern chat clients produce.
  *
  * `useSmoothStreamContent` decouples the displayed text from the
  * upstream `rawText`. It:

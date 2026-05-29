@@ -89,7 +89,7 @@ async function testDiscord(channel: BotChannelSettings): Promise<BotTestResult> 
 }
 
 /**
- * PR-BOT-WECOM-CREDENTIALS-TEST-0 (Hermes deep-dive: wecom_crypto pattern):
+ * PR-BOT-WECOM-CREDENTIALS-TEST-0 (external bot research: wecom_crypto pattern):
  * verify WeCom (企业微信) self-built app credentials by issuing an
  * `access_token` via the corp gettoken endpoint. Success proves the
  * corp_id + corp_secret pair are real and the app exists; it does NOT
@@ -141,7 +141,7 @@ async function testWeCom(channel: BotChannelSettings): Promise<BotTestResult> {
 }
 
 /**
- * PR-BOT-DINGTALK-CREDENTIALS-TEST-0 (Hermes deep-dive: enterprise IM
+ * PR-BOT-DINGTALK-CREDENTIALS-TEST-0 (external bot research: enterprise IM
  * adapters): verify DingTalk (钉钉) self-built app credentials by
  * issuing an `access_token` via the open-platform `gettoken` endpoint.
  * Mirrors the WeCom pattern almost exactly — the open platform exposes
@@ -193,7 +193,7 @@ async function testDingTalk(channel: BotChannelSettings): Promise<BotTestResult>
 }
 
 /**
- * PR-BOT-QQ-CREDENTIALS-TEST-0 (Hermes deep-dive: official QQ Channel
+ * PR-BOT-QQ-CREDENTIALS-TEST-0 (external bot research: official QQ Channel
  * bot): verify QQ 官方机器人 self-built app credentials by issuing an
  * `access_token` via the bots open-platform endpoint. Same handshake
  * shape as WeCom / DingTalk — `appId` + `clientSecret`, returns a

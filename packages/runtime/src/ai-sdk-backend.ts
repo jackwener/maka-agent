@@ -377,7 +377,7 @@ export class AiSdkBackend implements AgentBackend {
           });
         }
 
-        // PR-AGENT-ITERATION-GRACE-0 (Hermes deep-dive #A1): when the
+        // PR-AGENT-ITERATION-GRACE-0 (external bot research #A1): when the
         // ai-sdk loop exits with `finishReason === 'tool-calls'` it
         // means we tripped `stopWhen: stepCountIs(maxSteps)` mid-loop
         // — the model wanted to keep calling tools but we capped it.

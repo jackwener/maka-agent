@@ -10,7 +10,7 @@ export interface BotAttachmentRef {
 }
 
 /**
- * PR-BOT-NON-TEXT-MESSAGE-ACK-0 (Hermes deep-dive): the kind of non-text
+ * PR-BOT-NON-TEXT-MESSAGE-ACK-0 (external bot research): the kind of non-text
  * payload Telegram delivered alongside (or instead of) text. Used so
  * the handler can send a helpful "Maka 现在只读文字" ack instead of
  * silently dropping a photo / voice / sticker message. NOT a request
@@ -92,7 +92,7 @@ export function botConversationKey(message: Pick<BotMessageEvent, 'platform' | '
 }
 
 /**
- * PR-BOT-INCOMING-IDEMPOTENCY-0 (Hermes deep-dive): platform bridges
+ * PR-BOT-INCOMING-IDEMPOTENCY-0 (external bot research): platform bridges
  * can redeliver the same inbound message during reconnect / polling
  * recovery. The runtime needs a stable event key before creating a
  * Maka turn or sending a transient ack, otherwise a repeated platform
@@ -111,7 +111,7 @@ export function botSourceEventKey(
 }
 
 /**
- * PR-BOT-PLAINTEXT-RESET-COMMAND-0 (Hermes deep-dive): DM-only plain-text
+ * PR-BOT-PLAINTEXT-RESET-COMMAND-0 (external bot research): DM-only plain-text
  * "restart this conversation" affordance. Maka has no slash command
  * runtime; users on mobile cannot easily type `/restart` either, so we
  * coerce a handful of natural phrases into a reset action.
@@ -152,7 +152,7 @@ export function isPlaintextResetCommand(
 }
 
 /**
- * PR-BOT-PLAINTEXT-HELP-COMMAND-0 (Hermes deep-dive): DM-only help
+ * PR-BOT-PLAINTEXT-HELP-COMMAND-0 (external bot research): DM-only help
  * affordance so a new user can discover what the bot supports
  * without leaving Telegram. Same match policy as
  * {@link isPlaintextResetCommand} — DM-only, NFC + lowercase + trim,
@@ -206,7 +206,7 @@ function sanitizeBotUserName(value: string): string {
 }
 
 /**
- * PR-BOT-LASTERROR-FROM-SEND-0 (Hermes deep-dive): translate the bridge's
+ * PR-BOT-LASTERROR-FROM-SEND-0 (external bot research): translate the bridge's
  * machine-readable `BotStatus.reason` into a short user-readable string
  * suitable for persistence in `BotChannelSettings.lastError`. The Settings
  * page reads `lastError` from persisted settings (not live status), so

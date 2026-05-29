@@ -207,7 +207,7 @@ export async function buildSkillsPromptFragment(root: string): Promise<string | 
   const skills = await readInstalledSkillDefinitions(root);
   if (skills.length === 0) return undefined;
 
-  // PawWork-style lazy skill loading: keep the always-on system prompt to a
+  // External-reference-style lazy skill loading: keep the always-on system prompt to a
   // compact catalog, then let the model call the local `Skill` tool only when a
   // request actually matches a skill. This avoids stuffing every SKILL.md body
   // into every turn while preserving the same local-only boundary.
@@ -441,7 +441,7 @@ allowed-tools:
 
 # OfficeCLI DOCX
 
-Use this skill for Word document work. It is adapted from PawWork's OfficeCLI DOCX skill for Maka's permission model.
+Use this skill for Word document work. It is adapted from an external OfficeCLI reference DOCX skill for Maka's permission model.
 
 ## Boundary
 
@@ -473,7 +473,7 @@ allowed-tools:
 
 # OfficeCLI XLSX
 
-Use this skill for spreadsheet work. It is adapted from PawWork's OfficeCLI XLSX skill for Maka's permission model.
+Use this skill for spreadsheet work. It is adapted from an external OfficeCLI reference XLSX skill for Maka's permission model.
 
 ## Boundary
 
@@ -507,7 +507,7 @@ allowed-tools:
 
 # OfficeCLI PPTX
 
-Use this skill for presentation work. It is adapted from PawWork's OfficeCLI PPTX skill for Maka's permission model.
+Use this skill for presentation work. It is adapted from an external OfficeCLI reference PPTX skill for Maka's permission model.
 
 ## Boundary
 

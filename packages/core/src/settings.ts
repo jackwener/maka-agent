@@ -93,7 +93,7 @@ export interface BotChannelSettings {
   lastTestAt?: number;
   lastError?: string;
   /**
-   * PR-BOT-USER-ALLOWLIST-0 (Hermes deep-dive): platform-native user IDs
+   * PR-BOT-USER-ALLOWLIST-0 (external bot research): platform-native user IDs
    * permitted to message this bot. `undefined` or empty means no
    * restriction (preserves the V0.1 behavior for existing installs).
    * When non-empty, the bot bridge silently drops inbound messages from

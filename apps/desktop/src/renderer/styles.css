@@ -80,7 +80,7 @@ button:active {
 
 .appFrame {
   height: 100dvh;
-  /* PR-UI-LAYOUT-1: tightened 12 → 10 to match 牛马AI screenshot 1
+  /* PR-UI-LAYOUT-1: tightened 12 → 10 to match the reference design screenshot 1
    * where the floating panels sit closer to the window edge. Same
    * value all sides keeps the gap visually consistent. */
   padding: 10px;
@@ -105,7 +105,7 @@ button:active {
   /* PR-UI-LAYOUT-1: the middle column is the resize handle. We
    * keep it at 8px so the keyboard separator still works, but it
    * doubles as the visible gap between the two floating panels —
-   * 牛马AI runs ~6-8px between cards, which Maka now matches. */
+   * the reference design runs ~6-8px between cards, which Maka now matches. */
   grid-template-columns:
     var(--maka-session-list-width, var(--w-sessionlist))
     8px
@@ -122,7 +122,7 @@ button:active {
 }
 
 .maka-floating-panel {
-  /* PR-UI-LAYOUT-1: softened panel chrome to match 牛马AI screenshot 1.
+  /* PR-UI-LAYOUT-1: softened panel chrome to match the reference design screenshot 1.
    * Was: 14px radius + `--border-strong` + 3-layer shadow that read
    * as "lifted card on a different surface".
    * Now: 12px radius + thin `--border` + much lighter shadow that
@@ -1057,7 +1057,7 @@ button:active {
   display: grid;
   gap: 3px;
   /* PR-UI-LAYOUT-5 (@yuejing): tighter chip chrome — was 12px
-   * radius + var(--background-elevated) bg + 12/14px padding. 牛马AI
+   * radius + var(--background-elevated) bg + 12/14px padding. the reference design
    * uses lighter pills; we keep two-line content (label + hint)
    * but pull the visual weight down so the grid feels lighter and
    * less card-like. Border drops to hairline `--border`,
@@ -2326,7 +2326,7 @@ button:active {
   padding: 0 14px;
   /* PR-UI-LAYOUT-5: chat header now blends with the surrounding
    * floating panel's `--background` instead of carrying its own
-   * `--foreground-5` tint. Matches 牛马AI screenshot 1 where the tab
+   * `--foreground-5` tint. Matches the reference design screenshot 1 where the tab
    * strip reads as part of the main panel, not a separate header
    * band. The active tab still pops because it owns `--background`
    * with a thin border and rounded top corners — the contrast
@@ -3290,7 +3290,7 @@ button:active {
 }
 
 /* PR-UI-LAYOUT-5: command-palette discoverability pill in
- * EmptyChatHero — analog of 牛马AI's "Space 可以随时唤起 AI 输入"
+ * EmptyChatHero — analog of the reference design's "Space 可以随时唤起 AI 输入"
  * hint. Calm muted styling so it reads as a hint, not a CTA;
  * gap between kbd glyphs uses the existing kbd token chrome
  * (PR-UI-10). B1-a1 review fixup (@kenji msg 708255f3): the hint
@@ -3971,7 +3971,7 @@ button:active {
   place-items: center;
   /* PR-UI-LAYOUT-2: stronger backdrop blur + slightly darker scrim
    * so the underlying chat reads as "paused behind a dialog"
-   * (matches 牛马AI's settings screenshot 2/3/4 where the chat is
+   * (matches the reference design's settings screenshot 2/3/4 where the chat is
    * still semi-visible but clearly dimmed). Was: blur 8px + 0.34
    * scrim. Now: blur 14px + 0.42 scrim. The dialog itself shrinks
    * (see .settingsModal below) so the visible "frame" of chat
@@ -3995,7 +3995,7 @@ button:active {
 
 .settingsModal {
   /* PR-UI-LAYOUT-2 (@yuejing 2026-05-22): shrunk from near-full-screen
-   * to ~88vw / 76vh max to match 牛马AI screenshots 2/3/4 where the
+   * to ~88vw / 76vh max to match the reference design screenshots 2/3/4 where the
    * dialog occupies ~75% of the viewport with the chat clearly
    * visible behind it. Was: 96vw / 82vh / 1380×760 cap.
    * Now: 88vw / 76vh / 1100×680 cap.
@@ -4011,7 +4011,7 @@ button:active {
   overflow: hidden;
   border: 1px solid oklch(0 0 0 / 0.08);
   /* Slight radius reduction (22 → 18) keeps the dialog feeling like
-   * a card rather than a soft pillow. 牛马's settings dialog reads
+   * a card rather than a soft pillow. the reference settings dialog reads
    * ~16-18px radius. */
   border-radius: 18px;
   background: var(--background);
@@ -4091,9 +4091,9 @@ button:active {
    * line on the bottom so the 4 groups read as clearly separated
    * chunks rather than just "uppercase text".
    *
-   * PR-UI-LAYOUT-3 (@yuejing 2026-05-22 night, per @WAWQAQ 牛马AI
+   * PR-UI-LAYOUT-3 (@yuejing 2026-05-22 night, per @WAWQAQ the reference design
    * comparison): softened the label so it doesn't dominate the
-   * sidebar visual. 牛马 has no group labels at all; we keep them
+   * sidebar visual. The reference design has no group labels at all; we keep them
    * for @kenji's review-gate ("nav doubles as map") but pull
    * weight/letter-spacing down so they read as labels, not headings. */
   display: flex;
@@ -4477,7 +4477,7 @@ button:active {
   background: var(--background);
   /* PR-UI-LAYOUT-36: equalize horizontal padding (was asymmetric
    * 34 right / 20 left, content used to drift toward the left
-   * edge of the main pane). 26px both sides matches the 牛马AI
+   * edge of the main pane). 26px both sides matches the the reference design
    * settings interior spacing in screenshots 2/3/4. Bottom kept
    * at 74px because the absolute-positioned "完成" CTA lives
    * there. Top trimmed 24 → 22 so the header h2 sits a touch
@@ -6151,7 +6151,7 @@ button:active {
    * (Settings → Models → 推荐服务/国内服务/... grid).
    * - Radius 18 → 14 (oversized rounded corner was a leftover from
    *   the pre-warm-canvas era; 14 sits between the chip 10 and the
-   *   settings modal 18, matching 牛马 screenshot 3 provider tiles).
+   *   settings modal 18, matching reference screenshot 3 provider tiles).
    * - Background `--foreground-2` → transparent (sits lightly on
    *   the panel, like the chip lightening).
    * - Hover state adds a lift transform to make selection feel

@@ -1,5 +1,5 @@
 /**
- * PR-BOT-DISCORD-OPERATIONAL-0 (Hermes deep-dive: Discord Gateway):
+ * PR-BOT-DISCORD-OPERATIONAL-0 (external bot research: Discord Gateway):
  * full Discord bot lifecycle — gateway WebSocket, identify, heartbeat,
  * MESSAGE_CREATE dispatch, REST send, reply threading, typing
  * indicator, reconnect with backoff. Mirrors the SimpleBotBridge

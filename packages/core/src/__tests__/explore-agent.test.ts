@@ -92,7 +92,7 @@ describe('deep research session profile', () => {
     assert.match(DEEP_RESEARCH_REPORT_SECTIONS[3]?.body ?? '', /验证命令/);
   });
 
-  it('keeps the PawWork-style research scope budget explicit', () => {
+  it('keeps the research scope budget explicit', () => {
     assert.deepEqual(
       DEEP_RESEARCH_SCOPE_OPTIONS.map((option) => option.label),
       ['快速', '标准', '深挖'],
@@ -114,7 +114,7 @@ describe('deep research session profile', () => {
     assert.match(DEEP_RESEARCH_EVIDENCE_CHECKLIST[3]?.body ?? '', /测试、fixture、smoke/);
   });
 
-  it('keeps the PawWork-style progress checkpoints visible and non-autonomous', () => {
+  it('keeps the progress checkpoints visible and non-autonomous', () => {
     assert.equal(DEEP_RESEARCH_PROGRESS_CHECKPOINTS.length, 4);
     assert.deepEqual(
       DEEP_RESEARCH_PROGRESS_CHECKPOINTS.map((item) => item.title),

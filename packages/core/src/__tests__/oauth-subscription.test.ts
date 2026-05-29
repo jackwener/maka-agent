@@ -202,7 +202,7 @@ describe('constantTimeStringEqual (xuan G-X1 timing defense)', () => {
 });
 
 describe('PKCE_VERIFIER_LENGTH_BYTES configuration', () => {
-  it('is 32 bytes (alma parity + RFC 7636 §4.1 minimum)', () => {
+  it('is 32 bytes (upstream parity + RFC 7636 §4.1 minimum)', () => {
     // 32 random bytes → base64url ~43 chars → falls in
     // RFC 7636's 43-128 char verifier range.
     assert.equal(PKCE_VERIFIER_LENGTH_BYTES, 32);
@@ -214,7 +214,7 @@ describe('TTL / cache constants', () => {
     assert.equal(PENDING_AUTHORIZATION_TTL_MS, 10 * 60 * 1000);
   });
 
-  it('TOKEN_REFRESH_SKEW_MS is 5 minutes (alma parity)', () => {
+  it('TOKEN_REFRESH_SKEW_MS is 5 minutes (upstream parity)', () => {
     assert.equal(TOKEN_REFRESH_SKEW_MS, 5 * 60 * 1000);
   });
 

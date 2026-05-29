@@ -57,7 +57,7 @@ describe('project context badge', () => {
     assert.doesNotMatch(renderer, /openPath\(appInfo\.projectPath\)/);
   });
 
-  it('renders a PawWork-style project badge in the sidebar header', async () => {
+  it('renders a project badge in the sidebar header', async () => {
     const ui = await readRepo('packages/ui/src/components.tsx');
     const styles = await readRepo('apps/desktop/src/renderer/styles.css');
     const renderer = await readRepo('apps/desktop/src/renderer/main.tsx');

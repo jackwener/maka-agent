@@ -15,7 +15,8 @@
  *   that don't look like the Claude Code CLI — it checks user-agent,
  *   Stainless SDK headers, and the presence of a "You are Claude
  *   Code" system prompt prefix. To make Maka's subscription quota
- *   actually work, alma sends all of these (`main.js:16037-16089`).
+ *   actually work, the upstream Claude.ai client sends all of these
+ *   (external reference at main.js:16037-16089).
  *
  *   Whether THIS impersonation is acceptable under Anthropic's ToS
  *   is an open product/legal question. Default OFF until a clear
@@ -42,7 +43,7 @@ const CLAUDE_CODE_UA = `claude-cli/${CLAUDE_CODE_PRODUCT_VERSION} (external, cli
 const CLAUDE_CODE_SYSTEM_PREFIX = "You are Claude Code, Anthropic's official CLI for Claude.";
 
 /**
- * Stainless SDK headers — alma's pattern pretends Maka is the
+ * Stainless SDK headers — the upstream pattern pretends Maka is the
  * Anthropic SDK so the subscription gateway accepts the call.
  */
 function getStainlessHeaders(timeoutMs: number): Record<string, string> {
@@ -64,7 +65,7 @@ function getStainlessHeaders(timeoutMs: number): Record<string, string> {
 
 /**
  * Build the anthropic-beta header chain. Haiku models get a smaller
- * subset per alma's pattern.
+ * subset per the upstream pattern.
  */
 function buildAnthropicBetaHeader(model: string | undefined): string {
   const isHaiku = (model ?? '').toLowerCase().includes('haiku');
@@ -110,8 +111,8 @@ function extractFirstUserMessageText(messages: unknown): string {
 
 /**
  * Compute the billing fingerprint — three hex chars derived from a
- * salted hash of the first user message + product version. alma's
- * `computeFingerprint` (`main.js:15978-15981`).
+ * salted hash of the first user message + product version. Matches
+ * the upstream `computeFingerprint` (external reference at main.js:15978-15981).
  *
  * Async because we use SubtleCrypto when available so the helper
  * works on web (future) and Node alike. In Node 20+ `crypto.subtle`
@@ -186,7 +187,7 @@ export async function buildCloakedRequest(input: CloakedRequestInput): Promise<C
     type: 'text',
     text: `x-anthropic-billing-header: cc_version=${CLAUDE_CODE_PRODUCT_VERSION}.${fingerprint}; cc_entrypoint=cli;`,
   };
-  // Billing block sits ABOVE the Claude Code prefix per alma.
+  // Billing block sits ABOVE the Claude Code prefix per the upstream pattern.
   systemBlocks.unshift(billingBlock);
   body.system = systemBlocks;
 

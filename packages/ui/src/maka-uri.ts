@@ -1,9 +1,10 @@
 /**
  * PR-UI-RENDER-2 — Internal `maka://` markdown link router.
  *
- * Alma exposes a small allowlist of internal markdown links so the
- * assistant can drop "open Settings · 账号" style affordances directly
- * inside its prose. Maka mirrors that, but **strictly**: the parser
+ * External reference designs expose a small allowlist of internal
+ * markdown links so the assistant can drop "open Settings · 账号"
+ * style affordances directly inside its prose. Maka mirrors that,
+ * but **strictly**: the parser
  * is a closed-world allowlist that only accepts the two destinations
  * we are willing to wire today.
  *

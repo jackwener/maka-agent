@@ -240,10 +240,10 @@ const backends = new BackendRegistry();
 const permissionEngine = new PermissionEngine({ newId: randomUUID, now: Date.now });
 const builtinTools = [
   ...buildBuiltinTools().filter((tool) => tool.name !== 'Edit'),
-  // PawWork lazy-skill pattern: the prompt lists available skills, and this
-  // read-only tool loads the full SKILL.md only when the task matches.
+  // External reference lazy-skill pattern: the prompt lists available skills,
+  // and this read-only tool loads the full SKILL.md only when the task matches.
   buildSkillAgentTool(workspaceRoot),
-  // PawWork plan-mode borrow: a bounded read-only local worker for
+  // External reference plan-mode borrow: a bounded read-only local worker for
   // self-contained code/repo investigations. The tool advertises the
   // `subagent` category; explore mode allows it, but the implementation
   // itself only reads filenames/text snippets under the session cwd.
@@ -2083,7 +2083,7 @@ async function processBotIncomingMessage(
     ).catch(() => null);
     return;
   }
-  // PR-BOT-PLAINTEXT-RESET-COMMAND-0 (Hermes deep-dive): in DMs, a bare
+  // PR-BOT-PLAINTEXT-RESET-COMMAND-0 (external bot research): in DMs, a bare
   // "restart" / "重置" / etc. drops the conversation/session binding so
   // the next message starts a fresh thread. DM-only because the
   // conversation key is `${platform}:${chatId}` — in a group chat any
@@ -2127,7 +2127,7 @@ async function processBotIncomingMessage(
       turnId,
       text: formatBotMessageForSession({ ...message, text }),
     });
-    // PR-BOT-TYPING-INDICATOR-0 (Hermes deep-dive): keep "Maka 正在
+    // PR-BOT-TYPING-INDICATOR-0 (external bot research): keep "Maka 正在
     // 输入…" visible in the Telegram client while the agent generates
     // its reply. Telegram auto-clears the indicator after ~5 seconds,
     // so we refresh every 4 seconds. The loop is best-effort: every
@@ -2157,7 +2157,7 @@ async function processBotIncomingMessage(
       typingAbort.abort();
       await typingLoop.catch(() => {});
     }
-    // PR-BOT-REPLY-TO-MESSAGE-0 (Hermes deep-dive): thread the bot reply
+    // PR-BOT-REPLY-TO-MESSAGE-0 (external bot research): thread the bot reply
     // under the originating user message. Group chats with concurrent
     // conversations otherwise visually scramble; even in DMs the threading
     // keeps a long reply attached to the question that produced it. Bot

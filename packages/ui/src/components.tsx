@@ -806,7 +806,7 @@ export interface DailyReviewBridge {
  * bullet list of sessions / top tools / top models is the whole
  * value-prop. Future PR can layer a generated narrative on top.
  *
- * borrow: alma "today" digest concept (read-only summary).
+ * borrow: external "today" digest concept (read-only summary).
  * diverge: no cron, no auto-push, no memory promotion (privacy default).
  */
 type DailyReviewRange = 1 | 7 | 30;
@@ -3011,7 +3011,7 @@ function Markdown(props: { text: string }) {
           </code>
         ),
         // Wrap block code with a language pill header + copy affordance.
-        // The pill is alma-inspired (40-markdown-deep §7a) — surfaces the
+        // The pill is from an external design reference (40-markdown-deep §7a) — surfaces the
         // detected language so users can verify hljs got it right.
         pre: ({ children, ...rest }) => <CodeBlock {...rest}>{children}</CodeBlock>,
       }}
@@ -3187,7 +3187,7 @@ function collectCodeText(children: ReactNode): string {
  * Chinese while the chips switch to English.
  *
  * PR-UI-LAYOUT-4 (@yuejing 2026-05-22): time-of-day greeting in the
- * headline, matching 牛马AI screenshot 1 ("晚上好，安静的夜晚适合
+ * headline, matching the reference screenshot 1 ("晚上好，安静的夜晚适合
  * 深度思考"). The greeting hook is a tiny calm touch but it makes
  * the empty-chat surface read as a welcoming space rather than a
  * generic "start typing" prompt. We bucket the local hour into four
@@ -3235,7 +3235,7 @@ const EMPTY_HERO_COPY_BY_LOCALE: Record<PromptSuggestionLocale, {
   headlineFallback: (greeting: string, tail: string) => string;
   intro: string;
   /** PR-UI-LAYOUT-5: small discoverability hint for ⌘K command
-   *  palette — analog of 牛马AI's "Space 可以随时唤起 AI 输入".
+   *  palette — analog of the reference design's "Space 可以随时唤起 AI 输入".
    *  We use ⌘K rather than Space because Cmd+K is the actual
    *  Maka shortcut and Space conflicts with normal typing in
    *  the composer. */
