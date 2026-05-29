@@ -3071,6 +3071,12 @@ function OpenGatewaySettingsPage(props: {
   }
 
   const baseUrl = status?.baseUrl ?? gatewayBaseUrl(gateway.host, gateway.port);
+  async function copyOverviewCurl() {
+    const command = `curl -sS ${shellSingleQuote(`${baseUrl}/v1/state`)} -H ${shellSingleQuote(`Authorization: Bearer ${gateway.token}`)}`;
+    await navigator.clipboard.writeText(command);
+    toast.success('已复制总览 curl', '可在终端验证开放网关状态。');
+  }
+
   const state = presentGatewayStatus(status, gateway);
 
   return (
@@ -3148,6 +3154,9 @@ function OpenGatewaySettingsPage(props: {
         <button className="maka-button secondary" type="button" onClick={() => void copyBaseUrl()}>
           复制地址
         </button>
+        <button className="maka-button secondary" type="button" disabled={!gateway.token} onClick={() => void copyOverviewCurl()}>
+          复制总览 curl
+        </button>
       </div>
 
       <SettingsRows>
@@ -3176,6 +3185,10 @@ function OpenGatewaySettingsPage(props: {
 
 function gatewayBaseUrl(host: AppSettings['openGateway']['host'], port: number): string {
   return `http://${host}:${port}`;
+}
+
+function shellSingleQuote(value: string): string {
+  return `'${value.replaceAll("'", "'\\''")}'`;
 }
 
 function presentGatewayStatus(
