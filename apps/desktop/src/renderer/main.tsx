@@ -679,7 +679,16 @@ function AppShell(props: {
     });
     const unsubscribePlanDue = window.maka.plans.subscribeDue((reminder) => {
       void refreshPlanReminders();
-      toastApi.info('计划提醒', reminder.title);
+      toastApi.toast({
+        title: '计划提醒',
+        description: reminder.title,
+        variant: 'info',
+        duration: 8000,
+        action: {
+          label: '查看计划',
+          onClick: () => setNavSelection({ section: 'automations' }),
+        },
+      });
     });
     function onKeyDown(event: globalThis.KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && event.key === ',') {
