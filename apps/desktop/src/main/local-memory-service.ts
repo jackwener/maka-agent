@@ -170,6 +170,26 @@ export class LocalMemoryService {
   async restoreLatestBackup(): Promise<
     { ok: true; state: LocalMemoryState } | { ok: false; state: LocalMemoryState; message: string }
   > {
+    return this.restoreBackupBySelector(() => this.requireLatestBackupInfo());
+  }
+
+  async restoreBackup(kind: LocalMemoryBackupInfo['kind']): Promise<
+    { ok: true; state: LocalMemoryState } | { ok: false; state: LocalMemoryState; message: string }
+  > {
+    return this.restoreBackupBySelector(async () => {
+      const backup = (await this.backupInfos()).find((candidate) => candidate.kind === kind);
+      if (!backup) {
+        const error = new Error('没有找到指定的 MEMORY.md 备份。') as Error & { code: string };
+        error.code = 'ENOENT';
+        throw error;
+      }
+      return backup;
+    });
+  }
+
+  private async restoreBackupBySelector(
+    selectBackup: () => Promise<LocalMemoryBackupInfo>,
+  ): Promise<{ ok: true; state: LocalMemoryState } | { ok: false; state: LocalMemoryState; message: string }> {
     if ((await this.deps.getPrivacyContext()).incognitoActive) {
       return { ok: false, state: await this.getState(), message: '隐身模式下不能恢复 MEMORY.md。' };
     }
@@ -179,7 +199,7 @@ export class LocalMemoryService {
     try {
       await this.enqueue(async () => {
         await this.ensure();
-        const backupInfo = await this.requireLatestBackupInfo();
+        const backupInfo = await selectBackup();
         const [root, backup] = await Promise.all([
           realpath(this.deps.workspaceRoot),
           realpath(backupInfo.path),
