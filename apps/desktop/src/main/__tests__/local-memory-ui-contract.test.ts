@@ -113,7 +113,8 @@ describe('local MEMORY.md Settings UI contract', () => {
     assert.match(css, /\.settingsMemoryFilterEmpty/);
     assert.match(pageBlock, /visibleMemoryEntries\.entries\.length === 0 && !memoryEntryPreviewBlockedReason/);
     assert.match(pageBlock, /settingsMemoryListEmpty/);
-    assert.match(pageBlock, /还没有可预览的记忆条目/);
+    assert.match(pageBlock, /等待添加记忆条目/);
+    assert.doesNotMatch(pageBlock, /还没有可预览的记忆条目/);
     assert.match(pageBlock, /手动添加会先进入下方草稿；保存后才会写入 MEMORY\.md/);
     assert.match(css, /\.settingsMemoryListEmpty/);
     assert.match(src, /entry\.id/);
