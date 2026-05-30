@@ -2556,6 +2556,25 @@ function MemorySettingsPage(props: {
     }
   }
 
+  async function restoreBackupCandidate(backup: NonNullable<LocalMemoryState['latestBackup']>) {
+    const backupLabel = `${localMemoryBackupKindLabel(backup.kind)} · ${localMemoryBackupSummary(backup)} · ${new Date(backup.updatedAt).toLocaleString()}`;
+    if (!confirm(`恢复这个备份候选会先备份当前 MEMORY.md，再用选中的备份覆盖当前文件。\n\n将恢复：${backupLabel}\n\n确认恢复吗？`)) return;
+    setBusy(true);
+    try {
+      const result = await window.maka.memory.restoreBackup(backup.kind);
+      setState(result.state);
+      setDraft(result.state.content);
+      setLastSaveSummary(null);
+      if (result.ok) {
+        toast.success('已恢复 MEMORY.md 备份候选', `${backupLabel}；恢复前的当前文件已保存为 restore.bak。`);
+      } else {
+        toast.error('恢复失败', result.message);
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function openFile() {
     const result = await window.maka.memory.openFile();
     if (!result.ok) toast.error('打开失败', result.message);
@@ -2901,6 +2920,14 @@ function MemorySettingsPage(props: {
                   onClick={() => void openBackupCandidate(backup)}
                 >
                   打开
+                </button>
+                <button
+                  type="button"
+                  className="settingsInlineTextButton"
+                  disabled={busy || !effective.enabled}
+                  onClick={() => void restoreBackupCandidate(backup)}
+                >
+                  恢复
                 </button>
                 <button type="button" className="settingsInlineTextButton" onClick={() => void copyBackupReference(backup)}>
                   复制引用
