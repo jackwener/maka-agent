@@ -383,6 +383,8 @@ describe('local MEMORY.md Settings UI contract', () => {
     assert.match(pageBlock, /localMemoryBackupKindLabel\(backup\.kind\)/);
     assert.match(pageBlock, /localMemoryBackupSummary\(backup\)/);
     assert.match(pageBlock, /<RelativeTime ts=\{backup\.updatedAt\}/);
+    assert.match(pageBlock, /copyBackupReference\(backup\)/);
+    assert.match(pageBlock, /复制引用/);
     assert.match(pageBlock, /这里只显示 metadata，不展示备份正文/);
     assert.doesNotMatch(pageBlock, /backup\.content|readFile\(backup/);
     assert.match(css, /\.settingsMemoryBackupList/);
@@ -417,9 +419,11 @@ describe('local MEMORY.md Settings UI contract', () => {
   it('can copy a latest MEMORY.md backup reference without exposing backup content', async () => {
     const src = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
     const pageBlock = src.match(/function MemorySettingsPage\([\s\S]*?function MemoryEntryList/)?.[0] ?? '';
-    const copyBackupBlock = pageBlock.match(/async function copyLatestBackupReference[\s\S]*?\n  }\n\n  async function copyMemoryEntryReference/)?.[0] ?? '';
+    const copyBackupBlock = pageBlock.match(/async function copyBackupReference[\s\S]*?\n  }\n\n  async function copyLatestBackupReference/)?.[0] ?? '';
 
+    assert.match(pageBlock, /async function copyBackupReference/);
     assert.match(pageBlock, /async function copyLatestBackupReference/);
+    assert.match(pageBlock, /await copyBackupReference\(backup\)/);
     assert.match(copyBackupBlock, /Memory backup: \$\{localMemoryBackupKindLabel\(backup\.kind\)\}/);
     assert.match(copyBackupBlock, /Path: \$\{backup\.path\}/);
     assert.match(copyBackupBlock, /Updated: \$\{new Date\(backup\.updatedAt\)\.toISOString\(\)\}/);

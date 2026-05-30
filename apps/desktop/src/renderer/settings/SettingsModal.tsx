@@ -2607,9 +2607,7 @@ function MemorySettingsPage(props: {
     }
   }
 
-  async function copyLatestBackupReference() {
-    const backup = state?.latestBackup;
-    if (!backup) return;
+  async function copyBackupReference(backup: NonNullable<LocalMemoryState['latestBackup']>) {
     const reference = [
       `Memory backup: ${localMemoryBackupKindLabel(backup.kind)}`,
       `Path: ${backup.path}`,
@@ -2624,6 +2622,12 @@ function MemorySettingsPage(props: {
     } catch {
       toast.error('复制失败', '剪贴板不可用。');
     }
+  }
+
+  async function copyLatestBackupReference() {
+    const backup = state?.latestBackup;
+    if (!backup) return;
+    await copyBackupReference(backup);
   }
 
   async function copyMemoryEntryReference(entry: LocalMemoryState['entries'][number]) {
@@ -2882,7 +2886,10 @@ function MemorySettingsPage(props: {
           <div>
             {effective.backups.map((backup) => (
               <span key={`${backup.kind}:${backup.path}`} className="settingsMemoryBackupCandidate">
-                {localMemoryBackupKindLabel(backup.kind)} · {localMemoryBackupSummary(backup)} · <RelativeTime ts={backup.updatedAt} />
+                <span>{localMemoryBackupKindLabel(backup.kind)} · {localMemoryBackupSummary(backup)} · <RelativeTime ts={backup.updatedAt} /></span>
+                <button type="button" className="settingsInlineTextButton" onClick={() => void copyBackupReference(backup)}>
+                  复制引用
+                </button>
               </span>
             ))}
           </div>

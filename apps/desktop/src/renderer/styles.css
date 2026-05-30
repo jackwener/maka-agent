@@ -9967,6 +9967,9 @@ button:active {
 }
 
 .settingsMemoryBackupCandidate {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 3px 7px;
   border: 1px solid var(--foreground-10);
   border-radius: 999px;
