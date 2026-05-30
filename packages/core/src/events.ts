@@ -191,6 +191,7 @@ export type ToolResultContent =
       queries: string[];
       ignoredPaths?: string[];
       stoppingCondition?: string;
+      limitReasons?: ReadonlyArray<'candidate_budget' | 'file_budget' | 'match_budget' | 'byte_budget'>;
       filesInspected: number;
       filesSkipped: number;
       sensitiveFilesSkipped?: number;

@@ -135,6 +135,7 @@ export interface ExploreAgentResult {
   queries: string[];
   ignoredPaths: string[];
   stoppingCondition: string;
+  limitReasons: ExploreAgentLimitReason[];
   filesInspected: number;
   filesSkipped: number;
   sensitiveFilesSkipped: number;
@@ -153,6 +154,8 @@ export interface ExploreAgentResult {
   reason?: 'invalid_objective' | 'invalid_root' | 'no_readable_roots' | 'aborted';
   message?: string;
 }
+
+type ExploreAgentLimitReason = 'candidate_budget' | 'file_budget' | 'match_budget' | 'byte_budget';
 
 export interface ExploreAgentEvent {
   type: 'started' | 'scope_resolved' | 'scan' | 'read' | 'checkpoint' | 'completed' | 'failed' | 'aborted' | 'progress';
@@ -293,6 +296,7 @@ export async function runReadOnlyExplore(input: {
   }
   let filesSkipped = 0;
   let sensitiveFilesSkipped = 0;
+  const limitReasons: ExploreAgentLimitReason[] = [];
   for (const root of resolvedRoots) {
     if (input.abortSignal?.aborted) {
       return abortFailure(objective, roots, queryTerms, ignoredPaths, stoppingCondition, progress, startedAt);
@@ -307,7 +311,10 @@ export async function runReadOnlyExplore(input: {
     files.push(...listed.files);
     filesSkipped += listed.skipped;
     sensitiveFilesSkipped += listed.sensitiveSkipped;
-    if (listed.truncated) notes.push(`范围 ${root.rel} 已到达候选文件预算，后续文件未继续扫描。`);
+    if (listed.truncated) {
+      addLimitReason(limitReasons, 'candidate_budget');
+      notes.push(`范围 ${root.rel} 已到达候选文件预算，后续文件未继续扫描。`);
+    }
     if (files.length === before) notes.push(`范围 ${root.rel} 在预算内没有可读取文本文件。`);
     const found = files.length - before;
     const skipped = filesSkipped - skippedBefore;
@@ -326,7 +333,10 @@ export async function runReadOnlyExplore(input: {
     notes.push('广泛研究会优先读取项目配置、文档、入口和测试线索。');
   }
   const filesToInspect = files.slice(0, maxFiles);
-  if (files.length > filesToInspect.length) notes.push(`已发现 ${files.length} 个文本候选；按查询命中和项目结构分读取前 ${filesToInspect.length} 个。`);
+  if (files.length > filesToInspect.length) {
+    addLimitReason(limitReasons, 'file_budget');
+    notes.push(`已发现 ${files.length} 个文本候选；按查询命中和项目结构分读取前 ${filesToInspect.length} 个。`);
+  }
 
   const candidates = new Map<string, { path: string; score: number; reasons: Set<string> }>();
   const matches: ExploreAgentResult['matches'] = [];
@@ -342,6 +352,7 @@ export async function runReadOnlyExplore(input: {
         queryTerms,
         ignoredPaths,
         stoppingCondition,
+        limitReasons,
         filesInspected: inspected,
         filesSkipped,
         sensitiveFilesSkipped,
@@ -388,6 +399,7 @@ export async function runReadOnlyExplore(input: {
         queryTerms,
         ignoredPaths,
         stoppingCondition,
+        limitReasons,
         filesInspected: inspected,
         filesSkipped,
         sensitiveFilesSkipped,
@@ -431,7 +443,14 @@ export async function runReadOnlyExplore(input: {
   const evidence = buildEvidenceAnchors(matches, candidateFiles);
   if (matches.length === 0) notes.push('没有找到内容命中；候选文件可作为下一步阅读清单。');
   if (sensitiveFilesSkipped > 0) notes.push(`已跳过 ${sensitiveFilesSkipped} 个疑似本地凭据/密钥文件，只报告数量不读取内容。`);
-  if (bytesRead >= MAX_TOTAL_BYTES) notes.push('总读取预算已用尽，部分候选文件未继续读取。');
+  if (matches.length >= maxMatches) {
+    addLimitReason(limitReasons, 'match_budget');
+    notes.push(`命中预算已用尽；只返回前 ${maxMatches} 处内容命中。`);
+  }
+  if (bytesRead >= MAX_TOTAL_BYTES) {
+    addLimitReason(limitReasons, 'byte_budget');
+    notes.push('总读取预算已用尽，部分候选文件未继续读取。');
+  }
   progress.report('completed', `只读探索：完成，读取 ${inspected} 个文件，命中 ${matches.length} 处，候选 ${candidateFiles.length} 个`);
   const completedAt = Date.now();
   const durationMs = Math.max(0, completedAt - startedAt);
@@ -447,6 +466,7 @@ export async function runReadOnlyExplore(input: {
     roots: resolvedRoots.map((root) => root.rel),
     queryTerms,
     stoppingCondition,
+    limitReasons,
     filesInspected: inspected,
     filesSkipped,
     sensitiveFilesSkipped,
@@ -468,6 +488,7 @@ export async function runReadOnlyExplore(input: {
     queries: queryTerms,
     ignoredPaths,
     stoppingCondition,
+    limitReasons,
     filesInspected: inspected,
     filesSkipped,
     sensitiveFilesSkipped,
@@ -514,6 +535,10 @@ function appendExploreEvent(events: ExploreAgentEvent[], event: ExploreAgentEven
     const evictIndex = events.findIndex((item) => !isLifecycleExploreEvent(item.type));
     events.splice(evictIndex >= 0 ? evictIndex : 0, 1);
   }
+}
+
+function addLimitReason(reasons: ExploreAgentLimitReason[], reason: ExploreAgentLimitReason): void {
+  if (!reasons.includes(reason)) reasons.push(reason);
 }
 
 function isLifecycleExploreEvent(type: ExploreAgentEvent['type']): boolean {
@@ -788,6 +813,7 @@ function buildResearchReport(input: {
   roots: string[];
   queryTerms: string[];
   stoppingCondition: string;
+  limitReasons: ExploreAgentLimitReason[];
   filesInspected: number;
   filesSkipped: number;
   sensitiveFilesSkipped: number;
@@ -804,6 +830,7 @@ function buildResearchReport(input: {
     `范围：${input.roots.length > 0 ? input.roots.join(', ') : '.'}`,
     `查询：${input.queryTerms.length > 0 ? input.queryTerms.join(', ') : '未指定'}`,
     ...(input.stoppingCondition ? [`停止条件：${input.stoppingCondition}`] : []),
+    ...(input.limitReasons.length > 0 ? [`预算边界：${input.limitReasons.map(presentExploreAgentLimitReason).join('、')}`] : []),
     `读取：${input.filesInspected} 个文件，跳过 ${input.filesSkipped} 个${input.sensitiveFilesSkipped > 0 ? `（含敏感 ${input.sensitiveFilesSkipped} 个）` : ''}，${formatReportBytes(input.bytesRead)}，耗时 ${formatReportDuration(input.durationMs)}`,
   ];
 
@@ -852,6 +879,19 @@ function buildResultSummary(input: {
     `候选 ${input.candidateFiles} 个`,
     `耗时 ${formatReportDuration(input.durationMs)}`,
   ].join(' · ');
+}
+
+function presentExploreAgentLimitReason(reason: ExploreAgentLimitReason): string {
+  switch (reason) {
+    case 'candidate_budget':
+      return '候选文件预算已满';
+    case 'file_budget':
+      return '读取文件预算已满';
+    case 'match_budget':
+      return '命中预算已满';
+    case 'byte_budget':
+      return '读取字节预算已满';
+  }
 }
 
 function formatReportBytes(bytes: number): string {
@@ -928,6 +968,7 @@ function failure(
     queries,
     ignoredPaths,
     stoppingCondition,
+    limitReasons: [],
     filesInspected: 0,
     filesSkipped: 0,
     sensitiveFilesSkipped: 0,
@@ -954,6 +995,7 @@ function partialAbortFailure(input: {
   queryTerms: string[];
   ignoredPaths: string[];
   stoppingCondition: string;
+  limitReasons: ExploreAgentLimitReason[];
   filesInspected: number;
   filesSkipped: number;
   sensitiveFilesSkipped: number;
@@ -1008,6 +1050,7 @@ function partialAbortFailure(input: {
     candidateFiles,
     matches: input.matches,
     notes,
+    limitReasons: input.limitReasons,
     durationMs,
   });
   return {
@@ -1020,6 +1063,7 @@ function partialAbortFailure(input: {
     queries: input.queryTerms,
     ignoredPaths: input.ignoredPaths,
     stoppingCondition: input.stoppingCondition,
+    limitReasons: [...input.limitReasons],
     filesInspected: input.filesInspected,
     filesSkipped: input.filesSkipped,
     sensitiveFilesSkipped: input.sensitiveFilesSkipped,

@@ -44,6 +44,7 @@ describe('ExploreAgent read-only worker', () => {
       assert.deepEqual(result.roots, ['.']);
       assert.deepEqual(result.ignoredPaths, []);
       assert.equal(result.stoppingCondition, '');
+      assert.deepEqual(result.limitReasons, []);
       assert.equal(typeof result.startedAt, 'number');
       assert.equal(typeof result.completedAt, 'number');
       assert.equal(typeof result.durationMs, 'number');
@@ -199,6 +200,30 @@ describe('ExploreAgent read-only worker', () => {
       assert.equal(result.stoppingCondition, 'stop after finding the implementation entry and one evidence line');
       assert.match(result.report, /停止条件：stop after finding the implementation entry and one evidence line/);
       assert.ok(result.notes.some((note) => /停止条件：stop after finding the implementation entry and one evidence line/.test(note)));
+      assert.equal(JSON.stringify(result).includes(workspaceRoot), false);
+    });
+  });
+
+  it('surfaces budget boundaries as structured result metadata', async () => {
+    await withWorkspace(async (workspaceRoot) => {
+      for (let index = 0; index < 8; index++) {
+        await writeFile(join(workspaceRoot, `alpha-${index}.md`), `alpha evidence ${index}`);
+      }
+
+      const result = await runReadOnlyExplore({
+        cwd: workspaceRoot,
+        objective: 'find alpha evidence',
+        roots: ['.'],
+        queries: ['alpha'],
+        maxFiles: 2,
+        maxMatches: 2,
+      });
+
+      assert.equal(result.ok, true);
+      assert.deepEqual(result.limitReasons, ['file_budget', 'match_budget']);
+      assert.ok(result.notes.some((note) => /按查询命中和项目结构分读取前 2 个/.test(note)));
+      assert.ok(result.notes.some((note) => /命中预算已用尽；只返回前 2 处内容命中/.test(note)));
+      assert.match(result.report, /预算边界：读取文件预算已满、命中预算已满/);
       assert.equal(JSON.stringify(result).includes(workspaceRoot), false);
     });
   });
@@ -445,6 +470,7 @@ describe('ExploreAgent read-only worker', () => {
     assert.match(events, /partial\?: boolean/);
     assert.match(events, /ignoredPaths\?: string/);
     assert.match(events, /stoppingCondition\?: string/);
+    assert.match(events, /limitReasons\?: ReadonlyArray/);
     assert.match(events, /summary\?: string/);
     assert.match(events, /recentEvents\?: ReadonlyArray/);
     assert.match(components, /function ExploreAgentPreview/);
@@ -480,6 +506,9 @@ describe('ExploreAgent read-only worker', () => {
     assert.match(previewBlock, /忽略/);
     assert.match(previewBlock, /stoppingCondition/);
     assert.match(previewBlock, /停止/);
+    assert.match(previewBlock, /limitReasons/);
+    assert.match(previewBlock, /受预算限制/);
+    assert.match(previewBlock, /边界/);
     assert.match(previewBlock, /保留部分结果/);
     assert.match(previewBlock, /已取消/);
     assert.match(previewBlock, /项目配置/);

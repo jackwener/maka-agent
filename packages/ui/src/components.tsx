@@ -5509,6 +5509,9 @@ function ExploreAgentPreview(props: {
   const stoppingCondition = typeof result.stoppingCondition === 'string'
     ? result.stoppingCondition.trim()
     : '';
+  const limitReasons = Array.isArray(result.limitReasons)
+    ? result.limitReasons.map(presentExploreAgentLimitReason).filter(Boolean).join('、')
+    : '';
   const skippedSummary = result.sensitiveFilesSkipped && result.sensitiveFilesSkipped > 0
     ? `跳过 ${result.filesSkipped} 个（含敏感 ${result.sensitiveFilesSkipped} 个）`
     : `跳过 ${result.filesSkipped} 个`;
@@ -5553,6 +5556,7 @@ function ExploreAgentPreview(props: {
         <strong>{redactSecrets(result.objective || '只读探索')}</strong>
         <small>
           {status} · 读 {result.filesInspected} 个文件 · {skippedSummary} · {formatBytes(result.bytesRead)}
+          {limitReasons ? ' · 受预算限制' : ''}
           {duration ? ` · 耗时 ${duration}` : ''}
         </small>
         {resultSummary.length > 0 && (
@@ -5596,6 +5600,12 @@ function ExploreAgentPreview(props: {
           <div>
             <dt>停止</dt>
             <dd>{redactSecrets(stoppingCondition)}</dd>
+          </div>
+        )}
+        {limitReasons && (
+          <div>
+            <dt>边界</dt>
+            <dd>{redactSecrets(limitReasons)}</dd>
           </div>
         )}
       </dl>
@@ -5730,6 +5740,21 @@ function presentExploreAgentReason(
       return undefined;
     default:
       return '未知诊断';
+  }
+}
+
+function presentExploreAgentLimitReason(reason: string): string {
+  switch (reason) {
+    case 'candidate_budget':
+      return '候选文件预算已满';
+    case 'file_budget':
+      return '读取文件预算已满';
+    case 'match_budget':
+      return '命中预算已满';
+    case 'byte_budget':
+      return '读取字节预算已满';
+    default:
+      return '';
   }
 }
 
