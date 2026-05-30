@@ -4,6 +4,7 @@ import { dirname, extname, isAbsolute, relative, resolve, sep } from 'node:path'
 import { z } from 'zod';
 import { redactSecrets } from '@maka/core/redaction';
 import type { MakaTool } from '@maka/runtime';
+import { buildOfficeCliEnv } from './officecli-env.js';
 
 export const OFFICE_DOCUMENT_TOOL_NAME = 'OfficeDocument';
 export const OFFICE_DOCUMENT_EDIT_TOOL_NAME = 'OfficeDocumentEdit';
@@ -591,7 +592,7 @@ function runOfficeCli(runner: OfficeCliRunner, args: string[], timeoutMs: number
       {
         timeout: timeoutMs,
         maxBuffer: OFFICE_DOCUMENT_MAX_BUFFER,
-        env: { ...process.env, OFFICECLI_SKIP_UPDATE: '1' },
+        env: buildOfficeCliEnv(),
       },
       (error, stdout, stderr) => {
         if (error) {

@@ -1,7 +1,9 @@
 import { strict as assert } from 'node:assert';
 import { EventEmitter } from 'node:events';
+import { delimiter, join } from 'node:path';
 import { describe, it } from 'node:test';
 
+import { buildOfficeCliEnv, bundledOfficeCliToolsDirs, prependBundledOfficeCliTools } from '../officecli-env.js';
 import { normalizeOfficeCliVersion, probeOfficeCli } from '../officecli-probe.js';
 
 describe('officecli probe', () => {
@@ -34,6 +36,17 @@ describe('officecli probe', () => {
     });
 
     assert.deepEqual(result, { available: false, reason: 'missing', checkedAt: 456 });
+  });
+
+  it('prepends packaged tools dir and normalizes PATH when probing officecli', async () => {
+    const resourcesPath = join('/Applications', 'Maka.app', 'Contents', 'Resources');
+    const env = buildOfficeCliEnv({ Path: '/usr/bin', PATH: '/bin' }, resourcesPath);
+
+    assert.equal(env.OFFICECLI_SKIP_UPDATE, '1');
+    assert.equal(env.Path, undefined);
+    assert.ok(env.PATH?.startsWith(`${join(resourcesPath, 'tools')}${delimiter}`));
+    assert.ok(env.PATH?.endsWith(`${delimiter}/usr/bin`));
+    assert.equal(prependBundledOfficeCliTools('', resourcesPath), bundledOfficeCliToolsDirs(resourcesPath).join(delimiter));
   });
 });
 

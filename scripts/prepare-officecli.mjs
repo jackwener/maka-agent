@@ -1,0 +1,116 @@
+#!/usr/bin/env node
+import { execFile } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { chmod, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
+const scriptDir = dirname(fileURLToPath(import.meta.url));
+const repoRoot = resolve(scriptDir, '..');
+const manifestPath = join(repoRoot, 'apps', 'desktop', 'bundled-tools.json');
+const toolsDir = join(repoRoot, 'apps', 'desktop', 'resources', 'tools');
+
+const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+const officeCli = manifest.officecli;
+
+export function officeCliTargetFor(platform, arch) {
+  return officeCli.assets[`${platform}-${arch}`] ? { platform, arch } : null;
+}
+
+export function assetForTarget(platform, arch) {
+  const asset = officeCli.assets[`${platform}-${arch}`];
+  if (!asset) throw new Error(`Unsupported OfficeCLI target: ${platform}-${arch}`);
+  return asset;
+}
+
+export function binaryNameForPlatform(platform) {
+  return platform === 'win32' ? 'officecli.exe' : 'officecli';
+}
+
+export function officeCliDownloadUrl(version, asset) {
+  return `https://github.com/${officeCli.repo}/releases/download/${version}/${asset}`;
+}
+
+export function officeCliSha256SumsUrl(version) {
+  return `https://github.com/${officeCli.repo}/releases/download/${version}/SHA256SUMS`;
+}
+
+export function parseSha256Sums(text) {
+  const entries = new Map();
+  for (const line of text.split(/\r?\n/)) {
+    const match = line.trim().match(/^([a-fA-F0-9]{64})\s+\*?(.+)$/);
+    if (match) entries.set(match[2].trim(), match[1].toLowerCase());
+  }
+  return entries;
+}
+
+export function sha256(data) {
+  return createHash('sha256').update(Buffer.from(data)).digest('hex');
+}
+
+export function officeCliVersionMatches(stdout, expectedVersion) {
+  const normalized = expectedVersion.replace(/^v/, '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`\\b${normalized}\\b`).test(stdout);
+}
+
+async function fetchBytes(url) {
+  const response = await fetch(url, { redirect: 'follow' });
+  if (!response.ok) throw new Error(`Failed to download ${url}: HTTP ${response.status}`);
+  return response.arrayBuffer();
+}
+
+async function fetchText(url) {
+  const response = await fetch(url, { redirect: 'follow' });
+  if (!response.ok) throw new Error(`Failed to download ${url}: HTTP ${response.status}`);
+  return response.text();
+}
+
+async function verifyOfficeCliVersion(binaryPath, expectedVersion) {
+  const { stdout } = await execFileAsync(binaryPath, ['--version'], {
+    env: { ...process.env, OFFICECLI_SKIP_UPDATE: '1' },
+  });
+  if (!officeCliVersionMatches(stdout, expectedVersion)) {
+    throw new Error(`OfficeCLI version mismatch: expected ${expectedVersion}, got ${stdout.trim()}`);
+  }
+}
+
+export async function prepareOfficeCli(targetPlatform = process.platform, targetArch = process.arch) {
+  const asset = assetForTarget(targetPlatform, targetArch);
+  const assetUrl = officeCliDownloadUrl(officeCli.version, asset);
+  const sums = parseSha256Sums(await fetchText(officeCliSha256SumsUrl(officeCli.version)));
+  const expected = sums.get(asset);
+  if (!expected) throw new Error(`SHA256SUMS does not include ${asset}`);
+
+  const data = await fetchBytes(assetUrl);
+  const actual = sha256(data);
+  if (actual !== expected) {
+    throw new Error(`Checksum mismatch for ${asset}: expected ${expected}, got ${actual}`);
+  }
+
+  await mkdir(toolsDir, { recursive: true });
+  await rm(join(toolsDir, 'officecli'), { force: true });
+  await rm(join(toolsDir, 'officecli.exe'), { force: true });
+  const destination = join(toolsDir, binaryNameForPlatform(targetPlatform));
+  await writeFile(destination, Buffer.from(data));
+  if (targetPlatform !== 'win32') await chmod(destination, 0o755);
+
+  if (targetPlatform === process.platform && targetArch === process.arch) {
+    await verifyOfficeCliVersion(destination, officeCli.version);
+  }
+
+  return { asset, destination, version: officeCli.version };
+}
+
+function readArg(name) {
+  const index = process.argv.indexOf(name);
+  return index === -1 ? undefined : process.argv[index + 1];
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const platform = readArg('--platform') ?? process.platform;
+  const arch = readArg('--arch') ?? process.arch;
+  const result = await prepareOfficeCli(platform, arch);
+  process.stdout.write(`Prepared OfficeCLI ${result.version} for ${platform}-${arch}: ${result.destination}\n`);
+}

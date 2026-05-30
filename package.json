@@ -16,7 +16,8 @@
     "build": "npm run build --workspaces --if-present",
     "clean": "node scripts/clean-build.mjs",
     "rebuild": "npm run clean && npm run build",
-    "check:stale": "node scripts/check-stale-dist.mjs"
+    "check:stale": "node scripts/check-stale-dist.mjs",
+    "prepare:officecli": "node scripts/prepare-officecli.mjs"
   },
   "devDependencies": {
     "@types/node": "^25.0.0",

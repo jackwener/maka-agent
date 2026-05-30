@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process';
+import { buildOfficeCliEnv } from './officecli-env.js';
 
 export type OfficeCliProbe =
   | { available: true; version: string; checkedAt: number }
@@ -19,7 +20,7 @@ export function probeOfficeCli(input: {
       ['--version'],
       {
         timeout: timeoutMs,
-        env: { ...process.env, OFFICECLI_SKIP_UPDATE: '1' },
+        env: buildOfficeCliEnv(),
       },
       (error, stdout) => {
         if (!error) {

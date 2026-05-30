@@ -6,6 +6,12 @@ import { join, resolve } from 'node:path';
 const REPO_ROOT = resolve(process.cwd(), '..', '..');
 const CAPABILITY_SNAPSHOT = join(REPO_ROOT, 'apps', 'desktop', 'src', 'main', 'capability-snapshot.ts');
 const MAIN = join(REPO_ROOT, 'apps', 'desktop', 'src', 'main', 'main.ts');
+const OFFICE_DOCUMENT_TOOL = join(REPO_ROOT, 'apps', 'desktop', 'src', 'main', 'office-document-tool.ts');
+const OFFICECLI_PROBE = join(REPO_ROOT, 'apps', 'desktop', 'src', 'main', 'officecli-probe.ts');
+const OFFICECLI_ENV = join(REPO_ROOT, 'apps', 'desktop', 'src', 'main', 'officecli-env.ts');
+const OFFICECLI_MANIFEST = join(REPO_ROOT, 'apps', 'desktop', 'bundled-tools.json');
+const PREPARE_OFFICECLI = join(REPO_ROOT, 'scripts', 'prepare-officecli.mjs');
+const PACKAGE_JSON = join(REPO_ROOT, 'package.json');
 const PERMISSION = join(REPO_ROOT, 'packages', 'core', 'src', 'permission.ts');
 const CORE_EVENTS = join(REPO_ROOT, 'packages', 'core', 'src', 'events.ts');
 const UI_COMPONENTS = join(REPO_ROOT, 'packages', 'ui', 'src', 'components.tsx');
@@ -57,6 +63,34 @@ describe('Office document capability contract', () => {
     assert.doesNotMatch(permission, /'officecli set'/);
     assert.doesNotMatch(permission, /'officecli add'/);
     assert.doesNotMatch(permission, /'officecli close'/);
+  });
+
+  it('resolves bundled OfficeCLI tools before falling back to PATH', async () => {
+    const [tool, probe, env, manifest, prepareScript, packageJson] = await Promise.all([
+      readFile(OFFICE_DOCUMENT_TOOL, 'utf8'),
+      readFile(OFFICECLI_PROBE, 'utf8'),
+      readFile(OFFICECLI_ENV, 'utf8'),
+      readFile(OFFICECLI_MANIFEST, 'utf8'),
+      readFile(PREPARE_OFFICECLI, 'utf8'),
+      readFile(PACKAGE_JSON, 'utf8'),
+    ]);
+
+    assert.match(env, /resourcesPath/);
+    assert.match(env, /join\(resourcesPath, 'tools'\)/);
+    assert.match(env, /resources', 'tools'/);
+    assert.match(env, /prependBundledOfficeCliTools/);
+    assert.match(env, /OFFICECLI_SKIP_UPDATE: '1'/);
+    assert.match(probe, /buildOfficeCliEnv\(\)/);
+    assert.match(tool, /buildOfficeCliEnv\(\)/);
+    assert.doesNotMatch(tool, /env:\s*\{\s*\.\.\.process\.env,\s*OFFICECLI_SKIP_UPDATE/);
+
+    assert.match(manifest, /iOfficeAI\/OfficeCLI/);
+    assert.match(manifest, /darwin-arm64/);
+    assert.match(manifest, /win32-x64/);
+    assert.match(prepareScript, /SHA256SUMS/);
+    assert.match(prepareScript, /Checksum mismatch/);
+    assert.match(prepareScript, /resources', 'tools'/);
+    assert.match(packageJson, /"prepare:officecli": "node scripts\/prepare-officecli\.mjs"/);
   });
 
   it('renders Office document tool results through a structured preview, not raw JSON', async () => {
