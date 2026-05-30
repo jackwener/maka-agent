@@ -2346,6 +2346,16 @@ function MemorySettingsPage(props: {
     setDraft(next.content);
   }
 
+  async function reloadDraftFromDisk() {
+    setBusy(true);
+    try {
+      await reload();
+      toast.success('已重新载入 MEMORY.md', '未保存的草稿修改已丢弃。');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   useEffect(() => {
     void reload();
   }, []);
@@ -2833,6 +2843,9 @@ function MemorySettingsPage(props: {
         </button>
         <button type="button" className="maka-button maka-button-ghost" disabled={busy || !effective.enabled} onClick={() => void openFolder()}>
           打开所在目录
+        </button>
+        <button type="button" className="maka-button maka-button-ghost" disabled={busy || !effective.enabled} onClick={() => void reloadDraftFromDisk()}>
+          重新载入
         </button>
         <button type="button" className="maka-button maka-button-ghost" disabled={!effective.path} onClick={() => void copyPath()}>
           复制路径

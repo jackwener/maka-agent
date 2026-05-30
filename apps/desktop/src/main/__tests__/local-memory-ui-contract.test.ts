@@ -202,4 +202,16 @@ describe('local MEMORY.md Settings UI contract', () => {
     assert.match(pageBlock, /\{memoryDraftDirty \? '保存' : '已保存'\}/);
     assert.match(css, /\.settingsMemoryDirtyState\[data-dirty="true"\]/);
   });
+
+  it('can reload the visible MEMORY.md draft from disk to discard unsaved edits', async () => {
+    const src = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
+    const pageBlock = src.match(/function MemorySettingsPage\([\s\S]*?function MemoryEntryList/)?.[0] ?? '';
+
+    assert.match(pageBlock, /async function reloadDraftFromDisk\(\)/);
+    assert.match(pageBlock, /await reload\(\)/);
+    assert.match(pageBlock, /已重新载入 MEMORY\.md/);
+    assert.match(pageBlock, /未保存的草稿修改已丢弃/);
+    assert.match(pageBlock, /onClick=\{\(\) => void reloadDraftFromDisk\(\)\}/);
+    assert.match(pageBlock, />\s*重新载入\s*<\/button>/);
+  });
 });
