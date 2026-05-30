@@ -5475,10 +5475,10 @@ function ExploreAgentPreview(props: {
   const [summaryCopied, setSummaryCopied] = useState(false);
   const candidateFiles = result.candidateFiles.slice(0, 8);
   const matches = result.matches.slice(0, 8);
-  const recentEvents = Array.isArray(result.recentEvents) ? result.recentEvents.slice(0, 6) : [];
-  const progress = recentEvents.length > 0
-    ? recentEvents.map(formatExploreAgentEvent)
-    : (result.progress ?? []).slice(0, 6);
+  const processLines = Array.isArray(result.recentEvents) && result.recentEvents.length > 0
+    ? result.recentEvents.slice(0, 20).map(formatExploreAgentEvent)
+    : (result.progress ?? []).slice(0, 12);
+  const progress = processLines.slice(0, 6);
   const evidence = (result.evidence ?? []).slice(0, 6);
   const resultSummary = typeof result.summary === 'string' ? result.summary.trim() : '';
   const reportText = typeof result.report === 'string' ? result.report.trim() : '';
@@ -5492,8 +5492,8 @@ function ExploreAgentPreview(props: {
     : '';
   const processText = [
     summaryText,
-    progress.length > 0 ? `事件：${progress.length}` : '',
-    progress.join('\n'),
+    processLines.length > 0 ? `事件：${processLines.length}` : '',
+    processLines.join('\n'),
   ].filter((line) => line.trim().length > 0).join('\n').trim();
   const reportLines = reportText.split('\n').filter((line) => line.trim().length > 0).slice(0, 8);
   const notes = result.notes.slice(0, 4);
