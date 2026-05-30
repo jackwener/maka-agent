@@ -58,7 +58,7 @@ import type {
   UsageQuery,
   UsageSummaryV2,
 } from '@maka/core/usage-stats/types';
-import type { BotStatus } from '@maka/runtime';
+import type { BotStatus, WechatBridgeQrCodeResult } from '@maka/runtime';
 import type { TestProxyInput } from '@maka/core/settings/network-settings';
 import type { Result } from '@maka/core/settings/result';
 import type { CreateSessionInput } from '@maka/core';
@@ -448,6 +448,9 @@ contextBridge.exposeInMainWorld('maka', {
       },
       restart(provider: BotProvider): Promise<BotStatus> {
         return ipcRenderer.invoke('settings:bots:restart', provider);
+      },
+      wechatQrCode(): Promise<WechatBridgeQrCodeResult> {
+        return ipcRenderer.invoke('settings:bots:wechatQrCode');
       },
       subscribeStatusChanges(handler: (status: BotStatus) => void): () => void {
         const listener = (_event: Electron.IpcRendererEvent, payload: BotStatus) => handler(payload);

@@ -42,7 +42,7 @@ describe('Bot settings UI contract', () => {
   it('keeps runtime channel onboarding as test-then-enable-then-restart', async () => {
     const settings = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
     const testAndConnectBlock = settings.match(/async function testAndConnect\(\)[\s\S]*?\n\s*async function restartChannel/)?.[0] ?? '';
-    const actionRowBlock = settings.match(/<div className="settingsActionRow">[\s\S]*?<\/div>\n\s*<\/section>/)?.[0] ?? '';
+    const actionRowBlock = settings.match(/<div className="settingsBotActionStack">[\s\S]*?<\/div>/)?.[0] ?? '';
 
     assert.match(testAndConnectBlock, /testBotChannel\(selected\)/, 'Combined action must validate credentials before enabling');
     assert.match(testAndConnectBlock, /if \(!testOk \|\| support !== 'runtime'\) return;/, 'Combined action must stop after a failed credential test');
@@ -51,5 +51,24 @@ describe('Bot settings UI contract', () => {
     assert.match(actionRowBlock, /support === 'runtime' && !selectedStatus\?\.running/, 'Runtime channels that are not listening must use the combined onboarding path');
     assert.match(actionRowBlock, /测试并连接/, 'Runtime onboarding CTA must keep the user-facing combined action label');
     assert.match(actionRowBlock, /support === 'runtime' && selectedStatus\?\.running/, 'Already-running channels must keep separate test/restart actions');
+  });
+
+  it('opens an in-app WeChat QR login modal instead of handing scan login off to a toast', async () => {
+    const settings = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
+    const styles = await readRepo('apps/desktop/src/renderer/styles.css');
+    const main = await readRepo('apps/desktop/src/main/main.ts');
+    const preload = await readRepo('apps/desktop/src/preload/preload.ts');
+    const globalTypes = await readRepo('apps/desktop/src/global.d.ts');
+
+    assert.match(settings, /function WechatQrLoginModal\b/, 'WeChat scan login must render its own QR modal');
+    assert.match(settings, /window\.maka\.settings\.bots\.wechatQrCode\(\)/, 'QR modal must call the bridge QR IPC');
+    assert.match(settings, /<img src=\{qrDataUrl\} alt="微信扫码登录二维码"/, 'QR modal must render a visible QR image');
+    assert.match(settings, /setWechatQrOpen\(true\)/, 'Scan-login button must open the QR modal');
+    assert.doesNotMatch(settings, /扫码登录由本机 wechat-bridge 处理/, 'Scan login must not be a toast-only handoff');
+    assert.match(styles, /\.settingsWechatQrModal\b/, 'QR modal styles must be present');
+    assert.match(styles, /\.settingsWechatQrFrame img\b/, 'QR image must have a stable frame style');
+    assert.match(main, /settings:bots:wechatQrCode/, 'main process must expose the WeChat QR IPC');
+    assert.match(preload, /wechatQrCode\(\): Promise<WechatBridgeQrCodeResult>/, 'preload must expose the typed QR bridge');
+    assert.match(globalTypes, /wechatQrCode\(\): Promise<WechatBridgeQrCodeResult>/, 'global types must mirror the QR bridge');
   });
 });

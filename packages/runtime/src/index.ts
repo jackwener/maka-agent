@@ -94,6 +94,7 @@ export {
   BotRegistry,
   botReadinessFromSettings,
   botSettingsRequireRestart,
+  getWechatBridgeQrCode,
   normalizeWechatBridgeUrl,
   proxiedFetch,
   testBotChannel,
@@ -107,5 +108,6 @@ export type {
   BotPlatform,
   BotStatus,
   BotTestResult,
+  WechatBridgeQrCodeResult,
   SendCapable,
 } from './bots/index.js';

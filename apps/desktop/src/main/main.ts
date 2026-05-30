@@ -114,6 +114,7 @@ import {
   recordToolInvocation,
   buildPricingLookup,
   BotRegistry,
+  getWechatBridgeQrCode,
   testBotChannel as testRuntimeBotChannel,
   setActiveProxy,
   testConnection,
@@ -1843,6 +1844,10 @@ function registerIpc(): void {
       return testRuntimeBotChannel(provider, settings.botChat.channels[provider]);
     }, 'BOTS_TEST_FAILED'),
   );
+  ipcMain.handle('settings:bots:wechatQrCode', async () => {
+    const settings = await settingsStore.get();
+    return getWechatBridgeQrCode(settings.botChat.channels.wechat);
+  });
   ipcMain.handle('settings:usageStats', (_event, range?: UsageRange) =>
     settingsStore.usageStats(range),
   );

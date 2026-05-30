@@ -1,11 +1,14 @@
 import type { BotChannelSettings } from '@maka/core';
 import { generalizedErrorMessage } from '@maka/core/redaction';
+import { createRequire } from 'node:module';
 import { BaseBotAdapter, botReadinessFromSettings } from './base-adapter.js';
 import { proxiedFetch } from './proxied-fetch.js';
 import type { BotIncomingMessage, BotSendOptions, BotStatus, BotTestResult, SendCapable } from './types.js';
 
 const DEFAULT_WECHAT_BRIDGE_URL = 'http://127.0.0.1:18400';
 const WECHAT_BRIDGE_TIMEOUT_MS = 5_000;
+const WECHAT_BRIDGE_QR_PATHS = ['/api/weixin/qrcode', '/qrcode'];
+const require = createRequire(import.meta.url);
 
 const LOCAL_WECHAT_BRIDGE_HOSTS = new Set([
   '127.0.0.1',
@@ -140,6 +143,50 @@ export class WechatBridge extends BaseBotAdapter implements SendCapable {
   }
 }
 
+export type WechatBridgeQrCodeResult =
+  | {
+      ok: true;
+      qrcode: string | null;
+      expired: boolean;
+      loggedIn: boolean;
+      diagnostic?: string;
+    }
+  | {
+      ok: false;
+      error: string;
+      hint: string;
+    };
+
+export async function getWechatBridgeQrCode(
+  channel: BotChannelSettings,
+): Promise<WechatBridgeQrCodeResult> {
+  const baseUrl = normalizeWechatBridgeUrl(channel.webhookUrl);
+  if (!baseUrl) {
+    return {
+      ok: false,
+      error: 'WeChat bridge URL must be http://127.0.0.1 or http://localhost',
+      hint: '微信扫码登录只允许访问本机 wechat-bridge，不能指向远端 URL。',
+    };
+  }
+
+  let lastError: unknown;
+  for (const path of WECHAT_BRIDGE_QR_PATHS) {
+    try {
+      const payload = await wechatBridgeJson(channel, path, { method: 'GET' });
+      return await normalizeWechatQrPayload(payload);
+    } catch (error) {
+      lastError = error;
+      if (!isNotFoundLikeError(error)) break;
+    }
+  }
+
+  return {
+    ok: false,
+    error: generalizedErrorMessage(lastError),
+    hint: '先启动本机 wechat-bridge，并确认它暴露了 Alma 兼容的 /api/weixin/qrcode 或 /qrcode 接口。',
+  };
+}
+
 export function mapWechatBridgeMessage(raw: unknown): BotIncomingMessage | null {
   if (!raw || typeof raw !== 'object') return null;
   const message = raw as Record<string, unknown>;
@@ -254,6 +301,46 @@ async function wechatBridgeJson(
     throw new Error(message);
   }
   return json;
+}
+
+async function normalizeWechatQrPayload(payload: Record<string, unknown>): Promise<WechatBridgeQrCodeResult> {
+  const loggedIn = payload.loggedIn === true || payload.logged_in === true;
+  const expired = payload.expired === true || payload.status === 'expired';
+  const rawQr = stringField(payload.qrcode) ??
+    stringField(payload.qrCode) ??
+    stringField(payload.qrcode_img_content) ??
+    stringField(payload.qrUrl) ??
+    null;
+
+  return {
+    ok: true,
+    qrcode: rawQr ? await renderWechatQrCode(rawQr) : null,
+    expired,
+    loggedIn,
+    diagnostic: stringField(payload.diagnostic) ?? stringField(payload.message),
+  };
+}
+
+async function renderWechatQrCode(raw: string): Promise<string> {
+  if (raw.startsWith('data:image/')) return raw;
+  if (looksLikeBase64Png(raw)) return `data:image/png;base64,${raw}`;
+  const qrcode = require('qrcode') as {
+    toDataURL(input: string, options: Record<string, unknown>): Promise<string>;
+  };
+  return qrcode.toDataURL(raw, {
+    width: 256,
+    margin: 1,
+    errorCorrectionLevel: 'M',
+  });
+}
+
+function looksLikeBase64Png(value: string): boolean {
+  return value.length > 80 && /^[A-Za-z0-9+/]+={0,2}$/.test(value);
+}
+
+function isNotFoundLikeError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes('HTTP 404') || /Cannot\s+(GET|POST)/i.test(message) || /not found/i.test(message);
 }
 
 function wechatBridgeHeaders(channel: BotChannelSettings): Record<string, string> {

@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
+import { createServer } from 'node:http';
 import { describe, test } from 'node:test';
 import { createDefaultBotChannel } from '@maka/core';
 import { botReadinessFromSettings, botSettingsRequireRestart } from '../base-adapter.js';
 import {
+  getWechatBridgeQrCode,
   mapWechatBridgeMessage,
   normalizeWechatBridgeUrl,
   readSseJsonObjects,
@@ -26,6 +28,53 @@ describe('WechatBridge', () => {
       botSettingsRequireRestart(channel, { ...channel, webhookUrl: 'http://localhost:18400' }),
       true,
     );
+  });
+
+  test('fetches an Alma-compatible QR payload from the local bridge and renders a data URL', async () => {
+    const server = createServer((req, res) => {
+      if (req.url === '/api/weixin/qrcode') {
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({
+          qrcode: 'weixin://scan-login/example-token',
+          expired: false,
+          loggedIn: false,
+        }));
+        return;
+      }
+      res.statusCode = 404;
+      res.end(JSON.stringify({ error: 'not found' }));
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    try {
+      const address = server.address();
+      assert.equal(typeof address, 'object');
+      const port = typeof address === 'object' && address ? address.port : 0;
+      const channel = {
+        ...createDefaultBotChannel('wechat'),
+        webhookUrl: `http://127.0.0.1:${port}`,
+      };
+
+      const result = await getWechatBridgeQrCode(channel);
+
+      assert.equal(result.ok, true);
+      if (!result.ok) return;
+      assert.equal(result.expired, false);
+      assert.equal(result.loggedIn, false);
+      assert.match(result.qrcode ?? '', /^data:image\/png;base64,/);
+    } finally {
+      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    }
+  });
+
+  test('rejects QR requests to non-local bridge URLs', async () => {
+    const result = await getWechatBridgeQrCode({
+      ...createDefaultBotChannel('wechat'),
+      webhookUrl: 'https://example.com/wechat-bridge',
+    });
+
+    assert.equal(result.ok, false);
+    if (result.ok) return;
+    assert.match(result.error, /127\.0\.0\.1|localhost/);
   });
 
   test('maps live direct bridge messages into bot events', () => {
