@@ -5972,6 +5972,7 @@ function TerminalPreview(props: {
   // The cmd line is also user-runtime text — don't echo a `--api-key=...`
   // arg into the chat without masking it.
   const safeCmd = redactSecrets(props.cmd);
+  const hiddenLines = stdout.capped + stderr.capped;
   return (
     <div className="maka-overlay-preview maka-tool-terminal" data-kind="terminal">
       <header className="maka-tool-terminal-head">
@@ -5997,6 +5998,11 @@ function TerminalPreview(props: {
           {stderr.body}
           {stderr.capped > 0 && `\n\n… stderr 已隐藏 ${stderr.capped} 行`}
         </pre>
+      )}
+      {hiddenLines > 0 && (
+        <p className="maka-tool-terminal-truncated-note">
+          输出较长，当前只展示每路输出的前 {TOOL_LINE_CAP} 行。需要继续研读时，可以切到深度研究并把命令、相关路径和想确认的问题交给只读探索。
+        </p>
       )}
     </div>
   );

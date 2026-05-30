@@ -238,3 +238,53 @@ describe('visible-copy hygiene contract (PR-SIDEBAR-IA-0 Phase 3 P0 fixup v2)', 
     });
   }
 });
+
+describe('terminal truncation handoff contract', () => {
+  it('shows a deep-research handoff when terminal output is capped', async () => {
+    const componentsPath = resolve(process.cwd(), '..', '..', 'packages', 'ui', 'src', 'components.tsx');
+    const src = await readFile(componentsPath, 'utf8');
+
+    assert.match(
+      src,
+      /const hiddenLines = stdout\.capped \+ stderr\.capped;/,
+      'TerminalPreview should combine capped stdout/stderr counts into one visible handoff condition.',
+    );
+    assert.match(
+      src,
+      /\{hiddenLines > 0 && \(/,
+      'The handoff note should only render when at least one terminal output stream is capped.',
+    );
+    assert.match(
+      src,
+      /maka-tool-terminal-truncated-note/,
+      'TerminalPreview should render the capped-output handoff with a stable class for styling and review.',
+    );
+    assert.match(
+      src,
+      /前 \{TOOL_LINE_CAP\} 行/,
+      'The handoff note should reflect the actual terminal preview line cap instead of hard-coding a stale number.',
+    );
+    assert.match(
+      src,
+      /深度研究.*只读探索/,
+      'Long terminal output should point users toward the read-only deep-research workflow instead of ending at a dead truncated preview.',
+    );
+  });
+
+  it('styles the terminal truncation handoff distinctly from raw terminal output', async () => {
+    const stylesPath = join(process.cwd(), 'src', 'renderer', 'styles.css');
+    const src = await readFile(stylesPath, 'utf8');
+
+    assert.match(src, /\.maka-tool-terminal-truncated-note\s*\{/, 'Missing truncated terminal note style.');
+    assert.match(
+      src,
+      /maka-tool-terminal-truncated-note[\s\S]*border-top:\s*1px solid var\(--border\);/,
+      'The truncation handoff should be visually separated from terminal text.',
+    );
+    assert.match(
+      src,
+      /maka-tool-terminal-truncated-note[\s\S]*var\(--warning\)/,
+      'The truncation handoff should use the warning token so it reads as a capped-output state.',
+    );
+  });
+});

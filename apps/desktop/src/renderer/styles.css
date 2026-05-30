@@ -3809,6 +3809,16 @@ button:active {
   color: var(--destructive);
 }
 
+.maka-tool-terminal-truncated-note {
+  margin: 0;
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+  background: oklch(from var(--warning) l c h / 0.06);
+  color: var(--foreground-70);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .maka-office-document-preview {
   display: grid;
   gap: 8px;
