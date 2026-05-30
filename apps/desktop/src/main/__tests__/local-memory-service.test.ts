@@ -126,6 +126,32 @@ describe('LocalMemoryService', () => {
     assert.doesNotMatch(restored.state.content, /示例/);
   });
 
+  it('can restore a specific backup candidate by kind', async () => {
+    const { service } = await makeService(1_700_000_000_000)();
+    await service.save([
+      '# Maka Memory',
+      '',
+      '## First',
+      '<!-- maka-memory: id=first origin=manual createdAt=1700000000000 -->',
+      '第一版。',
+      '',
+    ].join('\n'));
+    await service.save([
+      '# Maka Memory',
+      '',
+      '## Second',
+      '<!-- maka-memory: id=second origin=manual createdAt=1700000000001 -->',
+      '第二版。',
+      '',
+    ].join('\n'));
+
+    const restored = await service.restoreBackup('save');
+
+    assert.equal(restored.ok, true);
+    assert.match(restored.state.content, /第一版/);
+    assert.doesNotMatch(restored.state.content, /第二版/);
+  });
+
   it('surfaces reset backup metadata so restore is visible before click', async () => {
     const { service } = await makeService(1_700_000_000_000)();
     await service.save([

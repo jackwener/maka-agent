@@ -441,6 +441,31 @@ describe('local MEMORY.md Settings UI contract', () => {
     assert.doesNotMatch(pageBlock, /openBackup\((backup\.path|.*path)/);
   });
 
+  it('restores a specific MEMORY.md backup candidate by kind without renderer-supplied paths', async () => {
+    const main = await readRepo('apps/desktop/src/main/main.ts');
+    const preload = await readRepo('apps/desktop/src/preload/preload.ts');
+    const globalTypes = await readRepo('apps/desktop/src/global.d.ts');
+    const service = await readRepo('apps/desktop/src/main/local-memory-service.ts');
+    const src = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
+    const pageBlock = src.match(/function MemorySettingsPage\([\s\S]*?function MemoryEntryList/)?.[0] ?? '';
+
+    assert.match(service, /async restoreBackup\(kind: LocalMemoryBackupInfo\['kind'\]\)/);
+    assert.match(service, /restoreBackupBySelector/);
+    assert.match(service, /candidate\.kind === kind/);
+    assert.match(main, /ipcMain\.handle\('memory:restoreBackup'/);
+    assert.match(main, /kind !== 'save' && kind !== 'reset'/);
+    assert.match(main, /localMemory\.restoreBackup\(kind\)/);
+    assert.match(preload, /restoreBackup\(kind: 'save' \| 'reset'\)/);
+    assert.match(preload, /memory:restoreBackup', kind/);
+    assert.match(globalTypes, /restoreBackup\(kind: 'save' \| 'reset'\)/);
+    assert.match(pageBlock, /async function restoreBackupCandidate/);
+    assert.match(pageBlock, /window\.maka\.memory\.restoreBackup\(backup\.kind\)/);
+    assert.match(pageBlock, /恢复这个备份候选会先备份当前 MEMORY\.md/);
+    assert.match(pageBlock, /restoreBackupCandidate\(backup\)/);
+    assert.match(pageBlock, />\s*恢复\s*<\/button>/);
+    assert.doesNotMatch(pageBlock, /restoreBackup\((backup\.path|.*path)/);
+  });
+
   it('can copy a latest MEMORY.md backup reference without exposing backup content', async () => {
     const src = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
     const pageBlock = src.match(/function MemorySettingsPage\([\s\S]*?function MemoryEntryList/)?.[0] ?? '';
