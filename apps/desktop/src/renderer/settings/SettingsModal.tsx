@@ -66,6 +66,7 @@ import {
   buildLocalMemoryPromptBody,
   defaultVoiceCaptureCaps,
   findLocalMemoryEntryDraftRange,
+  parseLocalMemoryMarkdown,
   setLocalMemoryEntryStatusDraft,
   validateVoiceCaptureRequest,
   webSearchCredentialStatusFromResponse,
@@ -2580,14 +2581,16 @@ function MemorySettingsPage(props: {
     archivedEntries: [],
   } satisfies LocalMemoryState;
   const memoryDraftDirty = draft !== effective.content;
+  const draftMemoryEntries = useMemo(() => parseLocalMemoryMarkdown(draft), [draft]);
+  const visibleMemoryEntries = memoryDraftDirty ? draftMemoryEntries : effective;
   const normalizedMemoryEntryQuery = memoryEntryQuery.trim();
   const filteredActiveEntries = useMemo(
-    () => filterLocalMemoryEntries(effective.activeEntries, normalizedMemoryEntryQuery),
-    [effective.activeEntries, normalizedMemoryEntryQuery],
+    () => filterLocalMemoryEntries(visibleMemoryEntries.activeEntries, normalizedMemoryEntryQuery),
+    [visibleMemoryEntries.activeEntries, normalizedMemoryEntryQuery],
   );
   const filteredArchivedEntries = useMemo(
-    () => filterLocalMemoryEntries(effective.archivedEntries, normalizedMemoryEntryQuery),
-    [effective.archivedEntries, normalizedMemoryEntryQuery],
+    () => filterLocalMemoryEntries(visibleMemoryEntries.archivedEntries, normalizedMemoryEntryQuery),
+    [visibleMemoryEntries.archivedEntries, normalizedMemoryEntryQuery],
   );
   const filteredEntryCount = filteredActiveEntries.length + filteredArchivedEntries.length;
   const localMemoryPromptPreview = useMemo(() => buildLocalMemoryPromptBody(draft) ?? '', [draft]);
@@ -2690,8 +2693,16 @@ function MemorySettingsPage(props: {
         <span className="settingsMemoryDirtyState" data-dirty={memoryDraftDirty ? 'true' : 'false'}>
           {memoryDraftDirty ? '有未保存修改' : '草稿已保存'}
         </span>
-        <span>{effective.activeEntryCount} 条生效</span>
-        {effective.archivedEntryCount > 0 && <span>{effective.archivedEntryCount} 条已归档</span>}
+        <span>
+          {memoryDraftDirty ? '草稿 ' : ''}
+          {visibleMemoryEntries.activeEntries.length} 条生效
+        </span>
+        {visibleMemoryEntries.archivedEntries.length > 0 && (
+          <span>
+            {memoryDraftDirty ? '草稿 ' : ''}
+            {visibleMemoryEntries.archivedEntries.length} 条已归档
+          </span>
+        )}
       </div>
 
       <div className="settingsMemoryPromptPreview" data-active={promptPreviewWillInject ? 'true' : 'false'}>
@@ -2721,7 +2732,7 @@ function MemorySettingsPage(props: {
         )}
       </div>
 
-      {effective.entryCount > 0 && (
+      {visibleMemoryEntries.entries.length > 0 && (
         <>
           <div className="settingsMemoryFilter">
             <input
@@ -2738,8 +2749,8 @@ function MemorySettingsPage(props: {
             ) : null}
             <small>
               {normalizedMemoryEntryQuery
-                ? `${filteredEntryCount} / ${effective.entryCount} 条匹配`
-                : `${effective.entryCount} 条记忆`}
+                ? `${filteredEntryCount} / ${visibleMemoryEntries.entries.length} 条匹配`
+                : `${visibleMemoryEntries.entries.length} 条记忆`}
             </small>
           </div>
           <div className="settingsMemoryEntryGroups">
@@ -2752,7 +2763,7 @@ function MemorySettingsPage(props: {
               onFocusDraft={focusMemoryEntryInDraft}
               onStatusChange={updateMemoryEntryStatus}
             />
-            {effective.archivedEntries.length > 0 && (
+            {visibleMemoryEntries.archivedEntries.length > 0 && (
               <MemoryEntryList
                 title="已归档记忆"
                 entries={filteredArchivedEntries}
