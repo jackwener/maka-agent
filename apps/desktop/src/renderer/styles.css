@@ -9905,6 +9905,11 @@ button:active {
   font-size: 12px;
 }
 
+.settingsMemorySaveSummaryTime {
+  color: var(--foreground-50);
+  font-size: 11px;
+}
+
 .settingsMemoryEntryGroups {
   display: grid;
   gap: 12px;

@@ -2413,7 +2413,7 @@ function MemorySettingsPage(props: {
   const [newMemoryTags, setNewMemoryTags] = useState('');
   const [newMemoryContent, setNewMemoryContent] = useState('');
   const [memoryEntryQuery, setMemoryEntryQuery] = useState('');
-  const [lastSaveSummary, setLastSaveSummary] = useState<{ title: string; detail: string } | null>(null);
+  const [lastSaveSummary, setLastSaveSummary] = useState<{ title: string; detail: string; savedAt: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
   const toast = useToast();
@@ -2489,11 +2489,11 @@ function MemorySettingsPage(props: {
         toast.error('保存被拦截', 'MEMORY.md 内容过大，已进入安全模式。');
       } else if (redacted) {
         const detail = `写入前已替换疑似 token、API key 或密码；${formatLocalMemorySaveSummary(next)}`;
-        setLastSaveSummary({ title: '已保存并遮蔽敏感字段', detail });
+        setLastSaveSummary({ title: '已保存并遮蔽敏感字段', detail, savedAt: Date.now() });
         toast.success('已保存并遮蔽敏感字段', detail);
       } else {
         const detail = formatLocalMemorySaveSummary(next);
-        setLastSaveSummary({ title: '已保存 MEMORY.md', detail });
+        setLastSaveSummary({ title: '已保存 MEMORY.md', detail, savedAt: Date.now() });
         toast.success('已保存 MEMORY.md', detail);
       }
     } finally {
@@ -2806,6 +2806,9 @@ function MemorySettingsPage(props: {
       {lastSaveSummary && !memoryDraftDirty && (
         <div className="settingsMemorySaveSummary" role="status">
           <strong>{lastSaveSummary.title}</strong>
+          <small className="settingsMemorySaveSummaryTime">
+            保存于 <RelativeTime ts={lastSaveSummary.savedAt} />
+          </small>
           <small>{lastSaveSummary.detail}</small>
         </div>
       )}
