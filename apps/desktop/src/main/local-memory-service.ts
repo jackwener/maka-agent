@@ -160,6 +160,66 @@ export class LocalMemoryService {
     return this.getState();
   }
 
+  async restoreLatestBackup(): Promise<
+    { ok: true; state: LocalMemoryState } | { ok: false; state: LocalMemoryState; message: string }
+  > {
+    if ((await this.deps.getPrivacyContext()).incognitoActive) {
+      return { ok: false, state: await this.getState(), message: '隐身模式下不能恢复 MEMORY.md。' };
+    }
+    if (!(await this.deps.getSettings()).localMemory.enabled) {
+      return { ok: false, state: await this.getState(), message: '本地记忆关闭时不能恢复 MEMORY.md。' };
+    }
+    try {
+      await this.enqueue(async () => {
+        await this.ensure();
+        const backupPath = await this.latestBackupPath();
+        const [root, backup] = await Promise.all([
+          realpath(this.deps.workspaceRoot),
+          realpath(backupPath),
+        ]);
+        if (!isInsideOrSamePath(root, backup)) {
+          throw new Error('MEMORY.md backup is outside the workspace.');
+        }
+        const backupStat = await stat(backup);
+        if (!backupStat.isFile()) {
+          throw new Error('MEMORY.md backup is not a file.');
+        }
+        await this.backup('restore.bak');
+        await copyFile(backup, this.file);
+        await chmod(this.file, 0o600);
+      });
+      return { ok: true, state: await this.getState() };
+    } catch (error) {
+      return {
+        ok: false,
+        state: await this.getState(),
+        message: backupRestoreFailureMessage(error),
+      };
+    }
+  }
+
+  private async latestBackupPath(): Promise<string> {
+    const candidates = await Promise.all(
+      [
+        { path: `${this.file}.bak`, priority: 0 },
+        { path: `${this.file}.reset.bak`, priority: 1 },
+      ].map(async (candidate) => {
+        const { path, priority } = candidate;
+        const fileStat = await stat(path).catch(() => null);
+        return fileStat?.isFile() ? { path, mtimeMs: fileStat.mtimeMs, priority } : null;
+      }),
+    );
+    const latest = candidates
+      .filter((candidate): candidate is { path: string; mtimeMs: number; priority: number } => candidate !== null)
+      .sort((a, b) => b.mtimeMs - a.mtimeMs || b.priority - a.priority)[0];
+    if (!latest) {
+      const error = new Error('没有找到上一版 MEMORY.md 备份。') as Error & { code: string };
+      error.code = 'ENOENT';
+      throw error;
+    }
+    return latest.path;
+  }
+
   async setEnabled(enabled: boolean): Promise<LocalMemoryState> {
     await this.deps.updateSettings({ localMemory: { enabled } });
     if (enabled) await this.ensure();
@@ -254,4 +314,11 @@ function isInsideOrSamePath(root: string, target: string): boolean {
 
 export function localMemoryDirForWorkspace(workspaceRoot: string): string {
   return dirname(join(workspaceRoot, 'memory', 'MEMORY.md'));
+}
+
+function backupRestoreFailureMessage(error: unknown): string {
+  if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT') {
+    return '没有找到上一版 MEMORY.md 备份。';
+  }
+  return error instanceof Error ? error.message : 'memory backup restore failed';
 }

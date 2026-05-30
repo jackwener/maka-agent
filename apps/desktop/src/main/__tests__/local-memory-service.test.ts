@@ -60,6 +60,65 @@ describe('LocalMemoryService', () => {
     assert.match(await readFile(`${service.file}.bak`, 'utf8'), /示例/);
   });
 
+  it('restores the latest backup while preserving the current file as restore backup', async () => {
+    const { service } = await makeService()();
+    await service.getState();
+    await service.save([
+      '# Maka Memory',
+      '',
+      '## First',
+      '<!-- maka-memory: id=first origin=manual createdAt=1700000000000 -->',
+      '第一版。',
+      '',
+    ].join('\n'));
+    await service.save([
+      '# Maka Memory',
+      '',
+      '## Second',
+      '<!-- maka-memory: id=second origin=manual createdAt=1700000000001 -->',
+      '第二版。',
+      '',
+    ].join('\n'));
+
+    const restored = await service.restoreLatestBackup();
+
+    assert.equal(restored.ok, true);
+    assert.match(restored.state.content, /第一版/);
+    assert.doesNotMatch(restored.state.content, /第二版/);
+    assert.match(await readFile(service.file, 'utf8'), /第一版/);
+    assert.match(await readFile(`${service.file}.restore.bak`, 'utf8'), /第二版/);
+  });
+
+  it('returns a failure envelope when there is no backup to restore', async () => {
+    const { service } = await makeService()();
+    await service.getState();
+
+    const restored = await service.restoreLatestBackup();
+
+    assert.equal(restored.ok, false);
+    assert.match(restored.message, /没有找到上一版 MEMORY\.md 备份/);
+    assert.equal(restored.state.status, 'ok');
+  });
+
+  it('can restore the reset backup as the latest previous MEMORY.md version', async () => {
+    const { service } = await makeService(1_700_000_000_000)();
+    await service.save([
+      '# Maka Memory',
+      '',
+      '## Before reset',
+      '<!-- maka-memory: id=before-reset origin=manual createdAt=1700000000000 -->',
+      '重置前。',
+      '',
+    ].join('\n'));
+    await service.reset();
+
+    const restored = await service.restoreLatestBackup();
+
+    assert.equal(restored.ok, true);
+    assert.match(restored.state.content, /重置前/);
+    assert.doesNotMatch(restored.state.content, /示例/);
+  });
+
   it('redacts secrets before writing durable MEMORY.md content', async () => {
     const { service } = await makeService()();
     await service.getState();
