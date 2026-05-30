@@ -5586,9 +5586,18 @@ function ExploreAgentPreview(props: {
     !result.ok ||
     Boolean(limitReasons) ||
     result.terminalStatus === 'completed_empty';
+  const continuationReason = needsContinuation
+    ? presentExploreAgentContinuationReason({
+      partial: result.partial === true,
+      ok: result.ok,
+      hasLimitReasons: Boolean(limitReasons),
+      terminalStatus: result.terminalStatus,
+    })
+    : '';
   const continuationText = needsContinuation
     ? [
       '继续这次只读探索，不要修改文件。',
+      continuationReason ? `续研原因：${continuationReason}` : '',
       `上一轮状态：${status}`,
       `上一轮终态：${terminalStatus}`,
       `目标：${result.objective || '只读探索'}`,
@@ -5700,6 +5709,7 @@ function ExploreAgentPreview(props: {
         <small>
           {status} · 发现/读 {filesDiscovered} / {result.filesInspected} 个文件 · {skippedSummary} · {formatBytes(result.bytesRead)}
           {limitReasons ? ' · 受预算限制' : ''}
+          {continuationReason ? ` · 建议续研：${continuationReason}` : ''}
           {duration ? ` · 耗时 ${duration}` : ''}
         </small>
         {resultSummary.length > 0 && (
@@ -5773,6 +5783,12 @@ function ExploreAgentPreview(props: {
           <div>
             <dt>边界</dt>
             <dd>{redactSecrets(limitReasons)}</dd>
+          </div>
+        )}
+        {continuationReason && (
+          <div>
+            <dt>后续</dt>
+            <dd>建议续研：{redactSecrets(continuationReason)}</dd>
           </div>
         )}
       </dl>
@@ -5989,6 +6005,19 @@ function presentExploreAgentLimitReason(reason: string): string {
     default:
       return '';
   }
+}
+
+function presentExploreAgentContinuationReason(input: {
+  partial: boolean;
+  ok: boolean;
+  hasLimitReasons: boolean;
+  terminalStatus: Extract<ToolResultContent, { kind: 'explore_agent' }>['terminalStatus'];
+}): string {
+  if (input.partial) return '已有部分结果，仍需补证据';
+  if (!input.ok) return '上一轮未完成';
+  if (input.hasLimitReasons) return '达到预算边界';
+  if (input.terminalStatus === 'completed_empty') return '没有找到证据';
+  return '仍缺证据';
 }
 
 function formatExploreAgentEvent(event: { type: string; message: string; at?: number }, startedAt?: number): string {

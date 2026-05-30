@@ -536,7 +536,12 @@ describe('ExploreAgent read-only worker', () => {
     assert.match(previewBlock, /navigator\.clipboard\.writeText\(redactSecrets\(matchesText\)\)/);
     assert.match(previewBlock, /continuationText/);
     assert.match(previewBlock, /needsContinuation/);
+    assert.match(previewBlock, /continuationReason/);
+    assert.match(previewBlock, /presentExploreAgentContinuationReason/);
     assert.match(previewBlock, /继续这次只读探索，不要修改文件/);
+    assert.match(previewBlock, /续研原因：/);
+    assert.match(previewBlock, /建议续研：/);
+    assert.match(previewBlock, /没有找到证据/);
     assert.match(previewBlock, /上一轮耗时：/);
     assert.match(previewBlock, /上一轮预算边界：/);
     assert.match(previewBlock, /优先补读候选：/);
