@@ -5503,6 +5503,9 @@ function ExploreAgentPreview(props: {
   const notes = result.notes.slice(0, 4);
   const roots = result.roots.length > 0 ? result.roots.join(', ') : '.';
   const queries = result.queries.length > 0 ? result.queries.join(', ') : '未指定';
+  const ignoredPaths = Array.isArray(result.ignoredPaths) && result.ignoredPaths.length > 0
+    ? result.ignoredPaths.join(', ')
+    : '';
   const skippedSummary = result.sensitiveFilesSkipped && result.sensitiveFilesSkipped > 0
     ? `跳过 ${result.filesSkipped} 个（含敏感 ${result.sensitiveFilesSkipped} 个）`
     : `跳过 ${result.filesSkipped} 个`;
@@ -5580,6 +5583,12 @@ function ExploreAgentPreview(props: {
           <dt>查询</dt>
           <dd>{redactSecrets(queries)}</dd>
         </div>
+        {ignoredPaths && (
+          <div>
+            <dt>忽略</dt>
+            <dd>{redactSecrets(ignoredPaths)}</dd>
+          </div>
+        )}
       </dl>
       {progress.length > 0 && (
         <section className="maka-explore-agent-section" aria-label="探索过程">

@@ -189,6 +189,7 @@ export type ToolResultContent =
       objective: string;
       roots: string[];
       queries: string[];
+      ignoredPaths?: string[];
       filesInspected: number;
       filesSkipped: number;
       sensitiveFilesSkipped?: number;

@@ -9,6 +9,7 @@ const DEFAULT_MAX_FILES = 30;
 const DEFAULT_MAX_MATCHES = 60;
 const MAX_ROOTS = 5;
 const MAX_QUERIES = 8;
+const MAX_IGNORE_PATHS = 20;
 const MAX_DISCOVERED_FILES = 250;
 const MAX_FILE_BYTES = 512 * 1024;
 const MAX_TOTAL_BYTES = 2 * 1024 * 1024;
@@ -132,6 +133,7 @@ export interface ExploreAgentResult {
   objective: string;
   roots: string[];
   queries: string[];
+  ignoredPaths: string[];
   filesInspected: number;
   filesSkipped: number;
   sensitiveFilesSkipped: number;
@@ -167,6 +169,7 @@ export function buildExploreAgentTool(): MakaTool<
     objective: string;
     roots?: string[];
     queries?: string[];
+    ignorePaths?: string[];
     maxFiles?: number;
     maxMatches?: number;
   },
@@ -186,17 +189,20 @@ export function buildExploreAgentTool(): MakaTool<
         .describe('Optional relative roots under the session cwd. Defaults to the session cwd.'),
       queries: z.array(z.string().min(1).max(120)).max(MAX_QUERIES).optional()
         .describe('Optional search terms. If omitted, terms are derived from the objective.'),
+      ignorePaths: z.array(z.string().min(1).max(240)).max(MAX_IGNORE_PATHS).optional()
+        .describe('Optional relative files or directories to skip, such as generated output, vendors, or build artifacts.'),
       maxFiles: z.number().int().min(1).max(80).optional(),
       maxMatches: z.number().int().min(1).max(120).optional(),
     }),
     permissionRequired: true,
     categoryHint: 'subagent',
-    impl: async ({ objective, roots, queries, maxFiles, maxMatches }, { cwd, abortSignal, emitOutput }) => {
+    impl: async ({ objective, roots, queries, ignorePaths, maxFiles, maxMatches }, { cwd, abortSignal, emitOutput }) => {
       return runReadOnlyExplore({
         cwd,
         objective,
         roots,
         queries,
+        ignorePaths,
         maxFiles,
         maxMatches,
         abortSignal,
@@ -211,6 +217,7 @@ export async function runReadOnlyExplore(input: {
   objective: string;
   roots?: string[];
   queries?: string[];
+  ignorePaths?: string[];
   maxFiles?: number;
   maxMatches?: number;
   abortSignal?: AbortSignal;
@@ -219,39 +226,40 @@ export async function runReadOnlyExplore(input: {
   const startedAt = Date.now();
   const objective = normalizeText(input.objective).slice(0, 600);
   if (objective.length < 4) {
-    return failure('invalid_objective', objective, [], [], '只读探索需要一个明确的研究目标。', [], startedAt);
+    return failure('invalid_objective', objective, [], [], [], '只读探索需要一个明确的研究目标。', [], startedAt);
   }
 
   const roots = normalizeRoots(input.roots);
   const queryTerms = normalizeQueries(input.queries, objective);
+  const ignoredPaths = normalizeIgnorePaths(input.ignorePaths);
   let workspaceRoot: string;
   try {
     workspaceRoot = await realpath(input.cwd);
   } catch {
-    return failure('invalid_root', objective, roots, queryTerms, '会话工作目录不可读取。', [], startedAt);
+    return failure('invalid_root', objective, roots, queryTerms, ignoredPaths, '会话工作目录不可读取。', [], startedAt);
   }
   const maxFiles = clampInteger(input.maxFiles, 1, 80, DEFAULT_MAX_FILES);
   const maxMatches = clampInteger(input.maxMatches, 1, 120, DEFAULT_MAX_MATCHES);
   const discoveryBudget = Math.min(MAX_DISCOVERED_FILES, Math.max(maxFiles * 4, maxFiles));
   const progress = createProgressReporter(input.onProgress);
   if (input.abortSignal?.aborted) {
-    return abortFailure(objective, roots, queryTerms, progress, startedAt);
+    return abortFailure(objective, roots, queryTerms, ignoredPaths, progress, startedAt);
   }
   progress.report('started', `只读探索：准备范围（${roots.length} 个 root，${queryTerms.length} 个查询词）`);
 
   const resolvedRoots: Array<{ abs: string; rel: string }> = [];
   for (const root of roots) {
     if (input.abortSignal?.aborted) {
-      return abortFailure(objective, roots, queryTerms, progress, startedAt);
+      return abortFailure(objective, roots, queryTerms, ignoredPaths, progress, startedAt);
     }
     const resolved = resolve(workspaceRoot, root);
     if (!isInside(workspaceRoot, resolved)) {
-      return failure('invalid_root', objective, roots, queryTerms, `root 必须位于会话工作目录内：${root}`, progress, startedAt);
+      return failure('invalid_root', objective, roots, queryTerms, ignoredPaths, `root 必须位于会话工作目录内：${root}`, progress, startedAt);
     }
     try {
       const actual = await realpath(resolved);
       if (!isInside(workspaceRoot, actual)) {
-        return failure('invalid_root', objective, roots, queryTerms, `root 不能穿过符号链接离开工作目录：${root}`, progress, startedAt);
+        return failure('invalid_root', objective, roots, queryTerms, ignoredPaths, `root 不能穿过符号链接离开工作目录：${root}`, progress, startedAt);
       }
       const rootStat = await stat(actual);
       if (!rootStat.isDirectory() && !rootStat.isFile()) continue;
@@ -261,7 +269,7 @@ export async function runReadOnlyExplore(input: {
     }
   }
   if (resolvedRoots.length === 0) {
-    return failure('no_readable_roots', objective, roots, queryTerms, '没有可读取的研究范围。', progress, startedAt);
+    return failure('no_readable_roots', objective, roots, queryTerms, ignoredPaths, '没有可读取的研究范围。', progress, startedAt);
   }
   progress.report('scope_resolved', `只读探索：确认 ${resolvedRoots.length} 个可读范围：${resolvedRoots.map((root) => root.rel).join(', ')}`);
 
@@ -270,18 +278,21 @@ export async function runReadOnlyExplore(input: {
     '只读探索边界：不写文件、不联网、不启动进程。',
     `搜索预算：最多读取 ${maxFiles} 个文件、返回 ${maxMatches} 处命中、读取 ${Math.round(MAX_TOTAL_BYTES / 1024)} KiB 文本。`,
   ];
+  if (ignoredPaths.length > 0) {
+    notes.push(`已按请求忽略：${ignoredPaths.join(', ')}`);
+  }
   let filesSkipped = 0;
   let sensitiveFilesSkipped = 0;
   for (const root of resolvedRoots) {
     if (input.abortSignal?.aborted) {
-      return abortFailure(objective, roots, queryTerms, progress, startedAt);
+      return abortFailure(objective, roots, queryTerms, ignoredPaths, progress, startedAt);
     }
     const before = files.length;
     const skippedBefore = filesSkipped;
     const sensitiveBefore = sensitiveFilesSkipped;
-    const listed = await listTextFiles(root.abs, workspaceRoot, discoveryBudget - files.length, input.abortSignal);
+    const listed = await listTextFiles(root.abs, workspaceRoot, discoveryBudget - files.length, ignoredPaths, input.abortSignal);
     if (listed.aborted) {
-      return abortFailure(objective, roots, queryTerms, progress, startedAt);
+      return abortFailure(objective, roots, queryTerms, ignoredPaths, progress, startedAt);
     }
     files.push(...listed.files);
     filesSkipped += listed.skipped;
@@ -319,6 +330,7 @@ export async function runReadOnlyExplore(input: {
         objective,
         roots: resolvedRoots.map((root) => root.rel),
         queryTerms,
+        ignoredPaths,
         filesInspected: inspected,
         filesSkipped,
         sensitiveFilesSkipped,
@@ -363,6 +375,7 @@ export async function runReadOnlyExplore(input: {
         objective,
         roots: resolvedRoots.map((root) => root.rel),
         queryTerms,
+        ignoredPaths,
         filesInspected: inspected,
         filesSkipped,
         sensitiveFilesSkipped,
@@ -440,6 +453,7 @@ export async function runReadOnlyExplore(input: {
     objective,
     roots: resolvedRoots.map((root) => root.rel),
     queries: queryTerms,
+    ignoredPaths,
     filesInspected: inspected,
     filesSkipped,
     sensitiveFilesSkipped,
@@ -492,7 +506,13 @@ function isLifecycleExploreEvent(type: ExploreAgentEvent['type']): boolean {
   return type === 'started' || type === 'completed' || type === 'failed' || type === 'aborted';
 }
 
-async function listTextFiles(root: string, workspaceRoot: string, budget: number, abortSignal?: AbortSignal): Promise<{
+async function listTextFiles(
+  root: string,
+  workspaceRoot: string,
+  budget: number,
+  ignoredPaths: string[],
+  abortSignal?: AbortSignal,
+): Promise<{
   files: string[];
   skipped: number;
   sensitiveSkipped: number;
@@ -522,6 +542,11 @@ async function listTextFiles(root: string, workspaceRoot: string, budget: number
       return;
     }
     if (entryStat.isSymbolicLink()) {
+      skipped++;
+      return;
+    }
+    const rel = toRelative(workspaceRoot, abs);
+    if (rel !== '.' && isIgnoredPath(rel, ignoredPaths)) {
       skipped++;
       return;
     }
@@ -586,6 +611,23 @@ function normalizeQueries(queries: string[] | undefined, objective: string): str
   const explicit = (queries ?? []).map(normalizeText).filter((query) => query.length > 0);
   const source = explicit.length > 0 ? explicit : deriveQueries(objective);
   return Array.from(new Set(source.map((query) => query.slice(0, 120)))).slice(0, MAX_QUERIES);
+}
+
+function normalizeIgnorePaths(paths: string[] | undefined): string[] {
+  const normalized: string[] = [];
+  for (const raw of paths ?? []) {
+    const value = raw.trim().replace(/\\/g, '/').replace(/^\.\/+/, '').replace(/\/+$/g, '');
+    if (!value || value === '.' || value === '..' || value.startsWith('/') || value.includes('\0')) continue;
+    const segments = value.split('/').filter(Boolean);
+    if (segments.length === 0 || segments.some((segment) => segment === '.' || segment === '..')) continue;
+    normalized.push(segments.join('/').slice(0, 160));
+    if (normalized.length >= MAX_IGNORE_PATHS) break;
+  }
+  return Array.from(new Set(normalized));
+}
+
+function isIgnoredPath(path: string, ignoredPaths: string[]): boolean {
+  return ignoredPaths.some((ignored) => path === ignored || path.startsWith(`${ignored}/`));
 }
 
 function deriveQueries(objective: string): string[] {
@@ -847,6 +889,7 @@ function failure(
   objective: string,
   roots: string[],
   queries: string[],
+  ignoredPaths: string[],
   message: string,
   progress: string[] | ProgressState = [],
   startedAt = Date.now(),
@@ -866,6 +909,7 @@ function failure(
     objective,
     roots,
     queries,
+    ignoredPaths,
     filesInspected: 0,
     filesSkipped: 0,
     sensitiveFilesSkipped: 0,
@@ -890,6 +934,7 @@ function partialAbortFailure(input: {
   objective: string;
   roots: string[];
   queryTerms: string[];
+  ignoredPaths: string[];
   filesInspected: number;
   filesSkipped: number;
   sensitiveFilesSkipped: number;
@@ -901,7 +946,7 @@ function partialAbortFailure(input: {
   startedAt: number;
 }): ExploreAgentResult {
   if (input.filesInspected <= 0 && input.matches.length === 0 && input.candidates.size === 0) {
-    return abortFailure(input.objective, input.roots, input.queryTerms, input.progress, input.startedAt);
+    return abortFailure(input.objective, input.roots, input.queryTerms, input.ignoredPaths, input.progress, input.startedAt);
   }
   const completedAt = Date.now();
   appendExploreEvent(input.progress.recentEvents, {
@@ -953,6 +998,7 @@ function partialAbortFailure(input: {
     objective: input.objective,
     roots: input.roots,
     queries: input.queryTerms,
+    ignoredPaths: input.ignoredPaths,
     filesInspected: input.filesInspected,
     filesSkipped: input.filesSkipped,
     sensitiveFilesSkipped: input.sensitiveFilesSkipped,
@@ -977,10 +1023,11 @@ function abortFailure(
   objective: string,
   roots: string[],
   queries: string[],
+  ignoredPaths: string[],
   progress: string[] | ProgressState = [],
   startedAt = Date.now(),
 ): ExploreAgentResult {
-  return failure('aborted', objective, roots, queries, '只读探索已取消。', progress, startedAt);
+  return failure('aborted', objective, roots, queries, ignoredPaths, '只读探索已取消。', progress, startedAt);
 }
 
 function normalizeProgressState(progress: string[] | ProgressState, startedAt: number): ProgressState {
