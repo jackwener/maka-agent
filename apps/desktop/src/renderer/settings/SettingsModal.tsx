@@ -2299,7 +2299,7 @@ function presentWebSearchCredentialStatus(
   enabled: boolean,
   status: WebSearchCredentialStatus,
 ): { label: string; tone: 'success' | 'info' | 'warning' | 'destructive' } {
-  if (!hasStoredKey) return { label: '未保存 key', tone: 'warning' };
+  if (!hasStoredKey) return { label: '等待保存 key', tone: 'warning' };
   if (status === 'valid') {
     return enabled
       ? { label: '已验证 · 已启用', tone: 'success' }
@@ -2309,7 +2309,7 @@ function presentWebSearchCredentialStatus(
   if (status === 'rate_limited') return { label: 'Tavily 限流', tone: 'warning' };
   if (status === 'timeout') return { label: '测试超时', tone: 'warning' };
   if (status === 'network_error') return { label: '网络异常', tone: 'warning' };
-  if (status === 'not_configured') return { label: '未配置', tone: 'warning' };
+  if (status === 'not_configured') return { label: '等待配置', tone: 'warning' };
   return enabled
     ? { label: '未测试 · 已启用', tone: 'warning' }
     : { label: '未测试', tone: 'info' };
