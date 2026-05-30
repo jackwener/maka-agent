@@ -29,6 +29,7 @@ import { describe, it } from 'node:test';
 import { join } from 'node:path';
 
 const STYLES_PATH = join(process.cwd(), 'src', 'renderer', 'styles.css');
+const UI_COMPONENTS_PATH = join(process.cwd(), '../../packages/ui/src/components.tsx');
 
 describe('sidebar session row density CSS contract (PR-SIDEBAR-IA-0 Phase 3)', () => {
   it('.maka-list-row is 32px tall (single-line slim row, not a 56px card)', async () => {
@@ -134,6 +135,28 @@ describe('sidebar session row density CSS contract (PR-SIDEBAR-IA-0 Phase 3)', (
       css,
       /\.maka-list-row:focus-within\s+\.maka-list-row-unread[\s\S]{0,200}visibility:\s*hidden/,
       'CSS must hide `.maka-list-row-unread` on `:focus-within` (per xuan `bcf4304d` — full 4-selector lock)',
+    );
+  });
+
+  it('unread dot follows PawWork status priority: asking/busy/error outrank unread', async () => {
+    // PawWork sidebar status slot is ordered asking → busy → error → unread → time.
+    // Maka renders asking/busy/error as the name-side SessionStatusIcon, so the
+    // right-side unread dot must not also appear for those states.
+    const ui = await readFile(UI_COMPONENTS_PATH, 'utf8');
+    assert.match(ui, /function shouldShowSessionUnreadDot/, 'SessionRow must route unread visibility through a named helper');
+    assert.match(ui, /SIDEBAR_UNREAD_SUPPRESSED_STATUSES/, 'helper must use a closed suppressed-status list');
+    assert.match(ui, /'running'/, 'running/busy sessions must suppress unread dot');
+    assert.match(ui, /'waiting_for_user'/, 'asking sessions must suppress unread dot');
+    assert.match(ui, /'blocked'/, 'blocked/error sessions must suppress unread dot');
+    assert.match(
+      ui,
+      /shouldShowSessionUnreadDot\(session,\s*Boolean\(streaming\)\)/,
+      'SessionRow render path must use shouldShowSessionUnreadDot instead of raw hasUnread && !streaming',
+    );
+    assert.doesNotMatch(
+      ui,
+      /session\.hasUnread\s*&&\s*!streaming\s*\?/,
+      'raw unread-vs-streaming ternary would ignore waiting/running/blocked priority',
     );
   });
 

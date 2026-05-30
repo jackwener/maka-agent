@@ -2224,6 +2224,24 @@ function SessionStatusIcon(props: { session: SessionSummary }) {
 }
 
 /**
+ * PawWork-style sidebar attention priority: asking/busy/error outrank unread,
+ * and unread outranks plain time. The status icon beside the name already
+ * carries asking/busy/error in Maka, so the right slot only shows the unread
+ * dot when no higher-priority row state is active.
+ */
+function shouldShowSessionUnreadDot(session: SessionSummary, streaming: boolean): boolean {
+  if (!session.hasUnread) return false;
+  if (streaming) return false;
+  return !SIDEBAR_UNREAD_SUPPRESSED_STATUSES.has(session.status);
+}
+
+const SIDEBAR_UNREAD_SUPPRESSED_STATUSES = new Set<string>([
+  'running',
+  'waiting_for_user',
+  'blocked',
+]);
+
+/**
  * Lifecycle status badge in the chat header (PR109b §9.8). Visual
  * tone matches the SessionStatusIcon mapping so the sidebar row icon
  * and the header badge read as the same status.
@@ -2539,11 +2557,11 @@ function SessionRow(props: {
             `formatSessionMeta` shows the relative time inline in the
             row's `auto` grid column (sibling of `.maka-list-row-text`,
             not nested inside it — required for proper gap + alignment).
-            The unread dot replaces the time when
-            `hasUnread && !streaming` (mutually exclusive — unread
-            takes priority).
+            The unread dot replaces the time only when no higher-priority
+            row state is active. Borrowed from PawWork's sidebar priority:
+            asking/busy/error outrank unread; unread outranks plain time.
           */}
-          {session.hasUnread && !streaming ? (
+          {shouldShowSessionUnreadDot(session, Boolean(streaming)) ? (
             <span className="maka-list-row-unread" aria-label="未读消息" />
           ) : (
             <span className="maka-list-row-meta">{formatSessionMeta(session)}</span>
