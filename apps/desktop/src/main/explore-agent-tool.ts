@@ -140,7 +140,7 @@ export interface ExploreAgentResult {
   candidateFiles: Array<{ path: string; score: number; reasons: string[] }>;
   matches: Array<{ path: string; line: number; query: string; snippet: string }>;
   notes: string[];
-  reason?: 'invalid_objective' | 'invalid_root' | 'no_readable_roots';
+  reason?: 'invalid_objective' | 'invalid_root' | 'no_readable_roots' | 'aborted';
   message?: string;
 }
 
@@ -172,7 +172,7 @@ export function buildExploreAgentTool(): MakaTool<
     }),
     permissionRequired: true,
     categoryHint: 'subagent',
-    impl: async ({ objective, roots, queries, maxFiles, maxMatches }, { cwd, emitOutput }) => {
+    impl: async ({ objective, roots, queries, maxFiles, maxMatches }, { cwd, abortSignal, emitOutput }) => {
       return runReadOnlyExplore({
         cwd,
         objective,
@@ -180,6 +180,7 @@ export function buildExploreAgentTool(): MakaTool<
         queries,
         maxFiles,
         maxMatches,
+        abortSignal,
         onProgress: (message) => emitOutput('stdout', `${message}\n`),
       });
     },
@@ -193,6 +194,7 @@ export async function runReadOnlyExplore(input: {
   queries?: string[];
   maxFiles?: number;
   maxMatches?: number;
+  abortSignal?: AbortSignal;
   onProgress?: (message: string) => void;
 }): Promise<ExploreAgentResult> {
   const objective = normalizeText(input.objective).slice(0, 600);
@@ -207,10 +209,16 @@ export async function runReadOnlyExplore(input: {
   const maxMatches = clampInteger(input.maxMatches, 1, 120, DEFAULT_MAX_MATCHES);
   const discoveryBudget = Math.min(MAX_DISCOVERED_FILES, Math.max(maxFiles * 4, maxFiles));
   const progress = createProgressReporter(input.onProgress);
+  if (input.abortSignal?.aborted) {
+    return abortFailure(objective, roots, queryTerms, progress.messages);
+  }
   progress.report(`只读探索：准备范围（${roots.length} 个 root，${queryTerms.length} 个查询词）`);
 
   const resolvedRoots: Array<{ abs: string; rel: string }> = [];
   for (const root of roots) {
+    if (input.abortSignal?.aborted) {
+      return abortFailure(objective, roots, queryTerms, progress.messages);
+    }
     const resolved = resolve(workspaceRoot, root);
     if (!isInside(workspaceRoot, resolved)) {
       return failure('invalid_root', objective, roots, queryTerms, `root 必须位于会话工作目录内：${root}`, progress.messages);
@@ -240,10 +248,16 @@ export async function runReadOnlyExplore(input: {
   let filesSkipped = 0;
   let sensitiveFilesSkipped = 0;
   for (const root of resolvedRoots) {
+    if (input.abortSignal?.aborted) {
+      return abortFailure(objective, roots, queryTerms, progress.messages);
+    }
     const before = files.length;
     const skippedBefore = filesSkipped;
     const sensitiveBefore = sensitiveFilesSkipped;
-    const listed = await listTextFiles(root.abs, workspaceRoot, discoveryBudget - files.length);
+    const listed = await listTextFiles(root.abs, workspaceRoot, discoveryBudget - files.length, input.abortSignal);
+    if (listed.aborted) {
+      return abortFailure(objective, roots, queryTerms, progress.messages);
+    }
     files.push(...listed.files);
     filesSkipped += listed.skipped;
     sensitiveFilesSkipped += listed.sensitiveSkipped;
@@ -275,6 +289,9 @@ export async function runReadOnlyExplore(input: {
 
   progress.report(`只读探索：开始读取 ${filesToInspect.length} 个候选文件`);
   for (const file of filesToInspect) {
+    if (input.abortSignal?.aborted) {
+      return abortFailure(objective, roots, queryTerms, progress.messages);
+    }
     const rel = toRelative(workspaceRoot, file);
     const filenameScore = scorePath(rel, queryTerms);
     if (filenameScore.score > 0) {
@@ -302,6 +319,9 @@ export async function runReadOnlyExplore(input: {
     } catch {
       filesSkipped++;
       continue;
+    }
+    if (input.abortSignal?.aborted) {
+      return abortFailure(objective, roots, queryTerms, progress.messages);
     }
     if (looksBinary(text)) {
       filesSkipped++;
@@ -374,18 +394,24 @@ function createProgressReporter(onProgress: ((message: string) => void) | undefi
   };
 }
 
-async function listTextFiles(root: string, workspaceRoot: string, budget: number): Promise<{
+async function listTextFiles(root: string, workspaceRoot: string, budget: number, abortSignal?: AbortSignal): Promise<{
   files: string[];
   skipped: number;
   sensitiveSkipped: number;
+  aborted: boolean;
   truncated: boolean;
 }> {
   const files: string[] = [];
   let skipped = 0;
   let sensitiveSkipped = 0;
+  let aborted = false;
   let truncated = false;
 
   async function walk(abs: string): Promise<void> {
+    if (abortSignal?.aborted) {
+      aborted = true;
+      return;
+    }
     if (files.length >= budget) {
       truncated = true;
       return;
@@ -429,6 +455,10 @@ async function listTextFiles(root: string, workspaceRoot: string, budget: number
     }
     entries.sort((a, b) => a.name.localeCompare(b.name));
     for (const entry of entries) {
+      if (abortSignal?.aborted) {
+        aborted = true;
+        return;
+      }
       if (files.length >= budget) {
         truncated = true;
         return;
@@ -443,7 +473,7 @@ async function listTextFiles(root: string, workspaceRoot: string, budget: number
   }
 
   await walk(root);
-  return { files, skipped, sensitiveSkipped, truncated };
+  return { files, skipped, sensitiveSkipped, aborted, truncated };
 }
 
 function normalizeRoots(roots: string[] | undefined): string[] {
@@ -654,4 +684,13 @@ function failure(
     reason,
     message,
   };
+}
+
+function abortFailure(
+  objective: string,
+  roots: string[],
+  queries: string[],
+  progress: string[] = [],
+): ExploreAgentResult {
+  return failure('aborted', objective, roots, queries, '只读探索已取消。', progress);
 }

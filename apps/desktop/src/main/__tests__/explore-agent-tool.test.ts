@@ -137,6 +137,55 @@ describe('ExploreAgent read-only worker', () => {
     });
   });
 
+  it('honors runtime abort signals before scanning files', async () => {
+    await withWorkspace(async (workspaceRoot) => {
+      await writeFile(join(workspaceRoot, 'notes.md'), 'reference explore worker notes');
+      const abort = new AbortController();
+      abort.abort();
+
+      const result = await runReadOnlyExplore({
+        cwd: workspaceRoot,
+        objective: 'find reference notes',
+        queries: ['reference'],
+        abortSignal: abort.signal,
+      });
+
+      assert.equal(result.ok, false);
+      assert.equal(result.reason, 'aborted');
+      assert.equal(result.message, '只读探索已取消。');
+      assert.equal(result.filesInspected, 0);
+      assert.deepEqual(result.matches, []);
+      assert.deepEqual(result.evidence, []);
+      assert.equal(JSON.stringify(result).includes('reference explore worker notes'), false);
+    });
+  });
+
+  it('forwards the runtime abort signal through the tool impl', async () => {
+    await withWorkspace(async (workspaceRoot) => {
+      await writeFile(join(workspaceRoot, 'notes.md'), 'reference explore worker notes');
+      const tool = buildExploreAgentTool();
+      const abort = new AbortController();
+      abort.abort();
+
+      const result = await tool.impl(
+        { objective: 'find reference notes', queries: ['reference'] },
+        {
+          sessionId: 's1',
+          turnId: 't1',
+          cwd: workspaceRoot,
+          toolCallId: 'tool-1',
+          abortSignal: abort.signal,
+          emitOutput: () => undefined,
+        },
+      );
+
+      assert.equal(result.ok, false);
+      assert.equal(result.reason, 'aborted');
+      assert.equal(result.message, '只读探索已取消。');
+      assert.equal(result.filesInspected, 0);
+    });
+  });
+
   it('emits bounded progress checkpoints for long scans', async () => {
     await withWorkspace(async (workspaceRoot) => {
       for (let index = 0; index < 25; index++) {
@@ -241,6 +290,7 @@ describe('ExploreAgent read-only worker', () => {
     assert.match(previewBlock, /探索过程/);
     assert.match(previewBlock, /证据锚点/);
     assert.match(previewBlock, /sensitiveFilesSkipped/);
+    assert.match(previewBlock, /已取消/);
     assert.match(previewBlock, /项目配置/);
     assert.match(previewBlock, /入口文件/);
     assert.match(previewBlock, /redactSecrets/);

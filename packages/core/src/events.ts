@@ -203,7 +203,7 @@ export type ToolResultContent =
       candidateFiles: ReadonlyArray<{ path: string; score: number; reasons: string[] }>;
       matches: ReadonlyArray<{ path: string; line: number; query: string; snippet: string }>;
       notes: string[];
-      reason?: 'invalid_objective' | 'invalid_root' | 'no_readable_roots';
+      reason?: 'invalid_objective' | 'invalid_root' | 'no_readable_roots' | 'aborted';
       message?: string;
     };
 

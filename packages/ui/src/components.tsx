@@ -5585,6 +5585,8 @@ function presentExploreAgentReason(
       return '范围无效';
     case 'no_readable_roots':
       return '没有可读取范围';
+    case 'aborted':
+      return '已取消';
     case undefined:
       return undefined;
     default:
