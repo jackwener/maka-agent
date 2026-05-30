@@ -938,6 +938,14 @@ function registerIpc(): void {
   ipcMain.handle('memory:restoreLatestBackup', async (): Promise<
     { ok: true; state: LocalMemoryState } | { ok: false; state: LocalMemoryState; message: string }
   > => localMemory.restoreLatestBackup());
+  ipcMain.handle('memory:restoreBackup', async (_event, kind: unknown): Promise<
+    { ok: true; state: LocalMemoryState } | { ok: false; state: LocalMemoryState; message: string }
+  > => {
+    if (kind !== 'save' && kind !== 'reset') {
+      return { ok: false, state: await localMemory.getState(), message: '只能恢复已验证的 MEMORY.md 备份候选。' };
+    }
+    return localMemory.restoreBackup(kind);
+  });
   ipcMain.handle('memory:setEnabled', async (_event, enabled: unknown): Promise<LocalMemoryState> =>
     localMemory.setEnabled(enabled === true),
   );
