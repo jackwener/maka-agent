@@ -9775,6 +9775,25 @@ button:active {
   line-height: 1.4;
 }
 
+.settingsMemorySaveSummary {
+  display: grid;
+  gap: 3px;
+  padding: 8px 10px;
+  border: 1px solid oklch(from var(--success) l c h / 0.28);
+  border-radius: 8px;
+  background: oklch(from var(--success) l c h / 0.08);
+}
+
+.settingsMemorySaveSummary strong {
+  color: var(--foreground);
+  font-size: 13px;
+}
+
+.settingsMemorySaveSummary small {
+  color: var(--foreground-60);
+  font-size: 12px;
+}
+
 .settingsMemoryEntryGroups {
   display: grid;
   gap: 12px;
