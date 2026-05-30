@@ -2333,6 +2333,7 @@ function MemorySettingsPage(props: {
   const [newMemoryTags, setNewMemoryTags] = useState('');
   const [newMemoryContent, setNewMemoryContent] = useState('');
   const [memoryEntryQuery, setMemoryEntryQuery] = useState('');
+  const [lastSaveSummary, setLastSaveSummary] = useState<{ title: string; detail: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
   const toast = useToast();
@@ -2345,6 +2346,7 @@ function MemorySettingsPage(props: {
     setState(next);
     setWorkspaceInstructionState(instructions);
     setDraft(next.content);
+    setLastSaveSummary(null);
   }
 
   async function reloadDraftFromDisk() {
@@ -2403,11 +2405,16 @@ function MemorySettingsPage(props: {
       setState(next);
       setDraft(next.content);
       if (next.status === 'safe_mode') {
+        setLastSaveSummary(null);
         toast.error('保存被拦截', 'MEMORY.md 内容过大，已进入安全模式。');
       } else if (redacted) {
-        toast.success('已保存并遮蔽敏感字段', `写入前已替换疑似 token、API key 或密码；${formatLocalMemorySaveSummary(next)}`);
+        const detail = `写入前已替换疑似 token、API key 或密码；${formatLocalMemorySaveSummary(next)}`;
+        setLastSaveSummary({ title: '已保存并遮蔽敏感字段', detail });
+        toast.success('已保存并遮蔽敏感字段', detail);
       } else {
-        toast.success('已保存 MEMORY.md', formatLocalMemorySaveSummary(next));
+        const detail = formatLocalMemorySaveSummary(next);
+        setLastSaveSummary({ title: '已保存 MEMORY.md', detail });
+        toast.success('已保存 MEMORY.md', detail);
       }
     } finally {
       setBusy(false);
@@ -2420,6 +2427,7 @@ function MemorySettingsPage(props: {
       const next = await window.maka.memory.reset();
       setState(next);
       setDraft(next.content);
+      setLastSaveSummary(null);
       toast.success('已重置 MEMORY.md', '上一版已保存为备份文件。');
     } finally {
       setBusy(false);
@@ -2714,6 +2722,13 @@ function MemorySettingsPage(props: {
           </span>
         )}
       </div>
+
+      {lastSaveSummary && !memoryDraftDirty && (
+        <div className="settingsMemorySaveSummary" role="status">
+          <strong>{lastSaveSummary.title}</strong>
+          <small>{lastSaveSummary.detail}</small>
+        </div>
+      )}
 
       {memoryEntryPreviewBlockedReason && (
         <div className="settingsMemoryEntryPreviewNotice" role="status">
