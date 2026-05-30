@@ -9823,6 +9823,24 @@ button:active {
   min-width: 0;
 }
 
+.settingsMemoryPromptScope {
+  width: max-content;
+  max-width: 100%;
+  padding: 2px 6px;
+  border: 1px solid var(--foreground-10);
+  border-radius: 6px;
+  background: var(--foreground-4);
+  color: var(--foreground-60);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.settingsMemoryPromptScope[data-active="true"] {
+  border-color: oklch(from var(--success) l c h / 0.32);
+  background: oklch(from var(--success) l c h / 0.08);
+  color: var(--foreground-70);
+}
+
 .settingsMemoryEntryCard p,
 .settingsMemoryEntryEmpty {
   margin: 0;

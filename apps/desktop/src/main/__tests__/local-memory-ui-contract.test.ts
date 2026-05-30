@@ -30,7 +30,11 @@ describe('local MEMORY.md Settings UI contract', () => {
     assert.match(listBlock, /创建 <RelativeTime ts=\{entry\.createdAt\}/);
     assert.match(listBlock, /entry\.updatedAt !== undefined/);
     assert.match(listBlock, /更新 <RelativeTime ts=\{entry\.updatedAt\}/);
+    assert.match(listBlock, /settingsMemoryPromptScope/);
+    assert.match(listBlock, /已归档，不进入 prompt/);
+    assert.match(listBlock, /生效条目，会进入本地记忆 prompt/);
     assert.match(css, /\.settingsMemoryEntryFacts/);
+    assert.match(css, /\.settingsMemoryPromptScope/);
   });
 
   it('can copy a stable memory entry reference for audit handoff', async () => {

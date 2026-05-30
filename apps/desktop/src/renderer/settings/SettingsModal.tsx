@@ -2881,6 +2881,9 @@ function MemoryEntryList(props: {
                   </span>
                 )}
               </small>
+              <span className="settingsMemoryPromptScope" data-active={props.archived ? 'false' : 'true'}>
+                {props.archived ? '已归档，不进入 prompt' : '生效条目，会进入本地记忆 prompt'}
+              </span>
               <p>{entry.content}</p>
               {(props.onCopyReference || props.onFocusDraft || props.onStatusChange) && (
                 <div className="settingsMemoryEntryActions">
