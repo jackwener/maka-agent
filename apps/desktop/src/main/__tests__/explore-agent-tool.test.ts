@@ -528,6 +528,10 @@ describe('ExploreAgent read-only worker', () => {
     assert.match(previewBlock, /候选：/);
     assert.match(previewBlock, /复制候选/);
     assert.match(previewBlock, /navigator\.clipboard\.writeText\(redactSecrets\(candidateText\)\)/);
+    assert.match(previewBlock, /matchesText/);
+    assert.match(previewBlock, /命中片段：/);
+    assert.match(previewBlock, /复制片段/);
+    assert.match(previewBlock, /navigator\.clipboard\.writeText\(redactSecrets\(matchesText\)\)/);
     assert.match(previewBlock, /复制报告/);
     assert.match(previewBlock, /reportText\.length === 0/);
     assert.match(previewBlock, /navigator\.clipboard\.writeText\(redactSecrets\(reportText\)\)/);
