@@ -63,7 +63,7 @@ describe('SessionManager permission mode updates', () => {
 
     await expectRejects(
       manager.setPermissionMode(session.id, 'explore'),
-      /Cannot change permission mode while a turn is running/,
+      /当前对话正在运行/,
     );
     expect((await store.readHeader(session.id)).permissionMode).toBe('ask');
 
@@ -94,7 +94,7 @@ describe('SessionManager permission mode updates', () => {
 
     await expectRejects(
       manager.setPermissionMode(session.id, 'execute'),
-      /Cannot change permission mode while a turn is running/,
+      /当前对话正在运行/,
     );
 
     secondGate.release();
@@ -279,6 +279,27 @@ describe('SessionManager permission mode updates', () => {
     const header = await store.readHeader(session.id);
     expect(header.status).toBe('waiting_for_user');
     expect(header.blockedReason).toBe(undefined);
+  });
+
+  test('rejects mode changes while a tool permission request is waiting', async () => {
+    const store = new MemorySessionStore();
+    const backends = new BackendRegistry();
+    backends.register('fake', (ctx) => new EventBackend(ctx, [
+      { type: 'permission_request', requestId: 'pr-1', toolUseId: 'tool-1', toolName: 'Bash', category: 'shell_safe', reason: 'custom', args: {} },
+      { type: 'complete', stopReason: 'permission_handoff' },
+    ]));
+    const manager = new SessionManager({ store, backends, newId: nextId(), now: nextNow(9_500) });
+    const session = await manager.createSession(makeInput({ permissionMode: 'ask' }));
+
+    await drain(manager.sendMessage(session.id, { turnId: 'turn-1', text: 'hello' }));
+
+    await expectRejects(
+      manager.setPermissionMode(session.id, 'execute'),
+      /当前有工具调用正在等待确认/,
+    );
+    expect((await store.readHeader(session.id)).permissionMode).toBe('ask');
+    const messages = await store.readMessages(session.id);
+    expect(messages.some((message) => message.type === 'system_note' && message.kind === 'mode_change')).toBe(false);
   });
 
   test('marks backend errors as blocked with a generalized reason', async () => {

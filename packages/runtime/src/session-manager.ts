@@ -214,7 +214,10 @@ export class SessionManager {
 
     const active = this.active.get(sessionId);
     if (active && active.activeStreams > 0) {
-      throw new Error('Cannot change permission mode while a turn is running');
+      throw new Error('当前对话正在运行，等结束后再切换权限模式。');
+    }
+    if (previous.status === 'waiting_for_user') {
+      throw new Error('当前有工具调用正在等待确认，处理后再切换权限模式。');
     }
 
     const next = await this.deps.store.updateHeader(sessionId, {

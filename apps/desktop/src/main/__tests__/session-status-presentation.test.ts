@@ -135,6 +135,19 @@ describe('sessionStatusAriaLabel', () => {
   });
 });
 
+describe('permission mode transition guard copy', () => {
+  it('disables the mode switcher for running and permission-waiting sessions', async () => {
+    const ui = await readFile(join(REPO_ROOT, 'packages/ui/src/components.tsx'), 'utf8');
+    const chatShellBlock = ui.match(/const permissionModeDisabledReason[\s\S]*?<PermissionModeSwitcher/)?.[0] ?? '';
+
+    assert.match(chatShellBlock, /status === 'running'/);
+    assert.match(chatShellBlock, /当前对话正在运行，等结束后再切换权限模式。/);
+    assert.match(chatShellBlock, /status === 'waiting_for_user'/);
+    assert.match(chatShellBlock, /当前有工具调用正在等待确认，处理后再切换权限模式。/);
+    assert.match(ui, /disabledReason=\{permissionModeDisabledReason\}/);
+  });
+});
+
 describe('describeTurnErrorClass (PR109e-d @kenji gate #3)', () => {
   it('returns Chinese label for known timeout class', () => {
     assert.match(describeTurnErrorClass('timeout'), /超时/);

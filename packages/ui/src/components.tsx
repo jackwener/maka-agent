@@ -2933,7 +2933,14 @@ export function ChatView(props: {
   }
 
   const streaming = props.streamingText.length > 0;
-  const switcherDisabled = streaming || !props.activeSession || !props.onPermissionModeChange;
+  const permissionModeDisabledReason = streaming
+    ? '当前对话正在流式输出，等结束后再切换权限模式。'
+    : props.activeSession?.status === 'running'
+      ? '当前对话正在运行，等结束后再切换权限模式。'
+      : props.activeSession?.status === 'waiting_for_user'
+        ? '当前有工具调用正在等待确认，处理后再切换权限模式。'
+        : undefined;
+  const switcherDisabled = Boolean(permissionModeDisabledReason) || !props.activeSession || !props.onPermissionModeChange;
 
   if (!props.activeSession) {
     return (
@@ -3003,7 +3010,7 @@ export function ChatView(props: {
         <PermissionModeSwitcher
           mode={props.activeSession.permissionMode}
           disabled={switcherDisabled}
-          disabledReason={streaming ? '当前对话正在流式输出，等结束后再切换权限模式。' : undefined}
+          disabledReason={permissionModeDisabledReason}
           onChange={props.onPermissionModeChange}
         />
       </header>
