@@ -2514,6 +2514,24 @@ function MemorySettingsPage(props: {
     }
   }
 
+  async function restoreLatestBackup() {
+    if (!confirm('恢复上一版会先备份当前 MEMORY.md，再用最近一次 .bak 覆盖当前文件。确认恢复吗？')) return;
+    setBusy(true);
+    try {
+      const result = await window.maka.memory.restoreLatestBackup();
+      setState(result.state);
+      setDraft(result.state.content);
+      setLastSaveSummary(null);
+      if (result.ok) {
+        toast.success('已恢复上一版 MEMORY.md', '恢复前的当前文件已保存为 restore.bak。');
+      } else {
+        toast.error('恢复失败', result.message);
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function openFile() {
     const result = await window.maka.memory.openFile();
     if (!result.ok) toast.error('打开失败', result.message);
@@ -2994,6 +3012,9 @@ function MemorySettingsPage(props: {
         </button>
         <button type="button" className="maka-button maka-button-ghost" disabled={busy || !effective.enabled} onClick={() => void reset()}>
           重置并备份
+        </button>
+        <button type="button" className="maka-button maka-button-ghost" disabled={busy || !effective.enabled} onClick={() => void restoreLatestBackup()}>
+          恢复上一版
         </button>
       </div>
     </div>

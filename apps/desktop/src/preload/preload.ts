@@ -282,6 +282,9 @@ contextBridge.exposeInMainWorld('maka', {
     reset(): Promise<LocalMemoryState> {
       return ipcRenderer.invoke('memory:reset');
     },
+    restoreLatestBackup(): Promise<{ ok: true; state: LocalMemoryState } | { ok: false; state: LocalMemoryState; message: string }> {
+      return ipcRenderer.invoke('memory:restoreLatestBackup');
+    },
     setEnabled(enabled: boolean): Promise<LocalMemoryState> {
       return ipcRenderer.invoke('memory:setEnabled', enabled);
     },

@@ -310,4 +310,29 @@ describe('local MEMORY.md Settings UI contract', () => {
     assert.match(pageBlock, /onClick=\{\(\) => void reloadDraftFromDisk\(\)\}/);
     assert.match(pageBlock, />\s*重新载入\s*<\/button>/);
   });
+
+  it('can restore the latest MEMORY.md backup through an explicit reversible action', async () => {
+    const main = await readRepo('apps/desktop/src/main/main.ts');
+    const preload = await readRepo('apps/desktop/src/preload/preload.ts');
+    const globalTypes = await readRepo('apps/desktop/src/global.d.ts');
+    const service = await readRepo('apps/desktop/src/main/local-memory-service.ts');
+    const src = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
+    const pageBlock = src.match(/function MemorySettingsPage\([\s\S]*?function MemoryEntryList/)?.[0] ?? '';
+
+    assert.match(service, /async restoreLatestBackup/);
+    assert.match(service, /\`\$\{this\.file\}\.reset\.bak\`/);
+    assert.match(service, /await this\.backup\('restore\.bak'\)/);
+    assert.match(service, /copyFile\(backup, this\.file\)/);
+    assert.match(service, /没有找到上一版 MEMORY\.md 备份/);
+    assert.match(main, /ipcMain\.handle\('memory:restoreLatestBackup'/);
+    assert.match(preload, /restoreLatestBackup\(\)/);
+    assert.match(preload, /memory:restoreLatestBackup/);
+    assert.match(globalTypes, /restoreLatestBackup\(\)/);
+    assert.match(pageBlock, /async function restoreLatestBackup/);
+    assert.match(pageBlock, /恢复上一版会先备份当前 MEMORY\.md/);
+    assert.match(pageBlock, /window\.maka\.memory\.restoreLatestBackup\(\)/);
+    assert.match(pageBlock, /已恢复上一版 MEMORY\.md/);
+    assert.match(pageBlock, /restore\.bak/);
+    assert.match(pageBlock, /恢复上一版/);
+  });
 });

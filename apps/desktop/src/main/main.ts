@@ -917,6 +917,9 @@ function registerIpc(): void {
     return localMemory.save(content);
   });
   ipcMain.handle('memory:reset', async (): Promise<LocalMemoryState> => localMemory.reset());
+  ipcMain.handle('memory:restoreLatestBackup', async (): Promise<
+    { ok: true; state: LocalMemoryState } | { ok: false; state: LocalMemoryState; message: string }
+  > => localMemory.restoreLatestBackup());
   ipcMain.handle('memory:setEnabled', async (_event, enabled: unknown): Promise<LocalMemoryState> =>
     localMemory.setEnabled(enabled === true),
   );
