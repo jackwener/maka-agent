@@ -239,11 +239,15 @@ describe('local MEMORY.md Settings UI contract', () => {
     assert.match(src, /已保留上一版备份/);
     assert.match(saveBlock, /formatLocalMemorySaveSummary\(next\)/);
     assert.match(saveBlock, /已保存并遮蔽敏感字段/);
+    assert.match(saveBlock, /savedAt: Date\.now\(\)/);
     assert.match(pageBlock, /lastSaveSummary/);
-    assert.match(pageBlock, /setLastSaveSummary\(\{ title: '已保存 MEMORY\.md', detail \}\)/);
+    assert.match(pageBlock, /setLastSaveSummary\(\{ title: '已保存 MEMORY\.md', detail, savedAt: Date\.now\(\) \}\)/);
     assert.match(pageBlock, /settingsMemorySaveSummary/);
+    assert.match(pageBlock, /settingsMemorySaveSummaryTime/);
+    assert.match(pageBlock, /保存于 <RelativeTime ts=\{lastSaveSummary\.savedAt\}/);
     assert.match(pageBlock, /lastSaveSummary && !memoryDraftDirty/);
     assert.match(css, /\.settingsMemorySaveSummary/);
+    assert.match(css, /\.settingsMemorySaveSummaryTime/);
     assert.match(css, /var\(--success\)/);
   });
 
