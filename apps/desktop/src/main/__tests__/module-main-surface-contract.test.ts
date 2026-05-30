@@ -23,6 +23,16 @@ describe('module main surface contract', () => {
     assert.match(sidebarListBlock, /title="每日回顾"[\s\S]*body="已在右侧内容栏打开。"/);
   });
 
+  it('uses range-aware Daily Review empty copy instead of day-only copy for week/month ranges', async () => {
+    const ui = await readRepo('packages/ui/src/components.tsx');
+    const panelBlock = ui.match(/function DailyReviewPanel[\s\S]*?function PlanReminderPanel/)?.[0] ?? '';
+
+    assert.match(panelBlock, /const emptyActivityBody = range === 1/);
+    assert.match(panelBlock, /\$\{dayLabel\}范围内没有发起对话/);
+    assert.match(panelBlock, /title=\{emptyActivityTitle\}/);
+    assert.match(panelBlock, /body=\{emptyActivityBody\}/);
+  });
+
   it('renders Skills in the main content pane, not as a left-bottom list', async () => {
     const ui = await readRepo('packages/ui/src/components.tsx');
     const sidebarListBlock = ui.match(/<section className="maka-session-list"[\s\S]*?<footer className="maka-session-panel-footer">/)?.[0] ?? '';

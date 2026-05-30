@@ -873,6 +873,12 @@ function DailyReviewPanel(props: {
   // Stepper step matches the range size — for 7-day mode the user
   // skips a whole week at a time, not a single day.
   const stepperLabel = range === 1 ? '天' : range === 7 ? '周' : '月';
+  const emptyActivityTitle = offsetDays === 0 && range === 1
+    ? '等待记录今天活动'
+    : `${dayLabel}无活动`;
+  const emptyActivityBody = range === 1
+    ? '这一天没有发起对话，也没有调用模型。'
+    : `${dayLabel}范围内没有发起对话，也没有调用模型。`;
 
   return (
     <div className="maka-daily-review-panel" data-loading={loading ? 'true' : undefined}>
@@ -963,8 +969,8 @@ function DailyReviewPanel(props: {
       ) : summary.totals.sessionCount === 0 && summary.totals.requestCount === 0 ? (
         <EmptyState
           Icon={CalendarDays}
-          title={offsetDays === 0 ? '等待记录今天活动' : `${dayLabel}无活动`}
-          body="这一天没有发起对话，也没有调用模型。"
+          title={emptyActivityTitle}
+          body={emptyActivityBody}
         />
       ) : (
         <>
