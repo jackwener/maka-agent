@@ -709,6 +709,19 @@ function SettingsSurface(props: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.requestedSection]);
 
+  // PR-MODEL-OAUTH-SECTION-0: ProvidersPanel's OAuth cards dispatch a
+  // `maka:jumpToSettingsSection` window event to navigate between
+  // Settings sections without threading another prop through. The event
+  // payload is the destination SettingsSection id.
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{ section?: SettingsSection }>).detail;
+      if (detail?.section) setSection(detail.section);
+    };
+    window.addEventListener('maka:jumpToSettingsSection', handler);
+    return () => window.removeEventListener('maka:jumpToSettingsSection', handler);
+  }, []);
+
   useEffect(() => {
     try {
       localStorage.setItem('maka-settings-section-v1', section);

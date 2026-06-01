@@ -7687,6 +7687,89 @@ button:active {
   gap: 14px;
 }
 
+/* PR-MODEL-OAUTH-SECTION-0 (WAWQAQ msg `ac1bdf15`): account-bound OAuth
+   providers pinned to the top of Settings → 模型 so they get visual
+   priority over the API-key catalog. Each card uses its brand accent
+   color via the inline `--oauth-accent` custom property. */
+.providerOAuthSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 16px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+.providerOAuthHeader h3 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.providerOAuthHeader p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--foreground-55);
+  line-height: 1.5;
+}
+.providerOAuthGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+.providerOAuthCard {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--oauth-accent, var(--accent)) 24%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--oauth-accent, var(--accent)) 6%, var(--background));
+  color: var(--foreground);
+  cursor: pointer;
+  text-align: left;
+  position: relative;
+  transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+.providerOAuthCard:hover {
+  background: color-mix(in srgb, var(--oauth-accent, var(--accent)) 12%, var(--background));
+  border-color: color-mix(in srgb, var(--oauth-accent, var(--accent)) 40%, transparent);
+}
+.providerOAuthCard:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--oauth-accent, var(--accent)) 28%, transparent);
+}
+.providerOAuthCard[data-status="planned"] {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+.providerOAuthCardBadge {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--oauth-accent, var(--accent)) 16%, var(--background));
+  color: var(--foreground-70);
+}
+.providerOAuthCard[data-status="available"] .providerOAuthCardBadge {
+  background: color-mix(in srgb, var(--success) 16%, var(--background));
+  color: var(--success-text);
+}
+.providerOAuthCardName {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--oauth-accent, var(--accent));
+}
+.providerOAuthCardDescription {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--foreground-60);
+}
+
 .enabledStrip {
   min-height: 74px;
   display: flex;

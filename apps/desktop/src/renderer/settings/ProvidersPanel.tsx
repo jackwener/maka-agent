@@ -132,6 +132,7 @@ function chipTitle(connection: LlmConnection): string {
 
   return (
     <div className="providersPanel providersMarketPanel">
+      <ModelOAuthSection />
       <section className="providerMarket">
         <div className="enabledStrip" aria-label="已启用的模型供应商">
           <div className="enabledStripHeader">
@@ -357,6 +358,95 @@ export function ProviderLogo(props: { type: ProviderType; compact?: boolean }) {
     <span className="providerLogo" data-provider={props.type} data-compact={props.compact ? 'true' : undefined} aria-hidden="true">
       <ProviderLogoMark type={props.type} />
     </span>
+  );
+}
+
+/**
+ * PR-MODEL-OAUTH-SECTION-0 (WAWQAQ msg `ac1bdf15` / `0b924818`): dedicated
+ * OAuth login section pinned to the top of Settings → 模型. Lists the
+ * four account-bound providers as prominent brand cards instead of
+ * burying them under the API-key catalog. Claude wires to the existing
+ * ClaudeSubscriptionCard flow in Settings → 账号; Codex / Antigravity /
+ * Cursor land as service implementations in follow-up sprints
+ * (PR-CODEX-OAUTH-0, PR-ANTIGRAVITY-OAUTH-0, PR-CURSOR-OAUTH-0).
+ */
+function ModelOAuthSection() {
+  const cards: ReadonlyArray<{
+    id: string;
+    name: string;
+    accent: string;
+    description: string;
+    status: 'available' | 'planned';
+    statusLabel: string;
+  }> = [
+    {
+      id: 'claude',
+      name: 'Claude Pro / Max',
+      accent: '#D97757',
+      description: '用 ChatGPT 之外的订阅给 Anthropic 模型，登录在 设置 → 账号。',
+      status: 'available',
+      statusLabel: '可用',
+    },
+    {
+      id: 'codex',
+      name: 'OpenAI Codex',
+      accent: '#10A37F',
+      description: '用 ChatGPT Plus / Pro 订阅给 OpenAI Codex / GPT-5 等模型。',
+      status: 'planned',
+      statusLabel: '即将',
+    },
+    {
+      id: 'antigravity',
+      name: 'Google Antigravity',
+      accent: '#4285F4',
+      description: '用 Google 账号给 Gemini 系列模型。',
+      status: 'planned',
+      statusLabel: '即将',
+    },
+    {
+      id: 'cursor',
+      name: 'Cursor',
+      accent: '#000000',
+      description: '用 Cursor 订阅给本机 OpenAI-compatible 代理。',
+      status: 'planned',
+      statusLabel: '即将',
+    },
+  ];
+
+  function handleClick(id: string) {
+    if (id === 'claude') {
+      // Open Settings → 账号 where ClaudeSubscriptionCard lives. The
+      // cmd-palette already supports cross-section jumps via the
+      // 'requestedSection' prop wired into SettingsModal.
+      const event = new CustomEvent('maka:jumpToSettingsSection', { detail: { section: 'account' } });
+      window.dispatchEvent(event);
+    }
+  }
+
+  return (
+    <section className="providerOAuthSection" aria-label="OAuth 登录">
+      <div className="providerOAuthHeader">
+        <h3>OAuth 登录</h3>
+        <p>用账号订阅替代 API key —— 不需要拷贝 token，登录后直接用模型。</p>
+      </div>
+      <div className="providerOAuthGrid">
+        {cards.map((card) => (
+          <button
+            key={card.id}
+            type="button"
+            className="providerOAuthCard"
+            data-status={card.status}
+            disabled={card.status === 'planned'}
+            style={{ ['--oauth-accent' as string]: card.accent }}
+            onClick={() => handleClick(card.id)}
+          >
+            <span className="providerOAuthCardBadge">{card.statusLabel}</span>
+            <span className="providerOAuthCardName">{card.name}</span>
+            <span className="providerOAuthCardDescription">{card.description}</span>
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }
 
