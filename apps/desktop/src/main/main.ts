@@ -121,7 +121,7 @@ import {
 } from '@maka/runtime';
 import type { BotIncomingMessage, ToolArtifactRecorderInput } from '@maka/runtime';
 import { testProxyConnection } from '@maka/runtime/network/proxy-test';
-import { fetchWeChatQrcode, pollWeChatQrcodeStatus } from './wechat-scan-login';
+import { fetchWeChatQrcode, pollWeChatQrcodeStatus } from './wechat-scan-login.js';
 import { PROVIDER_DEFAULTS } from '@maka/core/llm-connections';
 import { createArtifactStore, createConnectionStore, createPlanReminderStore, createSessionStore, createSettingsStore, createTelemetryRepo, resolveArtifactPath } from '@maka/storage';
 import {
