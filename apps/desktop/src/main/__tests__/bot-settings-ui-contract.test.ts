@@ -50,7 +50,11 @@ describe('Bot settings UI contract', () => {
     assert.match(testAndConnectBlock, /await restartChannel\(\)/, 'Combined action must start the listener after enabling');
     assert.match(actionRowBlock, /support === 'runtime' && !selectedStatus\?\.running/, 'Runtime channels that are not listening must use the combined onboarding path');
     assert.match(actionRowBlock, /测试并连接/, 'Runtime onboarding CTA must keep the user-facing combined action label');
-    assert.match(actionRowBlock, /support === 'runtime' && selectedStatus\?\.running/, 'Already-running channels must keep separate test/restart actions');
+    // PR-BOT-RESTART-RACE-0 added `|| restarting` so the button
+    // doesn't unmount during the stop→start cycle. Allow the
+    // parenthesized form here without abandoning the original
+    // intent (running channels still get the restart action).
+    assert.match(actionRowBlock, /support === 'runtime' && \(?selectedStatus\?\.running/, 'Already-running channels must keep separate test/restart actions');
   });
 
   it('opens an in-app WeChat QR login modal instead of handing scan login off to a toast', async () => {
