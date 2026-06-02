@@ -3815,7 +3815,13 @@ function BotChatSettingsPage(props: {
         toast.error(`${platform} 启动后未进入监听`, botStatusDetail(status));
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      // PR-BOT-RESTART-RACE-0: an Error with empty `.message` (rare
+      // but observed when the underlying bridge throws an
+      // uninformative `new Error()`) would render as a blank
+      // toast detail. Fall back to a generic actionable hint so
+      // the user knows next-step instead of staring at nothing.
+      const raw = error instanceof Error ? error.message : String(error);
+      const message = raw.trim() || '未知错误，请检查凭据或网络后重试。';
       toast.error(`${BOT_LABELS[selected].label} 启动失败`, message);
     } finally {
       setRestarting(false);
@@ -4166,7 +4172,14 @@ function BotChatSettingsPage(props: {
               {testing ? '测试中…' : support === 'runtime' ? '测试连接' : '测试并连接'}
             </button>
           )}
-          {support === 'runtime' && selectedStatus?.running && selected !== 'wechat' && (
+          {/* PR-BOT-RESTART-RACE-0: keep the restart button mounted
+              while a restart is in-flight, even if the bridge's
+              running flag transiently flips false during the
+              stop→start cycle inside reconcileOne. Otherwise
+              `disabled={restarting}` does nothing because the whole
+              button unmounts mid-click and the user sees no
+              resolution feedback. */}
+          {support === 'runtime' && (selectedStatus?.running || restarting) && selected !== 'wechat' && (
             <button className="settingsBotAction" type="button" disabled={restarting} onClick={restartChannel}>
               {restarting ? '重启中…' : '重启监听'}
             </button>
