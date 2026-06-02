@@ -716,7 +716,17 @@ function SettingsSurface(props: {
   useEffect(() => {
     const handler = (event: Event) => {
       const detail = (event as CustomEvent<{ section?: SettingsSection }>).detail;
-      if (detail?.section) setSection(detail.section);
+      // PR-OAUTH-CARD-LIVE-STATE-0: validate against SETTINGS_NAV so
+      // a dispatched section id that doesn't match any nav item falls
+      // through to the default fallback page silently. Previously
+      // any truthy string was accepted; a typo would land the user
+      // on "该设置页已纳入 Maka 设置树…" with no clear cause.
+      if (
+        detail?.section &&
+        SETTINGS_NAV.some((item) => item.id === detail.section)
+      ) {
+        setSection(detail.section);
+      }
     };
     window.addEventListener('maka:jumpToSettingsSection', handler);
     return () => window.removeEventListener('maka:jumpToSettingsSection', handler);

@@ -145,9 +145,14 @@ describe('permission response IPC boundary', () => {
     const rendererPath = fileURLToPath(new URL('../../../src/renderer/main.tsx', import.meta.url));
     const renderer = await readFile(rendererPath, 'utf8');
 
+    // PR-OAUTH-CARD-LIVE-STATE-0: the renderer uses a local
+    // `changedSessionId = event.sessionId` shadow var + a truthy
+    // guard before comparing to activeIdRef. Match either spelling
+    // and allow the intermediate truthy check so this contract
+    // doesn't rot when the implementation tweaks the guard shape.
     assert.match(
       renderer,
-      /event\.reason === 'message-appended' && event\.sessionId === activeIdRef\.current[\s\S]*?refreshMessages\(event\.sessionId\)/,
+      /event\.reason === 'message-appended'[\s\S]{0,80}?(?:event\.sessionId|changedSessionId) === activeIdRef\.current[\s\S]*?refreshMessages\((?:event\.sessionId|changedSessionId)\)/,
     );
   });
 });

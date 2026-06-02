@@ -418,6 +418,42 @@ const MODEL_OAUTH_CARDS: ReadonlyArray<ModelOAuthCard> = [
 
 function ModelOAuthSection() {
   const [openModal, setOpenModal] = useState<OAuthServiceId | null>(null);
+  // PR-OAUTH-CARD-LIVE-STATE-0 (WAWQAQ msg d79fd115 follow-up):
+  // before this lift the 3 button cards stayed at the static
+  // "可用 / 预览" label even after the user finished the OAuth
+  // flow in the modal — there was no parent re-fetch. We now
+  // track a runtimeState + email per service so each card can
+  // show "已登录" / the account email inline, and we re-fetch
+  // every time the modal closes (success OR cancel — the user
+  // may have logged out from inside the modal).
+  const [cardStates, setCardStates] = useState<Record<OAuthServiceId, SubscriptionSnapshot | null>>({
+    codex: null,
+    cursor: null,
+    antigravity: null,
+  });
+
+  async function refreshAllCards() {
+    const results = await Promise.all(
+      MODEL_OAUTH_CARDS.map(async (card) => {
+        try {
+          const bridge = pickSubscriptionBridge(card.id);
+          const snapshot = (await bridge.getAccountState()) as SubscriptionSnapshot;
+          return [card.id, snapshot] as const;
+        } catch {
+          return [card.id, null] as const;
+        }
+      }),
+    );
+    setCardStates((prev) => {
+      const next = { ...prev };
+      for (const [id, snapshot] of results) next[id] = snapshot;
+      return next;
+    });
+  }
+
+  useEffect(() => {
+    void refreshAllCards();
+  }, []);
 
   return (
     <section className="providerOAuthSection" aria-label="OAuth 登录">
@@ -431,26 +467,41 @@ function ModelOAuthSection() {
           window data exposed by their APIs yet). */}
       <ClaudeSubscriptionCard />
       <div className="providerOAuthGrid">
-        {MODEL_OAUTH_CARDS.map((card) => (
-          <button
-            key={card.id}
-            type="button"
-            className="providerOAuthCard"
-            data-card-id={card.id}
-            data-status={card.status}
-            style={{ ['--oauth-accent' as string]: card.accent }}
-            onClick={() => setOpenModal(card.id)}
-          >
-            <span className="providerOAuthCardBadge">{card.statusLabel}</span>
-            <span className="providerOAuthCardName">{card.name}</span>
-            <span className="providerOAuthCardDescription">{card.description}</span>
-          </button>
-        ))}
+        {MODEL_OAUTH_CARDS.map((card) => {
+          const snapshot = cardStates[card.id];
+          const runtimeState = snapshot?.runtimeState ?? 'unknown';
+          const isLoggedIn = runtimeState === 'authenticated' || runtimeState === 'refreshing';
+          const liveBadge = isLoggedIn ? '已登录' : card.statusLabel;
+          const liveDescription = isLoggedIn && snapshot?.email
+            ? snapshot.email
+            : card.description;
+          return (
+            <button
+              key={card.id}
+              type="button"
+              className="providerOAuthCard"
+              data-card-id={card.id}
+              data-status={card.status}
+              data-logged-in={isLoggedIn ? 'true' : undefined}
+              style={{ ['--oauth-accent' as string]: card.accent }}
+              onClick={() => setOpenModal(card.id)}
+            >
+              <span className="providerOAuthCardBadge">{liveBadge}</span>
+              <span className="providerOAuthCardName">{card.name}</span>
+              <span className="providerOAuthCardDescription">{liveDescription}</span>
+            </button>
+          );
+        })}
       </div>
       {openModal !== null && (
         <SubscriptionLoginModal
           serviceId={openModal}
-          onClose={() => setOpenModal(null)}
+          onClose={() => {
+            setOpenModal(null);
+            // Always re-fetch after the modal closes — the user may
+            // have logged in, logged out, or cancelled.
+            void refreshAllCards();
+          }}
         />
       )}
     </section>
