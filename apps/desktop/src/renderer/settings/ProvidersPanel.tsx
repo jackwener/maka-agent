@@ -289,6 +289,7 @@ function chipTitle(connection: LlmConnection): string {
 function ProviderConfigSheetOverlay(props: { onClose(): void; children: ReactNode }) {
   const dialogRef = useRef<HTMLElement>(null);
   useModalA11y(dialogRef, props.onClose);
+  useProviderSheetBackgroundInert(dialogRef);
   return (
     <div className="providerConfigOverlay" role="presentation" onMouseDown={props.onClose}>
       <section
@@ -311,6 +312,50 @@ function ProviderConfigSheetOverlay(props: { onClose(): void; children: ReactNod
       </section>
     </div>
   );
+}
+
+function useProviderSheetBackgroundInert(dialogRef: RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const surface = dialog.closest('.settingsSurface');
+    if (!(surface instanceof HTMLElement)) return;
+
+    const changed: Array<{
+      element: HTMLElement;
+      ariaHidden: string | null;
+      inert: boolean;
+      marker: string | null;
+    }> = [];
+    let current: HTMLElement | null = dialog;
+    while (current && current !== surface) {
+      const parent: HTMLElement | null = current.parentElement;
+      if (!parent) break;
+      for (const sibling of Array.from(parent.children)) {
+        if (!(sibling instanceof HTMLElement) || sibling === current || sibling.contains(dialog)) continue;
+        changed.push({
+          element: sibling,
+          ariaHidden: sibling.getAttribute('aria-hidden'),
+          inert: sibling.inert,
+          marker: sibling.getAttribute('data-provider-sheet-background-hidden'),
+        });
+        sibling.setAttribute('aria-hidden', 'true');
+        sibling.inert = true;
+        sibling.setAttribute('data-provider-sheet-background-hidden', 'true');
+      }
+      current = parent;
+    }
+
+    return () => {
+      for (const item of changed.reverse()) {
+        if (item.ariaHidden === null) item.element.removeAttribute('aria-hidden');
+        else item.element.setAttribute('aria-hidden', item.ariaHidden);
+        item.element.inert = item.inert;
+        if (item.marker === null) item.element.removeAttribute('data-provider-sheet-background-hidden');
+        else item.element.setAttribute('data-provider-sheet-background-hidden', item.marker);
+      }
+    };
+  }, [dialogRef]);
 }
 
 function ProviderCatalogCard(props: { type: ProviderType; count: number; onSelect(): void }) {
@@ -558,6 +603,7 @@ function ModelOAuthSection(props: { onConnectionsChanged(): Promise<void> }) {
 function ClaudeSubscriptionModal(props: { onClose(): void }) {
   const dialogRef = useRef<HTMLElement>(null);
   useModalA11y(dialogRef, props.onClose);
+  useProviderSheetBackgroundInert(dialogRef);
   return (
     <div className="providerConfigOverlay" role="presentation" onMouseDown={props.onClose}>
       <section
@@ -593,6 +639,7 @@ function ClaudeSubscriptionModal(props: { onClose(): void }) {
 function SubscriptionLoginModal(props: { serviceId: BrowserOAuthServiceId; onClose(): void }) {
   const dialogRef = useRef<HTMLElement>(null);
   useModalA11y(dialogRef, props.onClose);
+  useProviderSheetBackgroundInert(dialogRef);
   const toast = useToast();
   const bridge = pickSubscriptionBridge(props.serviceId);
   const [state, setState] = useState<SubscriptionSnapshot | null>(null);
