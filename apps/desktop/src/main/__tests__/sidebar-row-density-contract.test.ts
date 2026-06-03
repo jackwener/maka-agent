@@ -144,13 +144,14 @@ describe('sidebar session row density CSS contract (PR-SIDEBAR-IA-0 Phase 3)', (
     // right-side unread dot must not also appear for those states.
     const ui = await readFile(UI_COMPONENTS_PATH, 'utf8');
     assert.match(ui, /function shouldShowSessionUnreadDot/, 'SessionRow must route unread visibility through a named helper');
+    assert.match(ui, /if \(active\) return false;/, 'the currently open session must not still announce unread status');
     assert.match(ui, /SIDEBAR_UNREAD_SUPPRESSED_STATUSES/, 'helper must use a closed suppressed-status list');
     assert.match(ui, /'running'/, 'running/busy sessions must suppress unread dot');
     assert.match(ui, /'waiting_for_user'/, 'asking sessions must suppress unread dot');
     assert.match(ui, /'blocked'/, 'blocked/error sessions must suppress unread dot');
     assert.match(
       ui,
-      /shouldShowSessionUnreadDot\(session,\s*Boolean\(streaming\)\)/,
+      /shouldShowSessionUnreadDot\(session,\s*Boolean\(streaming\),\s*active\)/,
       'SessionRow render path must use shouldShowSessionUnreadDot instead of raw hasUnread && !streaming',
     );
     assert.doesNotMatch(

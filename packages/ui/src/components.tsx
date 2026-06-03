@@ -2300,7 +2300,8 @@ function SessionStatusIcon(props: { session: SessionSummary }) {
  * carries asking/busy/error in Maka, so the right slot only shows the unread
  * dot when no higher-priority row state is active.
  */
-function shouldShowSessionUnreadDot(session: SessionSummary, streaming: boolean): boolean {
+function shouldShowSessionUnreadDot(session: SessionSummary, streaming: boolean, active: boolean): boolean {
+  if (active) return false;
   if (!session.hasUnread) return false;
   if (streaming) return false;
   return !SIDEBAR_UNREAD_SUPPRESSED_STATUSES.has(session.status);
@@ -2644,7 +2645,7 @@ function SessionRow(props: {
             row state is active. Borrowed from PawWork's sidebar priority:
             asking/busy/error outrank unread; unread outranks plain time.
           */}
-          {shouldShowSessionUnreadDot(session, Boolean(streaming)) ? (
+          {shouldShowSessionUnreadDot(session, Boolean(streaming), active) ? (
             <span className="maka-list-row-unread" aria-label="未读消息" />
           ) : (
             <span className="maka-list-row-meta">{formatSessionMeta(session)}</span>
