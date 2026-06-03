@@ -257,6 +257,51 @@ describe('Model OAuth catalog contract (PR-MODEL-OAUTH-ALL-0 + PR-CLAUDE-CARD-MO
     );
   });
 
+  it('keeps an open provider detail sheet in sync with refreshed connection props without clobbering dirty drafts', async () => {
+    // task #38 sweep: OAuth login/model refresh can update the same
+    // connection while its detail sheet is open. State initialized from
+    // props via useState would otherwise keep showing stale models /
+    // defaultModel until the sheet is closed and reopened.
+    const src = await readFile(PROVIDERS_PANEL_SOURCE, 'utf8');
+    const detail = src.match(/function ConnectionDetail[\s\S]*?function ModelTable/)?.[0] ?? '';
+
+    assert.match(
+      src,
+      /function connectionDetailSnapshot\([\s\S]*connection: LlmConnection,[\s\S]*defaultBaseUrl: string \| undefined,[\s\S]*\): ConnectionDetailSnapshot/,
+      'ConnectionDetail must capture the last synced connection snapshot',
+    );
+    assert.match(
+      detail,
+      /useState\(connection\.baseUrl \?\? defaults\.baseUrl \?\? ''\)/,
+      'ConnectionDetail must normalize an absent Base URL to an empty controlled input value',
+    );
+    assert.match(
+      src,
+      /function connectionDetailDraftMatchesSnapshot\(/,
+      'ConnectionDetail must compare local draft state before syncing props',
+    );
+    assert.match(
+      detail,
+      /const syncedConnectionSnapshotRef = useRef\(connectionDetailSnapshot\(connection, defaults\.baseUrl\)\)/,
+      'ConnectionDetail must keep a stable baseline for stale-prop detection',
+    );
+    assert.match(
+      detail,
+      /connection\.slug !== previousSnapshot\.slug \|\| \(apiKey\.length === 0 && localStillSynced\)/,
+      'same-slug prop refresh should sync only when the local draft is still clean',
+    );
+    assert.match(
+      detail,
+      /setBaseUrl\(nextSnapshot\.baseUrl\)[\s\S]*setDefaultModel\(nextSnapshot\.defaultModel\)[\s\S]*setModels\(nextSnapshot\.models\)[\s\S]*setModelSource\(nextSnapshot\.modelSource\)/,
+      'prop refresh must update every draft field derived from connection props',
+    );
+    assert.match(
+      detail,
+      /if \(localAlreadyMatchesNext\) \{[\s\S]*syncedConnectionSnapshotRef\.current = nextSnapshot/,
+      'when local fetch state already matches new props, the baseline must advance',
+    );
+  });
+
   it('claude opens a modal from the equal-size card instead of rendering a full inline card above the grid', async () => {
     const src = await readFile(PROVIDERS_PANEL_SOURCE, 'utf8');
     const sectionMatch = src.match(/function ModelOAuthSection[\s\S]*?function ClaudeSubscriptionModal/);

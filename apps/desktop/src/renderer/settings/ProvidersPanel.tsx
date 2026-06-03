@@ -1104,7 +1104,7 @@ function ConnectionDetail(props: {
   const display = providerDisplay(connection.providerType);
   const [apiKey, setApiKey] = useState('');
   const [hasSecret, setHasSecret] = useState(defaults.authKind === 'none');
-  const [baseUrl, setBaseUrl] = useState(connection.baseUrl ?? defaults.baseUrl);
+  const [baseUrl, setBaseUrl] = useState(connection.baseUrl ?? defaults.baseUrl ?? '');
   const [defaultModel, setDefaultModel] = useState(connection.defaultModel);
   const [models, setModels] = useState<ModelInfo[]>(connection.models ?? []);
   // Backend persists the model-list source alongside the model cache, so a
@@ -1114,10 +1114,25 @@ function ConnectionDetail(props: {
   const [modelSource, setModelSource] = useState<'fetched' | 'fallback'>(
     connection.modelSource ?? 'fallback',
   );
+  const syncedConnectionSnapshotRef = useRef(connectionDetailSnapshot(connection, defaults.baseUrl));
   const [busy, setBusy] = useState(false);
   const [testing, setTesting] = useState(false);
   const [fetchingModels, setFetchingModels] = useState(false);
   const toast = useToast();
+  const needsApiKey = defaults.authKind === 'api_key';
+  const needsOAuth = defaults.authKind === 'oauth_token';
+  const hasFixedOAuthBaseUrl = needsOAuth && Boolean(defaults.baseUrl);
+  const requiresCredential = defaults.authKind !== 'none';
+  const credentialTroubleshootingCopy = needsOAuth
+    ? 'OAuth 登录 / 代理设置'
+    : 'API key / Base URL / 代理设置';
+  const fallbackModels = defaults.fallbackModels;
+  const savedBaseUrl = connection.baseUrl ?? defaults.baseUrl;
+  const draftBaseUrl = hasFixedOAuthBaseUrl ? defaults.baseUrl : baseUrl;
+  const hasSaveChanges =
+    apiKey.length > 0 ||
+    draftBaseUrl !== savedBaseUrl ||
+    defaultModel !== connection.defaultModel;
 
   useEffect(() => {
     if (defaults.authKind === 'none') {
@@ -1127,7 +1142,40 @@ function ConnectionDetail(props: {
     void props.bridge.hasSecret(connection.slug).then(setHasSecret);
   }, [props.bridge, connection.slug, defaults.authKind]);
 
-  const fallbackModels = defaults.fallbackModels;
+  useEffect(() => {
+    const nextSnapshot = connectionDetailSnapshot(connection, defaults.baseUrl);
+    const previousSnapshot = syncedConnectionSnapshotRef.current;
+    const localStillSynced = connectionDetailDraftMatchesSnapshot(
+      { baseUrl, defaultModel, models, modelSource },
+      previousSnapshot,
+    );
+    const localAlreadyMatchesNext = connectionDetailDraftMatchesSnapshot(
+      { baseUrl, defaultModel, models, modelSource },
+      nextSnapshot,
+    );
+
+    if (connection.slug !== previousSnapshot.slug || (apiKey.length === 0 && localStillSynced)) {
+      setBaseUrl(nextSnapshot.baseUrl);
+      setDefaultModel(nextSnapshot.defaultModel);
+      setModels(nextSnapshot.models);
+      setModelSource(nextSnapshot.modelSource);
+      syncedConnectionSnapshotRef.current = nextSnapshot;
+      return;
+    }
+
+    if (localAlreadyMatchesNext) {
+      syncedConnectionSnapshotRef.current = nextSnapshot;
+    }
+  }, [
+    apiKey.length,
+    baseUrl,
+    connection,
+    defaultModel,
+    defaults.baseUrl,
+    modelSource,
+    models,
+  ]);
+
   // Picker entries: when source is 'fetched', use the fetched list verbatim
   // (even if empty — that's the truthful state and the small empty-state
   // hint below tells the user). When 'fallback', merge fallback IDs in so
@@ -1136,19 +1184,6 @@ function ConnectionDetail(props: {
     modelSource === 'fetched' || models.length > 0
       ? models
       : fallbackModels.map((id) => ({ id }));
-  const needsApiKey = defaults.authKind === 'api_key';
-  const needsOAuth = defaults.authKind === 'oauth_token';
-  const hasFixedOAuthBaseUrl = needsOAuth && Boolean(defaults.baseUrl);
-  const requiresCredential = defaults.authKind !== 'none';
-  const credentialTroubleshootingCopy = needsOAuth
-    ? 'OAuth 登录 / 代理设置'
-    : 'API key / Base URL / 代理设置';
-  const savedBaseUrl = connection.baseUrl ?? defaults.baseUrl;
-  const draftBaseUrl = hasFixedOAuthBaseUrl ? defaults.baseUrl : baseUrl;
-  const hasSaveChanges =
-    apiKey.length > 0 ||
-    draftBaseUrl !== savedBaseUrl ||
-    defaultModel !== connection.defaultModel;
 
   async function save() {
     setBusy(true);
@@ -1325,6 +1360,59 @@ function ConnectionDetail(props: {
       </div>
     </div>
   );
+}
+
+type ConnectionDetailSnapshot = {
+  slug: string;
+  baseUrl: string;
+  defaultModel: string;
+  models: ModelInfo[];
+  modelSource: 'fetched' | 'fallback';
+};
+
+function connectionDetailSnapshot(
+  connection: LlmConnection,
+  defaultBaseUrl: string | undefined,
+): ConnectionDetailSnapshot {
+  return {
+    slug: connection.slug,
+    baseUrl: connection.baseUrl ?? defaultBaseUrl ?? '',
+    defaultModel: connection.defaultModel,
+    models: connection.models ?? [],
+    modelSource: connection.modelSource ?? 'fallback',
+  };
+}
+
+function connectionDetailDraftMatchesSnapshot(
+  draft: {
+    baseUrl: string;
+    defaultModel: string;
+    models: ModelInfo[];
+    modelSource: 'fetched' | 'fallback';
+  },
+  snapshot: ConnectionDetailSnapshot,
+): boolean {
+  return draft.baseUrl === snapshot.baseUrl &&
+    draft.defaultModel === snapshot.defaultModel &&
+    draft.modelSource === snapshot.modelSource &&
+    modelListsEqual(draft.models, snapshot.models);
+}
+
+function modelListsEqual(left: ModelInfo[], right: ModelInfo[]): boolean {
+  if (left.length !== right.length) return false;
+  for (let index = 0; index < left.length; index += 1) {
+    const leftModel = left[index];
+    const rightModel = right[index];
+    if (leftModel.id !== rightModel.id) return false;
+    if (leftModel.contextWindow !== rightModel.contextWindow) return false;
+    if (leftModel.maxOutputTokens !== rightModel.maxOutputTokens) return false;
+    if (leftModel.capabilities?.chat !== rightModel.capabilities?.chat) return false;
+    if (leftModel.capabilities?.vision !== rightModel.capabilities?.vision) return false;
+    if (leftModel.capabilities?.reasoning !== rightModel.capabilities?.reasoning) return false;
+    if (leftModel.capabilities?.functionCalling !== rightModel.capabilities?.functionCalling) return false;
+    if (leftModel.capabilities?.imageGeneration !== rightModel.capabilities?.imageGeneration) return false;
+  }
+  return true;
 }
 
 /**
