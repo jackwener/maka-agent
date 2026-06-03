@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode, type RefObject } from 'react';
 import {
   Activity,
   BarChart3,
@@ -650,9 +650,10 @@ export function SettingsModal(props: {
   onOpenSession?(sessionId: string): void;
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
+  const activeNavRef = useRef<HTMLButtonElement>(null);
   // Escape closes the modal, Tab/Shift+Tab cycles inside the dialog,
   // focus restored to the trigger on close.
-  useModalA11y(dialogRef, props.onClose);
+  useModalA11y(dialogRef, props.onClose, activeNavRef);
 
   return (
     <div className="settingsModalBackdrop" role="presentation" onClick={props.onClose}>
@@ -677,6 +678,7 @@ export function SettingsModal(props: {
           onThemePaletteChange={props.onThemePaletteChange}
           onUserLabelChange={props.onUserLabelChange}
           requestedSection={props.requestedSection}
+          initialFocusRef={activeNavRef}
           onOpenDailyReview={props.onOpenDailyReview}
           onOpenSession={props.onOpenSession}
         />
@@ -698,6 +700,7 @@ function SettingsSurface(props: {
   onThemePaletteChange(palette: ThemePalette): void;
   onUserLabelChange?(label: string): void;
   requestedSection?: SettingsSection;
+  initialFocusRef: RefObject<HTMLButtonElement | null>;
   onOpenDailyReview?(): void;
   onOpenSession?(sessionId: string): void;
 }) {
@@ -806,6 +809,7 @@ function SettingsSurface(props: {
                     data-active={section === item.id}
                     aria-current={section === item.id ? 'page' : undefined}
                     type="button"
+                    ref={section === item.id ? props.initialFocusRef : undefined}
                     disabled={!item.enabled}
                     onClick={() => setSection(item.id)}
                   >
