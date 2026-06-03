@@ -61,6 +61,42 @@ describe('Model OAuth catalog contract (PR-MODEL-OAUTH-ALL-0 + PR-CLAUDE-CARD-MO
     assert.match(styles, /\.providerConfigSheetClose:focus-visible\s*\{[\s\S]*outline:\s*2px solid var\(--accent\);/);
   });
 
+  it('provider config sheets hide the blurred Settings background from accessibility', async () => {
+    const src = await readFile(PROVIDERS_PANEL_SOURCE, 'utf8');
+    const hook = src.match(/function useProviderSheetBackgroundInert[\s\S]*?function ProviderCatalogCard/)?.[0] ?? '';
+
+    assert.match(
+      src,
+      /useProviderSheetBackgroundInert\(dialogRef\)/,
+      'every provider config / OAuth sheet must activate the background inert hook',
+    );
+    assert.match(
+      hook,
+      /dialog\.closest\('\.settingsSurface'\)/,
+      'nested provider sheets must scope background hiding to the Settings modal surface',
+    );
+    assert.match(
+      hook,
+      /sibling\.setAttribute\('aria-hidden', 'true'\)/,
+      'blurred Settings background siblings must be hidden from assistive tech',
+    );
+    assert.match(
+      hook,
+      /sibling\.inert = true/,
+      'blurred Settings background siblings must be inert while the sheet is open',
+    );
+    assert.match(
+      hook,
+      /data-provider-sheet-background-hidden/,
+      'the hidden background state should be observable for regression tests',
+    );
+    assert.match(
+      hook,
+      /item\.element\.inert = item\.inert/,
+      'background inert state must be restored when the sheet closes',
+    );
+  });
+
   it('does not auto-open the first provider config sheet after loading connections', async () => {
     // WAWQAQ goal sweep: Settings -> 模型 kept reopening the first
     // provider config sheet on every Settings open because reload()
