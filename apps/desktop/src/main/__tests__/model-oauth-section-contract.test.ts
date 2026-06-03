@@ -61,6 +61,20 @@ describe('Model OAuth catalog contract (PR-MODEL-OAUTH-ALL-0 + PR-CLAUDE-CARD-MO
     assert.match(styles, /\.providerConfigSheetClose:focus-visible\s*\{[\s\S]*outline:\s*2px solid var\(--accent\);/);
   });
 
+  it('does not auto-open the first provider config sheet after loading connections', async () => {
+    // WAWQAQ goal sweep: Settings -> 模型 kept reopening the first
+    // provider config sheet on every Settings open because reload()
+    // defaulted selectedSlug to list[0]. A model list refresh should
+    // preserve an already-open sheet if that connection still exists,
+    // but it must not select the first provider by default.
+    const src = await readFile(PROVIDERS_PANEL_SOURCE, 'utf8');
+    const reloadBlock = src.match(/async function reload\(\)[\s\S]*?^\s*\}/m)?.[0] ?? '';
+
+    assert.match(reloadBlock, /setSelectedSlug\(\(current\) =>[\s\S]*list\.some\(\(connection\) => connection\.slug === current\)/);
+    assert.match(reloadBlock, /\?\s*current\s*:\s*null/);
+    assert.doesNotMatch(reloadBlock, /current\s*\?\?\s*list\[0\]\?\.slug/, 'reload must not auto-select the first provider');
+  });
+
   it('exposes exactly four equal OAuth cards: claude, codex, antigravity, cursor', async () => {
     // WAWQAQ msg 8bb7e186: Claude must not be a huge standalone
     // inline card while the other OAuth providers are compact

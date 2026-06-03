@@ -70,7 +70,11 @@ export function ProvidersPanel({ bridge }: { bridge: ConnectionsBridge }) {
     setConnections(list);
     setDefaultSlug(defaultConnection);
     setLoading(false);
-    setSelectedSlug((current) => current ?? list[0]?.slug ?? null);
+    setSelectedSlug((current) =>
+      current && list.some((connection) => connection.slug === current)
+        ? current
+        : null,
+    );
   }
 
   useEffect(() => {
