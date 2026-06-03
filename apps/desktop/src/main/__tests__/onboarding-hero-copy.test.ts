@@ -237,4 +237,17 @@ describe('OnboardingHero Quick Chat draft lifecycle', () => {
       'ReadyEmptyHero must clear the draft only after the parent reports a successful session creation',
     );
   });
+
+  it('clears first-run drag highlight when files leave the window', async () => {
+    const source = await readFile(new URL('../../../src/renderer/OnboardingHero.tsx', import.meta.url), 'utf8');
+    const readyBlock = source.match(/function ReadyEmptyHero[\s\S]*?return \(/)?.[0] ?? '';
+
+    assert.match(readyBlock, /if \(!dragActive\) return;/);
+    assert.match(readyBlock, /window\.addEventListener\('blur', clearDragActive\)/);
+    assert.match(readyBlock, /window\.addEventListener\('dragend', clearDragActive\)/);
+    assert.match(readyBlock, /window\.addEventListener\('drop', clearDragActive\)/);
+    assert.match(source, /window\.removeEventListener\('blur', clearDragActive\)/);
+    assert.match(source, /window\.removeEventListener\('dragend', clearDragActive\)/);
+    assert.match(source, /window\.removeEventListener\('drop', clearDragActive\)/);
+  });
 });

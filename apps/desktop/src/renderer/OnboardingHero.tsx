@@ -20,7 +20,7 @@
 //     wired in a later PR.
 
 import { ArrowRight, RotateCcw, Sparkles, KeyRound, Settings as SettingsIcon, Cpu, AlertCircle, FolderOpen, Paperclip, X } from 'lucide-react';
-import { useCallback, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from 'react';
 import type { LlmConnection, OnboardingMilestone, OnboardingState, ProviderType, QuickChatMode, SettingsSection } from '@maka/core';
 import { appendPromptContextDraft, detectUiLocale, type UiLocale } from '@maka/ui';
 import { ProviderLogo, providerDisplay } from './settings/ProvidersPanel';
@@ -545,6 +545,19 @@ function ReadyEmptyHero(props: {
       if (prompt) appendImportedPrompt(prompt);
     })();
   }, [appendImportedPrompt, canAcceptDroppedTextFiles, hasDraggedFiles, props]);
+
+  useEffect(() => {
+    if (!dragActive) return;
+    const clearDragActive = () => setDragActive(false);
+    window.addEventListener('blur', clearDragActive);
+    window.addEventListener('dragend', clearDragActive);
+    window.addEventListener('drop', clearDragActive);
+    return () => {
+      window.removeEventListener('blur', clearDragActive);
+      window.removeEventListener('dragend', clearDragActive);
+      window.removeEventListener('drop', clearDragActive);
+    };
+  }, [dragActive]);
 
   const handlePaste = useCallback((event: ClipboardEvent<HTMLTextAreaElement>) => {
     if (!hasPastedFiles(event)) return;
