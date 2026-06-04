@@ -48,6 +48,22 @@ describe('Model OAuth catalog contract (PR-MODEL-OAUTH-ALL-0 + PR-CLAUDE-CARD-MO
     assert.doesNotMatch(src, /providerOAuthHeader/, 'OAuth tab must not carry a second standalone section header');
   });
 
+  it('catalog tabs support keyboard navigation as a real tablist', async () => {
+    const src = await readFile(PROVIDERS_PANEL_SOURCE, 'utf8');
+    const handler = src.match(/function onCatalogTabsKeyDown[\s\S]*?\n  \}/)?.[0] ?? '';
+    const tablist = src.match(/<div\s+className="catalogTabs catalogPillTabs"[\s\S]*?\{catalogTab === 'oauth'/)?.[0] ?? '';
+
+    assert.match(handler, /nextRadioId\(catalogTab, visibleTabs, event\.key\)/);
+    assert.match(handler, /event\.preventDefault\(\)/);
+    assert.match(handler, /setCatalogTab\(next\)/);
+    assert.match(handler, /data-catalog-tab="\$\{CSS\.escape\(next\)\}"/);
+    assert.match(handler, /focus\(\{ preventScroll: true \}\)/);
+    assert.match(tablist, /role="tablist"[\s\S]*aria-label="模型供应商分类"[\s\S]*onKeyDown=\{onCatalogTabsKeyDown\}/);
+    assert.match(tablist, /role="tab"[\s\S]*aria-selected=\{catalogTab === tab\.id\}/);
+    assert.match(tablist, /data-catalog-tab=\{tab\.id\}/);
+    assert.match(tablist, /tabIndex=\{catalogTab === tab\.id \? 0 : -1\}/);
+  });
+
   it('ProvidersPanel surfaces model connection reload failures instead of sticking on loading', async () => {
     const src = await readFile(PROVIDERS_PANEL_SOURCE, 'utf8');
     const reloadMatch = src.match(/async function reload\(\) \{[\s\S]*?\n  \}/);

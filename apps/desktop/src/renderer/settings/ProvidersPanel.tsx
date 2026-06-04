@@ -73,6 +73,20 @@ export function ProvidersPanel({ bridge }: { bridge: ConnectionsBridge }) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const toast = useToast();
 
+  function onCatalogTabsKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    const visibleTabs = CATALOG_TABS.map((tab) => tab.id);
+    const next = nextRadioId(catalogTab, visibleTabs, event.key) as CatalogTab | null;
+    if (next === null || next === catalogTab) return;
+    event.preventDefault();
+    setCatalogTab(next);
+    const tablist = event.currentTarget;
+    window.setTimeout(() => {
+      tablist
+        .querySelector<HTMLButtonElement>(`button[data-catalog-tab="${CSS.escape(next)}"]`)
+        ?.focus({ preventScroll: true });
+    }, 0);
+  }
+
   async function reload() {
     try {
       const [list, defaultConnection] = await Promise.all([
@@ -227,7 +241,12 @@ export function ProvidersPanel({ bridge }: { bridge: ConnectionsBridge }) {
           </button>
         </div>
 
-        <div className="catalogTabs catalogPillTabs" role="tablist" aria-label="模型供应商分类">
+        <div
+          className="catalogTabs catalogPillTabs"
+          role="tablist"
+          aria-label="模型供应商分类"
+          onKeyDown={onCatalogTabsKeyDown}
+        >
           {CATALOG_TABS.map((tab) => (
             <button
               key={tab.id}
@@ -235,6 +254,8 @@ export function ProvidersPanel({ bridge }: { bridge: ConnectionsBridge }) {
               role="tab"
               aria-selected={catalogTab === tab.id}
               data-active={catalogTab === tab.id}
+              data-catalog-tab={tab.id}
+              tabIndex={catalogTab === tab.id ? 0 : -1}
               onClick={() => setCatalogTab(tab.id)}
             >
               <strong>{tab.label}</strong>

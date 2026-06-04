@@ -48,4 +48,25 @@ describe('Settings theme page contract', () => {
       'Appearance controls must not call raw settings update without the fail-soft helper',
     );
   });
+
+  it('supports standard radiogroup keyboard navigation for appearance controls', async () => {
+    const src = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
+    const helperBlock = src.match(/function onSettingsRadioGroupKeyDown[\s\S]*?function radioTabIndex/)?.[0] ?? '';
+    const themePage = src.match(/function ThemeSettingsPage\([\s\S]*?function WebSearchSettingsPage/)?.[0] ?? '';
+    const segmentedBlock = src.match(/function Segmented[\s\S]*?function Switch/)?.[0] ?? '';
+
+    assert.match(helperBlock, /nextRadioId\(current, values, event\.key\)/);
+    assert.match(helperBlock, /event\.preventDefault\(\)/);
+    assert.match(helperBlock, /onChange\(next\)/);
+    assert.match(helperBlock, /const group = event\.currentTarget/);
+    assert.match(helperBlock, /setTimeout\(\(\) => focusRadioValue\(group, next\), 0\)/);
+    assert.match(themePage, /aria-label="主题"[\s\S]*onKeyDown=\{\(event\) => onSettingsRadioGroupKeyDown/);
+    assert.match(themePage, /aria-label=\{group\.label\}[\s\S]*onKeyDown=\{\(event\) => onSettingsRadioGroupKeyDown/);
+    assert.match(themePage, /aria-label="界面密度"[\s\S]*onKeyDown=\{\(event\) => onSettingsRadioGroupKeyDown/);
+    assert.match(themePage, /data-radio-value=\{option\.value\}[\s\S]*tabIndex=\{radioTabIndex\(option\.value, props\.themePref/);
+    assert.match(themePage, /data-radio-value=\{palette\}[\s\S]*tabIndex=\{radioTabIndex\(palette, currentPalette, group\.palettes\)\}/);
+    assert.match(themePage, /data-radio-value=\{option\.value\}[\s\S]*tabIndex=\{radioTabIndex\(option\.value, props\.density/);
+    assert.match(segmentedBlock, /onKeyDown=\{\(event\) => onSettingsRadioGroupKeyDown\(event, values, props\.value, props\.onChange\)\}/);
+    assert.match(segmentedBlock, /data-radio-value=\{value\}[\s\S]*tabIndex=\{radioTabIndex\(value, props\.value, values\)\}/);
+  });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode, type RefObject } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentType, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
 import {
   Activity,
   BarChart3,
@@ -95,6 +95,7 @@ import {
   type NavGroupSummary,
   type SettingsNavGroup,
 } from './nav-group-summary';
+import { nextRadioId } from './model-table-keyboard';
 
 type SettingsNavItem = {
   id: SettingsSection;
@@ -104,6 +105,31 @@ type SettingsNavItem = {
   /** Group label rendered as a small uppercase divider above this item. */
   group: SettingsNavGroup;
 };
+
+function focusRadioValue(container: HTMLElement, value: string) {
+  container
+    .querySelector<HTMLButtonElement>(`button[data-radio-value="${CSS.escape(value)}"]`)
+    ?.focus({ preventScroll: true });
+}
+
+function onSettingsRadioGroupKeyDown<T extends string>(
+  event: KeyboardEvent<HTMLElement>,
+  values: readonly T[],
+  current: T,
+  onChange: (next: T) => void,
+) {
+  const next = nextRadioId(current, values, event.key) as T | null;
+  if (next === null || next === current) return;
+  event.preventDefault();
+  onChange(next);
+  const group = event.currentTarget;
+  window.setTimeout(() => focusRadioValue(group, next), 0);
+}
+
+function radioTabIndex<T extends string>(value: T, current: T, values: readonly T[]): 0 | -1 {
+  if (value === current) return 0;
+  return !values.includes(current) && values[0] === value ? 0 : -1;
+}
 
 // `SettingsNavGroup` + `NAV_GROUP_ORDER` moved to `nav-group-summary.ts`
 // (PR-HEALTH-1) so the H1/H2 group-summary assertions can be pinned with
@@ -2037,7 +2063,17 @@ function ThemeSettingsPage(props: {
   return (
     <div className="settingsStructuredPage">
       <h3 className="settingsSubheading">主题</h3>
-      <div className="settingsThemeOptions settingsThemeOptionsPreview" role="radiogroup" aria-label="主题">
+      <div
+        className="settingsThemeOptions settingsThemeOptionsPreview"
+        role="radiogroup"
+        aria-label="主题"
+        onKeyDown={(event) => onSettingsRadioGroupKeyDown(
+          event,
+          THEME_OPTIONS.map((option) => option.value),
+          props.themePref,
+          (next) => void setTheme(next),
+        )}
+      >
         {THEME_OPTIONS.map((option) => (
           <button
             key={option.value}
@@ -2045,6 +2081,8 @@ function ThemeSettingsPage(props: {
             role="radio"
             aria-checked={props.themePref === option.value}
             data-active={props.themePref === option.value}
+            data-radio-value={option.value}
+            tabIndex={radioTabIndex(option.value, props.themePref, THEME_OPTIONS.map((item) => item.value))}
             className="settingsThemeOption settingsThemeOptionPreview"
             onClick={() => void setTheme(option.value)}
           >
@@ -2066,7 +2104,17 @@ function ThemeSettingsPage(props: {
       {PALETTE_GROUPS.map((group) => (
         <div key={group.id} className="settingsPaletteGroup">
           <h4 className="settingsPaletteGroupHeading">{group.label}</h4>
-          <div className="settingsThemeOptions settingsPaletteOptions" role="radiogroup" aria-label={group.label}>
+          <div
+            className="settingsThemeOptions settingsPaletteOptions"
+            role="radiogroup"
+            aria-label={group.label}
+            onKeyDown={(event) => onSettingsRadioGroupKeyDown(
+              event,
+              group.palettes,
+              currentPalette,
+              (next) => void setPalette(next),
+            )}
+          >
             {group.palettes.map((palette) => (
               <button
                 key={palette}
@@ -2075,6 +2123,8 @@ function ThemeSettingsPage(props: {
                 aria-checked={currentPalette === palette}
                 data-active={currentPalette === palette}
                 data-palette={palette}
+                data-radio-value={palette}
+                tabIndex={radioTabIndex(palette, currentPalette, group.palettes)}
                 className="settingsThemeOption settingsPaletteOption"
                 onClick={() => void setPalette(palette)}
               >
@@ -2090,7 +2140,17 @@ function ThemeSettingsPage(props: {
       ))}
 
       <h3 className="settingsSubheading">界面密度</h3>
-      <div className="settingsThemeOptions settingsDensityOptions" role="radiogroup" aria-label="界面密度">
+      <div
+        className="settingsThemeOptions settingsDensityOptions"
+        role="radiogroup"
+        aria-label="界面密度"
+        onKeyDown={(event) => onSettingsRadioGroupKeyDown(
+          event,
+          DENSITY_OPTIONS.map((option) => option.value),
+          props.density,
+          (next) => void setDensity(next),
+        )}
+      >
         {DENSITY_OPTIONS.map((option) => (
           <button
             key={option.value}
@@ -2098,6 +2158,8 @@ function ThemeSettingsPage(props: {
             role="radio"
             aria-checked={props.density === option.value}
             data-active={props.density === option.value}
+            data-radio-value={option.value}
+            tabIndex={radioTabIndex(option.value, props.density, DENSITY_OPTIONS.map((item) => item.value))}
             className="settingsThemeOption"
             onClick={() => void setDensity(option.value)}
           >
@@ -4745,8 +4807,14 @@ function MetricCard(props: { title: string; value: string; detail?: string }) {
 }
 
 function Segmented<T extends string>(props: { value: T; options: Array<[T, string]>; onChange(value: T): void; ariaLabel?: string }) {
+  const values = props.options.map(([value]) => value);
   return (
-    <div className="settingsSegmented" role="radiogroup" aria-label={props.ariaLabel}>
+    <div
+      className="settingsSegmented"
+      role="radiogroup"
+      aria-label={props.ariaLabel}
+      onKeyDown={(event) => onSettingsRadioGroupKeyDown(event, values, props.value, props.onChange)}
+    >
       {props.options.map(([value, label]) => (
         <button
           key={value}
@@ -4754,6 +4822,8 @@ function Segmented<T extends string>(props: { value: T; options: Array<[T, strin
           role="radio"
           aria-checked={props.value === value}
           data-active={props.value === value}
+          data-radio-value={value}
+          tabIndex={radioTabIndex(value, props.value, values)}
           onClick={() => props.onChange(value)}
         >
           {label}
