@@ -733,30 +733,7 @@ function AppShell() {
     // before any first paint settles. If settings are unreadable we leave the
     // default `auto` which still produces a correct result.
     void refreshMemoryActive('载入本地记忆状态失败');
-    void window.maka.settings.get().then((next) => {
-      const pref = next.appearance?.theme ?? 'auto';
-      const den = next.appearance?.density ?? 'comfortable';
-      const palette = next.appearance?.palette ?? 'default';
-      const name = next.personalization?.displayName ?? '';
-      // PR-LANG-PREF-0: apply persisted UI locale preference to
-      // `<html data-maka-locale>` BEFORE first paint of any
-      // locale-aware surface. `'auto'` clears the explicit attribute
-      // and uses the Chinese-first product fallback.
-      const uiLocale = next.personalization?.uiLocale ?? 'auto';
-      applyUiLocale(uiLocale);
-      setThemePref(pref);
-      setDensity(den);
-      setThemePalette(palette);
-      setUserLabel(name);
-      applyTheme(pref);
-      applyDensity(den);
-      applyThemePalette(palette);
-    }).catch(() => {
-      applyUiLocale('auto');
-      applyTheme('auto');
-      applyDensity('comfortable');
-      applyThemePalette('default');
-    });
+    void refreshShellSettings();
     void refreshSkills();
     void refreshPlanReminders();
     void applyVisualSmokeFixture();
@@ -991,6 +968,31 @@ function AppShell() {
     } catch (error) {
       toastApi.error('刷新会话列表失败', cleanErrorMessage(error));
       return sessionsRef.current;
+    }
+  }
+
+  async function refreshShellSettings() {
+    try {
+      const next = await window.maka.settings.get();
+      const pref = next.appearance?.theme ?? 'auto';
+      const den = next.appearance?.density ?? 'comfortable';
+      const palette = next.appearance?.palette ?? 'default';
+      const name = next.personalization?.displayName ?? '';
+      // PR-LANG-PREF-0: apply persisted UI locale preference to
+      // `<html data-maka-locale>` BEFORE first paint of any
+      // locale-aware surface. `'auto'` clears the explicit attribute
+      // and uses the Chinese-first product fallback.
+      const uiLocale = next.personalization?.uiLocale ?? 'auto';
+      applyUiLocale(uiLocale);
+      setThemePref(pref);
+      setDensity(den);
+      setThemePalette(palette);
+      setUserLabel(name);
+      applyTheme(pref);
+      applyDensity(den);
+      applyThemePalette(palette);
+    } catch (error) {
+      toastApi.error('载入外观设置失败', cleanErrorMessage(error));
     }
   }
 
