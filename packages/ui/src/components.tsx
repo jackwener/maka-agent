@@ -2107,7 +2107,7 @@ export function SearchModal(props: {
             </button>
           )}
         </div>
-        <div className="maka-search-modal-body" role="region" aria-live="polite">
+        <div className="maka-search-modal-body" role="region" aria-label="搜索状态和结果" aria-live="polite">
           {!searchThread && (
             <p className="maka-search-modal-placeholder">
               当前环境无法连接搜索后端，请稍后重试。

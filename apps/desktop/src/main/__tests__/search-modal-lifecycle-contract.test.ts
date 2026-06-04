@@ -211,6 +211,7 @@ describe('SearchModal lifecycle contract (PR-SIDEBAR-IA-0 Phase 3 P0 fixup)', ()
 
     assert.match(searchModal, /activeResultIndex/, 'SearchModal must track the active result index');
     assert.match(searchModal, /aria-activedescendant=\{activeResultId\}/, 'Search input must expose the active result to assistive tech');
+    assert.match(searchModal, /className="maka-search-modal-body" role="region" aria-label="搜索状态和结果" aria-live="polite"/, 'Search modal body region must expose an accessible name');
     assert.match(searchModal, /role="listbox" aria-label="搜索结果"/, 'Search results must expose a listbox for aria-activedescendant');
     assert.match(searchModal, /role="option"[\s\S]*aria-selected=\{activeResultIndex === index\}/, 'Search result rows must expose selected option state');
     assert.match(searchModal, /keyboardKey\(event, \['ArrowDown', 'Down'\]\)[\s\S]*moveActiveResult\(1,\s*\{ focusResult: true \}\)/, 'ArrowDown/Down must move focus to the next result');
