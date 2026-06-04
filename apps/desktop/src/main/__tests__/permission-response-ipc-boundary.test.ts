@@ -223,13 +223,23 @@ describe('permission response IPC boundary', () => {
     const rendererPath = fileURLToPath(new URL('../../../src/renderer/main.tsx', import.meta.url));
     const renderer = await readFile(rendererPath, 'utf8');
     const setActiveId = renderer.match(/function setActiveId\(next: string \| undefined\): void \{[\s\S]*?\n  \}/);
-    const refreshSessions = renderer.match(/async function refreshSessions\(\) \{[\s\S]*?\n  \}/);
+    const refreshSessions = renderer.match(/async function refreshSessions\(\)(?:: Promise<SessionSummary\[]>)? \{[\s\S]*?\n  \}/);
     const bootstrapSessions = renderer.match(/async function bootstrapSessions\(\) \{[\s\S]*?\n  \}/);
 
     assert.ok(setActiveId, 'renderer must route active session changes through a ref-synchronized setter');
     assert.match(setActiveId[0], /activeIdRef\.current\s*=\s*next/);
     assert.match(setActiveId[0], /setActiveIdState\(next\)/);
+    assert.match(
+      renderer,
+      /const sessionsRef = useRef<SessionSummary\[]>\(\[\]\)/,
+      'session refresh failures must preserve the last successful list instead of clearing the sidebar',
+    );
     assert.ok(refreshSessions, 'refreshSessions() must exist');
+    assert.match(
+      refreshSessions[0],
+      /try \{[\s\S]*window\.maka\.sessions\.list\(\)[\s\S]*sessionsRef\.current = next[\s\S]*setSessions\(next\)[\s\S]*return next[\s\S]*\} catch \(error\) \{[\s\S]*toastApi\.error\('刷新会话列表失败', cleanErrorMessage\(error\)\)[\s\S]*return sessionsRef\.current/,
+      'refreshSessions() is called fire-and-forget and must catch list failures without dropping the current list',
+    );
     assert.doesNotMatch(
       refreshSessions[0],
       /setActiveId\(/,

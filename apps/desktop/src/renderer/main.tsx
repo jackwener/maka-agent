@@ -126,6 +126,7 @@ function App() {
 function AppShell() {
   const toastApi = useToast();
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const sessionsRef = useRef<SessionSummary[]>([]);
   const [activeId, setActiveIdState] = useState<string | undefined>();
   const [navSelection, setNavSelection] = useState<NavSelection>(() => readNavSelection());
   const [messages, setMessages] = useState<StoredMessage[]>([]);
@@ -632,6 +633,10 @@ function AppShell() {
   }, [activeId]);
 
   useEffect(() => {
+    sessionsRef.current = sessions;
+  }, [sessions]);
+
+  useEffect(() => {
     void bootstrapSessions();
     void refreshConnections();
     void window.maka.app.info().then((next) => {
@@ -877,10 +882,16 @@ function AppShell() {
     }
   }, [navSelection]);
 
-  async function refreshSessions() {
-    const next = await window.maka.sessions.list();
-    setSessions(next);
-    return next;
+  async function refreshSessions(): Promise<SessionSummary[]> {
+    try {
+      const next = await window.maka.sessions.list();
+      sessionsRef.current = next;
+      setSessions(next);
+      return next;
+    } catch (error) {
+      toastApi.error('刷新会话列表失败', cleanErrorMessage(error));
+      return sessionsRef.current;
+    }
   }
 
   async function bootstrapSessions() {
