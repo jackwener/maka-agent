@@ -2464,7 +2464,11 @@ function AppShell() {
             themePref,
             connections,
             defaultSlug: defaultConnection,
-            onSelectSession: setActiveId,
+            onSelectSession: (sessionId) => {
+              setNavSelection({ section: 'sessions', filter: 'chats' });
+              setActiveId(sessionId);
+              setSearchScrollTarget(null);
+            },
             onNewChat: () => void createSession(),
             onStartDeepResearch: () => void handleQuickChatSubmit('', 'deep_research'),
             onStartPlanReminder: openPlanReminderForm,
