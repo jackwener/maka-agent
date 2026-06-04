@@ -200,6 +200,7 @@ function AppShell() {
   const [activeId, setActiveIdState] = useState<string | undefined>();
   const [navSelection, setNavSelection] = useState<NavSelection>(() => readNavSelection());
   const [messages, setMessages] = useState<StoredMessage[]>([]);
+  const [messageLoadErrorBySession, setMessageLoadErrorBySession] = useState<Record<string, string>>({});
   // PR-UI-Cx fixup v2 (@kenji msg 3c01e901 Blocker 2): combined
   // per-session assistant streaming state. The `text` + `truncated`
   // pair lives in a SINGLE useState so the `text_delta` handler can
@@ -789,6 +790,11 @@ function AppShell() {
       if (event.reason === 'deleted' && event.sessionId === activeIdRef.current) {
         setActiveId(undefined);
         setMessages([]);
+        setMessageLoadErrorBySession((current) => {
+          const next = { ...current };
+          delete next[event.sessionId!];
+          return next;
+        });
         setStreamingBySession((current) => {
           const next = { ...current };
           delete next[event.sessionId!];
@@ -876,6 +882,12 @@ function AppShell() {
     let disposed = false;
     const subscribedAt = Date.now();
     setMessages([]);
+    setMessageLoadErrorBySession((current) => {
+      if (!current[activeId]) return current;
+      const next = { ...current };
+      delete next[activeId];
+      return next;
+    });
     setSessionEventHealthBySession((current) => ({
       ...current,
       [activeId]: createSessionEventStreamSubscription({ sessionId: activeId, now: subscribedAt }),
@@ -884,9 +896,11 @@ function AppShell() {
       .then((next) => {
         if (!disposed && activeIdRef.current === activeId) setMessages(next);
       })
-      .catch(() => {
+      .catch((error) => {
         if (!disposed && activeIdRef.current === activeId) {
-          toastApi.error('读取对话失败', '已保留当前可见内容，请稍后重试。');
+          const message = cleanErrorMessage(error);
+          setMessageLoadErrorBySession((current) => ({ ...current, [activeId]: message }));
+          toastApi.error('读取对话失败', message);
         }
       });
     const unsubscribe = window.maka.sessions.subscribeEvents(activeId, (event) => {
@@ -1010,6 +1024,12 @@ function AppShell() {
     options: { replaceCurrentMessages?: boolean } = {},
   ): void {
     if (activeIdRef.current !== sessionId) return;
+    setMessageLoadErrorBySession((current) => {
+      if (!current[sessionId]) return current;
+      const next = { ...current };
+      delete next[sessionId];
+      return next;
+    });
     setMessages((current) => {
       if (current.some((message) => message.type === 'user' && message.turnId === turnId)) return current;
       const next = optimisticUserMessage(turnId, text);
@@ -1207,6 +1227,11 @@ function AppShell() {
       if (activeIdRef.current === sessionId) {
         setActiveId(undefined);
         setMessages([]);
+        setMessageLoadErrorBySession((current) => {
+          const next = { ...current };
+          delete next[sessionId];
+          return next;
+        });
       }
       await refreshSessions();
     } catch (error) {
@@ -1283,6 +1308,11 @@ function AppShell() {
         setActiveId(undefined);
         setMessages([]);
       }
+      setMessageLoadErrorBySession((current) => {
+        const next = { ...current };
+        delete next[sessionId];
+        return next;
+      });
       await refreshSessions();
       toastApi.success(`已删除 ${name}`);
     } catch (error) {
@@ -1684,10 +1714,18 @@ function AppShell() {
       const next = await window.maka.sessions.readMessages(sessionId);
       if (activeIdRef.current === sessionId) {
         setMessages(next);
+        setMessageLoadErrorBySession((current) => {
+          if (!current[sessionId]) return current;
+          const updated = { ...current };
+          delete updated[sessionId];
+          return updated;
+        });
       }
     } catch (error) {
       if (activeIdRef.current === sessionId) {
-        toastApi.error('刷新对话失败', cleanErrorMessage(error));
+        const message = cleanErrorMessage(error);
+        setMessageLoadErrorBySession((current) => ({ ...current, [sessionId]: message }));
+        toastApi.error('刷新对话失败', message);
       }
     }
   }
@@ -2430,6 +2468,8 @@ function AppShell() {
                 mode={navSelection.section}
                 connectionAlert={chatConnectionAlert}
                 eventStreamAlert={chatEventStreamAlert}
+                messageLoadError={activeId ? messageLoadErrorBySession[activeId] : undefined}
+                onRetryMessages={activeId ? () => void refreshMessages(activeId) : undefined}
                 sessionStatusBadge={chatSessionStatusBadge}
                 turnFooterActionsByTurn={turnFooterActionsByTurn}
                 onTurnFooterAction={handleTurnFooterAction}
