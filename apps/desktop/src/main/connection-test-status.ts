@@ -8,7 +8,7 @@ export function connectionTestStatusPatch(
     return {
       lastTestStatus: 'verified',
       lastTestAt: now.toISOString(),
-      lastTestMessage: 'Connection verified',
+      lastTestMessage: '连接已验证',
     };
   }
 
@@ -16,7 +16,7 @@ export function connectionTestStatusPatch(
     return {
       lastTestStatus: 'needs_reauth',
       lastTestAt: now.toISOString(),
-      lastTestMessage: 'Authentication failed',
+      lastTestMessage: '鉴权失败',
     };
   }
 
@@ -28,9 +28,9 @@ export function connectionTestStatusPatch(
 }
 
 function generalizedConnectionErrorMessage(result: ConnectionTestResult): string {
-  if (result.errorClass === 'timeout') return 'Request timed out';
-  if (result.errorClass === 'provider_unavailable') return 'Provider returned an error';
-  if (result.errorClass === 'network') return 'Network error';
-  if (result.statusCode && result.statusCode >= 500) return 'Provider returned an error';
-  return 'Connection test failed';
+  if (result.errorClass === 'timeout') return '请求超时';
+  if (result.errorClass === 'provider_unavailable') return '模型服务返回错误';
+  if (result.errorClass === 'network') return '网络错误';
+  if (result.statusCode && result.statusCode >= 500) return '模型服务返回错误';
+  return '连接测试失败';
 }

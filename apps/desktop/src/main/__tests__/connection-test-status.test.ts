@@ -11,7 +11,7 @@ describe('connection test status persistence', () => {
       {
         lastTestStatus: 'verified',
         lastTestAt: now.toISOString(),
-        lastTestMessage: 'Connection verified',
+        lastTestMessage: '连接已验证',
       },
     );
   });
@@ -26,7 +26,7 @@ describe('connection test status persistence', () => {
       {
         lastTestStatus: 'needs_reauth',
         lastTestAt: now.toISOString(),
-        lastTestMessage: 'Authentication failed',
+        lastTestMessage: '鉴权失败',
       },
     );
   });
@@ -34,15 +34,15 @@ describe('connection test status persistence', () => {
   test('timeout, network, and 5xx failures write generic error statuses', () => {
     assert.equal(
       connectionTestStatusPatch({ ok: false, errorClass: 'timeout', errorMessage: 'Fetch timeout' }, now).lastTestMessage,
-      'Request timed out',
+      '请求超时',
     );
     assert.equal(
       connectionTestStatusPatch({ ok: false, errorClass: 'network', errorMessage: 'ECONNREFUSED token=abc' }, now).lastTestMessage,
-      'Network error',
+      '网络错误',
     );
     assert.equal(
       connectionTestStatusPatch({ ok: false, statusCode: 503, errorMessage: '503 raw upstream body' }, now).lastTestMessage,
-      'Provider returned an error',
+      '模型服务返回错误',
     );
   });
 
@@ -54,5 +54,20 @@ describe('connection test status persistence', () => {
     }, now);
 
     assert.equal(JSON.stringify(result).includes('sk-live-secret-token-value'), false);
+  });
+
+  test('persistent message stays localized for Settings rows', () => {
+    const serialized = JSON.stringify([
+      connectionTestStatusPatch({ ok: true, modelTested: 'claude-sonnet-4-5' }, now),
+      connectionTestStatusPatch({ ok: false, statusCode: 403, errorClass: 'auth' }, now),
+      connectionTestStatusPatch({ ok: false, errorClass: 'timeout', errorMessage: 'Fetch timeout' }, now),
+      connectionTestStatusPatch({ ok: false, errorClass: 'network', errorMessage: 'ECONNREFUSED token=abc' }, now),
+      connectionTestStatusPatch({ ok: false, statusCode: 503, errorMessage: '503 raw upstream body' }, now),
+    ]);
+
+    assert.doesNotMatch(
+      serialized,
+      /Connection verified|Authentication failed|Request timed out|Network error|Provider returned an error|Connection test failed/,
+    );
   });
 });
