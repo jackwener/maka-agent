@@ -165,7 +165,7 @@ export function buildCommandList(args: {
       id: 'action:new-chat',
       kind: 'action',
       label: '新建对话',
-      hint: 'New chat',
+      hint: '开始新的会话',
       group: '操作',
       Icon: Plus,
       keywords: ['new', 'chat', 'start', '新', '建', '对话'],
@@ -682,7 +682,7 @@ export function CommandPalette(props: {
             <kbd>↵</kbd> 执行 · <kbd>Esc</kbd> 关闭
           </span>
         </div>
-        <div className="maka-palette-list" id="maka-palette-list" role="listbox">
+        <div className="maka-palette-list" id="maka-palette-list" role="listbox" aria-label="命令面板结果">
           {grouped.length === 0 ? (
             <div className="maka-palette-empty">没有匹配的命令</div>
           ) : (
