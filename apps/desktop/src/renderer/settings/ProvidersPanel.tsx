@@ -54,6 +54,15 @@ function formatFetchedAtSuffix(modelsFetchedAt: number | undefined): string {
   return `（${formatRelativeTimestamp(modelsFetchedAt)}拉取）`;
 }
 
+function providerPanelActionErrorMessage(error: unknown): string {
+  const message = error instanceof Error
+    ? error.message
+    : typeof error === 'string'
+      ? error
+      : '';
+  return message.trim() || '模型连接服务暂时不可用，请稍后重试。';
+}
+
 export function ProvidersPanel({ bridge }: { bridge: ConnectionsBridge }) {
   const [connections, setConnections] = useState<LlmConnection[]>([]);
   const [defaultSlug, setDefaultSlug] = useState<string | null>(null);
@@ -61,20 +70,30 @@ export function ProvidersPanel({ bridge }: { bridge: ConnectionsBridge }) {
   const [addingType, setAddingType] = useState<ProviderType | null>(null);
   const [catalogTab, setCatalogTab] = useState<CatalogTab>('domestic');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const toast = useToast();
 
   async function reload() {
-    const [list, defaultConnection] = await Promise.all([
-      bridge.list(),
-      bridge.getDefault(),
-    ]);
-    setConnections(list);
-    setDefaultSlug(defaultConnection);
-    setLoading(false);
-    setSelectedSlug((current) =>
-      current && list.some((connection) => connection.slug === current)
-        ? current
-        : null,
-    );
+    try {
+      const [list, defaultConnection] = await Promise.all([
+        bridge.list(),
+        bridge.getDefault(),
+      ]);
+      setConnections(list);
+      setDefaultSlug(defaultConnection);
+      setLoadError(null);
+      setLoading(false);
+      setSelectedSlug((current) =>
+        current && list.some((connection) => connection.slug === current)
+          ? current
+          : null,
+      );
+    } catch (error) {
+      const message = providerPanelActionErrorMessage(error);
+      setLoadError(message);
+      setLoading(false);
+      toast.error('载入模型连接失败', message);
+    }
   }
 
   useEffect(() => {
@@ -162,7 +181,12 @@ export function ProvidersPanel({ bridge }: { bridge: ConnectionsBridge }) {
             <h3>已启用模型</h3>
             {connections.length > 0 && <span>{connections.length} 个配置</span>}
           </div>
-          {connections.length === 0 ? (
+          {loadError ? (
+            <button className="enabledEmptyChip" type="button" onClick={() => void reload()}>
+              <strong>模型连接载入失败</strong>
+              <small>{loadError} · 点击重试。</small>
+            </button>
+          ) : connections.length === 0 ? (
             <button className="enabledEmptyChip" type="button" onClick={() => startAdd('zai-coding-plan')}>
               <strong>等待添加供应商</strong>
               <small>从下面选择一个开始配置。</small>

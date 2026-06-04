@@ -48,6 +48,27 @@ describe('Model OAuth catalog contract (PR-MODEL-OAUTH-ALL-0 + PR-CLAUDE-CARD-MO
     assert.doesNotMatch(src, /providerOAuthHeader/, 'OAuth tab must not carry a second standalone section header');
   });
 
+  it('ProvidersPanel surfaces model connection reload failures instead of sticking on loading', async () => {
+    const src = await readFile(PROVIDERS_PANEL_SOURCE, 'utf8');
+    const reloadMatch = src.match(/async function reload\(\) \{[\s\S]*?\n  \}/);
+    assert.ok(reloadMatch, 'ProvidersPanel reload() must exist');
+    assert.match(
+      reloadMatch[0],
+      /try \{[\s\S]*Promise\.all\(\[[\s\S]*bridge\.list\(\),[\s\S]*bridge\.getDefault\(\),[\s\S]*\]\)[\s\S]*setLoadError\(null\)[\s\S]*setLoading\(false\)/,
+      'successful reload must clear load error and exit loading state',
+    );
+    assert.match(
+      reloadMatch[0],
+      /catch \(error\) \{[\s\S]*providerPanelActionErrorMessage\(error\)[\s\S]*setLoadError\(message\)[\s\S]*setLoading\(false\)[\s\S]*toast\.error\('载入模型连接失败', message\)/,
+      'failed reload must not leave the provider panel in a skeleton-only state',
+    );
+    assert.match(
+      src,
+      /loadError \? \([\s\S]*模型连接载入失败[\s\S]*点击重试/,
+      'enabled-model strip must show a retryable load-failure state',
+    );
+  });
+
   it('provider config sheets expose their own accessible close button', async () => {
     const src = await readFile(PROVIDERS_PANEL_SOURCE, 'utf8');
     const styles = await readFile(resolve(REPO_ROOT, 'apps', 'desktop', 'src', 'renderer', 'styles.css'), 'utf8');
