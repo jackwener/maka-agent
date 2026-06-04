@@ -1878,10 +1878,12 @@ function AppShell() {
    *
    * The discriminated-union result is handled here so the hero stays
    * presentational:
-   *   - `{ ok: true; sessionId }` → setActiveId before refreshing the
-   *     session list. This keeps first-run / quick chat on the newly
-   *     created session even when refreshSessions() completes before
-   *     React commits the state update.
+   *   - `{ ok: true; sessionId }` → open the chat surface before
+   *     refreshing the session list. This keeps first-run / quick chat
+   *     on the newly created session even when refreshSessions()
+   *     completes before React commits the state update, and it also
+   *     makes Command Palette deep-research entrypoints usable from
+   *     Plan / Daily Review / Skills.
    *   - `{ ok: false; reason: 'setup_required' }` → the onboarding
    *     snapshot will be invalidated by the subsequent sessions/
    *     connections event, but call `refresh()` defensively so the
@@ -1897,7 +1899,7 @@ function AppShell() {
     try {
       const result = await window.maka.quickChat.start({ prompt, mode });
       if (result.ok) {
-        setActiveId(result.sessionId);
+        openSessionInChat(result.sessionId);
         await refreshSessions();
         // If the prompt was non-empty, the main process has already
         // started the send via the existing send path. If empty, we

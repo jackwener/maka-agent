@@ -289,13 +289,18 @@ describe('permission response IPC boundary', () => {
     assert.ok(quickChat, 'quick chat success branch must exist');
     assert.match(
       quickChat[0],
-      /setActiveId\(result\.sessionId\)[\s\S]*?await refreshSessions\(\)/,
-      'quick chat must select the new session before refreshing the list so onboarding cannot bounce to an older chat',
+      /openSessionInChat\(result\.sessionId\)[\s\S]*?await refreshSessions\(\)/,
+      'quick chat must open the new session on the chat surface before refreshing the list so onboarding cannot bounce to an older chat',
     );
     assert.doesNotMatch(
       quickChat[0],
       /await refreshSessions\(\)[\s\S]*?setActiveId\(result\.sessionId\)/,
       'refreshing before selecting the quick-chat session can briefly select an older session',
+    );
+    assert.doesNotMatch(
+      quickChat[0],
+      /setActiveId\(result\.sessionId\)/,
+      'quick chat can be launched from non-chat modules, so raw setActiveId would leave the new session hidden',
     );
     assert.match(
       quickChatHandler[0],
