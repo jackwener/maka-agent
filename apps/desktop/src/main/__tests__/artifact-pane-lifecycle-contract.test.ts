@@ -41,8 +41,8 @@ describe('ArtifactPane async lifecycle contract', () => {
     );
     assert.match(
       refreshBlock,
-      /catch \(error\) \{[\s\S]*if \(requestSeq === artifactListRequestSeqRef\.current\) \{[\s\S]*recordsSessionIdRef\.current !== sessionId[\s\S]*setRecords\(\[\]\)[\s\S]*toast\.error\('刷新生成文件失败', artifactActionErrorMessage\(error\)\)/,
-      'artifact list failures must clear previous-session stale records but preserve same-session records with a visible error',
+      /catch \(error\) \{[\s\S]*const message = artifactActionErrorMessage\(error\);[\s\S]*setListError\(\{ sessionId, message \}\)[\s\S]*recordsSessionIdRef\.current !== sessionId[\s\S]*setRecords\(\[\]\)[\s\S]*toast\.error\('刷新生成文件失败', message\)/,
+      'artifact list failures must keep a scoped visible error and clear only previous-session stale records',
     );
     assert.match(
       src,
@@ -56,8 +56,13 @@ describe('ArtifactPane async lifecycle contract', () => {
     );
     assert.match(
       src,
-      /const listRef = useRef<HTMLUListElement>\(null\);[\s\S]*const previewRef = useRef<HTMLDivElement>\(null\);[\s\S]*if \(!sessionId \|\| activeRecords\.length === 0\) \{[\s\S]*return null;/,
+      /const listRef = useRef<HTMLUListElement>\(null\);[\s\S]*const previewRef = useRef<HTMLDivElement>\(null\);[\s\S]*const activeListError = listError && listError\.sessionId === sessionId \? listError\.message : null;[\s\S]*if \(!sessionId \|\| \(activeRecords\.length === 0 && !activeListError\)\) \{[\s\S]*return null;/,
       'all hooks must run before the ArtifactPane early return',
+    );
+    assert.match(
+      src,
+      /activeListError && \([\s\S]*className="maka-artifact-list-error"[\s\S]*role="alert"[\s\S]*生成文件列表载入失败[\s\S]*重试/,
+      'current-session artifact list failures must render an inline retryable error instead of making the pane disappear',
     );
     assert.match(
       subscriptionEffect,

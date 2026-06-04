@@ -31,6 +31,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import {
+  AlertTriangle,
   ChevronLeft,
   ChevronRight,
   FileCode,
@@ -38,6 +39,7 @@ import {
   FileText,
   FileType,
   GitMerge,
+  RefreshCcw,
   Save,
   FolderOpen,
   Copy,
@@ -61,6 +63,7 @@ export function ArtifactPane(props: { sessionId: string | undefined }) {
   const [recordsSessionId, setRecordsSessionId] = useState<string | undefined>(undefined);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<boolean>(() => readCollapsed());
+  const [listError, setListError] = useState<{ sessionId: string; message: string } | null>(null);
   const artifactListRequestSeqRef = useRef(0);
   const recordsSessionIdRef = useRef<string | undefined>(undefined);
 
@@ -72,6 +75,7 @@ export function ArtifactPane(props: { sessionId: string | undefined }) {
       recordsSessionIdRef.current = undefined;
       setRecordsSessionId(undefined);
       setRecords([]);
+      setListError(null);
       return;
     }
     try {
@@ -80,15 +84,18 @@ export function ArtifactPane(props: { sessionId: string | undefined }) {
         recordsSessionIdRef.current = sessionId;
         setRecordsSessionId(sessionId);
         setRecords(next);
+        setListError(null);
       }
     } catch (error) {
       if (requestSeq === artifactListRequestSeqRef.current) {
+        const message = artifactActionErrorMessage(error);
+        setListError({ sessionId, message });
         if (recordsSessionIdRef.current !== sessionId) {
           recordsSessionIdRef.current = undefined;
           setRecordsSessionId(undefined);
           setRecords([]);
         } else {
-          toast.error('刷新生成文件失败', artifactActionErrorMessage(error));
+          toast.error('刷新生成文件失败', message);
         }
       }
     }
@@ -144,11 +151,13 @@ export function ArtifactPane(props: { sessionId: string | undefined }) {
   );
   const listRef = useRef<HTMLUListElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
+  const activeListError = listError && listError.sessionId === sessionId ? listError.message : null;
 
   // §9.1.3: "默认隐藏；当 session 内至少 1 个 live artifact 时显示". Returning
   // `null` keeps the chat surface flush with the right window edge until
-  // the runtime actually produces an artifact.
-  if (!sessionId || activeRecords.length === 0) {
+  // the runtime actually produces an artifact. A current-session list error is
+  // also visible; otherwise "list failed" is indistinguishable from "no files".
+  if (!sessionId || (activeRecords.length === 0 && !activeListError)) {
     return null;
   }
 
@@ -311,6 +320,19 @@ export function ArtifactPane(props: { sessionId: string | undefined }) {
       </header>
       {!collapsed && (
         <>
+          {activeListError && (
+            <div className="maka-artifact-list-error" role="alert">
+              <AlertTriangle size={14} strokeWidth={1.75} aria-hidden="true" />
+              <div>
+                <strong>生成文件列表载入失败</strong>
+                <p>{activeListError}</p>
+              </div>
+              <button className="maka-artifact-error-retry" type="button" onClick={() => void refresh()}>
+                <RefreshCcw size={13} strokeWidth={1.75} aria-hidden="true" />
+                <span>重试</span>
+              </button>
+            </div>
+          )}
           <ul
             ref={listRef}
             className="maka-artifact-list"

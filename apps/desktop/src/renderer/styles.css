@@ -8395,6 +8395,61 @@ button:active {
   font-variant-numeric: tabular-nums;
 }
 
+.maka-artifact-list-error {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+  margin: 8px;
+  padding: 9px;
+  border: 1px solid oklch(from var(--warning) l c h / 0.28);
+  border-radius: 8px;
+  background: oklch(from var(--warning) l c h / 0.08);
+  color: var(--foreground);
+  font-size: 12px;
+}
+
+.maka-artifact-list-error svg {
+  color: var(--warning);
+}
+
+.maka-artifact-list-error strong {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.maka-artifact-list-error p {
+  margin: 0;
+  color: var(--foreground-70);
+  overflow-wrap: anywhere;
+}
+
+.maka-artifact-error-retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.maka-artifact-error-retry:hover {
+  background: var(--foreground-5);
+}
+
+.maka-artifact-error-retry:focus-visible {
+  outline: none;
+  border-color: oklch(from var(--accent) l c h / 0.42);
+  box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.14);
+}
+
 .maka-artifact-list {
   list-style: none;
   margin: 0;
