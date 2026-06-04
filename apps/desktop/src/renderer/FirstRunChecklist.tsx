@@ -56,12 +56,18 @@ export function FirstRunChecklist(props: FirstRunChecklistProps) {
     let cancelled = false;
     void window.maka.settings.get().then((next) => {
       if (!cancelled) setSettings(next);
+    }).catch(() => {
+      if (!cancelled) setSettings(null);
     });
     void window.maka.plans.list().then((list) => {
       if (!cancelled) setPlanReminders(list);
+    }).catch(() => {
+      if (!cancelled) setPlanReminders([]);
     });
     void window.maka.workspaceInstructions.getState().then((state) => {
       if (!cancelled) setWorkspaceInstructionCount(state.detectedCount);
+    }).catch(() => {
+      if (!cancelled) setWorkspaceInstructionCount(0);
     });
     return () => {
       cancelled = true;

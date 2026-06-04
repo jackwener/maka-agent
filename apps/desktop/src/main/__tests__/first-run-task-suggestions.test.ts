@@ -90,6 +90,15 @@ describe('FIRST_RUN_TASK_SUGGESTIONS', () => {
     assert.match(source, /onOpenSettingsSection\('memory'\)/);
   });
 
+  it('fails soft when first-run checklist status probes reject', async () => {
+    const source = await readFile(join(process.cwd(), 'src/renderer/FirstRunChecklist.tsx'), 'utf8');
+    const effectBlock = source.match(/useEffect\(\(\) => \{[\s\S]*?return \(\) => \{[\s\S]*?cancelled = true;[\s\S]*?\};[\s\S]*?\}, \[\]\);/)?.[0] ?? '';
+
+    assert.match(effectBlock, /window\.maka\.settings\.get\(\)\.then\([\s\S]*?\.catch\(\(\) => \{[\s\S]*setSettings\(null\)/);
+    assert.match(effectBlock, /window\.maka\.plans\.list\(\)\.then\([\s\S]*?\.catch\(\(\) => \{[\s\S]*setPlanReminders\(\[\]\)/);
+    assert.match(effectBlock, /workspaceInstructions\.getState\(\)\.then\([\s\S]*?\.catch\(\(\) => \{[\s\S]*setWorkspaceInstructionCount\(0\)/);
+  });
+
   it('starts the shipped plan reminder form from the first-run checklist', async () => {
     const checklist = await readFile(join(process.cwd(), 'src/renderer/FirstRunChecklist.tsx'), 'utf8');
     const main = await readFile(join(process.cwd(), 'src/renderer/main.tsx'), 'utf8');
