@@ -3712,6 +3712,7 @@ function OpenGatewaySettingsPage(props: {
 }) {
   const gateway = props.settings.openGateway;
   const [status, setStatus] = useState<OpenGatewayRuntimeStatus | null>(null);
+  const [statusLoadError, setStatusLoadError] = useState<string | null>(null);
   const [tokenDraft, setTokenDraft] = useState(gateway.token);
   const [eventSessionId, setEventSessionId] = useState('');
   const [saving, setSaving] = useState(false);
@@ -3722,11 +3723,22 @@ function OpenGatewaySettingsPage(props: {
     window.maka.gateway
       .status()
       .then((next) => {
-        if (!cancelled) setStatus(next);
+        if (!cancelled) {
+          setStatus(next);
+          setStatusLoadError(null);
+        }
       })
-      .catch(() => {});
+      .catch((error) => {
+        if (cancelled) return;
+        const message = settingsActionErrorMessage(error);
+        setStatusLoadError(message);
+        toast.error('读取开放网关状态失败', message);
+      });
     const unsubscribe = window.maka.gateway.subscribeStatusChanges((next) => {
-      if (!cancelled) setStatus(next);
+      if (!cancelled) {
+        setStatus(next);
+        setStatusLoadError(null);
+      }
     });
     return () => {
       cancelled = true;
@@ -3831,6 +3843,11 @@ function OpenGatewaySettingsPage(props: {
         <MetricCard title="实时连接" value={String(status?.activeEventStreams ?? 0)} detail="SSE 客户端" />
         <MetricCard title="能力" value="19 个端点" detail="/health · openapi · state · sessions · events · requests" />
       </div>
+      {statusLoadError && (
+        <div className="settingsNotice" role="alert">
+          开放网关运行状态读取失败：{statusLoadError}
+        </div>
+      )}
 
       <div className="settingsFormRow">
         <div>

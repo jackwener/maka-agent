@@ -74,4 +74,33 @@ describe('Open Gateway Settings endpoint contract', () => {
     assert.match(gatewayBlock, /copyGatewayText\(command, '已复制最近事件 curl'/);
     assert.match(gatewayBlock, /copyGatewayText\(command, '已复制最近请求 curl'/);
   });
+
+  it('surfaces Open Gateway runtime status load failures instead of showing normal false state', () => {
+    const gatewayBlock = settingsSource.match(/function OpenGatewaySettingsPage[\s\S]*?function presentGatewayStatus/)?.[0] ?? '';
+    assert.match(
+      gatewayBlock,
+      /statusLoadError/,
+      'Open Gateway Settings must keep an explicit runtime-status load error state',
+    );
+    assert.match(
+      gatewayBlock,
+      /window\.maka\.gateway[\s\S]*\.status\(\)[\s\S]*catch\(\(error\) => \{[\s\S]*settingsActionErrorMessage\(error\)[\s\S]*setStatusLoadError\(message\)[\s\S]*toast\.error\('读取开放网关状态失败', message\)/,
+      'initial gateway.status() failures must surface visibly instead of being swallowed',
+    );
+    assert.match(
+      gatewayBlock,
+      /subscribeStatusChanges\(\(next\) => \{[\s\S]*setStatus\(next\)[\s\S]*setStatusLoadError\(null\)/,
+      'the visible status-load error should clear when a later runtime status event arrives',
+    );
+    assert.match(
+      gatewayBlock,
+      /role="alert"[\s\S]*开放网关运行状态读取失败：\{statusLoadError\}/,
+      'status-load failures must render an accessible inline alert',
+    );
+    assert.doesNotMatch(
+      gatewayBlock,
+      /\.catch\(\(\) => \{\}\)/,
+      'gateway.status() failures must not be swallowed silently',
+    );
+  });
 });
