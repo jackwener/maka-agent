@@ -16,7 +16,7 @@ const ARTIFACT_PANE_SOURCE = join(process.cwd(), 'src', 'renderer', 'artifact-pa
 describe('ArtifactPane async lifecycle contract', () => {
   it('drops stale artifact list responses when the active session changes', async () => {
     const src = await readFile(ARTIFACT_PANE_SOURCE, 'utf8');
-    const refreshBlock = src.match(/const refresh = useCallback\(async \(\) => \{[\s\S]*?\}, \[sessionId\]\);/)?.[0] ?? '';
+    const refreshBlock = src.match(/const refresh = useCallback\(async \(\) => \{[\s\S]*?\}, \[sessionId, toast\]\);/)?.[0] ?? '';
     const subscriptionEffect = src.match(/useEffect\(\(\) => \{[\s\S]*?window\.maka\.artifacts\.subscribeChanges[\s\S]*?\}, \[sessionId, refresh\]\);/)?.[0] ?? '';
 
     assert.match(
@@ -25,24 +25,49 @@ describe('ArtifactPane async lifecycle contract', () => {
       'ArtifactPane must keep a monotonic request sequence across renders',
     );
     assert.match(
+      src,
+      /const recordsSessionIdRef = useRef<string \| undefined>\(undefined\)/,
+      'ArtifactPane must track which session owns the currently rendered records',
+    );
+    assert.match(
       refreshBlock,
       /const requestSeq = \+\+artifactListRequestSeqRef\.current/,
       'each artifact list refresh must claim a fresh request sequence',
     );
     assert.match(
       refreshBlock,
-      /const next = await window\.maka\.artifacts\.list\(sessionId\)[\s\S]*if \(requestSeq === artifactListRequestSeqRef\.current\) \{[\s\S]*setRecords\(next\)/,
-      'artifact list responses may set records only if they are still the latest request',
+      /const next = await window\.maka\.artifacts\.list\(sessionId\)[\s\S]*if \(requestSeq === artifactListRequestSeqRef\.current\) \{[\s\S]*recordsSessionIdRef\.current = sessionId[\s\S]*setRecordsSessionId\(sessionId\)[\s\S]*setRecords\(next\)/,
+      'artifact list responses may set records only if they are still the latest request and must stamp the owning session',
     );
     assert.match(
       refreshBlock,
-      /catch \{[\s\S]*if \(requestSeq === artifactListRequestSeqRef\.current\) \{[\s\S]*setRecords\(\[\]\)/,
-      'latest artifact list failures must clear stale records instead of becoming unhandled rejections',
+      /catch \(error\) \{[\s\S]*if \(requestSeq === artifactListRequestSeqRef\.current\) \{[\s\S]*recordsSessionIdRef\.current !== sessionId[\s\S]*setRecords\(\[\]\)[\s\S]*toast\.error\('刷新生成文件失败', artifactActionErrorMessage\(error\)\)/,
+      'artifact list failures must clear previous-session stale records but preserve same-session records with a visible error',
+    );
+    assert.match(
+      src,
+      /const activeRecords = useMemo\([\s\S]*recordsSessionId === sessionId \? records : \[\][\s\S]*\[records, recordsSessionId, sessionId\]/,
+      'rendering must filter artifact records by the current active session id',
+    );
+    assert.doesNotMatch(
+      src,
+      /if \(!sessionId \|\| records\.length === 0\)/,
+      'the pane must not render or hide from unscoped records',
+    );
+    assert.match(
+      src,
+      /const listRef = useRef<HTMLUListElement>\(null\);[\s\S]*const previewRef = useRef<HTMLDivElement>\(null\);[\s\S]*if \(!sessionId \|\| activeRecords\.length === 0\) \{[\s\S]*return null;/,
+      'all hooks must run before the ArtifactPane early return',
     );
     assert.match(
       subscriptionEffect,
       /return \(\) => \{[\s\S]*artifactListRequestSeqRef\.current \+= 1;[\s\S]*unsubscribe\(\);[\s\S]*\};/,
       'session-change cleanup must invalidate in-flight artifact list responses before unsubscribing',
+    );
+    assert.match(
+      refreshBlock,
+      /\}, \[sessionId, toast\]\);/,
+      'refresh must include the toast dependency used to surface current-session list failures',
     );
   });
 

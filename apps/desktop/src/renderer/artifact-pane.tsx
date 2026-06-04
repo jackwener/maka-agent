@@ -58,29 +58,41 @@ export function ArtifactPane(props: { sessionId: string | undefined }) {
   const { sessionId } = props;
   const toast = useToast();
   const [records, setRecords] = useState<ArtifactRecord[]>([]);
+  const [recordsSessionId, setRecordsSessionId] = useState<string | undefined>(undefined);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<boolean>(() => readCollapsed());
   const artifactListRequestSeqRef = useRef(0);
+  const recordsSessionIdRef = useRef<string | undefined>(undefined);
 
   // ---- live data ---------------------------------------------------------
 
   const refresh = useCallback(async () => {
     const requestSeq = ++artifactListRequestSeqRef.current;
     if (!sessionId) {
+      recordsSessionIdRef.current = undefined;
+      setRecordsSessionId(undefined);
       setRecords([]);
       return;
     }
     try {
       const next = await window.maka.artifacts.list(sessionId);
       if (requestSeq === artifactListRequestSeqRef.current) {
+        recordsSessionIdRef.current = sessionId;
+        setRecordsSessionId(sessionId);
         setRecords(next);
       }
-    } catch {
+    } catch (error) {
       if (requestSeq === artifactListRequestSeqRef.current) {
-        setRecords([]);
+        if (recordsSessionIdRef.current !== sessionId) {
+          recordsSessionIdRef.current = undefined;
+          setRecordsSessionId(undefined);
+          setRecords([]);
+        } else {
+          toast.error('刷新生成文件失败', artifactActionErrorMessage(error));
+        }
       }
     }
-  }, [sessionId]);
+  }, [sessionId, toast]);
 
   useEffect(() => {
     void refresh();
@@ -108,28 +120,35 @@ export function ArtifactPane(props: { sessionId: string | undefined }) {
     }
   }, [collapsed]);
 
+  const activeRecords = useMemo(
+    () => (recordsSessionId === sessionId ? records : []),
+    [records, recordsSessionId, sessionId],
+  );
+
   // Keep selection valid as the list churns. When the selected artifact is
   // deleted/purged we fall back to the newest live record so the preview
   // pane doesn't show stale failure copy on an empty list.
   useEffect(() => {
-    if (records.length === 0) {
+    if (activeRecords.length === 0) {
       if (selectedId !== null) setSelectedId(null);
       return;
     }
-    if (!selectedId || !records.some((record) => record.id === selectedId)) {
-      setSelectedId(records[0]!.id);
+    if (!selectedId || !activeRecords.some((record) => record.id === selectedId)) {
+      setSelectedId(activeRecords[0]!.id);
     }
-  }, [records, selectedId]);
+  }, [activeRecords, selectedId]);
 
   const selected = useMemo(
-    () => records.find((record) => record.id === selectedId) ?? null,
-    [records, selectedId],
+    () => activeRecords.find((record) => record.id === selectedId) ?? null,
+    [activeRecords, selectedId],
   );
+  const listRef = useRef<HTMLUListElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
 
   // §9.1.3: "默认隐藏；当 session 内至少 1 个 live artifact 时显示". Returning
   // `null` keeps the chat surface flush with the right window edge until
   // the runtime actually produces an artifact.
-  if (!sessionId || records.length === 0) {
+  if (!sessionId || activeRecords.length === 0) {
     return null;
   }
 
@@ -150,7 +169,7 @@ export function ArtifactPane(props: { sessionId: string | undefined }) {
     // Only text-backed kinds reach this code path; binary kinds don't render
     // a copy button (review gate #5). We still defensively guard so a stray
     // call doesn't leak base64 into the clipboard.
-    const record = records.find((entry) => entry.id === artifactId);
+    const record = activeRecords.find((entry) => entry.id === artifactId);
     if (!record || !isTextKind(record.kind)) return;
     try {
       const result = await window.maka.artifacts.readText(artifactId);
@@ -169,7 +188,7 @@ export function ArtifactPane(props: { sessionId: string | undefined }) {
     try {
       const result = await window.maka.app.saveArtifactAs(artifactId);
       if (result.ok) {
-        const record = records.find((entry) => entry.id === artifactId);
+        const record = activeRecords.find((entry) => entry.id === artifactId);
         toast.success('已另存生成文件', record?.name ?? result.saved);
         return;
       }
@@ -181,7 +200,7 @@ export function ArtifactPane(props: { sessionId: string | undefined }) {
   }
 
   async function deleteArtifact(artifactId: string) {
-    const record = records.find((entry) => entry.id === artifactId);
+    const record = activeRecords.find((entry) => entry.id === artifactId);
     const name = record?.name ?? '生成文件';
     const ok = await toast.confirm({
       title: `删除 "${name}"`,
@@ -208,9 +227,6 @@ export function ArtifactPane(props: { sessionId: string | undefined }) {
   // returns focus to the chat composer — does NOT swallow the global
   // Command Palette / modal Esc handler (the list only listens to Esc when
   // its own children have focus).
-  const listRef = useRef<HTMLUListElement>(null);
-  const previewRef = useRef<HTMLDivElement>(null);
-
   function focusComposer() {
     // Defer to the next frame so the Esc handler doesn't unfocus + refocus
     // in the same tick.
@@ -230,7 +246,7 @@ export function ArtifactPane(props: { sessionId: string | undefined }) {
   function handleListKeyDown(event: KeyboardEvent<HTMLUListElement>) {
     const action = nextArtifactListAction({
       currentSelectedId: selectedId ?? undefined,
-      visibleIds: records.map((record) => record.id),
+      visibleIds: activeRecords.map((record) => record.id),
       key: event.key,
     });
     if (action.kind === 'noop') return;
@@ -289,7 +305,7 @@ export function ArtifactPane(props: { sessionId: string | undefined }) {
         {!collapsed && (
           <>
             <span className="maka-artifact-pane-title">生成文件</span>
-            <span className="maka-artifact-pane-count">{records.length}</span>
+            <span className="maka-artifact-pane-count">{activeRecords.length}</span>
           </>
         )}
       </header>
@@ -304,7 +320,7 @@ export function ArtifactPane(props: { sessionId: string | undefined }) {
             tabIndex={0}
             onKeyDown={handleListKeyDown}
           >
-            {records.map((record) => (
+            {activeRecords.map((record) => (
               <li key={record.id} className="maka-artifact-list-item">
                 <button
                   id={`maka-artifact-row-${record.id}`}
