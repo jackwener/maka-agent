@@ -661,6 +661,11 @@ function AppShell() {
       applyTheme(pref);
       applyDensity(den);
       applyThemePalette(palette);
+    }).catch(() => {
+      applyUiLocale('auto');
+      applyTheme('auto');
+      applyDensity('comfortable');
+      applyThemePalette('default');
     });
     void refreshSkills();
     void refreshPlanReminders();

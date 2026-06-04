@@ -1641,6 +1641,8 @@ function DataSettingsPage() {
     let cancelled = false;
     void window.maka.app.info().then((next) => {
       if (!cancelled) setInfo(next);
+    }).catch(() => {
+      if (!cancelled) setInfo(null);
     });
     return () => {
       cancelled = true;
@@ -1649,9 +1651,13 @@ function DataSettingsPage() {
 
   async function openWorkspace() {
     if (!info) return;
-    const result = await window.maka.app.openPath('workspace');
-    if (!result.ok) {
-      toast.error(`无法打开${openPathActionLabel('workspace')}`, openPathFailureCopy(result.reason));
+    try {
+      const result = await window.maka.app.openPath('workspace');
+      if (!result.ok) {
+        toast.error(`无法打开${openPathActionLabel('workspace')}`, openPathFailureCopy(result.reason));
+      }
+    } catch (error) {
+      toast.error(`无法打开${openPathActionLabel('workspace')}`, settingsActionErrorMessage(error));
     }
   }
 
@@ -3820,6 +3826,8 @@ function BotChatSettingsPage(props: {
     let active = true;
     void window.maka.settings.bots.listStatuses().then((next) => {
       if (active) setStatuses(next);
+    }).catch(() => {
+      if (active) setStatuses(null);
     });
     const unsubscribe = window.maka.settings.bots.subscribeStatusChanges((status) => {
       setStatuses((current) => ({
