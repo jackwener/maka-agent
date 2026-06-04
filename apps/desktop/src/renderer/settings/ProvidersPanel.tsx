@@ -1186,8 +1186,14 @@ function ConnectionDetail(props: {
       setHasSecret(true);
       return;
     }
-    void props.bridge.hasSecret(connection.slug).then(setHasSecret);
-  }, [props.bridge, connection.slug, defaults.authKind]);
+    void props.bridge
+      .hasSecret(connection.slug)
+      .then(setHasSecret)
+      .catch((error) => {
+        setHasSecret(false);
+        toast.error('读取模型凭据状态失败', providerPanelActionErrorMessage(error));
+      });
+  }, [props.bridge, connection.slug, defaults.authKind, toast]);
 
   useEffect(() => {
     const nextSnapshot = connectionDetailSnapshot(connection, defaults.baseUrl);

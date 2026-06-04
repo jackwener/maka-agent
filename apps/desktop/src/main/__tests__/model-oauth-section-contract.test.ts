@@ -299,6 +299,22 @@ describe('Model OAuth catalog contract (PR-MODEL-OAUTH-ALL-0 + PR-CLAUDE-CARD-MO
     );
   });
 
+  it('surfaces provider detail credential-presence probe failures', async () => {
+    const src = await readFile(PROVIDERS_PANEL_SOURCE, 'utf8');
+    const detail = src.match(/function ConnectionDetail[\s\S]*?function ModelTable/)?.[0] ?? '';
+
+    assert.match(
+      detail,
+      /props\.bridge[\s\S]*\.hasSecret\(connection\.slug\)[\s\S]*\.then\(setHasSecret\)[\s\S]*\.catch\(\(error\) => \{[\s\S]*setHasSecret\(false\);[\s\S]*toast\.error\('读取模型凭据状态失败', providerPanelActionErrorMessage\(error\)\)/,
+      'ConnectionDetail must show a visible error when credential-presence probing fails',
+    );
+    assert.doesNotMatch(
+      detail,
+      /void props\.bridge\.hasSecret\(connection\.slug\)\.then\(setHasSecret\);/,
+      'ConnectionDetail must not leave credential-presence probe rejections unhandled',
+    );
+  });
+
   it('keeps an open provider detail sheet in sync with refreshed connection props without clobbering dirty drafts', async () => {
     // task #38 sweep: OAuth login/model refresh can update the same
     // connection while its detail sheet is open. State initialized from
