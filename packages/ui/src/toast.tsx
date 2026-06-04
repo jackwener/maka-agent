@@ -211,7 +211,8 @@ function ToastViewport(props: { toasts: InternalToast[]; onDismiss(id: string): 
 
 function ConfirmDialog(props: { request: PendingConfirm; onResolve(result: boolean): void }) {
   const dialogRef = useRef<HTMLDivElement>(null);
-  useModalA11y(dialogRef, () => props.onResolve(false));
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  useModalA11y(dialogRef, () => props.onResolve(false), cancelRef);
   const {
     title,
     description,
@@ -219,19 +220,6 @@ function ConfirmDialog(props: { request: PendingConfirm; onResolve(result: boole
     cancelLabel = '取消',
     destructive = false,
   } = props.request;
-
-  // Bind global Enter to "confirm" once the dialog is mounted. Escape is
-  // already handled by `useModalA11y` (resolves to false).
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        props.onResolve(true);
-      }
-    }
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [props]);
 
   return (
     <div className="maka-modal-backdrop maka-confirm-backdrop" role="presentation" onClick={() => props.onResolve(false)}>
@@ -252,6 +240,7 @@ function ConfirmDialog(props: { request: PendingConfirm; onResolve(result: boole
         </div>
         <div className="maka-modal-footer">
           <button
+            ref={cancelRef}
             type="button"
             className="maka-button"
             data-variant="ghost"
