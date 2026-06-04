@@ -302,7 +302,7 @@ function BotStatusPill(props: { tone: 'neutral' | 'info' | 'success' | 'warning'
  */
 function BotWeChatFields(props: {
   channel: BotChannelSettings;
-  updateChannel(patch: Partial<BotChannelSettings>): Promise<void>;
+  updateChannel(patch: Partial<BotChannelSettings>): Promise<boolean>;
 }) {
   const { channel, updateChannel } = props;
   const hasAdvanced = Boolean(channel.appId || channel.appSecret || channel.webhookUrl);
@@ -749,11 +749,17 @@ function SettingsSurface(props: {
   const [settings, setSettings] = useState<AppSettings>(() => createDefaultSettings());
   const [usageStats, setUsageStats] = useState<UsageStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const toast = useToast();
 
   async function reloadSettings() {
-    const next = await window.maka.settings.get();
-    setSettings(next);
-    setLoading(false);
+    try {
+      const next = await window.maka.settings.get();
+      setSettings(next);
+    } catch (error) {
+      toast.error('载入设置失败', settingsActionErrorMessage(error));
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function updateSettings(patch: Parameters<typeof window.maka.settings.update>[0]) {
@@ -767,7 +773,12 @@ function SettingsSurface(props: {
   }
 
   async function reloadUsage(range: UsageRange = settings.usage.range) {
-    setUsageStats(await window.maka.settings.usageStats(range));
+    try {
+      setUsageStats(await window.maka.settings.usageStats(range));
+    } catch (error) {
+      setUsageStats(null);
+      toast.error('载入使用统计失败', settingsActionErrorMessage(error));
+    }
   }
 
   useEffect(() => {
@@ -3818,8 +3829,14 @@ function BotChatSettingsPage(props: {
   const toast = useToast();
   const selectedStatus = statuses?.[selected];
 
-  async function updateChannel(patch: Partial<typeof channel>) {
-    await props.onUpdate({ botChat: { channels: { [selected]: patch } } });
+  async function updateChannel(patch: Partial<typeof channel>): Promise<boolean> {
+    try {
+      await props.onUpdate({ botChat: { channels: { [selected]: patch } } });
+      return true;
+    } catch (error) {
+      toast.error(`${BOT_LABELS[selected].label} 保存失败`, settingsActionErrorMessage(error));
+      return false;
+    }
   }
 
   useEffect(() => {
@@ -3897,7 +3914,8 @@ function BotChatSettingsPage(props: {
     }
     if (!testOk || support !== 'runtime') return;
     if (!channel.enabled) {
-      await updateChannel({ enabled: true });
+      const saved = await updateChannel({ enabled: true });
+      if (!saved) return;
     }
     await restartChannel();
   }
@@ -3943,7 +3961,7 @@ function BotChatSettingsPage(props: {
   async function disconnectWechatLogin() {
     if (!confirm('断开微信登录会清除本机保存的扫码登录凭据，确认吗？')) return;
     const isIlink = channel.webhookUrl?.trim().startsWith('https://ilinkai.weixin.qq.com') ?? false;
-    await updateChannel({
+    const saved = await updateChannel({
       token: '',
       ...(isIlink ? { webhookUrl: '' } : {}),
       botUserId: undefined,
@@ -3953,6 +3971,7 @@ function BotChatSettingsPage(props: {
       readinessUpdatedAt: Date.now(),
       lastError: undefined,
     });
+    if (!saved) return;
     await refreshBotStatuses();
     toast.success('微信登录已断开', '本机扫码登录凭据已清除。');
   }
@@ -4237,11 +4256,12 @@ function BotChatSettingsPage(props: {
           <WeChatScanLoginModal
             onClose={() => setScanLoginOpen(false)}
             onConfirmed={async (credentials) => {
-              await updateChannel({
+              const saved = await updateChannel({
                 token: credentials.botToken,
                 webhookUrl: credentials.baseUrl,
                 botUserId: credentials.botId,
               });
+              if (!saved) return;
               await props.onReload();
               setScanLoginOpen(false);
               toast.success('微信已扫码登录', credentials.botId ? `Bot ID ${credentials.botId}` : '凭据已保存');

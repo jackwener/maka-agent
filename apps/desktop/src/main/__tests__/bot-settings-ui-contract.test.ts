@@ -43,10 +43,13 @@ describe('Bot settings UI contract', () => {
   it('keeps runtime channel onboarding as test-then-enable-then-restart', async () => {
     const settings = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
     const styles = await readRepo('apps/desktop/src/renderer/styles.css');
+    const updateChannelBlock = settings.match(/async function updateChannel\(patch: Partial<typeof channel>\): Promise<boolean>[\s\S]*?\n\s*useEffect\(\(\) =>/)?.[0] ?? '';
     const testAndConnectBlock = settings.match(/async function testAndConnect\(\)[\s\S]*?\n\s*async function restartChannel/)?.[0] ?? '';
     const actionRowBlock = settings.match(/<div className="settingsBotActionStack">[\s\S]*?<\/div>/)?.[0] ?? '';
     const switchBlock = settings.match(/<Switch\s+ariaLabel=\{`启用\$\{BOT_LABELS\[selected\]\.label\}机器人`\}[\s\S]*?\/>/)?.[0] ?? '';
 
+    assert.match(updateChannelBlock, /try \{[\s\S]*props\.onUpdate\(\{ botChat: \{ channels: \{ \[selected\]: patch \} \} \}\)/, 'Bot channel field saves must catch settings update failures');
+    assert.match(updateChannelBlock, /catch \(error\) \{[\s\S]*toast\.error\(`\$\{BOT_LABELS\[selected\]\.label\} 保存失败`, settingsActionErrorMessage\(error\)\)[\s\S]*return false/, 'Bot channel save failures must surface a visible toast instead of rejecting from field handlers');
     assert.match(settings, /function canEnableBotChannel\(readiness: BotReadinessState\): boolean\s*\{[\s\S]*credentials_valid[\s\S]*operational[\s\S]*degraded[\s\S]*\}/, 'Only validated or already-runtime-capable bot states can be enabled directly');
     assert.match(settings, /const enableSwitchDisabled = support === 'planned' \|\| \(!channel\.enabled && !canEnableBotChannel\(readiness\)\)/, 'Unchecked bot channels must keep the enable switch locked until credentials are tested');
     assert.match(settings, /先测试并连接后才能启用。/, 'Locked runtime bot channels must explain the test-first path');
@@ -57,7 +60,7 @@ describe('Bot settings UI contract', () => {
     assert.match(switchBlock, /disabled=\{enableSwitchDisabled\}/, 'Bot enable switch must use the guarded disabled state');
     assert.match(testAndConnectBlock, /testBotChannel\(selected\)/, 'Combined action must validate credentials before enabling');
     assert.match(testAndConnectBlock, /if \(!testOk \|\| support !== 'runtime'\) return;/, 'Combined action must stop after a failed credential test');
-    assert.match(testAndConnectBlock, /updateChannel\(\{ enabled: true \}\)/, 'Combined action must enable a runtime channel only after validation');
+    assert.match(testAndConnectBlock, /const saved = await updateChannel\(\{ enabled: true \}\);[\s\S]*if \(!saved\) return;/, 'Combined action must stop if enabling the runtime channel fails to save');
     assert.match(testAndConnectBlock, /await restartChannel\(\)/, 'Combined action must start the listener after enabling');
     assert.match(actionRowBlock, /support === 'runtime' && !selectedStatus\?\.running/, 'Runtime channels that are not listening must use the combined onboarding path');
     assert.match(actionRowBlock, /测试并连接/, 'Runtime onboarding CTA must keep the user-facing combined action label');
@@ -87,6 +90,7 @@ describe('Bot settings UI contract', () => {
     assert.match(settings, /async function disconnectWechatLogin\(\)/, 'Saved WeChat scan-login credentials must have a visible disconnect path');
     assert.match(settings, /断开微信登录/, 'WeChat action stack must expose the disconnect label after login');
     assert.match(settings, /token:\s*''[\s\S]*connected:\s*false[\s\S]*readiness:\s*'scaffolded'/, 'Disconnect must clear saved scan-login credentials and readiness');
+    assert.match(settings, /const saved = await updateChannel\(\{[\s\S]*token:\s*''[\s\S]*\}\);[\s\S]*if \(!saved\) return;[\s\S]*toast\.success\('微信登录已断开'/, 'Disconnect must not report success if clearing saved WeChat credentials fails');
     assert.doesNotMatch(settings, /扫码登录由本机 wechat-bridge 处理/, 'Scan login must not be a toast-only handoff');
     assert.match(styles, /\.settingsWechatQrModal\b/, 'QR modal styles must be present');
     assert.match(styles, /\.settingsWechatQrFrame img\b/, 'QR image must have a stable frame style');
