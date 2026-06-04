@@ -355,11 +355,22 @@ describe('Model OAuth catalog contract (PR-MODEL-OAUTH-ALL-0 + PR-CLAUDE-CARD-MO
     // 3. useEffect on mount fires the initial refresh.
     const refreshOnMount = src.match(/useEffect\(\(\) =>\s*\{\s*void refreshAllCards\(\);[\s\S]*?\},\s*\[\]\)/);
     assert.ok(refreshOnMount, 'ModelOAuthSection must refresh on mount');
-    // 4. Modal onClose triggers a re-fetch.
+    // 4. Modal onClose triggers a re-fetch through a helper that also
+    // catches enabled-model refresh failures.
     assert.match(
       src,
-      /onClose=\{\(\)\s*=>\s*\{[\s\S]*?refreshAllCards\(\)/,
+      /async function refreshAfterModalClose\(\)[\s\S]*?await refreshAllCards\(\)[\s\S]*?await props\.onConnectionsChanged\(\)/,
       'modal onClose must call refreshAllCards so the card updates after login',
+    );
+    assert.match(
+      src,
+      /catch \(error\) \{[\s\S]*toast\.error\('刷新已启用模型失败', subscriptionActionErrorMessage\(error\)\)/,
+      'OAuth modal close must surface enabled-model refresh failures',
+    );
+    assert.match(
+      src,
+      /onClose=\{\(\)\s*=>\s*\{[\s\S]*?void refreshAfterModalClose\(\)/,
+      'modal onClose must call the fail-soft refresh helper',
     );
     // 5. Card render shows "已登录" badge when authenticated.
     assert.match(

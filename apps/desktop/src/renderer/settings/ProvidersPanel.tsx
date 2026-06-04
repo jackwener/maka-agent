@@ -505,6 +505,7 @@ const MODEL_OAUTH_CARDS: ReadonlyArray<ModelOAuthCard> = [
 
 function ModelOAuthSection(props: { onConnectionsChanged(): Promise<void> }) {
   const [openModal, setOpenModal] = useState<OAuthServiceId | null>(null);
+  const toast = useToast();
   // PR-OAUTH-CARD-LIVE-STATE-0 (WAWQAQ msg d79fd115 follow-up):
   // before this lift the 3 button cards stayed at the static
   // "可用 / 预览" label even after the user finished the OAuth
@@ -536,6 +537,15 @@ function ModelOAuthSection(props: { onConnectionsChanged(): Promise<void> }) {
       for (const [id, snapshot] of results) next[id] = snapshot;
       return next;
     });
+  }
+
+  async function refreshAfterModalClose() {
+    await refreshAllCards();
+    try {
+      await props.onConnectionsChanged();
+    } catch (error) {
+      toast.error('刷新已启用模型失败', subscriptionActionErrorMessage(error));
+    }
   }
 
   useEffect(() => {
@@ -579,8 +589,7 @@ function ModelOAuthSection(props: { onConnectionsChanged(): Promise<void> }) {
         <ClaudeSubscriptionModal
           onClose={() => {
             setOpenModal(null);
-            void refreshAllCards();
-            void props.onConnectionsChanged();
+            void refreshAfterModalClose();
           }}
         />
       )}
@@ -591,8 +600,7 @@ function ModelOAuthSection(props: { onConnectionsChanged(): Promise<void> }) {
             setOpenModal(null);
             // Always re-fetch after the modal closes — the user may
             // have logged in, logged out, or cancelled.
-            void refreshAllCards();
-            void props.onConnectionsChanged();
+            void refreshAfterModalClose();
           }}
         />
       )}
