@@ -607,6 +607,11 @@ function ReadyEmptyHero(props: {
           disabled={props.quickChatPending}
           aria-label={copy.quickChatAria}
         />
+        {dragActive && (
+          <span className="maka-visually-hidden" role="status" aria-live="polite">
+            松开以导入文件内容
+          </span>
+        )}
         <small className="maka-onboarding-quickchat-example" aria-hidden="true">
           {copy.quickChatExample}
         </small>

@@ -5231,6 +5231,11 @@ export const Composer = forwardRef<
           autoComplete="off"
           spellCheck={false}
         />
+        {dragActive && (
+          <span className="maka-visually-hidden" role="status" aria-live="polite">
+            松开以导入文件内容
+          </span>
+        )}
         <div className="maka-composer-toolbar composerActions" data-streaming={props.streaming ? 'true' : undefined}>
           <span>
             {props.disabled ? (

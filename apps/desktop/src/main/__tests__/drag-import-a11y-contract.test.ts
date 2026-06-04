@@ -1,0 +1,40 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { describe, it } from 'node:test';
+
+const repoRoot = process.cwd().endsWith('apps/desktop')
+  ? join(process.cwd(), '..', '..')
+  : process.cwd();
+
+async function readRepo(path: string): Promise<string> {
+  return readFile(join(repoRoot, path), 'utf8');
+}
+
+describe('drag import accessibility status', () => {
+  it('announces active file drag affordances in the composer and first-run hero', async () => {
+    const composer = await readRepo('packages/ui/src/components.tsx');
+    const onboardingHero = await readRepo('apps/desktop/src/renderer/OnboardingHero.tsx');
+
+    for (const [name, source] of [
+      ['Composer', composer],
+      ['OnboardingHero', onboardingHero],
+    ] as const) {
+      assert.match(
+        source,
+        /dragActive && \(\s*<span className="maka-visually-hidden" role="status" aria-live="polite">\s*松开以导入文件内容\s*<\/span>\s*\)/,
+        `${name} must expose a polite status while drag import is active`,
+      );
+    }
+  });
+
+  it('keeps the hidden live status accessible instead of display-none', async () => {
+    const styles = await readRepo('apps/desktop/src/renderer/styles.css');
+    const match = styles.match(/\.maka-visually-hidden\s*{(?<body>[\s\S]*?)}/);
+    assert.ok(match?.groups?.body, 'styles.css must define .maka-visually-hidden');
+    assert.match(match.groups.body, /position:\s*absolute\s*!important;/);
+    assert.match(match.groups.body, /clip:\s*rect\(0 0 0 0\)\s*!important;/);
+    assert.doesNotMatch(match.groups.body, /display:\\s*none/i);
+    assert.doesNotMatch(match.groups.body, /visibility:\\s*hidden/i);
+  });
+});
