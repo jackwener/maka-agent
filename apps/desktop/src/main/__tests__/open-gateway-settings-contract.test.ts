@@ -62,8 +62,13 @@ describe('Open Gateway Settings endpoint contract', () => {
   it('surfaces clipboard failures for every Open Gateway copy action', () => {
     const helper = settingsSource.match(/async function copyGatewayText[\s\S]*?async function copyBaseUrl/)?.[0] ?? '';
     assert.match(helper, /try \{[\s\S]*navigator\.clipboard\.writeText\(text\)[\s\S]*toast\.success\(successTitle, successDetail\)/);
-    assert.match(helper, /catch \(error\) \{[\s\S]*toast\.error\('复制失败'/);
+    assert.match(helper, /catch \{[\s\S]*toast\.error\('复制失败', '剪贴板不可用或被系统拒绝'\)/);
     assert.match(helper, /剪贴板不可用或被系统拒绝/);
+    assert.doesNotMatch(
+      helper,
+      /error instanceof Error|error\.message|String\(error\)/,
+      'Open Gateway clipboard failures must not surface raw DOMException messages',
+    );
 
     const gatewayBlock = settingsSource.match(/function OpenGatewaySettingsPage[\s\S]*?function presentGatewayStatus/)?.[0] ?? '';
     assert.match(gatewayBlock, /copyGatewayText\(baseUrl, '已复制网关地址'/);

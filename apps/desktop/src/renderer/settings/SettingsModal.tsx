@@ -3837,8 +3837,8 @@ function OpenGatewaySettingsPage(props: {
     try {
       await navigator.clipboard.writeText(text);
       toast.success(successTitle, successDetail);
-    } catch (error) {
-      toast.error('复制失败', error instanceof Error ? error.message : '剪贴板不可用或被系统拒绝');
+    } catch {
+      toast.error('复制失败', '剪贴板不可用或被系统拒绝');
     }
   }
 
