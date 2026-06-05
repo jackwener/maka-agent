@@ -61,6 +61,26 @@ describe('localized main shell contract', () => {
     );
   });
 
+  it('keeps Settings modal landmarks named without visible shortcut filler', async () => {
+    const settings = await readFile(join(process.cwd(), 'src', 'renderer', 'settings', 'SettingsModal.tsx'), 'utf8');
+
+    assert.match(
+      settings,
+      /<main className="settingsSurface" data-modal="true" aria-label="设置内容">/,
+      'Settings modal content landmark must be named in the accessibility tree',
+    );
+    assert.match(
+      settings,
+      /<aside className="settingsSidebar" aria-label="设置侧栏">/,
+      'Settings modal sidebar landmark must be named in the accessibility tree',
+    );
+    assert.doesNotMatch(
+      settings,
+      /设置\s*<kbd>⌘<\/kbd><kbd>,<\/kbd>/,
+      'Settings modal header should not expose the keyboard shortcut as visible filler copy',
+    );
+  });
+
   it('keeps decorative button and nav icons out of the accessibility tree', async () => {
     const components = await readFile(resolve(process.cwd(), '..', '..', 'packages', 'ui', 'src', 'components.tsx'), 'utf8');
     const settings = await readFile(join(process.cwd(), 'src', 'renderer', 'settings', 'SettingsModal.tsx'), 'utf8');

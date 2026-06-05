@@ -298,6 +298,7 @@ function BotBrandLogo(props: {
       className="settingsBotLogo"
       data-large={isLarge ? 'true' : undefined}
       data-provider={props.provider}
+      aria-hidden="true"
       style={{ ['--bot-brand-color' as string]: brand.color }}
     >
       {brand.glyph}
@@ -827,10 +828,10 @@ function SettingsSurface(props: {
   const activeItem = SETTINGS_NAV.find((item) => item.id === section) ?? SETTINGS_NAV[0];
 
   return (
-    <main className="settingsSurface" data-modal="true">
-      <aside className="settingsSidebar">
+    <main className="settingsSurface" data-modal="true" aria-label="设置内容">
+      <aside className="settingsSidebar" aria-label="设置侧栏">
         <header>
-          <span>设置 <kbd>⌘</kbd><kbd>,</kbd></span>
+          <span>设置</span>
         </header>
         <nav aria-label="设置分组">
           {groupedNav().map(({ group, items }) => {
@@ -3836,8 +3837,8 @@ function OpenGatewaySettingsPage(props: {
     try {
       await navigator.clipboard.writeText(text);
       toast.success(successTitle, successDetail);
-    } catch (error) {
-      toast.error('复制失败', error instanceof Error ? error.message : '剪贴板不可用或被系统拒绝');
+    } catch {
+      toast.error('复制失败', '剪贴板不可用或被系统拒绝');
     }
   }
 
