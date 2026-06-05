@@ -92,12 +92,12 @@ describe('Settings coming-soon cleanup contract', () => {
     const voicePage = settings.match(/function VoiceModelsSettingsPage\(\)[\s\S]*?async function readBrowserMicrophonePermission/);
 
     assert.ok(voicePage, 'Voice settings page block must exist');
-    assert.match(voicePage![0], /STT \/ TTS 模型必须遵守这个边界/, 'Voice settings should frame STT/TTS as a current policy boundary');
-    assert.match(voicePage![0], /转写文本只进入 composer 草稿；用户发送前必须能编辑。/, 'Voice transcript handling should be stated as current policy');
+    assert.match(voicePage![0], /语音转写和语音朗读模型必须遵守这个边界/, 'Voice settings should frame speech features as a current policy boundary');
+    assert.match(voicePage![0], /转写文本只进入消息输入框草稿；用户发送前必须能编辑。/, 'Voice transcript handling should be stated as current policy');
     assert.match(voicePage![0], /采集链路自检/, 'Voice visible copy should use product language instead of test jargon');
     assert.doesNotMatch(
       voicePage![0],
-      /未来|后续|接入会叠在|之后会加|采集链路 smoke|capture smoke/,
+      /未来|后续|接入会叠在|之后会加|采集链路 smoke|capture smoke|STT \/ TTS/,
       'Voice settings visible copy must not read like future roadmap copy',
     );
   });

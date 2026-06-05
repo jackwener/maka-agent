@@ -28,6 +28,25 @@ describe('voice capture smoke Settings contract', () => {
     assert.doesNotMatch(src, /localStorage\.setItem\([^)]*voice/i, 'voice smoke must not persist audio state in localStorage');
   });
 
+  it('uses user-facing copy and a named list for voice privacy boundaries', async () => {
+    const src = await readFile(SETTINGS_MODAL, 'utf8');
+    const voicePage = src.match(/function VoiceModelsSettingsPage\([\s\S]*?async function readBrowserMicrophonePermission/)?.[0];
+    assert.ok(voicePage, 'voice settings page source must be discoverable');
+    const visibleBoundaryCopy = voicePage!.match(/这页现在可以验证麦克风权限和本地录音链路[\s\S]*?<\/ul>/)?.[0];
+    assert.ok(visibleBoundaryCopy, 'voice visible boundary copy must be discoverable');
+    assert.match(visibleBoundaryCopy!, /aria-label="语音能力边界说明"/, 'voice boundary list must have an accessible name');
+    assert.match(visibleBoundaryCopy!, /语音转写和语音朗读模型必须遵守这个边界/, 'voice intro should avoid English STT/TTS acronyms');
+    assert.match(visibleBoundaryCopy!, /转写结果必须先回到消息输入框/, 'voice intro should use user-facing input box copy');
+    assert.match(visibleBoundaryCopy!, /录音样本只在本机内存里用于计算时长和大小/, 'voice boundary copy should avoid implementation metrics');
+    assert.match(visibleBoundaryCopy!, /配置语音转写模型之前/, 'voice cloud boundary should use user-facing provider copy');
+    assert.match(visibleBoundaryCopy!, /转写文本只进入消息输入框草稿/, 'voice draft boundary should use user-facing composer copy');
+    assert.doesNotMatch(
+      visibleBoundaryCopy!,
+      /renderer 内存|duration \/ bytes|tracks|chunks|STT|TTS|composer 草稿/,
+      'voice boundary copy must not leak implementation or English product terms',
+    );
+  });
+
   it('capability center reports voice as partial smoke, not a dead placeholder', async () => {
     const src = await readFile(CAPABILITY_SNAPSHOT, 'utf8');
     const voiceBlock = src.match(/id:\s*'voice'[\s\S]*?runtimeProbe:\s*\{[\s\S]*?\},\n\s*\}\),/);

@@ -1374,8 +1374,8 @@ function VoiceModelsSettingsPage() {
             <span className="settingsFeatureStatusBadge">本地自检</span>
           </div>
           <p>
-            这页现在可以验证麦克风权限和本地录音链路。STT / TTS 模型必须遵守这个边界：
-            转写结果必须先回到 composer 由用户编辑确认，音频样本默认不落盘。
+            这页现在可以验证麦克风权限和本地录音链路。语音转写和语音朗读模型必须遵守这个边界：
+            转写结果必须先回到消息输入框，由用户编辑确认后才能发送；音频样本默认不落盘。
           </p>
         </div>
       </div>
@@ -1412,10 +1412,10 @@ function VoiceModelsSettingsPage() {
       <div className="settingsFeatureStatusHeroHeading">
         <h3>当前边界</h3>
       </div>
-      <ul className="settingsFeatureStatusList">
-        <li>录音样本只在 renderer 内存里用于计算 duration / bytes，结束后立即停止 tracks 并丢弃 chunks。</li>
-        <li>没有 STT provider 前，不会把音频传给任何云端服务。</li>
-        <li>转写文本只进入 composer 草稿；用户发送前必须能编辑。</li>
+      <ul className="settingsFeatureStatusList" aria-label="语音能力边界说明">
+        <li>录音样本只在本机内存里用于计算时长和大小；自检结束后立即停止采集并丢弃样本。</li>
+        <li>配置语音转写模型之前，不会把音频传给任何云端服务。</li>
+        <li>转写文本只进入消息输入框草稿；用户发送前必须能编辑。</li>
       </ul>
     </section>
   );
