@@ -1050,7 +1050,7 @@ function DailyReviewPanel(props: {
           {summary.sessions.length > 0 && (
             <section className="maka-daily-review-section" aria-label="活跃对话">
               <h4 className="maka-daily-review-section-title">活跃对话</h4>
-              <ul className="maka-daily-review-list">
+              <ul className="maka-daily-review-list" aria-label="活跃对话列表">
                 {summary.sessions.map((session) => (
                   <li key={session.id} className="maka-daily-review-list-item">
                     <button
@@ -1147,7 +1147,7 @@ function DailyReviewTopList(props: { title: string; entries: ReadonlyArray<Daily
   return (
     <section className="maka-daily-review-section" aria-label={props.title}>
       <h4 className="maka-daily-review-section-title">{props.title}</h4>
-      <ul className="maka-daily-review-list">
+      <ul className="maka-daily-review-list" aria-label={`${props.title}列表`}>
         {props.entries.map((entry) => (
           <li key={entry.key} className="maka-daily-review-list-item">
             <span className="maka-daily-review-top-label">{entry.label}</span>
@@ -3067,7 +3067,7 @@ export function ChatView(props: {
 
   if (props.mode === 'skills') {
     return (
-      <main className="maka-main detailPane maka-module-main">
+      <main className="maka-main detailPane maka-module-main" aria-label="技能">
         <header className="maka-module-main-header">
           <div>
             <h2>技能</h2>
@@ -3089,7 +3089,7 @@ export function ChatView(props: {
 
   if (props.mode === 'automations') {
     return (
-      <main className="maka-main detailPane maka-module-main">
+      <main className="maka-main detailPane maka-module-main" aria-label="计划">
         <header className="maka-module-main-header">
           <div>
             <h2>计划</h2>
@@ -3112,7 +3112,7 @@ export function ChatView(props: {
 
   if (props.mode === 'daily-review') {
     return (
-      <main className="maka-main detailPane maka-module-main">
+      <main className="maka-main detailPane maka-module-main" aria-label="每日回顾">
         <header className="maka-module-main-header">
           <div>
             <h2>每日回顾</h2>

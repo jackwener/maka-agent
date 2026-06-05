@@ -17,7 +17,7 @@ describe('module main surface contract', () => {
     const sidebarListBlock = ui.match(/<section className="maka-session-list"[\s\S]*?<footer className="maka-session-panel-footer">/)?.[0] ?? '';
     const dailyReviewModeBlock = ui.match(/if \(props\.mode === 'daily-review'\) \{[\s\S]*?^\s*\}/m)?.[0] ?? '';
 
-    assert.match(dailyReviewModeBlock, /className="maka-main detailPane maka-module-main"/);
+    assert.match(dailyReviewModeBlock, /className="maka-main detailPane maka-module-main" aria-label="每日回顾"/);
     assert.match(dailyReviewModeBlock, /<DailyReviewPanel/);
     assert.doesNotMatch(sidebarListBlock, /<DailyReviewPanel/);
     assert.match(sidebarListBlock, /title="每日回顾"[\s\S]*body="已在右侧内容栏打开。"/);
@@ -38,7 +38,7 @@ describe('module main surface contract', () => {
     const sidebarListBlock = ui.match(/<section className="maka-session-list"[\s\S]*?<footer className="maka-session-panel-footer">/)?.[0] ?? '';
     const skillsModeBlock = ui.match(/if \(props\.mode === 'skills'\) \{[\s\S]*?^\s*\}/m)?.[0] ?? '';
 
-    assert.match(skillsModeBlock, /className="maka-main detailPane maka-module-main"/);
+    assert.match(skillsModeBlock, /className="maka-main detailPane maka-module-main" aria-label="技能"/);
     assert.match(skillsModeBlock, /<SkillLibraryPanel/);
     assert.doesNotMatch(sidebarListBlock, /<SkillLibraryPanel/);
     assert.match(sidebarListBlock, /title="技能库"[\s\S]*body="已在右侧内容栏打开。"/);
@@ -49,10 +49,19 @@ describe('module main surface contract', () => {
     const sidebarListBlock = ui.match(/<section className="maka-session-list"[\s\S]*?<footer className="maka-session-panel-footer">/)?.[0] ?? '';
     const automationsModeBlock = ui.match(/if \(props\.mode === 'automations'\) \{[\s\S]*?^\s*\}/m)?.[0] ?? '';
 
-    assert.match(automationsModeBlock, /className="maka-main detailPane maka-module-main"/);
+    assert.match(automationsModeBlock, /className="maka-main detailPane maka-module-main" aria-label="计划"/);
     assert.match(automationsModeBlock, /<PlanReminderPanel/);
     assert.doesNotMatch(sidebarListBlock, /<PlanReminderPanel/);
     assert.match(sidebarListBlock, /title="计划"[\s\S]*body="已在右侧内容栏打开。"/);
+  });
+
+  it('names Daily Review lists for assistive technology', async () => {
+    const ui = await readRepo('packages/ui/src/components.tsx');
+    const panelBlock = ui.match(/function DailyReviewPanel[\s\S]*?function PlanReminderPanel/)?.[0] ?? '';
+    const topListBlock = ui.match(/function DailyReviewTopList[\s\S]*?function PlanReminderPanel/)?.[0] ?? '';
+
+    assert.match(panelBlock, /<ul className="maka-daily-review-list" aria-label="活跃对话列表">/);
+    assert.match(topListBlock, /<ul className="maka-daily-review-list" aria-label=\{`\$\{props\.title\}列表`\}>/);
   });
 
   it('uses a segmented language control instead of a native select in Settings personalization', async () => {
