@@ -770,7 +770,7 @@ function SkillLibraryPanel(props: {
   }
 
   return (
-    <div className="maka-skill-library-list">
+    <ul className="maka-skill-library-list" aria-label="技能列表">
       {props.skills.map((skill) => {
         const tools = skill.declaredTools ?? [];
         const toolsLabel = tools.length > 0 ? tools.join(', ') : '';
@@ -779,30 +779,31 @@ function SkillLibraryPanel(props: {
           ? `打开技能文件：${skill.id}\n\n声明工具：${toolsLabel}\n权限仍按当前会话策略判断；这里不是授权。`
           : `打开技能文件：${skill.id}`;
         return (
-          <button
-            key={skill.id}
-            type="button"
-            className="maka-skill-library-row"
-            onClick={() => props.onOpenSkill?.(skill.id)}
-            title={hoverText}
-          >
-            <span className="maka-skill-library-name">{skill.name}</span>
-            {description && (
-              <span className="maka-skill-library-description">{description}</span>
-            )}
-            <span className="maka-skill-library-meta">
-              <span>{skill.id}</span>
-              {tools.length > 0 && (
-                <span className="maka-skill-tools" aria-label="声明的工具">
-                  <span className="maka-skill-tools-label">工具</span>
-                  <span>{toolsLabel}</span>
-                </span>
+          <li key={skill.id} className="maka-skill-library-item">
+            <button
+              type="button"
+              className="maka-skill-library-row"
+              onClick={() => props.onOpenSkill?.(skill.id)}
+              title={hoverText}
+            >
+              <span className="maka-skill-library-name">{skill.name}</span>
+              {description && (
+                <span className="maka-skill-library-description">{description}</span>
               )}
-            </span>
-          </button>
+              <span className="maka-skill-library-meta">
+                <span>{skill.id}</span>
+                {tools.length > 0 && (
+                  <span className="maka-skill-tools" aria-label="声明的工具">
+                    <span className="maka-skill-tools-label">工具</span>
+                    <span>{toolsLabel}</span>
+                  </span>
+                )}
+              </span>
+            </button>
+          </li>
         );
       })}
-    </div>
+    </ul>
   );
 }
 
