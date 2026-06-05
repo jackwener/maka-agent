@@ -101,8 +101,8 @@ export class OpenGatewayService {
     const server = createServer((req, res) => {
       res.setHeader(OPEN_GATEWAY_REQUEST_ID_HEADER, createGatewayRequestId());
       this.trackRequest(req, res);
-      void this.handle(req, res).catch((error) => {
-        writeJson(res, 500, { ok: false, error: 'internal_error', message: error instanceof Error ? error.message : 'Gateway error' });
+      void this.handle(req, res).catch(() => {
+        writeJson(res, 500, { ok: false, error: 'internal_error', message: gatewayInternalFailureMessage() });
       });
     });
     this.server = server;
@@ -127,7 +127,7 @@ export class OpenGatewayService {
         tokenConfigured,
         activeEventStreams: 0,
       };
-    } catch (error) {
+    } catch {
       await this.stop();
       this.activeToken = null;
       this.status = {
@@ -138,7 +138,7 @@ export class OpenGatewayService {
         baseUrl: null,
         tokenConfigured,
         activeEventStreams: 0,
-        lastError: error instanceof Error ? error.message : 'gateway_start_failed',
+        lastError: 'start_failed',
       };
     }
     return this.getStatus();
@@ -674,6 +674,10 @@ const OPEN_GATEWAY_INCIDENT_TEXT_LIMIT = 500;
 const OPEN_GATEWAY_REQUEST_ID_HEADER = 'X-Maka-Request-Id';
 const OPEN_GATEWAY_REQUEST_RECENT_LIMIT = 50;
 const OPEN_GATEWAY_PATH_LIMIT = 500;
+
+function gatewayInternalFailureMessage(): string {
+  return '开放网关暂时不可用，请稍后重试。';
+}
 
 function createGatewayRequestId(): string {
   return `gw_${randomUUID()}`;

@@ -4057,8 +4057,9 @@ function presentGatewayStatus(
 
 function gatewayErrorCopy(error: string): string {
   if (error === 'missing_token') return '等待生成访问 token';
+  if (error === 'start_failed' || error === 'gateway_start_failed') return '开放网关暂时无法启动，请检查监听地址和端口。';
   if (error.includes('EADDRINUSE')) return '端口已被占用';
-  return error;
+  return '开放网关暂时无法启动，请检查监听地址和端口。';
 }
 
 function generateGatewayToken(): string {

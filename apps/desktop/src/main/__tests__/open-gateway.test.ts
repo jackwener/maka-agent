@@ -26,6 +26,44 @@ describe('OpenGatewayService', () => {
     assert.equal(status.tokenConfigured, false);
   });
 
+  test('does not expose raw internal errors over the local HTTP API', async () => {
+    const service = makeService({
+      getSettings: async () => {
+        throw new Error('settings read failed at /Users/alice/.maka/settings.json token=sk-live-secret');
+      },
+    });
+    activeServices.push(service);
+    const status = await service.sync(createGatewaySettings({ enabled: true, port: 0, token: 'dev-token' }).openGateway);
+    assert.equal(status.running, true);
+    assert.ok(status.baseUrl);
+
+    const response = await fetchJson(`${status.baseUrl}/v1/state`, 'dev-token');
+    assert.equal(response.status, 500);
+    assert.equal(response.body.error, 'internal_error');
+    assert.equal(response.body.message, '开放网关暂时不可用，请稍后重试。');
+    assert.match(response.body.requestId, /^gw_/);
+    assert.doesNotMatch(JSON.stringify(response.body), /settings read failed|sk-live-secret|\/Users\/alice/);
+  });
+
+  test('reports gateway start failures with a closed status reason', async () => {
+    const first = makeService();
+    const second = makeService();
+    activeServices.push(first, second);
+    const firstStatus = await first.sync(createGatewaySettings({ enabled: true, port: 0, token: 'dev-token' }).openGateway);
+    assert.equal(firstStatus.running, true);
+
+    const secondStatus = await second.sync(createGatewaySettings({
+      enabled: true,
+      host: firstStatus.host,
+      port: firstStatus.port,
+      token: 'dev-token',
+    }).openGateway);
+
+    assert.equal(secondStatus.running, false);
+    assert.equal(secondStatus.lastError, 'start_failed');
+    assert.doesNotMatch(JSON.stringify(secondStatus), /EADDRINUSE|listen|address already in use/i);
+  });
+
   test('serves health without auth and protects v1 endpoints with bearer token', async () => {
     const service = makeService();
     activeServices.push(service);

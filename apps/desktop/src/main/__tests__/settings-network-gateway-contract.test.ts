@@ -80,4 +80,17 @@ describe('Settings network and gateway persistence contract', () => {
       'Open Gateway field handlers must not leak a returned rejected promise',
     );
   });
+
+  it('renders gateway runtime start errors from closed reasons instead of raw listen errors', () => {
+    const helper = blockBetween('function gatewayErrorCopy', 'function generateGatewayToken');
+
+    assert.match(helper, /error === 'start_failed'/);
+    assert.match(helper, /开放网关暂时无法启动，请检查监听地址和端口。/);
+    assert.match(helper, /EADDRINUSE[\s\S]*端口已被占用/);
+    assert.doesNotMatch(
+      helper,
+      /return error;/,
+      'Open Gateway Settings must not render raw runtime lastError strings',
+    );
+  });
 });
