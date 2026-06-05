@@ -1826,6 +1826,10 @@ export interface SearchModalDeps {
   >;
 }
 
+function searchModalThrownErrorMessage(error: unknown): string {
+  return generalizedErrorMessageChinese(error, '搜索服务需要刷新，请重试。');
+}
+
 export function SearchModal(props: {
   onClose(): void;
   /**
@@ -1913,7 +1917,7 @@ export function SearchModal(props: {
         setResults([]);
         setError({
           reason: 'provider_error',
-          message: err instanceof Error ? err.message : '搜索服务需要刷新，请重试。',
+          message: searchModalThrownErrorMessage(err),
         });
         setActiveResultIndex(-1);
       } finally {

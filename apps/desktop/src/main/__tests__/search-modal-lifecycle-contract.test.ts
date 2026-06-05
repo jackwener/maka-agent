@@ -333,7 +333,22 @@ describe('SearchModal lifecycle contract (PR-SIDEBAR-IA-0 Phase 3 P0 fixup)', ()
     const components = await readFile(COMPONENTS_PATH, 'utf8');
     const searchModal = components.slice(components.indexOf('export function SearchModal'), components.indexOf('/**\n * Render an ordered list of session groups'));
 
-    assert.match(searchModal, /搜索服务需要刷新，请重试。/);
+    assert.match(
+      components,
+      /function searchModalThrownErrorMessage\(error: unknown\): string \{[\s\S]*generalizedErrorMessageChinese\(error, '搜索服务需要刷新，请重试。'\)/,
+      'Thrown SearchModal errors must be routed through shared Chinese error classification/redaction',
+    );
+    assert.match(
+      searchModal,
+      /message: searchModalThrownErrorMessage\(err\)/,
+      'SearchModal catch must not render raw thrown Error.message',
+    );
+    assert.doesNotMatch(
+      searchModal,
+      /err instanceof Error \? err\.message/,
+      'SearchModal must not leak raw IPC/preload Error.message into visible search copy',
+    );
+    assert.match(components, /搜索服务需要刷新，请重试。/);
     assert.doesNotMatch(searchModal, /搜索暂时不可用，请稍后重试。/, 'Search modal fallback error should not read like a generic unavailable feature');
   });
 
