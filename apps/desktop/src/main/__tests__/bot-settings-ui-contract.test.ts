@@ -22,6 +22,7 @@ describe('Bot settings UI contract', () => {
       assert.match(styles, new RegExp(`\\.settingsBotHero\\[data-provider="${provider}"\\]`), `${provider} hero must export a brand color CSS variable`);
     }
     assert.match(settings, /function BotBrandLogo\b/, 'Bot settings must use the shared brand-logo component');
+    assert.match(settings, /className="settingsBotLogo"[\s\S]*aria-hidden="true"/, 'Bot brand monograms are decorative and must not be read as part of channel names');
     assert.match(settings, /className="settingsBotLogoStatusDot"/, 'Platform logo must include the bottom-right status dot');
     assert.match(settings, /data-active=\{selected === provider\}[\s\S]*aria-current=\{selected === provider \? 'page' : undefined\}/, 'The active bot platform must be exposed to assistive technology');
     assert.match(styles, /\.settingsBotLogoStatusDot\s*\{[\s\S]*position:\s*absolute/, 'Status dot must be visually attached to the platform logo');
