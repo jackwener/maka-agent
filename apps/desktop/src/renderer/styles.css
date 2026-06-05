@@ -2441,11 +2441,18 @@ button:active {
 }
 
 .maka-skill-library-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
   min-height: 0;
   overflow: auto;
   display: grid;
   align-content: start;
   gap: 10px;
+}
+
+.maka-skill-library-item {
+  min-width: 0;
 }
 
 .maka-skill-library-row {
