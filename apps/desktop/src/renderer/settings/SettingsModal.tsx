@@ -5787,7 +5787,7 @@ function PermissionCenterPage() {
           <h4>功能能力</h4>
           <small>每个能力的就绪状态由「功能开关 · 配置 · 系统权限 · 运行态探测」共同决定。</small>
         </header>
-        <ul className="settingsCapabilityList">
+        <ul className="settingsCapabilityList" aria-label="功能能力列表">
           {capabilities.capabilities.map((capability) => (
             <CapabilityRow key={capability.id} capability={capability} />
           ))}
@@ -5799,7 +5799,7 @@ function PermissionCenterPage() {
           <h4>系统权限</h4>
           <small>Maka 读到的 OS 级权限状态。撤销请前往「系统设置 → 隐私与安全性」。</small>
         </header>
-        <ul className="settingsOsPermissionList">
+        <ul className="settingsOsPermissionList" aria-label="系统权限列表">
           {OS_PERMISSION_IDS.map((id) => (
             <OsPermissionRow key={id} snapshot={permissions.permissions[id]} />
           ))}
