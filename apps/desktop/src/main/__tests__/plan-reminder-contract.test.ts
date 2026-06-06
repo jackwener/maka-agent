@@ -116,7 +116,8 @@ describe('Plan reminder MVP contract', () => {
     assert.match(panelBlock, /onClick=\{\(\) => editReminder\(reminder\)\}[\s\S]*disabled=\{submitPending \|\| reminderActionPending \|\| reminder\.status === 'completed'\}/, 'row edit must not overwrite a pending create/save draft');
     assert.match(panelBlock, /onClick=\{\(\) => duplicateReminder\(reminder\)\}[\s\S]*disabled=\{submitPending \|\| reminderActionPending\}/, 'row duplicate must not overwrite a pending create/save draft');
     assert.match(panelBlock, /const result = editingId[\s\S]*await props\.onUpdate\?\.\(editingId, input\)[\s\S]*await props\.onCreate\?\.\(/, 'plan form must await async create/save callbacks');
-    assert.match(panelBlock, /if \(result !== false\) resetForm\(\)/, 'plan form must keep the user draft when the parent reports failure');
+    assert.match(panelBlock, /if \(result !== false && planReminderMountedRef\.current\) resetForm\(\)/, 'plan form must keep the user draft when the parent reports failure and avoid late reset after unmount');
+    assert.match(panelBlock, /if \(planReminderMountedRef\.current\) setSubmitPending\(false\)/, 'plan form must not clear submit state after unmount');
     assert.doesNotMatch(panelBlock, /props\.onCreate\?\([\s\S]*?\);\s*}\s*resetForm\(\)/, 'plan form must not clear fields immediately after firing create');
     assert.match(renderer, /toastApi\.success\('已创建计划提醒'[\s\S]*return true;[\s\S]*toastApi\.error\('创建计划失败'[\s\S]*return false;/, 'createPlanReminder must report success/failure to the form');
     assert.match(renderer, /toastApi\.success\('已保存计划提醒'[\s\S]*return true;[\s\S]*toastApi\.error\('保存计划失败'[\s\S]*return false;/, 'updatePlanReminder must report success/failure to the form');
@@ -134,12 +135,19 @@ describe('Plan reminder MVP contract', () => {
 
     const panelBlock = ui.match(/function PlanReminderPanel[\s\S]*?function comparePlanReminderForDisplay/)?.[0] ?? '';
     assert.match(panelBlock, /const \[pendingActionKeys, setPendingActionKeys\] = useState<ReadonlySet<string>>\(\(\) => new Set\(\)\)/, 'row actions need explicit pending keys');
+    assert.match(panelBlock, /const planReminderMountedRef = useRef\(true\)/, 'row action cleanup must know whether the panel is still mounted');
     assert.match(panelBlock, /const pendingActionKeysRef = useRef<Set<string>>\(new Set\(\)\)/, 'the duplicate-click gate must update synchronously through a ref');
+    assert.match(
+      panelBlock,
+      /useEffect\(\(\) => \{[\s\S]*planReminderMountedRef\.current = true;[\s\S]*return \(\) => \{[\s\S]*planReminderMountedRef\.current = false;[\s\S]*pendingActionKeysRef\.current = new Set\(\);[\s\S]*\};[\s\S]*\}, \[\]\)/,
+      'plan reminder panel must release pending owners on unmount and restore mounted state during StrictMode replay',
+    );
     assert.match(panelBlock, /async function runPlanReminderAction\(/, 'row actions must funnel through one async gate');
     assert.match(panelBlock, /if \(!action \|\| pendingActionKeysRef\.current\.has\(actionKey\)\) return;/, 'the gate must reject duplicate clicks for the same row action');
     assert.match(panelBlock, /pendingWithAction\.add\(actionKey\)/, 'starting an action must publish the pending key');
     assert.match(panelBlock, /await action\(\)/, 'the gate must wait for the renderer IPC action to finish');
     assert.match(panelBlock, /pendingWithoutAction\.delete\(actionKey\)/, 'finishing an action must clear only its own pending key');
+    assert.match(panelBlock, /if \(planReminderMountedRef\.current\) setPendingActionKeys\(pendingWithoutAction\)/, 'row action completion must not write state after unmount');
     assert.match(panelBlock, /const reminderActionPending = Array\.from\(pendingActionKeys\)\.some\(\(key\) => key\.startsWith\(reminderActionPrefix\)\)/);
     assert.match(panelBlock, /disabled=\{reminderActionPending \|\| !reminder\.enabled\}/, 'manual trigger must be disabled while the row is mutating');
     assert.match(panelBlock, /disabled=\{reminderActionPending \|\| !reminder\.enabled \|\| reminder\.status !== 'scheduled'/, 'snooze must be disabled while the row is mutating');
