@@ -898,7 +898,16 @@ function DailyReviewPanel(props: {
   const [loading, setLoading] = useState(true);
   const [reloadToken, setReloadToken] = useState(0);
   const [pendingDailyReviewAction, setPendingDailyReviewAction] = useState<string | null>(null);
+  const dailyReviewMountedRef = useRef(true);
   const pendingDailyReviewActionRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    dailyReviewMountedRef.current = true;
+    return () => {
+      dailyReviewMountedRef.current = false;
+      pendingDailyReviewActionRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -952,7 +961,7 @@ function DailyReviewPanel(props: {
     } finally {
       if (pendingDailyReviewActionRef.current === actionKey) {
         pendingDailyReviewActionRef.current = null;
-        setPendingDailyReviewAction(null);
+        if (dailyReviewMountedRef.current) setPendingDailyReviewAction(null);
       }
     }
   }

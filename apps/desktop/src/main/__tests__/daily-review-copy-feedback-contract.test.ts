@@ -53,12 +53,18 @@ describe('Daily Review copy feedback contract', () => {
     const gateBlock = panelBlock.match(/async function runDailyReviewAction[\s\S]*?const dailyReviewActionBusy/)?.[0] ?? '';
 
     assert.match(panelBlock, /const \[pendingDailyReviewAction, setPendingDailyReviewAction\] = useState<string \| null>\(null\)/);
+    assert.match(panelBlock, /const dailyReviewMountedRef = useRef\(true\)/);
     assert.match(panelBlock, /const pendingDailyReviewActionRef = useRef<string \| null>\(null\)/);
+    assert.match(
+      panelBlock,
+      /useEffect\(\(\) => \{\s*dailyReviewMountedRef\.current = true;[\s\S]*?return \(\) => \{\s*dailyReviewMountedRef\.current = false;\s*pendingDailyReviewActionRef\.current = null;\s*\};\s*\}, \[\]\)/,
+      'Daily Review export pending ownership must be released when the main panel unmounts or StrictMode replays cleanup',
+    );
     assert.match(panelBlock, /const dailyReviewActionBusy = pendingDailyReviewAction !== null/);
     assert.match(panelBlock, /\{props\.onCopyMarkdown && \(/);
     assert.match(
       gateBlock,
-      /if \(pendingDailyReviewActionRef\.current !== null\) return;[\s\S]*pendingDailyReviewActionRef\.current = actionKey[\s\S]*setPendingDailyReviewAction\(actionKey\)[\s\S]*await action\(\)[\s\S]*pendingDailyReviewActionRef\.current = null[\s\S]*setPendingDailyReviewAction\(null\)/,
+      /if \(pendingDailyReviewActionRef\.current !== null\) return;[\s\S]*pendingDailyReviewActionRef\.current = actionKey[\s\S]*setPendingDailyReviewAction\(actionKey\)[\s\S]*await action\(\)[\s\S]*pendingDailyReviewActionRef\.current = null[\s\S]*if \(dailyReviewMountedRef\.current\) setPendingDailyReviewAction\(null\)/,
       'Daily Review export actions must use a ref-backed pending gate so same-frame double clicks cannot run two exports',
     );
     assert.match(panelBlock, /runDailyReviewAction\('copy', async \(\) => \{/);
