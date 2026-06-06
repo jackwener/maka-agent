@@ -81,11 +81,17 @@ describe('FIRST_RUN_TASK_SUGGESTIONS', () => {
     assert.match(main, /window\.maka\.onboarding\.setMilestone\(FIRST_RUN_TASK_SUGGESTION_MILESTONES\[id\], 'skipped'\)/);
     assert.match(main, /window\.maka\.onboarding\.clearMilestone\(FIRST_RUN_TASK_SUGGESTION_MILESTONES\[id\]\)/);
     assert.match(readyBlock, /const \[pendingSuggestionAction, setPendingSuggestionAction\] = useState<string \| null>\(null\)/);
+    assert.match(readyBlock, /const readyHeroMountedRef = useRef\(true\)/);
     assert.match(readyBlock, /const pendingSuggestionActionRef = useRef<string \| null>\(null\)/);
     assert.match(readyBlock, /const suggestionActionBusy = pendingSuggestionAction !== null/);
     assert.match(
+      readyBlock,
+      /useEffect\(\(\) => \{[\s\S]*readyHeroMountedRef\.current = true;[\s\S]*return \(\) => \{[\s\S]*readyHeroMountedRef\.current = false;[\s\S]*submitPendingRef\.current = false;[\s\S]*pendingImportActionRef\.current = null;[\s\S]*pendingSuggestionActionRef\.current = null;[\s\S]*\};[\s\S]*\}, \[\]\)/,
+      'first-run ready hero must release pending owners on unmount and restore mounted state during StrictMode replay',
+    );
+    assert.match(
       suggestionGateBlock,
-      /if \(!action \|\| quickChatBusy \|\| pendingSuggestionActionRef\.current !== null\) return;[\s\S]*pendingSuggestionActionRef\.current = actionKey[\s\S]*setPendingSuggestionAction\(actionKey\)[\s\S]*await action\(\)[\s\S]*pendingSuggestionActionRef\.current = null[\s\S]*setPendingSuggestionAction\(null\)/,
+      /if \(!action \|\| quickChatBusy \|\| pendingSuggestionActionRef\.current !== null\) return;[\s\S]*pendingSuggestionActionRef\.current = actionKey[\s\S]*setPendingSuggestionAction\(actionKey\)[\s\S]*await action\(\)[\s\S]*pendingSuggestionActionRef\.current = null[\s\S]*if \(readyHeroMountedRef\.current\) setPendingSuggestionAction\(null\)/,
       'suggestion dismiss/restore must await the async milestone write behind a ref-backed pending gate',
     );
     assert.match(readyBlock, /if \(quickChatBusy \|\| suggestionActionBusy\) return;[\s\S]*appendPromptContextDraft\(draft, prompt\)/, 'prefill must not append while suggestion milestone writes are pending');
@@ -107,11 +113,13 @@ describe('FIRST_RUN_TASK_SUGGESTIONS', () => {
     const gateBlock = readyBlock.match(/const runImportAction = useCallback[\s\S]*?const importTextFile/)?.[0] ?? '';
 
     assert.match(readyBlock, /const \[pendingImportAction, setPendingImportAction\] = useState<string \| null>\(null\)/);
+    assert.match(readyBlock, /const readyHeroMountedRef = useRef\(true\)/);
     assert.match(readyBlock, /const pendingImportActionRef = useRef<string \| null>\(null\)/);
     assert.match(readyBlock, /const importActionBusy = pendingImportAction !== null/);
+    assert.match(readyBlock, /const appendImportedPrompt = useCallback\(\(prompt: string\) => \{[\s\S]*if \(!readyHeroMountedRef\.current\) return;[\s\S]*setDraft\(/);
     assert.match(
       gateBlock,
-      /if \(pendingImportActionRef\.current !== null \|\| quickChatBusy\) return;[\s\S]*pendingImportActionRef\.current = actionKey[\s\S]*setPendingImportAction\(actionKey\)[\s\S]*const prompt = await action\(\)[\s\S]*if \(prompt\) appendImportedPrompt\(prompt\)[\s\S]*pendingImportActionRef\.current = null[\s\S]*setPendingImportAction\(null\)/,
+      /if \(pendingImportActionRef\.current !== null \|\| quickChatBusy\) return;[\s\S]*pendingImportActionRef\.current = actionKey[\s\S]*setPendingImportAction\(actionKey\)[\s\S]*const prompt = await action\(\)[\s\S]*if \(prompt && readyHeroMountedRef\.current\) appendImportedPrompt\(prompt\)[\s\S]*pendingImportActionRef\.current = null[\s\S]*if \(readyHeroMountedRef\.current\) setPendingImportAction\(null\)/,
       'first-run import actions must use a ref-backed pending gate and append only through one shared path',
     );
     assert.match(readyBlock, /runImportAction\('file', props\.onImportTextFile\)/);
@@ -137,10 +145,16 @@ describe('FIRST_RUN_TASK_SUGGESTIONS', () => {
     const setupBlock = hero.match(/interface SetupHeroProps[\s\S]*?function assertNever/)?.[0] ?? '';
 
     assert.match(rootBlock, /const \[refreshConnectionsPending, setRefreshConnectionsPending\] = useState\(false\)/);
+    assert.match(rootBlock, /const onboardingMountedRef = useRef\(true\)/);
     assert.match(rootBlock, /const refreshConnectionsPendingRef = useRef\(false\)/);
     assert.match(
       rootBlock,
-      /const runRefreshConnections = useCallback\(async \(\) => \{[\s\S]*if \(!props\.onRefreshConnections \|\| refreshConnectionsPendingRef\.current\) return;[\s\S]*refreshConnectionsPendingRef\.current = true[\s\S]*setRefreshConnectionsPending\(true\)[\s\S]*await props\.onRefreshConnections\(\)[\s\S]*refreshConnectionsPendingRef\.current = false[\s\S]*setRefreshConnectionsPending\(false\)/,
+      /useEffect\(\(\) => \{[\s\S]*onboardingMountedRef\.current = true;[\s\S]*return \(\) => \{[\s\S]*onboardingMountedRef\.current = false;[\s\S]*refreshConnectionsPendingRef\.current = false;[\s\S]*\};[\s\S]*\}, \[\]\)/,
+      'first-run setup refresh must release pending ownership on unmount and restore mounted state during StrictMode replay',
+    );
+    assert.match(
+      rootBlock,
+      /const runRefreshConnections = useCallback\(async \(\) => \{[\s\S]*if \(!props\.onRefreshConnections \|\| refreshConnectionsPendingRef\.current\) return;[\s\S]*refreshConnectionsPendingRef\.current = true[\s\S]*setRefreshConnectionsPending\(true\)[\s\S]*await props\.onRefreshConnections\(\)[\s\S]*refreshConnectionsPendingRef\.current = false[\s\S]*if \(onboardingMountedRef\.current\) setRefreshConnectionsPending\(false\)/,
       'readiness refresh must use a ref-backed pending gate',
     );
     assert.match(hero, /onRefreshConnections=\{props\.onRefreshConnections \? runRefreshConnections : undefined\}/);

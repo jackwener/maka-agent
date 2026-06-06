@@ -127,7 +127,17 @@ export interface OnboardingHeroProps {
 export function OnboardingHero(props: OnboardingHeroProps) {
   const { state } = props;
   const [refreshConnectionsPending, setRefreshConnectionsPending] = useState(false);
+  const onboardingMountedRef = useRef(true);
   const refreshConnectionsPendingRef = useRef(false);
+
+  useEffect(() => {
+    onboardingMountedRef.current = true;
+    return () => {
+      onboardingMountedRef.current = false;
+      refreshConnectionsPendingRef.current = false;
+    };
+  }, []);
+
   const runRefreshConnections = useCallback(async () => {
     if (!props.onRefreshConnections || refreshConnectionsPendingRef.current) return;
     refreshConnectionsPendingRef.current = true;
@@ -136,7 +146,7 @@ export function OnboardingHero(props: OnboardingHeroProps) {
       await props.onRefreshConnections();
     } finally {
       refreshConnectionsPendingRef.current = false;
-      setRefreshConnectionsPending(false);
+      if (onboardingMountedRef.current) setRefreshConnectionsPending(false);
     }
   }, [props.onRefreshConnections]);
 
@@ -453,9 +463,21 @@ function ReadyEmptyHero(props: {
   const [pendingImportAction, setPendingImportAction] = useState<string | null>(null);
   const [pendingSuggestionAction, setPendingSuggestionAction] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const readyHeroMountedRef = useRef(true);
   const submitPendingRef = useRef(false);
   const pendingImportActionRef = useRef<string | null>(null);
   const pendingSuggestionActionRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    readyHeroMountedRef.current = true;
+    return () => {
+      readyHeroMountedRef.current = false;
+      submitPendingRef.current = false;
+      pendingImportActionRef.current = null;
+      pendingSuggestionActionRef.current = null;
+    };
+  }, []);
+
   const copy = READY_HERO_COPY_BY_LOCALE[detectUiLocale()];
   const hiddenSuggestionIds = new Set(
     (props.onboardingMilestones ?? [])
@@ -480,12 +502,13 @@ function ReadyEmptyHero(props: {
     // composer afterward.
     try {
       const submitted = await props.onQuickChatSubmit(draft, draftMode);
+      if (!readyHeroMountedRef.current) return;
       if (!submitted) return;
       setDraft('');
       setDraftMode(undefined);
     } finally {
       submitPendingRef.current = false;
-      setSubmitPending(false);
+      if (readyHeroMountedRef.current) setSubmitPending(false);
     }
   }, [draft, draftMode, props]);
 
@@ -528,12 +551,13 @@ function ReadyEmptyHero(props: {
     } finally {
       if (pendingSuggestionActionRef.current === actionKey) {
         pendingSuggestionActionRef.current = null;
-        setPendingSuggestionAction(null);
+        if (readyHeroMountedRef.current) setPendingSuggestionAction(null);
       }
     }
   }, [quickChatBusy]);
 
   const appendImportedPrompt = useCallback((prompt: string) => {
+    if (!readyHeroMountedRef.current) return;
     let nextDraft = prompt;
     setDraft((current) => {
       nextDraft = appendPromptContextDraft(current, prompt);
@@ -557,11 +581,11 @@ function ReadyEmptyHero(props: {
     setPendingImportAction(actionKey);
     try {
       const prompt = await action();
-      if (prompt) appendImportedPrompt(prompt);
+      if (prompt && readyHeroMountedRef.current) appendImportedPrompt(prompt);
     } finally {
       if (pendingImportActionRef.current === actionKey) {
         pendingImportActionRef.current = null;
-        setPendingImportAction(null);
+        if (readyHeroMountedRef.current) setPendingImportAction(null);
       }
     }
   }, [appendImportedPrompt, quickChatBusy]);
