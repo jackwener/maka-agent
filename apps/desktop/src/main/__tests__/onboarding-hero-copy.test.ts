@@ -224,7 +224,7 @@ describe('OnboardingHero Quick Chat draft lifecycle', () => {
   it('keeps the first prompt when quick chat submission fails', async () => {
     const source = await readFile(new URL('../../../src/renderer/OnboardingHero.tsx', import.meta.url), 'utf8');
     const propsBlock = source.match(/export interface OnboardingHeroProps \{[\s\S]*?\n\}/)?.[0] ?? '';
-    const readyBlock = source.match(/function ReadyEmptyHero[\s\S]*?return \(/)?.[0] ?? '';
+    const readyBlock = source.match(/function ReadyEmptyHero[\s\S]*?interface SetupHeroProps/)?.[0] ?? '';
 
     assert.match(
       propsBlock,
@@ -240,15 +240,21 @@ describe('OnboardingHero Quick Chat draft lifecycle', () => {
 
   it('locally gates first-run quick chat submit before parent pending re-renders', async () => {
     const source = await readFile(new URL('../../../src/renderer/OnboardingHero.tsx', import.meta.url), 'utf8');
-    const readyBlock = source.match(/function ReadyEmptyHero[\s\S]*?return \(/)?.[0] ?? '';
+    const readyBlock = source.match(/function ReadyEmptyHero[\s\S]*?interface SetupHeroProps/)?.[0] ?? '';
     const submitBlock = readyBlock.match(/const submit = useCallback\(async \(\) => \{[\s\S]*?\n  \}, \[draft, draftMode, props\]\);/)?.[0] ?? '';
 
     assert.match(readyBlock, /const \[submitPending, setSubmitPending\] = useState\(false\)/);
     assert.match(readyBlock, /const submitPendingRef = useRef\(false\)/);
+    assert.match(readyBlock, /const readyHeroMountedRef = useRef\(true\)/);
+    assert.match(
+      readyBlock,
+      /useEffect\(\(\) => \{[\s\S]*readyHeroMountedRef\.current = true;[\s\S]*return \(\) => \{[\s\S]*readyHeroMountedRef\.current = false;[\s\S]*submitPendingRef\.current = false;[\s\S]*pendingImportActionRef\.current = null;[\s\S]*pendingSuggestionActionRef\.current = null;[\s\S]*\};[\s\S]*\}, \[\]\)/,
+      'ReadyEmptyHero must clear async pending owners on unmount and restore mounted state during StrictMode replay',
+    );
     assert.match(readyBlock, /const quickChatBusy = props\.quickChatPending \|\| submitPending/);
     assert.match(
       submitBlock,
-      /if \(props\.quickChatPending \|\| submitPendingRef\.current\) return;[\s\S]*submitPendingRef\.current = true;[\s\S]*setSubmitPending\(true\);[\s\S]*await props\.onQuickChatSubmit\(draft, draftMode\)[\s\S]*submitPendingRef\.current = false;[\s\S]*setSubmitPending\(false\);/,
+      /if \(props\.quickChatPending \|\| submitPendingRef\.current\) return;[\s\S]*submitPendingRef\.current = true;[\s\S]*setSubmitPending\(true\);[\s\S]*await props\.onQuickChatSubmit\(draft, draftMode\)[\s\S]*if \(!readyHeroMountedRef\.current\) return;[\s\S]*submitPendingRef\.current = false;[\s\S]*if \(readyHeroMountedRef\.current\) setSubmitPending\(false\);/,
       'ReadyEmptyHero must synchronously drop duplicate Enter/click submits while the parent pending prop is still one render behind',
     );
     assert.match(source, /disabled=\{quickChatBusy\}/);
@@ -258,7 +264,7 @@ describe('OnboardingHero Quick Chat draft lifecycle', () => {
 
   it('clears first-run drag highlight when files leave the window', async () => {
     const source = await readFile(new URL('../../../src/renderer/OnboardingHero.tsx', import.meta.url), 'utf8');
-    const readyBlock = source.match(/function ReadyEmptyHero[\s\S]*?return \(/)?.[0] ?? '';
+    const readyBlock = source.match(/function ReadyEmptyHero[\s\S]*?interface SetupHeroProps/)?.[0] ?? '';
 
     assert.match(readyBlock, /if \(!dragActive\) return;/);
     assert.match(readyBlock, /window\.addEventListener\('blur', clearDragActive\)/);
