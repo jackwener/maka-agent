@@ -3592,6 +3592,7 @@ function ChatModelSwitcher(props: {
 }) {
   const [pending, setPending] = useState(false);
   const pendingRef = useRef(false);
+  const modelSwitcherMountedRef = useRef(true);
   const pendingModelChangeRef = useRef<{ sessionId: string; token: number } | null>(null);
   const pendingModelChangeTokenRef = useRef(0);
   const currentModel = props.activeModel ?? props.activeSession.model;
@@ -3601,6 +3602,16 @@ function ChatModelSwitcher(props: {
   const title = pending
     ? '正在切换当前会话模型…'
     : props.disabledReason ?? '切换当前会话使用的模型。设置里的默认模型只影响新建会话；这里会更新当前会话。';
+
+  useEffect(() => {
+    modelSwitcherMountedRef.current = true;
+    return () => {
+      modelSwitcherMountedRef.current = false;
+      pendingModelChangeRef.current = null;
+      pendingModelChangeTokenRef.current += 1;
+      pendingRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (pendingModelChangeRef.current?.sessionId === props.activeSession.id) return;
@@ -3644,7 +3655,7 @@ function ChatModelSwitcher(props: {
             .then(() => props.onChange?.(next))
             .finally(() => {
               const owner = pendingModelChangeRef.current;
-              if (owner?.sessionId === sessionId && owner.token === token) {
+              if (modelSwitcherMountedRef.current && owner?.sessionId === sessionId && owner.token === token) {
                 pendingModelChangeRef.current = null;
                 pendingRef.current = false;
                 setPending(false);
