@@ -2275,12 +2275,25 @@ function ThemeSettingsPage(props: {
   onThemePaletteChange(palette: ThemePalette): void;
 }) {
   const toast = useToast();
+  const themePageMountedRef = useRef(false);
+  const themePersistTicketRef = useRef(0);
+
+  useEffect(() => {
+    themePageMountedRef.current = true;
+    return () => {
+      themePageMountedRef.current = false;
+      themePersistTicketRef.current += 1;
+    };
+  }, []);
 
   async function persistAppearance(patch: NonNullable<Parameters<typeof window.maka.settings.update>[0]['appearance']>) {
+    const ticket = ++themePersistTicketRef.current;
     try {
       await props.onUpdate({ appearance: patch });
     } catch (error) {
-      toast.error('保存外观设置失败', settingsActionErrorMessage(error));
+      if (themePageMountedRef.current && ticket === themePersistTicketRef.current) {
+        toast.error('保存外观设置失败', settingsActionErrorMessage(error));
+      }
     }
   }
 
@@ -5193,6 +5206,7 @@ function UsageSettingsPage(props: {
   const usagePendingSaveCountRef = useRef(0);
   const usageSaveTicketRef = useRef(0);
   const usageRefreshRunningRef = useRef(false);
+  const usagePageMountedRef = useRef(false);
   const stats = props.stats;
   const toast = useToast();
 
@@ -5207,6 +5221,15 @@ function UsageSettingsPage(props: {
       commitUsageDraft(persistedUsage);
     }
   }, [persistedUsage]);
+
+  useEffect(() => {
+    usagePageMountedRef.current = true;
+    return () => {
+      usagePageMountedRef.current = false;
+      usageSaveTicketRef.current += 1;
+      usageRefreshRunningRef.current = false;
+    };
+  }, []);
 
   const normalizedModelFilter = usageDraft.modelFilter.trim().toLowerCase();
   const hasRequestFilters = usageDraft.status !== 'all' || normalizedModelFilter.length > 0;
@@ -5224,7 +5247,7 @@ function UsageSettingsPage(props: {
 
   async function setRange(range: UsageRange) {
     const saved = await updateUsage({ range });
-    if (!saved) return;
+    if (!saved || !usagePageMountedRef.current) return;
     await props.onReload(range);
   }
 
@@ -5236,15 +5259,15 @@ function UsageSettingsPage(props: {
     commitUsageDraft(nextDraft);
     try {
       const result = await props.onUpdate({ usage: patch });
-      if (ticket === usageSaveTicketRef.current) {
+      if (usagePageMountedRef.current && ticket === usageSaveTicketRef.current) {
         commitUsageDraft(result.settings.usage);
       }
-      return true;
+      return usagePageMountedRef.current && ticket === usageSaveTicketRef.current;
     } catch (error) {
-      if (ticket === usageSaveTicketRef.current) {
+      if (usagePageMountedRef.current && ticket === usageSaveTicketRef.current) {
         commitUsageDraft(persistedUsageRef.current);
+        toast.error('保存使用统计设置失败', settingsActionErrorMessage(error));
       }
-      toast.error('保存使用统计设置失败', settingsActionErrorMessage(error));
       return false;
     } finally {
       usagePendingSaveCountRef.current = Math.max(0, usagePendingSaveCountRef.current - 1);
@@ -5259,7 +5282,9 @@ function UsageSettingsPage(props: {
       await props.onReload(usageDraftRef.current.range);
     } finally {
       usageRefreshRunningRef.current = false;
-      setRefreshing(false);
+      if (usagePageMountedRef.current) {
+        setRefreshing(false);
+      }
     }
   }
 
@@ -5652,9 +5677,18 @@ function CapabilityRow(props: { capability: CapabilitySnapshot }) {
   const toast = useToast();
   const [copyingOfficeCliInstall, setCopyingOfficeCliInstall] = useState(false);
   const copyingOfficeCliInstallRef = useRef(false);
+  const capabilityRowMountedRef = useRef(false);
   const readinessCopy = CAPABILITY_READINESS_COPY[capability.readiness];
   const showOfficeCliInstallActions =
     capability.id === 'office_documents' && capability.runtimeProbe.state !== 'healthy';
+
+  useEffect(() => {
+    capabilityRowMountedRef.current = true;
+    return () => {
+      capabilityRowMountedRef.current = false;
+      copyingOfficeCliInstallRef.current = false;
+    };
+  }, []);
 
   async function copyOfficeCliInstallCommand() {
     if (copyingOfficeCliInstallRef.current) return;
@@ -5662,12 +5696,18 @@ function CapabilityRow(props: { capability: CapabilitySnapshot }) {
     setCopyingOfficeCliInstall(true);
     try {
       await navigator.clipboard.writeText(OFFICECLI_INSTALL_COMMAND);
-      toast.success('已复制安装命令', '在终端执行后点击刷新重新探测。');
+      if (capabilityRowMountedRef.current) {
+        toast.success('已复制安装命令', '在终端执行后点击刷新重新探测。');
+      }
     } catch {
-      toast.error('复制失败', '剪贴板不可用或被系统拒绝。');
+      if (capabilityRowMountedRef.current) {
+        toast.error('复制失败', '剪贴板不可用或被系统拒绝。');
+      }
     } finally {
       copyingOfficeCliInstallRef.current = false;
-      setCopyingOfficeCliInstall(false);
+      if (capabilityRowMountedRef.current) {
+        setCopyingOfficeCliInstall(false);
+      }
     }
   }
 

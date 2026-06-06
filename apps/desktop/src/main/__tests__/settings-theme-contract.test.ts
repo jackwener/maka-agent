@@ -24,8 +24,8 @@ describe('Settings theme page contract', () => {
     );
     assert.match(
       themePage![0],
-      /try \{[\s\S]*await props\.onUpdate\(\{ appearance: patch \}\)[\s\S]*catch \(error\) \{[\s\S]*toast\.error\('保存外观设置失败', settingsActionErrorMessage\(error\)\)/,
-      'Appearance persistence failures must show a user-visible toast',
+      /const ticket = \+\+themePersistTicketRef\.current;[\s\S]*try \{[\s\S]*await props\.onUpdate\(\{ appearance: patch \}\)[\s\S]*catch \(error\) \{[\s\S]*if \(themePageMountedRef\.current && ticket === themePersistTicketRef\.current\) \{[\s\S]*toast\.error\('保存外观设置失败', settingsActionErrorMessage\(error\)\)/,
+      'Appearance persistence failures must show a user-visible toast only for the latest mounted request',
     );
     assert.match(
       themePage![0],
@@ -46,6 +46,27 @@ describe('Settings theme page contract', () => {
       themePage![0],
       /await props\.onUpdate\(\{ appearance: \{ (theme|density|palette): next \} \}\)/,
       'Appearance controls must not call raw settings update without the fail-soft helper',
+    );
+  });
+
+  it('drops stale or late theme persistence errors after newer choices or unmount', async () => {
+    const src = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
+    const themePage = src.match(/function ThemeSettingsPage\([\s\S]*?function WebSearchSettingsPage/)?.[0] ?? '';
+
+    assert.match(
+      themePage,
+      /const themePageMountedRef = useRef\(false\);[\s\S]*const themePersistTicketRef = useRef\(0\);/,
+      'Theme page must track mounted state and the newest persistence request',
+    );
+    assert.match(
+      themePage,
+      /useEffect\(\(\) => \{[\s\S]*themePageMountedRef\.current = true;[\s\S]*return \(\) => \{[\s\S]*themePageMountedRef\.current = false;[\s\S]*themePersistTicketRef\.current \+= 1;/,
+      'Theme page cleanup must invalidate in-flight appearance persistence requests',
+    );
+    assert.match(
+      themePage,
+      /const ticket = \+\+themePersistTicketRef\.current;[\s\S]*catch \(error\) \{[\s\S]*if \(themePageMountedRef\.current && ticket === themePersistTicketRef\.current\) \{[\s\S]*toast\.error\('保存外观设置失败', settingsActionErrorMessage\(error\)\);/,
+      'Only the latest mounted theme persistence failure may show a toast',
     );
   });
 
