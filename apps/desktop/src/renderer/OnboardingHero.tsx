@@ -449,9 +449,11 @@ function ReadyEmptyHero(props: {
   const [draft, setDraft] = useState('');
   const [draftMode, setDraftMode] = useState<QuickChatMode | undefined>();
   const [dragActive, setDragActive] = useState(false);
+  const [submitPending, setSubmitPending] = useState(false);
   const [pendingImportAction, setPendingImportAction] = useState<string | null>(null);
   const [pendingSuggestionAction, setPendingSuggestionAction] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const submitPendingRef = useRef(false);
   const pendingImportActionRef = useRef<string | null>(null);
   const pendingSuggestionActionRef = useRef<string | null>(null);
   const copy = READY_HERO_COPY_BY_LOCALE[detectUiLocale()];
@@ -466,17 +468,25 @@ function ReadyEmptyHero(props: {
   const hiddenSuggestions = FIRST_RUN_TASK_SUGGESTIONS.filter(
     (suggestion) => hiddenSuggestionIds.has(FIRST_RUN_TASK_SUGGESTION_MILESTONES[suggestion.id]),
   );
+  const quickChatBusy = props.quickChatPending || submitPending;
   const suggestionActionBusy = pendingSuggestionAction !== null;
 
   const submit = useCallback(async () => {
-    if (props.quickChatPending) return;
+    if (props.quickChatPending || submitPendingRef.current) return;
+    submitPendingRef.current = true;
+    setSubmitPending(true);
     // PR110b contract: empty prompt is OK — main creates the session
     // without sending. Caller (main.tsx) decides whether to focus the
     // composer afterward.
-    const submitted = await props.onQuickChatSubmit(draft, draftMode);
-    if (!submitted) return;
-    setDraft('');
-    setDraftMode(undefined);
+    try {
+      const submitted = await props.onQuickChatSubmit(draft, draftMode);
+      if (!submitted) return;
+      setDraft('');
+      setDraftMode(undefined);
+    } finally {
+      submitPendingRef.current = false;
+      setSubmitPending(false);
+    }
   }, [draft, draftMode, props]);
 
   const handleKey = useCallback(
@@ -497,7 +507,7 @@ function ReadyEmptyHero(props: {
   );
 
   const prefillSuggestion = useCallback((prompt: string, mode?: QuickChatMode) => {
-    if (props.quickChatPending || suggestionActionBusy) return;
+    if (quickChatBusy || suggestionActionBusy) return;
     const nextDraft = appendPromptContextDraft(draft, prompt);
     setDraft(nextDraft);
     setDraftMode(mode);
@@ -507,10 +517,10 @@ function ReadyEmptyHero(props: {
       input.focus();
       input.setSelectionRange(nextDraft.length, nextDraft.length);
     });
-  }, [draft, props.quickChatPending, suggestionActionBusy]);
+  }, [draft, quickChatBusy, suggestionActionBusy]);
 
   const runSuggestionAction = useCallback(async (actionKey: string, action?: () => Promise<void> | void) => {
-    if (!action || props.quickChatPending || pendingSuggestionActionRef.current !== null) return;
+    if (!action || quickChatBusy || pendingSuggestionActionRef.current !== null) return;
     pendingSuggestionActionRef.current = actionKey;
     setPendingSuggestionAction(actionKey);
     try {
@@ -521,7 +531,7 @@ function ReadyEmptyHero(props: {
         setPendingSuggestionAction(null);
       }
     }
-  }, [props.quickChatPending]);
+  }, [quickChatBusy]);
 
   const appendImportedPrompt = useCallback((prompt: string) => {
     let nextDraft = prompt;
@@ -542,7 +552,7 @@ function ReadyEmptyHero(props: {
     actionKey: string,
     action: () => Promise<string | undefined>,
   ) => {
-    if (pendingImportActionRef.current !== null || props.quickChatPending) return;
+    if (pendingImportActionRef.current !== null || quickChatBusy) return;
     pendingImportActionRef.current = actionKey;
     setPendingImportAction(actionKey);
     try {
@@ -554,23 +564,23 @@ function ReadyEmptyHero(props: {
         setPendingImportAction(null);
       }
     }
-  }, [appendImportedPrompt, props.quickChatPending]);
+  }, [appendImportedPrompt, quickChatBusy]);
 
   const importTextFile = useCallback(async () => {
-    if (!props.onImportTextFile || props.quickChatPending) return;
+    if (!props.onImportTextFile || quickChatBusy) return;
     await runImportAction('file', props.onImportTextFile);
-  }, [props.onImportTextFile, props.quickChatPending, runImportAction]);
+  }, [props.onImportTextFile, quickChatBusy, runImportAction]);
 
   const importFolderOutline = useCallback(async () => {
-    if (!props.onImportFolderOutline || props.quickChatPending) return;
+    if (!props.onImportFolderOutline || quickChatBusy) return;
     await runImportAction('folder', props.onImportFolderOutline);
-  }, [props.onImportFolderOutline, props.quickChatPending, runImportAction]);
+  }, [props.onImportFolderOutline, quickChatBusy, runImportAction]);
 
   const importActionBusy = pendingImportAction !== null;
 
   const canAcceptDroppedTextFiles = useCallback(() => (
-    Boolean(props.onImportDroppedTextFiles && !props.quickChatPending && !importActionBusy)
-  ), [importActionBusy, props.onImportDroppedTextFiles, props.quickChatPending]);
+    Boolean(props.onImportDroppedTextFiles && !quickChatBusy && !importActionBusy)
+  ), [importActionBusy, props.onImportDroppedTextFiles, quickChatBusy]);
 
   const hasDraggedFiles = useCallback((event: DragEvent<HTMLElement>) => (
     Array.from(event.dataTransfer.types).includes('Files')
@@ -651,7 +661,7 @@ function ReadyEmptyHero(props: {
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={handleKey}
           onPaste={handlePaste}
-          disabled={props.quickChatPending}
+          disabled={quickChatBusy}
           aria-label={copy.quickChatAria}
         />
         {dragActive && (
@@ -671,7 +681,7 @@ function ReadyEmptyHero(props: {
               type="button"
               className="maka-button maka-button-ghost"
               onClick={() => void importTextFile()}
-              disabled={props.quickChatPending || importActionBusy}
+              disabled={quickChatBusy || importActionBusy}
               data-pending={pendingImportAction === 'file' ? 'true' : undefined}
               aria-busy={pendingImportAction === 'file' ? 'true' : undefined}
             >
@@ -684,7 +694,7 @@ function ReadyEmptyHero(props: {
               type="button"
               className="maka-button maka-button-ghost"
               onClick={() => void importFolderOutline()}
-              disabled={props.quickChatPending || importActionBusy}
+              disabled={quickChatBusy || importActionBusy}
               data-pending={pendingImportAction === 'folder' ? 'true' : undefined}
               aria-busy={pendingImportAction === 'folder' ? 'true' : undefined}
             >
@@ -697,9 +707,10 @@ function ReadyEmptyHero(props: {
             className="maka-button"
             data-variant="primary"
             onClick={submit}
-            disabled={props.quickChatPending}
+            disabled={quickChatBusy}
+            aria-busy={quickChatBusy ? 'true' : undefined}
           >
-            {props.quickChatPending ? copy.submitPendingLabel : copy.submitIdleLabel}
+            {quickChatBusy ? copy.submitPendingLabel : copy.submitIdleLabel}
           </button>
         </div>
       </div>
@@ -716,7 +727,7 @@ function ReadyEmptyHero(props: {
                   'restore',
                   () => props.onRestoreTaskSuggestions?.(hiddenSuggestions.map((item) => item.id)),
                 )}
-                disabled={props.quickChatPending || suggestionActionBusy || !props.onRestoreTaskSuggestions}
+                disabled={quickChatBusy || suggestionActionBusy || !props.onRestoreTaskSuggestions}
                 aria-busy={pendingSuggestionAction === 'restore' ? 'true' : undefined}
               >
                 <RotateCcw size={12} strokeWidth={1.75} aria-hidden="true" />
@@ -732,7 +743,7 @@ function ReadyEmptyHero(props: {
                     type="button"
                     className="maka-first-run-task-suggestion"
                     onClick={() => prefillSuggestion(suggestion.prompt, suggestion.mode)}
-                    disabled={props.quickChatPending || suggestionActionBusy}
+                    disabled={quickChatBusy || suggestionActionBusy}
                   >
                     {suggestion.label}
                   </button>
@@ -744,7 +755,7 @@ function ReadyEmptyHero(props: {
                         `dismiss:${suggestion.id}`,
                         () => props.onDismissTaskSuggestion?.(suggestion.id),
                       )}
-                      disabled={props.quickChatPending || suggestionActionBusy}
+                      disabled={quickChatBusy || suggestionActionBusy}
                       aria-busy={pendingSuggestionAction === `dismiss:${suggestion.id}` ? 'true' : undefined}
                       aria-label={`隐藏任务建议：${suggestion.label}`}
                       title="隐藏"
