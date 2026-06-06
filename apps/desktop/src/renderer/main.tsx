@@ -202,6 +202,11 @@ function App() {
   );
 }
 
+type ComposerImportOwner = {
+  sessionId: string | undefined;
+  navSection: NavSelection['section'];
+};
+
 function AppShell() {
   const toastApi = useToast();
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
@@ -800,6 +805,19 @@ function AppShell() {
 
   function isDailyReviewSurfaceActive(): boolean {
     return navSelectionRef.current.section === 'daily-review';
+  }
+
+  function captureComposerImportOwner(): ComposerImportOwner {
+    return {
+      sessionId: activeIdRef.current,
+      navSection: navSelectionRef.current.section,
+    };
+  }
+
+  function isComposerImportOwnerActive(owner: ComposerImportOwner): boolean {
+    return owner.navSection === 'sessions'
+      && navSelectionRef.current.section === 'sessions'
+      && activeIdRef.current === owner.sessionId;
   }
 
   useEffect(() => {
@@ -1723,19 +1741,22 @@ function AppShell() {
     }
   }
 
-  async function importTextFilePrompt(): Promise<string | undefined> {
+  async function importTextFilePrompt(options: { shouldShowFeedback?: () => boolean } = {}): Promise<string | undefined> {
+    const shouldShowFeedback = options.shouldShowFeedback ?? (() => true);
     const result = await window.maka.context.importTextFile();
     if (!result.ok) {
-      if (result.reason !== 'cancelled') toastApi.error('导入文件失败', result.message);
+      if (result.reason !== 'cancelled' && shouldShowFeedback()) toastApi.error('导入文件失败', result.message);
       return undefined;
     }
-    toastApi.success('已导入文件内容', `${result.name}${result.truncated ? ' · 已截断' : ''}`);
+    if (shouldShowFeedback()) toastApi.success('已导入文件内容', `${result.name}${result.truncated ? ' · 已截断' : ''}`);
     return result.prompt;
   }
 
   async function importTextFileIntoComposer() {
-    const prompt = await importTextFilePrompt();
+    const owner = captureComposerImportOwner();
+    const prompt = await importTextFilePrompt({ shouldShowFeedback: () => isComposerImportOwnerActive(owner) });
     if (!prompt) return;
+    if (!isComposerImportOwnerActive(owner)) return;
     composerRef.current?.appendText(prompt);
   }
 
@@ -1763,13 +1784,14 @@ function AppShell() {
     })));
   }
 
-  async function importDroppedTextFilesPrompt(files: File[]): Promise<string | undefined> {
+  async function importDroppedTextFilesPrompt(files: File[], options: { shouldShowFeedback?: () => boolean } = {}): Promise<string | undefined> {
+    const shouldShowFeedback = options.shouldShowFeedback ?? (() => true);
     if (files.length === 0) return;
     try {
       const preflightInputs = await buildDroppedTextFilePreflightInputs(files);
       const preflight = preflightDroppedTextFilesForPromptImport(preflightInputs);
       if (!preflight.ok) {
-        toastApi.error('导入文件失败', droppedTextFilePreflightFailureCopy(preflight.reason));
+        if (shouldShowFeedback()) toastApi.error('导入文件失败', droppedTextFilePreflightFailureCopy(preflight.reason));
         return undefined;
       }
       const payloads = await Promise.all(files.map(async (file) => ({
@@ -1780,36 +1802,41 @@ function AppShell() {
       })));
       const result = await window.maka.context.importDroppedTextFiles(payloads);
       if (!result.ok) {
-        toastApi.error('导入文件失败', result.message);
+        if (shouldShowFeedback()) toastApi.error('导入文件失败', result.message);
         return undefined;
       }
-      toastApi.success('已导入文件内容', `${result.name}${result.truncated ? ' · 已截断' : ''}`);
+      if (shouldShowFeedback()) toastApi.success('已导入文件内容', `${result.name}${result.truncated ? ' · 已截断' : ''}`);
       return result.prompt;
     } catch (error) {
-      toastApi.error('导入文件失败', cleanErrorMessage(error));
+      if (shouldShowFeedback()) toastApi.error('导入文件失败', cleanErrorMessage(error));
       return undefined;
     }
   }
 
   async function importDroppedTextFilesIntoComposer(files: File[]) {
-    const prompt = await importDroppedTextFilesPrompt(files);
+    const owner = captureComposerImportOwner();
+    const prompt = await importDroppedTextFilesPrompt(files, { shouldShowFeedback: () => isComposerImportOwnerActive(owner) });
     if (!prompt) return;
+    if (!isComposerImportOwnerActive(owner)) return;
     composerRef.current?.appendText(prompt);
   }
 
-  async function importFolderOutlinePrompt(): Promise<string | undefined> {
+  async function importFolderOutlinePrompt(options: { shouldShowFeedback?: () => boolean } = {}): Promise<string | undefined> {
+    const shouldShowFeedback = options.shouldShowFeedback ?? (() => true);
     const result = await window.maka.context.importFolderOutline();
     if (!result.ok) {
-      if (result.reason !== 'cancelled') toastApi.error('导入目录失败', result.message);
+      if (result.reason !== 'cancelled' && shouldShowFeedback()) toastApi.error('导入目录失败', result.message);
       return undefined;
     }
-    toastApi.success('已导入文件夹目录', `${result.name} · ${result.entries} 项${result.truncated ? ' · 已截断' : ''}`);
+    if (shouldShowFeedback()) toastApi.success('已导入文件夹目录', `${result.name} · ${result.entries} 项${result.truncated ? ' · 已截断' : ''}`);
     return result.prompt;
   }
 
   async function importFolderOutlineIntoComposer() {
-    const prompt = await importFolderOutlinePrompt();
+    const owner = captureComposerImportOwner();
+    const prompt = await importFolderOutlinePrompt({ shouldShowFeedback: () => isComposerImportOwnerActive(owner) });
     if (!prompt) return;
+    if (!isComposerImportOwnerActive(owner)) return;
     composerRef.current?.appendText(prompt);
   }
 
