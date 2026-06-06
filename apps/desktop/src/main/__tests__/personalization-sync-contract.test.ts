@@ -108,6 +108,11 @@ describe('Personalization form state sync (PR-PERSONALIZATION-SYNC-0)', () => {
     );
     assert.match(
       page,
+      /const result = await props\.onUpdate\([\s\S]*?\);[\s\S]*if \(!personalizationMountedRef\.current\) return;[\s\S]*applyUiLocale\(uiLocale\);/,
+      'Personalization save must not apply a stale UI locale after Settings is closed',
+    );
+    assert.match(
+      page,
       /if \(warnings\) \{[\s\S]*if \(personalizationMountedRef\.current\) \{[\s\S]*toast\.warning\('已保存并做安全清理'/,
       'Personalization warning toast must only fire while the page is still mounted',
     );
