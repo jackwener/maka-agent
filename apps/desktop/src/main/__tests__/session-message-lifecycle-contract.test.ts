@@ -21,6 +21,7 @@ describe('active session message lifecycle contract', () => {
     const activeSessionEffect = src.match(/useEffect\(\(\) => \{\s*if \(!activeId\) return;[\s\S]*?readMessages\(activeId\)[\s\S]*?\}, \[activeId\]\);/)?.[0] ?? '';
     const activeReadCatch = activeSessionEffect.match(/readMessages\(activeId\)[\s\S]*?\.catch\(\(error\) => \{[\s\S]*?\n      \}\);/)?.[0] ?? '';
     const refreshMessages = src.match(/async function refreshMessages\(sessionId: string\) \{[\s\S]*?\n  \}/)?.[0] ?? '';
+    const retryMessages = src.match(/async function retryMessages\(sessionId: string\) \{[\s\S]*?\n  \}/)?.[0] ?? '';
 
     assert.match(
       activeSessionEffect,
@@ -59,12 +60,37 @@ describe('active session message lifecycle contract', () => {
     );
     assert.match(
       src,
-      /messageLoadError=\{activeId \? messageLoadErrorBySession\[activeId\] : undefined\}[\s\S]*onRetryMessages=\{activeId \? \(\) => void refreshMessages\(activeId\) : undefined\}/,
-      'desktop shell must pass the active session load error and retry action to ChatView',
+      /const \[messageRetryPendingBySession, setMessageRetryPendingBySession\] = useState<Record<string, boolean>>\(\{\}\);[\s\S]*const messageRetryPendingRef = useRef<Set<string>>\(new Set\(\)\)/,
+      'desktop shell must track message retry pending state outside React render timing',
+    );
+    assert.match(
+      src,
+      /function addPendingMessageRetry\(sessionId: string\): boolean \{[\s\S]*messageRetryPendingRef\.current\.has\(sessionId\)[\s\S]*messageRetryPendingRef\.current\.add\(sessionId\)[\s\S]*setMessageRetryPendingBySession/,
+      'manual message-load retry must use a ref-backed same-frame duplicate guard',
+    );
+    assert.match(
+      retryMessages,
+      /if \(!addPendingMessageRetry\(sessionId\)\) return;[\s\S]*await refreshMessages\(sessionId\);[\s\S]*finally \{[\s\S]*clearPendingMessageRetry\(sessionId\)/,
+      'manual retry must clear its pending state even when refreshMessages fails',
+    );
+    assert.match(
+      src,
+      /messageLoadError=\{activeId \? messageLoadErrorBySession\[activeId\] : undefined\}[\s\S]*messageLoadRetryPending=\{activeId \? messageRetryPendingBySession\[activeId\] === true : false\}[\s\S]*onRetryMessages=\{activeId \? \(\) => void retryMessages\(activeId\) : undefined\}/,
+      'desktop shell must pass the active session load error, pending state, and guarded retry action to ChatView',
+    );
+    assert.doesNotMatch(
+      src,
+      /onRetryMessages=\{activeId \? \(\) => void refreshMessages\(activeId\) : undefined\}/,
+      'manual retry must not call refreshMessages directly because that allows duplicate read IPCs',
     );
     assert.match(
       ui,
-      /props\.messageLoadError \? \([\s\S]*role="alert"[\s\S]*title="对话载入失败"[\s\S]*body=\{props\.messageLoadError\}[\s\S]*label: '重试载入'/,
+      /messageLoadRetryPending\?: boolean/,
+      'ChatView must accept explicit message-load retry pending state',
+    );
+    assert.match(
+      ui,
+      /props\.messageLoadError \? \([\s\S]*role="alert" aria-busy=\{props\.messageLoadRetryPending \? 'true' : undefined\}[\s\S]*title="对话载入失败"[\s\S]*body=\{props\.messageLoadError\}[\s\S]*label: props\.messageLoadRetryPending \? '载入中…' : '重试载入'[\s\S]*disabled: props\.messageLoadRetryPending/,
       'ChatView must render an explicit load-error state instead of the normal empty chat hero',
     );
   });

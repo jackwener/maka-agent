@@ -210,6 +210,8 @@ function AppShell() {
   const [navSelection, setNavSelection] = useState<NavSelection>(() => readNavSelection());
   const [messages, setMessages] = useState<StoredMessage[]>([]);
   const [messageLoadErrorBySession, setMessageLoadErrorBySession] = useState<Record<string, string>>({});
+  const [messageRetryPendingBySession, setMessageRetryPendingBySession] = useState<Record<string, boolean>>({});
+  const messageRetryPendingRef = useRef<Set<string>>(new Set());
   // PR-UI-Cx fixup v2 (@kenji msg 3c01e901 Blocker 2): combined
   // per-session assistant streaming state. The `text` + `truncated`
   // pair lives in a SINGLE useState so the `text_delta` handler can
@@ -477,6 +479,22 @@ function AppShell() {
     for (const key of Array.from(pendingTurnActionsRef.current)) {
       if (key.startsWith(prefix)) clearPendingTurnAction(key);
     }
+  }
+  function addPendingMessageRetry(sessionId: string): boolean {
+    if (messageRetryPendingRef.current.has(sessionId)) return false;
+    messageRetryPendingRef.current.add(sessionId);
+    setMessageRetryPendingBySession((current) => ({ ...current, [sessionId]: true }));
+    return true;
+  }
+  function clearPendingMessageRetry(sessionId: string): void {
+    if (!messageRetryPendingRef.current.has(sessionId)) return;
+    messageRetryPendingRef.current.delete(sessionId);
+    setMessageRetryPendingBySession((current) => {
+      if (!current[sessionId]) return current;
+      const next = { ...current };
+      delete next[sessionId];
+      return next;
+    });
   }
 
   // PR109e: per-turn auxiliary view-model. Combines:
@@ -773,32 +791,34 @@ function AppShell() {
         const modelSuffix = event.modelId ? ` · ${event.modelId}` : '';
         toastApi.info('已切换到默认模型', `原会话使用的连接已不可用${modelSuffix}`);
       }
-      if (event.reason === 'deleted' && event.sessionId === activeIdRef.current) {
+      if (event.reason === 'deleted' && event.sessionId && event.sessionId === activeIdRef.current) {
+        const deletedSessionId = event.sessionId;
         setActiveId(undefined);
         setMessages([]);
+        clearPendingMessageRetry(deletedSessionId);
         setMessageLoadErrorBySession((current) => {
           const next = { ...current };
-          delete next[event.sessionId!];
+          delete next[deletedSessionId];
           return next;
         });
         setStreamingBySession((current) => {
           const next = { ...current };
-          delete next[event.sessionId!];
+          delete next[deletedSessionId];
           return next;
         });
         setLiveToolsBySession((current) => {
           const next = { ...current };
-          delete next[event.sessionId!];
+          delete next[deletedSessionId];
           return next;
         });
         setPermissionBySession((current) => {
           const next = { ...current };
-          delete next[event.sessionId!];
+          delete next[deletedSessionId];
           return next;
         });
         setSessionEventHealthBySession((current) => {
           const next = { ...current };
-          delete next[event.sessionId!];
+          delete next[deletedSessionId];
           return next;
         });
       }
@@ -1238,6 +1258,7 @@ function AppShell() {
       if (activeIdRef.current === sessionId) {
         setActiveId(undefined);
         setMessages([]);
+        clearPendingMessageRetry(sessionId);
         setMessageLoadErrorBySession((current) => {
           const next = { ...current };
           delete next[sessionId];
@@ -1320,6 +1341,7 @@ function AppShell() {
       if (activeIdRef.current === sessionId) {
         setActiveId(undefined);
         setMessages([]);
+        clearPendingMessageRetry(sessionId);
       }
       setMessageLoadErrorBySession((current) => {
         const next = { ...current };
@@ -1740,6 +1762,14 @@ function AppShell() {
         setMessageLoadErrorBySession((current) => ({ ...current, [sessionId]: message }));
         toastApi.error('刷新对话失败', message);
       }
+    }
+  }
+  async function retryMessages(sessionId: string) {
+    if (!addPendingMessageRetry(sessionId)) return;
+    try {
+      await refreshMessages(sessionId);
+    } finally {
+      clearPendingMessageRetry(sessionId);
     }
   }
 
@@ -2488,7 +2518,8 @@ function AppShell() {
                 connectionAlert={chatConnectionAlert}
                 eventStreamAlert={chatEventStreamAlert}
                 messageLoadError={activeId ? messageLoadErrorBySession[activeId] : undefined}
-                onRetryMessages={activeId ? () => void refreshMessages(activeId) : undefined}
+                messageLoadRetryPending={activeId ? messageRetryPendingBySession[activeId] === true : false}
+                onRetryMessages={activeId ? () => void retryMessages(activeId) : undefined}
                 sessionStatusBadge={chatSessionStatusBadge}
                 turnFooterActionsByTurn={turnFooterActionsByTurn}
                 onTurnFooterAction={handleTurnFooterAction}

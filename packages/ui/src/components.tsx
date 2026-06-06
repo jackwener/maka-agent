@@ -3020,6 +3020,7 @@ export function ChatView(props: {
   eventStreamAlert?: ChatHeaderAlert;
   /** Error from loading the active session's persisted message log. */
   messageLoadError?: string;
+  messageLoadRetryPending?: boolean;
   onRetryMessages?(): void;
   /**
    * Lifecycle status badge for the active session (PR109b, design-system
@@ -3380,12 +3381,16 @@ export function ChatView(props: {
         <div ref={scrollRef} className="maka-chat messages" onScroll={onScroll}>
           {chat.length === 0 && !props.streamingText && (
             props.messageLoadError ? (
-              <div role="alert">
+              <div role="alert" aria-busy={props.messageLoadRetryPending ? 'true' : undefined}>
                 <EmptyState
                   Icon={AlertTriangle}
                   title="对话载入失败"
                   body={props.messageLoadError}
-                  cta={props.onRetryMessages ? { label: '重试载入', onClick: props.onRetryMessages } : undefined}
+                  cta={props.onRetryMessages ? {
+                    label: props.messageLoadRetryPending ? '载入中…' : '重试载入',
+                    onClick: props.onRetryMessages,
+                    disabled: props.messageLoadRetryPending,
+                  } : undefined}
                 />
               </div>
             ) : props.emptyOverride ?? (
