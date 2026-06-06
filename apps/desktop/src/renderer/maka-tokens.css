@@ -1282,10 +1282,19 @@
     color: var(--foreground-60);
     cursor: pointer;
     opacity: 0;
+    /* PR-CHAT-COPY-BUTTON-POLISH-0 (WAWQAQ 10min loop): the copy
+       button used to fade in on hover but never moved — felt like
+       a label flickering on. Add a tiny entrance translate (4px
+       down → 0) + scale (0.94 → 1) on the rest state so the reveal
+       on hover reads as "this just slid in from above" rather than
+       a fade-only flash. transform stays GPU-accelerated; transition
+       list keeps both axes coherent. */
+    transform: translateY(-4px) scale(0.94);
     transition:
-      opacity 140ms ease,
-      transform 140ms var(--ease-out-strong),
-      color 120ms ease;
+      opacity 160ms ease,
+      transform 180ms var(--ease-out-strong),
+      color 120ms ease,
+      background 120ms ease;
   }
 
   /* Labelled variant (e.g. "复制思考过程") — flows inline, doesn't absolute-
@@ -1307,6 +1316,11 @@
   .maka-bubble-with-actions:focus-within .maka-message-copy,
   .maka-message-copy:focus-visible {
     opacity: 1;
+    /* Settle into the resting position when the parent bubble is
+       hovered or anything inside it gains focus. The entrance
+       translate / scale defined on .maka-message-copy resolves
+       here. */
+    transform: translateY(0) scale(1);
   }
   .maka-message-copy:hover {
     color: var(--foreground);
