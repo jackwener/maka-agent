@@ -3703,22 +3703,52 @@ function NetworkSettingsPage(props: {
   settings: AppSettings;
   onUpdate(patch: Parameters<typeof window.maka.settings.update>[0]): Promise<UpdateAppSettingsResult>;
 }) {
-  const proxy = props.settings.network.proxy;
+  const persistedProxy = props.settings.network.proxy;
+  const [proxyDraft, setProxyDraft] = useState<NetworkProxySettings>(persistedProxy);
   const [testing, setTesting] = useState(false);
+  const proxyDraftRef = useRef<NetworkProxySettings>(persistedProxy);
+  const persistedProxyRef = useRef<NetworkProxySettings>(persistedProxy);
+  const proxyPendingSaveCountRef = useRef(0);
+  const proxySaveTicketRef = useRef(0);
   const toast = useToast();
 
+  function commitProxyDraft(next: NetworkProxySettings) {
+    proxyDraftRef.current = next;
+    setProxyDraft(next);
+  }
+
+  useEffect(() => {
+    persistedProxyRef.current = persistedProxy;
+    if (proxyPendingSaveCountRef.current === 0) {
+      commitProxyDraft(persistedProxy);
+    }
+  }, [persistedProxy]);
+
   async function updateProxy(patch: Partial<NetworkProxySettings>) {
+    const nextDraft = { ...proxyDraftRef.current, ...patch };
+    const ticket = proxySaveTicketRef.current + 1;
+    proxySaveTicketRef.current = ticket;
+    proxyPendingSaveCountRef.current += 1;
+    commitProxyDraft(nextDraft);
     try {
-      await props.onUpdate({ network: { proxy: patch } });
+      const result = await props.onUpdate({ network: { proxy: patch } });
+      if (ticket === proxySaveTicketRef.current) {
+        commitProxyDraft(result.settings.network.proxy);
+      }
     } catch (error) {
+      if (ticket === proxySaveTicketRef.current) {
+        commitProxyDraft(persistedProxyRef.current);
+      }
       toast.error('保存网络设置失败', settingsActionErrorMessage(error));
+    } finally {
+      proxyPendingSaveCountRef.current = Math.max(0, proxyPendingSaveCountRef.current - 1);
     }
   }
 
   async function testProxy() {
     setTesting(true);
     try {
-      const result = await window.maka.settings.testNetworkProxy(toProxyTestInput(proxy));
+      const result = await window.maka.settings.testNetworkProxy(toProxyTestInput(proxyDraft));
       const latency = result.latencyMs !== undefined ? ` · ${result.latencyMs} ms` : '';
       if (result.ok) {
         toast.success('代理可达', `${result.message}${latency}`);
@@ -3741,18 +3771,18 @@ function NetworkSettingsPage(props: {
         </div>
         <Switch
           ariaLabel="启用代理服务器"
-          checked={proxy.enabled}
+          checked={proxyDraft.enabled}
           onChange={(enabled) => void updateProxy({ enabled })}
         />
       </div>
 
-      {proxy.enabled && (
+      {proxyDraft.enabled && (
         <>
           <div className="settingsFormGrid settingsFormGridProxy">
             <label>
               <span>代理协议</span>
               <select
-                value={proxy.protocol}
+                value={proxyDraft.protocol}
                 onChange={(event) => void updateProxy({ protocol: event.currentTarget.value as NetworkProxySettings['protocol'] })}
                 aria-label="代理协议"
               >
@@ -3763,11 +3793,11 @@ function NetworkSettingsPage(props: {
             </label>
             <label>
               <span>服务器地址</span>
-              <input value={proxy.host} onChange={(event) => void updateProxy({ host: event.currentTarget.value })} placeholder="127.0.0.1" aria-label="代理服务器地址" />
+              <input value={proxyDraft.host} onChange={(event) => void updateProxy({ host: event.currentTarget.value })} placeholder="127.0.0.1" aria-label="代理服务器地址" />
             </label>
             <label>
               <span>端口</span>
-              <input value={String(proxy.port || '')} onChange={(event) => void updateProxy({ port: Number(event.currentTarget.value) || 0 })} placeholder="7890" aria-label="代理端口" />
+              <input value={String(proxyDraft.port || '')} onChange={(event) => void updateProxy({ port: Number(event.currentTarget.value) || 0 })} placeholder="7890" aria-label="代理端口" />
             </label>
           </div>
 
@@ -3778,20 +3808,20 @@ function NetworkSettingsPage(props: {
             </div>
             <Switch
               ariaLabel="启用代理认证"
-              checked={proxy.authEnabled}
+              checked={proxyDraft.authEnabled}
               onChange={(authEnabled) => void updateProxy({ authEnabled })}
             />
           </div>
 
-          {proxy.authEnabled && (
+          {proxyDraft.authEnabled && (
             <div className="settingsFormGrid">
               <label>
                 <span>用户名</span>
-                <input value={proxy.username} onChange={(event) => void updateProxy({ username: event.currentTarget.value })} aria-label="代理用户名" />
+                <input value={proxyDraft.username} onChange={(event) => void updateProxy({ username: event.currentTarget.value })} aria-label="代理用户名" />
               </label>
               <label>
                 <span>密码</span>
-                <PasswordInput value={proxy.password} onChange={(next) => void updateProxy({ password: next })} ariaLabel="代理密码" />
+                <PasswordInput value={proxyDraft.password} onChange={(next) => void updateProxy({ password: next })} ariaLabel="代理密码" />
               </label>
             </div>
           )}
@@ -3799,7 +3829,7 @@ function NetworkSettingsPage(props: {
           <label className="settingsField">
             <span>代理白名单</span>
             <input
-              value={proxy.bypassList.join(', ')}
+              value={proxyDraft.bypassList.join(', ')}
               onChange={(event) => void updateProxy({ bypassList: csvList(event.currentTarget.value) })}
               placeholder="metaso.cn, baidu.com"
               aria-label="代理白名单"
@@ -3808,7 +3838,7 @@ function NetworkSettingsPage(props: {
           </label>
 
           <div className="settingsNotice">
-            已自动添加 {proxy.autoBypassDomains.length} 个域名（来自本地和模型供应商）。代理仅作用于 AI 模型请求，不影响应用自身网络。
+            已自动添加 {proxyDraft.autoBypassDomains.length} 个域名（来自本地和模型供应商）。代理仅作用于 AI 模型请求，不影响应用自身网络。
           </div>
 
           <div className="settingsActionRow">

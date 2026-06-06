@@ -22,8 +22,38 @@ describe('Settings network and gateway persistence contract', () => {
 
     assert.match(
       networkBlock,
-      /async function updateProxy\(patch: Partial<NetworkProxySettings>\) \{[\s\S]*try \{[\s\S]*await props\.onUpdate\(\{ network: \{ proxy: patch \} \}\)[\s\S]*catch \(error\) \{[\s\S]*toast\.error\('保存网络设置失败', settingsActionErrorMessage\(error\)\)/,
+      /const \[proxyDraft, setProxyDraft\] = useState<NetworkProxySettings>\(persistedProxy\)/,
+      'Network proxy text fields must use a local draft so typing does not wait for IPC persistence',
+    );
+    assert.match(
+      networkBlock,
+      /const proxyDraftRef = useRef<NetworkProxySettings>\(persistedProxy\)/,
+      'Network proxy draft updates must have a synchronous ref for rapid consecutive field changes',
+    );
+    assert.match(
+      networkBlock,
+      /function commitProxyDraft\(next: NetworkProxySettings\) \{[\s\S]*proxyDraftRef\.current = next;[\s\S]*setProxyDraft\(next\);[\s\S]*\}/,
+      'Network proxy local draft must update the rendered value immediately',
+    );
+    assert.match(
+      networkBlock,
+      /async function updateProxy\(patch: Partial<NetworkProxySettings>\) \{[\s\S]*const nextDraft = \{ \.\.\.proxyDraftRef\.current, \.\.\.patch \};[\s\S]*commitProxyDraft\(nextDraft\);[\s\S]*try \{[\s\S]*const result = await props\.onUpdate\(\{ network: \{ proxy: patch \} \}\)[\s\S]*commitProxyDraft\(result\.settings\.network\.proxy\)[\s\S]*catch \(error\) \{[\s\S]*commitProxyDraft\(persistedProxyRef\.current\)[\s\S]*toast\.error\('保存网络设置失败', settingsActionErrorMessage\(error\)\)/,
       'Network proxy settings updates must show a visible failure toast',
+    );
+    assert.match(
+      networkBlock,
+      /value=\{proxyDraft\.host\}[\s\S]*onChange=\{\(event\) => void updateProxy\(\{ host: event\.currentTarget\.value \}\)\}/,
+      'Network proxy host input must render from the local draft while persisting in the background',
+    );
+    assert.match(
+      networkBlock,
+      /value=\{String\(proxyDraft\.port \|\| ''\)\}[\s\S]*onChange=\{\(event\) => void updateProxy\(\{ port: Number\(event\.currentTarget\.value\) \|\| 0 \}\)\}/,
+      'Network proxy port input must render from the local draft while persisting in the background',
+    );
+    assert.match(
+      networkBlock,
+      /value=\{proxyDraft\.bypassList\.join\(', '\)\}[\s\S]*onChange=\{\(event\) => void updateProxy\(\{ bypassList: csvList\(event\.currentTarget\.value\) \}\)\}/,
+      'Network proxy bypass-list input must render from the local draft while persisting in the background',
     );
     assert.doesNotMatch(
       networkBlock,
