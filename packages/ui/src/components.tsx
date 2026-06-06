@@ -1236,6 +1236,7 @@ function PlanReminderPanel(props: {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [submitPending, setSubmitPending] = useState(false);
   const [pendingActionKeys, setPendingActionKeys] = useState<ReadonlySet<string>>(() => new Set());
+  const planReminderMountedRef = useRef(true);
   const pendingActionKeysRef = useRef<Set<string>>(new Set());
   const [listFilter, setListFilter] = useState<PlanReminderListFilter>('all');
   const [listQuery, setListQuery] = useState('');
@@ -1269,6 +1270,14 @@ function PlanReminderPanel(props: {
   const submitDisabled = !canCreate || submitPending;
   const formInteractionDisabled = submitPending;
   const isEditing = editingId !== null;
+
+  useEffect(() => {
+    planReminderMountedRef.current = true;
+    return () => {
+      planReminderMountedRef.current = false;
+      pendingActionKeysRef.current = new Set();
+    };
+  }, []);
 
   useEffect(() => {
     if (editingId && !props.reminders.some((reminder) => reminder.id === editingId)) resetForm();
@@ -1343,9 +1352,9 @@ function PlanReminderPanel(props: {
           ...input,
           ...(input.note ? { note: input.note } : {}),
         });
-      if (result !== false) resetForm();
+      if (result !== false && planReminderMountedRef.current) resetForm();
     } finally {
-      setSubmitPending(false);
+      if (planReminderMountedRef.current) setSubmitPending(false);
     }
   }
 
@@ -1364,7 +1373,7 @@ function PlanReminderPanel(props: {
       const pendingWithoutAction = new Set(pendingActionKeysRef.current);
       pendingWithoutAction.delete(actionKey);
       pendingActionKeysRef.current = pendingWithoutAction;
-      setPendingActionKeys(pendingWithoutAction);
+      if (planReminderMountedRef.current) setPendingActionKeys(pendingWithoutAction);
     }
   }
 
