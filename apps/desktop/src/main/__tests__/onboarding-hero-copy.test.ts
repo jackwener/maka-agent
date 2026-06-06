@@ -238,6 +238,24 @@ describe('OnboardingHero Quick Chat draft lifecycle', () => {
     );
   });
 
+  it('locally gates first-run quick chat submit before parent pending re-renders', async () => {
+    const source = await readFile(new URL('../../../src/renderer/OnboardingHero.tsx', import.meta.url), 'utf8');
+    const readyBlock = source.match(/function ReadyEmptyHero[\s\S]*?return \(/)?.[0] ?? '';
+    const submitBlock = readyBlock.match(/const submit = useCallback\(async \(\) => \{[\s\S]*?\n  \}, \[draft, draftMode, props\]\);/)?.[0] ?? '';
+
+    assert.match(readyBlock, /const \[submitPending, setSubmitPending\] = useState\(false\)/);
+    assert.match(readyBlock, /const submitPendingRef = useRef\(false\)/);
+    assert.match(readyBlock, /const quickChatBusy = props\.quickChatPending \|\| submitPending/);
+    assert.match(
+      submitBlock,
+      /if \(props\.quickChatPending \|\| submitPendingRef\.current\) return;[\s\S]*submitPendingRef\.current = true;[\s\S]*setSubmitPending\(true\);[\s\S]*await props\.onQuickChatSubmit\(draft, draftMode\)[\s\S]*submitPendingRef\.current = false;[\s\S]*setSubmitPending\(false\);/,
+      'ReadyEmptyHero must synchronously drop duplicate Enter/click submits while the parent pending prop is still one render behind',
+    );
+    assert.match(source, /disabled=\{quickChatBusy\}/);
+    assert.match(source, /aria-busy=\{quickChatBusy \? 'true' : undefined\}/);
+    assert.match(source, /quickChatBusy \? copy\.submitPendingLabel : copy\.submitIdleLabel/);
+  });
+
   it('clears first-run drag highlight when files leave the window', async () => {
     const source = await readFile(new URL('../../../src/renderer/OnboardingHero.tsx', import.meta.url), 'utf8');
     const readyBlock = source.match(/function ReadyEmptyHero[\s\S]*?return \(/)?.[0] ?? '';
