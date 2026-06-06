@@ -364,9 +364,15 @@ describe('text file context import', () => {
     assert.match(uiSource, /event\.clipboardData\.files/);
     assert.match(uiSource, /type ComposerImportActionId = 'file' \| 'folder' \| 'drop' \| 'paste';/);
     assert.match(uiSource, /const \[pendingImportAction, setPendingImportAction\] = useState<ComposerImportActionId \| null>\(null\);/);
+    assert.match(uiSource, /const composerMountedRef = useRef\(true\);/);
     assert.match(uiSource, /const pendingImportActionRef = useRef<ComposerImportActionId \| null>\(null\);/);
     assert.match(uiSource, /async function runImportAction\(actionId: ComposerImportActionId, action: \(\(\) => void \| Promise<void>\) \| undefined\) \{/);
     assert.match(uiSource, /if \(!action \|\| props\.disabled \|\| props\.streaming \|\| pendingImportActionRef\.current\) return;/);
+    assert.match(
+      uiSource,
+      /pendingImportActionRef\.current = null;[\s\S]*if \(composerMountedRef\.current\) setPendingImportAction\(null\);/,
+      'Composer import action cleanup must not write pending UI state after the composer unmounts',
+    );
     assert.match(uiSource, /return Boolean\(props\.onImportDroppedTextFiles && !props\.disabled && !props\.streaming && !pendingImportActionRef\.current\);/);
     assert.match(uiSource, /void runImportAction\('drop', \(\) => props\.onImportDroppedTextFiles\?\.\(files\)\);/);
     assert.match(uiSource, /void runImportAction\('paste', \(\) => props\.onImportDroppedTextFiles\?\.\(files\)\);/);

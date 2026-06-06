@@ -27,7 +27,7 @@ describe('composer send guard', () => {
     assert.match(sendCurrent, /sendPendingRef\.current/, 'composer must use a ref guard for same-tick duplicate submits');
     assert.match(sendCurrent, /if \(props\.disabled \|\| sendPendingRef\.current \|\| pendingImportActionRef\.current\) return;/);
     assert.match(sendCurrent, /sendPendingRef\.current = true;[\s\S]*setSendPending\(true\);/);
-    assert.match(sendCurrent, /finally \{[\s\S]*sendPendingRef\.current = false;[\s\S]*setSendPending\(false\);[\s\S]*\}/);
+    assert.match(sendCurrent, /finally \{[\s\S]*sendPendingRef\.current = false;[\s\S]*if \(composerMountedRef\.current\) setSendPending\(false\);[\s\S]*\}/);
     assert.match(toolbar, /sendPending \? \(\s*copy\.sending\s*\)/, 'toolbar must surface the transient sending state');
     assert.match(source, /const \[hasDraftText, setHasDraftText\] = useState\(false\);/);
     assert.match(
@@ -48,6 +48,24 @@ describe('composer send guard', () => {
       sendCurrent,
       /const submittedDraftKey = activeDraftKeyRef\.current;[\s\S]*sent = await props\.onSend\(text\);[\s\S]*if \(sent === false\) return;[\s\S]*rememberComposerDraft\(draftStoreRef\.current, submittedDraftKey, ''\);[\s\S]*saveCurrentDraft\(''\);/,
       'successful sends must clear both the original draft key and the current key after a new-session send changes draftKey',
+    );
+  });
+
+  it('drops late send cleanup and draft reset after the Composer unmounts', async () => {
+    const source = await readFile(join(process.cwd(), '../../packages/ui/src/components.tsx'), 'utf8');
+    const composerBlock = source.match(/export const Composer = forwardRef[\s\S]*?const STATUS_LABEL/)?.[0] ?? '';
+    const sendCurrent = source.match(/async function sendCurrent\(\) \{[\s\S]*?\n  \}/)?.[0] ?? '';
+
+    assert.match(composerBlock, /const composerMountedRef = useRef\(true\)/);
+    assert.match(
+      composerBlock,
+      /useEffect\(\(\) => \{\s*composerMountedRef\.current = true;[\s\S]*?return \(\) => \{\s*composerMountedRef\.current = false;\s*sendPendingRef\.current = false;\s*pendingImportActionRef\.current = null;\s*\};\s*\}, \[\]\)/,
+      'Composer must release send/import pending owners when it unmounts or StrictMode replays cleanup',
+    );
+    assert.match(
+      sendCurrent,
+      /sendPendingRef\.current = false;[\s\S]*if \(composerMountedRef\.current\) setSendPending\(false\);[\s\S]*if \(!composerMountedRef\.current\) return;[\s\S]*if \(sent === false\) return;/,
+      'late send completion after unmount must not clear UI state, mutate draft history, or reset the old form',
     );
   });
 

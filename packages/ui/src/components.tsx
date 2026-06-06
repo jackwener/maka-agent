@@ -5306,6 +5306,7 @@ export const Composer = forwardRef<
   const [hasDraftText, setHasDraftText] = useState(false);
   const draftStoreRef = useRef<Map<string, string>>(new Map());
   const activeDraftKeyRef = useRef<string | undefined>(props.draftKey);
+  const composerMountedRef = useRef(true);
   const sendPendingRef = useRef(false);
   const pendingImportActionRef = useRef<ComposerImportActionId | null>(null);
   const promptHistoryRef = useRef<ComposerHistoryState>({ entries: [], index: -1, savedDraft: '' });
@@ -5317,6 +5318,15 @@ export const Composer = forwardRef<
   const locale = detectUiLocale();
   const copy = COMPOSER_COPY_BY_LOCALE[locale];
   const buttonCopy = COMPOSER_BUTTON_COPY_BY_LOCALE[locale];
+
+  useEffect(() => {
+    composerMountedRef.current = true;
+    return () => {
+      composerMountedRef.current = false;
+      sendPendingRef.current = false;
+      pendingImportActionRef.current = null;
+    };
+  }, []);
 
   function autoResize() {
     const el = textareaRef.current;
@@ -5410,8 +5420,9 @@ export const Composer = forwardRef<
       sent = await props.onSend(text);
     } finally {
       sendPendingRef.current = false;
-      setSendPending(false);
+      if (composerMountedRef.current) setSendPending(false);
     }
+    if (!composerMountedRef.current) return;
     if (sent === false) return;
     promptHistoryRef.current = {
       entries: rememberComposerHistoryEntry(promptHistoryRef.current.entries, text),
@@ -5443,7 +5454,7 @@ export const Composer = forwardRef<
     } finally {
       if (pendingImportActionRef.current === actionId) {
         pendingImportActionRef.current = null;
-        setPendingImportAction(null);
+        if (composerMountedRef.current) setPendingImportAction(null);
       }
     }
   }
