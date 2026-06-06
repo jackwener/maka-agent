@@ -239,6 +239,53 @@ describe('local MEMORY.md Settings UI contract', () => {
     assert.match(memoryPage, /pendingMemoryWriteAction === 'reset' \? '重置中…' : '重置并备份'/);
   });
 
+  it('drops late local memory reload and pending cleanup after Settings is closed', async () => {
+    const src = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
+    const memoryPage = src.match(/function MemorySettingsPage\([\s\S]*?function MemoryEntryList/)?.[0] ?? '';
+    const reloadBlock = memoryPage.match(/async function reload\(\)[\s\S]*?async function reloadDraftFromDisk/)?.[0] ?? '';
+    const writeActionBlock = memoryPage.match(/async function runMemoryWriteAction<T>[\s\S]*?async function runMemoryAction/)?.[0] ?? '';
+    const actionBlock = memoryPage.match(/async function runMemoryAction<T>[\s\S]*?async function reload/)?.[0] ?? '';
+
+    assert.match(memoryPage, /const memoryPageMountedRef = useRef\(false\)/);
+    assert.match(memoryPage, /const memoryPageLifecycleRef = useRef\(0\)/);
+    assert.match(memoryPage, /const memoryReloadTicketRef = useRef\(0\)/);
+    assert.match(
+      memoryPage,
+      /useEffect\(\(\) => \{[\s\S]*memoryPageLifecycleRef\.current \+= 1;[\s\S]*memoryPageMountedRef\.current = true;[\s\S]*const lifecycle = memoryPageLifecycleRef\.current;[\s\S]*return \(\) => \{[\s\S]*memoryPageMountedRef\.current = false;[\s\S]*memoryReloadTicketRef\.current \+= 1;[\s\S]*memoryWriteBusyRef\.current = false;[\s\S]*pendingMemoryActionKeysRef\.current\.clear\(\);/,
+      'Memory page cleanup must invalidate reloads and release pending owners',
+    );
+    assert.match(
+      memoryPage,
+      /function isMemoryPageCurrent\(lifecycle: number\): boolean \{[\s\S]*return memoryPageMountedRef\.current && memoryPageLifecycleRef\.current === lifecycle;/,
+      'Memory page lifecycle checks must be StrictMode-safe, not just a mounted boolean',
+    );
+    assert.match(
+      reloadBlock,
+      /const lifecycle = memoryPageLifecycleRef\.current;[\s\S]*const ticket = \+\+memoryReloadTicketRef\.current;[\s\S]*await Promise\.all\([\s\S]*if \(!isMemoryPageCurrent\(lifecycle\) \|\| ticket !== memoryReloadTicketRef\.current\) return false;[\s\S]*setState\(next\);/,
+      'Local memory reload must not write loaded state after unmount or a stale reload ticket',
+    );
+    assert.match(
+      reloadBlock,
+      /catch \(error\) \{[\s\S]*if \(isMemoryPageCurrent\(lifecycle\) && ticket === memoryReloadTicketRef\.current\) \{[\s\S]*toast\.error\('载入本地记忆失败', settingsActionErrorMessage\(error\)\);/,
+      'Local memory reload errors must not toast after Settings closes',
+    );
+    assert.match(
+      reloadBlock,
+      /finally \{[\s\S]*if \(isMemoryPageCurrent\(lifecycle\) && ticket === memoryReloadTicketRef\.current\) \{[\s\S]*setLoadingMemory\(false\);/,
+      'Local memory reload must not clear loading state after unmount',
+    );
+    assert.match(
+      writeActionBlock,
+      /const lifecycle = memoryPageLifecycleRef\.current;[\s\S]*catch \(error\) \{[\s\S]*if \(!isMemoryPageCurrent\(lifecycle\)\) return undefined;[\s\S]*finally \{[\s\S]*memoryWriteBusyRef\.current = false;[\s\S]*if \(isMemoryPageCurrent\(lifecycle\)\) \{[\s\S]*setPendingMemoryWriteAction\(null\);[\s\S]*setBusy\(false\);/,
+      'Memory write wrapper must release refs but not write pending state after unmount',
+    );
+    assert.match(
+      actionBlock,
+      /const lifecycle = memoryPageLifecycleRef\.current;[\s\S]*catch \(error\) \{[\s\S]*if \(!isMemoryPageCurrent\(lifecycle\)\) return undefined;[\s\S]*finally \{[\s\S]*pendingMemoryActionKeysRef\.current\.delete\(key\);[\s\S]*if \(isMemoryPageCurrent\(lifecycle\)\) \{[\s\S]*setPendingMemoryActions/,
+      'Memory file-action wrapper must release refs but not write pending state after unmount',
+    );
+  });
+
   it('manual add stays draft-only and routes through the core helper', async () => {
     const src = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
     const manualAddBlock = src.match(/function addManualMemoryDraftEntry\(\) \{[\s\S]*?\n  \}\n\n  async function updateMemoryEntryStatus/)?.[0] ?? '';

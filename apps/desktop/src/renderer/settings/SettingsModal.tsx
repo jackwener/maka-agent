@@ -2905,54 +2905,93 @@ function MemorySettingsPage(props: {
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
   const memoryWriteBusyRef = useRef(false);
   const pendingMemoryActionKeysRef = useRef<Set<string>>(new Set());
+  const memoryPageMountedRef = useRef(false);
+  const memoryPageLifecycleRef = useRef(0);
+  const memoryReloadTicketRef = useRef(0);
   const toast = useToast();
+
+  useEffect(() => {
+    memoryPageLifecycleRef.current += 1;
+    memoryPageMountedRef.current = true;
+    const lifecycle = memoryPageLifecycleRef.current;
+    return () => {
+      if (memoryPageLifecycleRef.current !== lifecycle) return;
+      memoryPageMountedRef.current = false;
+      memoryReloadTicketRef.current += 1;
+      memoryWriteBusyRef.current = false;
+      pendingMemoryActionKeysRef.current.clear();
+    };
+  }, []);
+
+  function isMemoryPageCurrent(lifecycle: number): boolean {
+    return memoryPageMountedRef.current && memoryPageLifecycleRef.current === lifecycle;
+  }
 
   async function runMemoryWriteAction<T>(action: MemoryWriteAction, run: () => Promise<T>): Promise<T | undefined> {
     if (memoryWriteBusyRef.current) return undefined;
+    const lifecycle = memoryPageLifecycleRef.current;
     memoryWriteBusyRef.current = true;
     setPendingMemoryWriteAction(action);
     setBusy(true);
     try {
       return await run();
+    } catch (error) {
+      if (!isMemoryPageCurrent(lifecycle)) return undefined;
+      throw error;
     } finally {
       memoryWriteBusyRef.current = false;
-      setPendingMemoryWriteAction(null);
-      setBusy(false);
+      if (isMemoryPageCurrent(lifecycle)) {
+        setPendingMemoryWriteAction(null);
+        setBusy(false);
+      }
     }
   }
 
   async function runMemoryAction<T>(key: string, action: () => Promise<T>): Promise<T | undefined> {
     if (pendingMemoryActionKeysRef.current.has(key)) return undefined;
+    const lifecycle = memoryPageLifecycleRef.current;
     pendingMemoryActionKeysRef.current.add(key);
     setPendingMemoryActions((current) => new Set(current).add(key));
     try {
       return await action();
+    } catch (error) {
+      if (!isMemoryPageCurrent(lifecycle)) return undefined;
+      throw error;
     } finally {
       pendingMemoryActionKeysRef.current.delete(key);
-      setPendingMemoryActions((current) => {
-        const next = new Set(current);
-        next.delete(key);
-        return next;
-      });
+      if (isMemoryPageCurrent(lifecycle)) {
+        setPendingMemoryActions((current) => {
+          const next = new Set(current);
+          next.delete(key);
+          return next;
+        });
+      }
     }
   }
 
   async function reload(): Promise<boolean> {
+    const lifecycle = memoryPageLifecycleRef.current;
+    const ticket = ++memoryReloadTicketRef.current;
     try {
       const [next, instructions] = await Promise.all([
         window.maka.memory.getState(),
         window.maka.workspaceInstructions.getState(),
       ]);
+      if (!isMemoryPageCurrent(lifecycle) || ticket !== memoryReloadTicketRef.current) return false;
       setState(next);
       setWorkspaceInstructionState(instructions);
       setDraft(next.content);
       setLastSaveSummary(null);
       return true;
     } catch (error) {
-      toast.error('载入本地记忆失败', settingsActionErrorMessage(error));
+      if (isMemoryPageCurrent(lifecycle) && ticket === memoryReloadTicketRef.current) {
+        toast.error('载入本地记忆失败', settingsActionErrorMessage(error));
+      }
       return false;
     } finally {
-      setLoadingMemory(false);
+      if (isMemoryPageCurrent(lifecycle) && ticket === memoryReloadTicketRef.current) {
+        setLoadingMemory(false);
+      }
     }
   }
 
