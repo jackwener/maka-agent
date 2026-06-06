@@ -88,6 +88,96 @@ describe('Bot settings UI contract', () => {
     assert.match(actionRowBlock, /support === 'runtime' && \(?selectedStatus\?\.running/, 'Already-running channels must keep separate test/restart actions');
   });
 
+  it('drops late bot action feedback after Settings is closed', async () => {
+    const settings = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
+    const pageBlock = settings.match(/function BotChatSettingsPage\([\s\S]*?function BotAllowedUserIdsField/)?.[0] ?? '';
+    const finishBlock = pageBlock.match(/function finishBotAction[\s\S]*?async function updateChannelFor/)?.[0] ?? '';
+    const updateBlock = pageBlock.match(/async function updateChannelFor[\s\S]*?async function updateChannel/)?.[0] ?? '';
+    const statusEffectBlock = pageBlock.match(/useEffect\(\(\) => \{[\s\S]*?window\.maka\.settings\.bots\.subscribeStatusChanges[\s\S]*?\}, \[\]\);/)?.[0] ?? '';
+    const testBlock = pageBlock.match(/async function testChannel\(\)[\s\S]*?\n\s*\/\*\*/)?.[0] ?? '';
+    const connectBlock = pageBlock.match(/async function testAndConnect\(\)[\s\S]*?async function restartBotProvider/)?.[0] ?? '';
+    const restartProviderBlock = pageBlock.match(/async function restartBotProvider\(provider: BotProvider\)[\s\S]*?async function restartChannel/)?.[0] ?? '';
+    const refreshBlock = pageBlock.match(/async function refreshBotStatuses\(\)[\s\S]*?async function disconnectWechatLogin/)?.[0] ?? '';
+    const disconnectBlock = pageBlock.match(/async function disconnectWechatLogin\(\)[\s\S]*?const support =/)?.[0] ?? '';
+
+    assert.match(pageBlock, /const botPageMountedRef = useRef\(false\)/);
+    assert.match(
+      pageBlock,
+      /useEffect\(\(\) => \{[\s\S]*botPageMountedRef\.current = true;[\s\S]*return \(\) => \{[\s\S]*botPageMountedRef\.current = false;[\s\S]*pendingBotActionRef\.current = null;/,
+      'Bot settings page cleanup must release owned async actions when Settings closes',
+    );
+    assert.match(
+      finishBlock,
+      /pendingBotActionRef\.current = null;[\s\S]*if \(botPageMountedRef\.current\) \{[\s\S]*setPendingBotAction\(null\);/,
+      'Bot pending cleanup must release the ref but not write React state after unmount',
+    );
+    assert.match(
+      updateBlock,
+      /await props\.onUpdate\(\{ botChat: \{ channels: \{ \[provider\]: patch \} \} \}\);[\s\S]*if \(!botPageMountedRef\.current\) return false;[\s\S]*return true;/,
+      'Bot field saves must not report success to a continuation after Settings closes',
+    );
+    assert.match(
+      updateBlock,
+      /catch \(error\) \{[\s\S]*if \(botPageMountedRef\.current\) \{[\s\S]*toast\.error\(`\$\{BOT_LABELS\[provider\]\.label\} 保存失败`, settingsActionErrorMessage\(error\)\);/,
+      'Bot field-save failures must not toast after Settings closes',
+    );
+    assert.match(
+      statusEffectBlock,
+      /subscribeStatusChanges\(\(status\) => \{[\s\S]*if \(!botPageMountedRef\.current\) return;[\s\S]*setStatusLoadError\(null\);/,
+      'Bot status subscriptions must not write status state after unmount',
+    );
+    assert.match(
+      testBlock,
+      /const result = await window\.maka\.settings\.testBotChannel\(provider\);[\s\S]*if \(!botPageMountedRef\.current\) return;[\s\S]*toast\.success/,
+      'Separate bot tests must drop late success/failure feedback after unmount',
+    );
+    assert.match(
+      testBlock,
+      /catch \(error\) \{[\s\S]*if \(botPageMountedRef\.current\) \{[\s\S]*toast\.error\(`\$\{BOT_LABELS\[provider\]\.label\} 测试出错`, settingsActionErrorMessage\(error\)\);/,
+      'Separate bot thrown-test errors must not toast after unmount',
+    );
+    assert.match(
+      connectBlock,
+      /const result = await window\.maka\.settings\.testBotChannel\(provider\);[\s\S]*if \(!botPageMountedRef\.current\) return;[\s\S]*toast\.success/,
+      'Combined bot connect tests must drop late credential-test feedback after unmount',
+    );
+    assert.match(
+      connectBlock,
+      /try \{[\s\S]*if \(!botPageMountedRef\.current\) return;[\s\S]*if \(!testOk \|\| providerSupport !== 'runtime'\) return;[\s\S]*const saved = await updateChannelFor\(provider, \{ enabled: true \}\);[\s\S]*if \(!saved\) return;[\s\S]*if \(!botPageMountedRef\.current\) return;[\s\S]*await restartBotProvider\(provider\);/,
+      'Combined bot connect must not continue into enable/restart after unmount',
+    );
+    assert.match(
+      restartProviderBlock,
+      /async function restartBotProvider\(provider: BotProvider\): Promise<boolean> \{[\s\S]*if \(!botPageMountedRef\.current\) return false;[\s\S]*const status = await window\.maka\.settings\.bots\.restart\(provider\);/,
+      'Bot restart must not start after Settings has already closed',
+    );
+    assert.match(
+      restartProviderBlock,
+      /const status = await window\.maka\.settings\.bots\.restart\(provider\);[\s\S]*if \(!botPageMountedRef\.current\) return status\.running;[\s\S]*setStatuses/,
+      'Bot restart must not write status or toast after unmount',
+    );
+    assert.match(
+      restartProviderBlock,
+      /catch \(error\) \{[\s\S]*if \(!botPageMountedRef\.current\) return false;[\s\S]*toast\.error/,
+      'Bot restart thrown errors must not toast after unmount',
+    );
+    assert.match(
+      refreshBlock,
+      /async function refreshBotStatuses\(\): Promise<boolean> \{[\s\S]*if \(!botPageMountedRef\.current\) return false;[\s\S]*await props\.onReload\(\);[\s\S]*if \(!botPageMountedRef\.current\) return false;[\s\S]*const nextStatuses = await window\.maka\.settings\.bots\.listStatuses\(\);[\s\S]*if \(!botPageMountedRef\.current\) return false;[\s\S]*setStatuses\(nextStatuses\);/,
+      'Bot status refresh must not write refreshed statuses after unmount',
+    );
+    assert.match(
+      refreshBlock,
+      /catch \(error\) \{[\s\S]*if \(!botPageMountedRef\.current\) return false;[\s\S]*setStatusLoadError\(message\);[\s\S]*toast\.error\('刷新机器人运行状态失败', message\);/,
+      'Bot status refresh errors must not toast after unmount',
+    );
+    assert.match(
+      disconnectBlock,
+      /const saved = await updateChannelFor\(provider,[\s\S]*if \(!saved\) return;[\s\S]*if \(!botPageMountedRef\.current\) return;[\s\S]*await refreshBotStatuses\(\);[\s\S]*if \(botPageMountedRef\.current\) \{[\s\S]*toast\.success\('微信登录已断开', '本机扫码登录凭据已清除。'\);/,
+      'WeChat disconnect success must not toast after unmount',
+    );
+  });
+
   it('opens an in-app WeChat QR login modal instead of handing scan login off to a toast', async () => {
     const settings = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
     const styles = await readRepo('apps/desktop/src/renderer/styles.css');

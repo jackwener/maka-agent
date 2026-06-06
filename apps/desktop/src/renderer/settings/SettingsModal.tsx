@@ -4566,10 +4566,19 @@ function BotChatSettingsPage(props: {
   const toast = useToast();
   const selectedStatus = statuses?.[selected];
   const pendingBotActionRef = useRef<BotPendingAction | null>(null);
+  const botPageMountedRef = useRef(false);
   const botActionBusy = pendingBotAction !== null;
   const selectedBotActionPending = pendingBotAction?.provider === selected ? pendingBotAction.action : null;
   const testing = selectedBotActionPending === 'test' || selectedBotActionPending === 'connect';
   const restarting = selectedBotActionPending === 'restart';
+
+  useEffect(() => {
+    botPageMountedRef.current = true;
+    return () => {
+      botPageMountedRef.current = false;
+      pendingBotActionRef.current = null;
+    };
+  }, []);
 
   function beginBotAction(provider: BotProvider, action: BotPendingActionName): boolean {
     if (pendingBotActionRef.current !== null) return false;
@@ -4583,15 +4592,20 @@ function BotChatSettingsPage(props: {
     const current = pendingBotActionRef.current;
     if (!current || current.provider !== provider || current.action !== action) return;
     pendingBotActionRef.current = null;
-    setPendingBotAction(null);
+    if (botPageMountedRef.current) {
+      setPendingBotAction(null);
+    }
   }
 
   async function updateChannelFor(provider: BotProvider, patch: Partial<typeof channel>): Promise<boolean> {
     try {
       await props.onUpdate({ botChat: { channels: { [provider]: patch } } });
+      if (!botPageMountedRef.current) return false;
       return true;
     } catch (error) {
-      toast.error(`${BOT_LABELS[provider].label} 保存失败`, settingsActionErrorMessage(error));
+      if (botPageMountedRef.current) {
+        toast.error(`${BOT_LABELS[provider].label} 保存失败`, settingsActionErrorMessage(error));
+      }
       return false;
     }
   }
@@ -4613,6 +4627,7 @@ function BotChatSettingsPage(props: {
       toast.error('载入机器人运行状态失败', message);
     });
     const unsubscribe = window.maka.settings.bots.subscribeStatusChanges((status) => {
+      if (!botPageMountedRef.current) return;
       setStatusLoadError(null);
       setStatuses((current) => ({
         ...(current ?? ({} as Record<BotProvider, BotStatus>)),
@@ -4630,6 +4645,7 @@ function BotChatSettingsPage(props: {
     if (!beginBotAction(provider, 'test')) return;
     try {
       const result = await window.maka.settings.testBotChannel(provider);
+      if (!botPageMountedRef.current) return;
       const platform = BOT_LABELS[provider].label;
       if (result.ok) {
         // PR-BOT-CHAT-POLISH-0: title now matches kenji boundary 2's
@@ -4643,7 +4659,9 @@ function BotChatSettingsPage(props: {
       }
       await refreshBotStatuses();
     } catch (error) {
-      toast.error(`${BOT_LABELS[provider].label} 测试出错`, settingsActionErrorMessage(error));
+      if (botPageMountedRef.current) {
+        toast.error(`${BOT_LABELS[provider].label} 测试出错`, settingsActionErrorMessage(error));
+      }
     } finally {
       finishBotAction(provider, 'test');
     }
@@ -4664,6 +4682,7 @@ function BotChatSettingsPage(props: {
     let testOk = false;
     try {
       const result = await window.maka.settings.testBotChannel(provider);
+      if (!botPageMountedRef.current) return;
       const platform = BOT_LABELS[provider].label;
       testOk = result.ok;
       if (result.ok) {
@@ -4673,16 +4692,20 @@ function BotChatSettingsPage(props: {
       }
       await refreshBotStatuses();
     } catch (error) {
-      toast.error(`${BOT_LABELS[provider].label} 测试出错`, settingsActionErrorMessage(error));
+      if (botPageMountedRef.current) {
+        toast.error(`${BOT_LABELS[provider].label} 测试出错`, settingsActionErrorMessage(error));
+      }
       finishBotAction(provider, 'connect');
       return;
     }
     try {
+      if (!botPageMountedRef.current) return;
       if (!testOk || providerSupport !== 'runtime') return;
       if (!providerChannel.enabled) {
         const saved = await updateChannelFor(provider, { enabled: true });
         if (!saved) return;
       }
+      if (!botPageMountedRef.current) return;
       await restartBotProvider(provider);
     } finally {
       finishBotAction(provider, 'connect');
@@ -4690,8 +4713,10 @@ function BotChatSettingsPage(props: {
   }
 
   async function restartBotProvider(provider: BotProvider): Promise<boolean> {
+    if (!botPageMountedRef.current) return false;
     try {
       const status = await window.maka.settings.bots.restart(provider);
+      if (!botPageMountedRef.current) return status.running;
       setStatuses((current) => ({
         ...(current ?? ({} as Record<BotProvider, BotStatus>)),
         [status.platform]: status,
@@ -4708,6 +4733,7 @@ function BotChatSettingsPage(props: {
       }
       return status.running;
     } catch (error) {
+      if (!botPageMountedRef.current) return false;
       const message = settingsActionErrorMessage(error);
       toast.error(`${BOT_LABELS[provider].label} 启动失败`, message);
       return false;
@@ -4725,13 +4751,17 @@ function BotChatSettingsPage(props: {
   }
 
   async function refreshBotStatuses(): Promise<boolean> {
+    if (!botPageMountedRef.current) return false;
     try {
       await props.onReload();
+      if (!botPageMountedRef.current) return false;
       const nextStatuses = await window.maka.settings.bots.listStatuses();
+      if (!botPageMountedRef.current) return false;
       setStatuses(nextStatuses);
       setStatusLoadError(null);
       return true;
     } catch (error) {
+      if (!botPageMountedRef.current) return false;
       const message = settingsActionErrorMessage(error);
       setStatusLoadError(message);
       toast.error('刷新机器人运行状态失败', message);
@@ -4764,8 +4794,11 @@ function BotChatSettingsPage(props: {
         lastError: undefined,
       });
       if (!saved) return;
+      if (!botPageMountedRef.current) return;
       await refreshBotStatuses();
-      toast.success('微信登录已断开', '本机扫码登录凭据已清除。');
+      if (botPageMountedRef.current) {
+        toast.success('微信登录已断开', '本机扫码登录凭据已清除。');
+      }
     } finally {
       finishBotAction(provider, 'disconnect');
     }
