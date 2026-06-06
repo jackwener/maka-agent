@@ -70,15 +70,35 @@ describe('FIRST_RUN_TASK_SUGGESTIONS', () => {
   it('makes first-run suggestion rows dismissible and restorable without storing prompts', async () => {
     const hero = await readFile(join(process.cwd(), 'src/renderer/OnboardingHero.tsx'), 'utf8');
     const main = await readFile(join(process.cwd(), 'src/renderer/main.tsx'), 'utf8');
+    const readyBlock = hero.match(/function ReadyEmptyHero[\s\S]*?interface SetupHeroProps/)?.[0] ?? '';
+    const suggestionGateBlock = readyBlock.match(/const runSuggestionAction = useCallback[\s\S]*?const appendImportedPrompt/)?.[0] ?? '';
 
     assert.match(hero, /onDismissTaskSuggestion/);
     assert.match(hero, /onRestoreTaskSuggestions/);
     assert.match(hero, /FIRST_RUN_TASK_SUGGESTION_MILESTONES/);
     assert.match(hero, /隐藏任务建议/);
-    assert.match(hero, /恢复 \{hiddenSuggestions\.length\} 项/);
+    assert.match(hero, /`恢复 \$\{hiddenSuggestions\.length\} 项`/);
     assert.match(main, /window\.maka\.onboarding\.setMilestone\(FIRST_RUN_TASK_SUGGESTION_MILESTONES\[id\], 'skipped'\)/);
     assert.match(main, /window\.maka\.onboarding\.clearMilestone\(FIRST_RUN_TASK_SUGGESTION_MILESTONES\[id\]\)/);
+    assert.match(readyBlock, /const \[pendingSuggestionAction, setPendingSuggestionAction\] = useState<string \| null>\(null\)/);
+    assert.match(readyBlock, /const pendingSuggestionActionRef = useRef<string \| null>\(null\)/);
+    assert.match(readyBlock, /const suggestionActionBusy = pendingSuggestionAction !== null/);
+    assert.match(
+      suggestionGateBlock,
+      /if \(!action \|\| props\.quickChatPending \|\| pendingSuggestionActionRef\.current !== null\) return;[\s\S]*pendingSuggestionActionRef\.current = actionKey[\s\S]*setPendingSuggestionAction\(actionKey\)[\s\S]*await action\(\)[\s\S]*pendingSuggestionActionRef\.current = null[\s\S]*setPendingSuggestionAction\(null\)/,
+      'suggestion dismiss/restore must await the async milestone write behind a ref-backed pending gate',
+    );
+    assert.match(readyBlock, /if \(props\.quickChatPending \|\| suggestionActionBusy\) return;[\s\S]*appendPromptContextDraft\(draft, prompt\)/, 'prefill must not append while suggestion milestone writes are pending');
+    assert.match(readyBlock, /runSuggestionAction\([\s\S]*'restore'[\s\S]*\(\) => props\.onRestoreTaskSuggestions\?\.\(hiddenSuggestions\.map\(\(item\) => item\.id\)\)[\s\S]*\)/);
+    assert.match(readyBlock, /runSuggestionAction\([\s\S]*`dismiss:\$\{suggestion\.id\}`[\s\S]*\(\) => props\.onDismissTaskSuggestion\?\.\(suggestion\.id\)[\s\S]*\)/);
+    assert.match(readyBlock, /disabled=\{props\.quickChatPending \|\| suggestionActionBusy \|\| !props\.onRestoreTaskSuggestions\}/);
+    assert.match(readyBlock, /disabled=\{props\.quickChatPending \|\| suggestionActionBusy\}/);
+    assert.match(readyBlock, /aria-busy=\{pendingSuggestionAction === 'restore' \? 'true' : undefined\}/);
+    assert.match(readyBlock, /pendingSuggestionAction === 'restore' \? '恢复中…' : `恢复 \$\{hiddenSuggestions\.length\} 项`/);
+    assert.match(readyBlock, /aria-busy=\{pendingSuggestionAction === `dismiss:\$\{suggestion\.id\}` \? 'true' : undefined\}/);
     assert.doesNotMatch(hero, /setMilestone\([^)]*suggestion\.prompt/);
+    assert.doesNotMatch(readyBlock, /void props\.onRestoreTaskSuggestions\?\./);
+    assert.doesNotMatch(readyBlock, /void props\.onDismissTaskSuggestion\?\./);
   });
 
   it('gates first-run import actions so file/folder/drop/paste cannot append concurrently', async () => {

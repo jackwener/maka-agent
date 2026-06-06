@@ -450,8 +450,10 @@ function ReadyEmptyHero(props: {
   const [draftMode, setDraftMode] = useState<QuickChatMode | undefined>();
   const [dragActive, setDragActive] = useState(false);
   const [pendingImportAction, setPendingImportAction] = useState<string | null>(null);
+  const [pendingSuggestionAction, setPendingSuggestionAction] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const pendingImportActionRef = useRef<string | null>(null);
+  const pendingSuggestionActionRef = useRef<string | null>(null);
   const copy = READY_HERO_COPY_BY_LOCALE[detectUiLocale()];
   const hiddenSuggestionIds = new Set(
     (props.onboardingMilestones ?? [])
@@ -464,6 +466,7 @@ function ReadyEmptyHero(props: {
   const hiddenSuggestions = FIRST_RUN_TASK_SUGGESTIONS.filter(
     (suggestion) => hiddenSuggestionIds.has(FIRST_RUN_TASK_SUGGESTION_MILESTONES[suggestion.id]),
   );
+  const suggestionActionBusy = pendingSuggestionAction !== null;
 
   const submit = useCallback(async () => {
     if (props.quickChatPending) return;
@@ -494,6 +497,7 @@ function ReadyEmptyHero(props: {
   );
 
   const prefillSuggestion = useCallback((prompt: string, mode?: QuickChatMode) => {
+    if (props.quickChatPending || suggestionActionBusy) return;
     const nextDraft = appendPromptContextDraft(draft, prompt);
     setDraft(nextDraft);
     setDraftMode(mode);
@@ -503,7 +507,21 @@ function ReadyEmptyHero(props: {
       input.focus();
       input.setSelectionRange(nextDraft.length, nextDraft.length);
     });
-  }, [draft]);
+  }, [draft, props.quickChatPending, suggestionActionBusy]);
+
+  const runSuggestionAction = useCallback(async (actionKey: string, action?: () => Promise<void> | void) => {
+    if (!action || props.quickChatPending || pendingSuggestionActionRef.current !== null) return;
+    pendingSuggestionActionRef.current = actionKey;
+    setPendingSuggestionAction(actionKey);
+    try {
+      await action();
+    } finally {
+      if (pendingSuggestionActionRef.current === actionKey) {
+        pendingSuggestionActionRef.current = null;
+        setPendingSuggestionAction(null);
+      }
+    }
+  }, [props.quickChatPending]);
 
   const appendImportedPrompt = useCallback((prompt: string) => {
     let nextDraft = prompt;
@@ -694,11 +712,15 @@ function ReadyEmptyHero(props: {
               <button
                 type="button"
                 className="maka-first-run-task-suggestions-restore"
-                onClick={() => void props.onRestoreTaskSuggestions?.(hiddenSuggestions.map((item) => item.id))}
-                disabled={props.quickChatPending || !props.onRestoreTaskSuggestions}
+                onClick={() => void runSuggestionAction(
+                  'restore',
+                  () => props.onRestoreTaskSuggestions?.(hiddenSuggestions.map((item) => item.id)),
+                )}
+                disabled={props.quickChatPending || suggestionActionBusy || !props.onRestoreTaskSuggestions}
+                aria-busy={pendingSuggestionAction === 'restore' ? 'true' : undefined}
               >
                 <RotateCcw size={12} strokeWidth={1.75} aria-hidden="true" />
-                <span>恢复 {hiddenSuggestions.length} 项</span>
+                <span>{pendingSuggestionAction === 'restore' ? '恢复中…' : `恢复 ${hiddenSuggestions.length} 项`}</span>
               </button>
             )}
           </div>
@@ -710,7 +732,7 @@ function ReadyEmptyHero(props: {
                     type="button"
                     className="maka-first-run-task-suggestion"
                     onClick={() => prefillSuggestion(suggestion.prompt, suggestion.mode)}
-                    disabled={props.quickChatPending}
+                    disabled={props.quickChatPending || suggestionActionBusy}
                   >
                     {suggestion.label}
                   </button>
@@ -718,8 +740,12 @@ function ReadyEmptyHero(props: {
                     <button
                       type="button"
                       className="maka-first-run-task-suggestion-dismiss"
-                      onClick={() => void props.onDismissTaskSuggestion?.(suggestion.id)}
-                      disabled={props.quickChatPending}
+                      onClick={() => void runSuggestionAction(
+                        `dismiss:${suggestion.id}`,
+                        () => props.onDismissTaskSuggestion?.(suggestion.id),
+                      )}
+                      disabled={props.quickChatPending || suggestionActionBusy}
+                      aria-busy={pendingSuggestionAction === `dismiss:${suggestion.id}` ? 'true' : undefined}
                       aria-label={`隐藏任务建议：${suggestion.label}`}
                       title="隐藏"
                     >
