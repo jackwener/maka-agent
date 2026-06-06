@@ -127,6 +127,31 @@ describe('Model OAuth catalog contract (PR-MODEL-OAUTH-ALL-0 + PR-CLAUDE-CARD-MO
       /catch \(err\) \{[\s\S]*setError\(providerPanelActionErrorMessage\(err\)\)/,
       'AddProviderForm create failures must use the shared localized action-error helper',
     );
+    assert.match(
+      addForm,
+      /const busyRef = useRef\(false\)/,
+      'AddProviderForm create must have a synchronous duplicate-submit guard',
+    );
+    assert.match(
+      addForm,
+      /async function submit\(\) \{[\s\S]*if \(busyRef\.current\) return;[\s\S]*busyRef\.current = true;[\s\S]*setBusy\(true\);[\s\S]*props\.bridge\.create\(/,
+      'AddProviderForm create must set the duplicate-submit guard before awaiting bridge.create()',
+    );
+    assert.match(
+      addForm,
+      /finally \{[\s\S]*busyRef\.current = false;[\s\S]*setBusy\(false\);[\s\S]*\}/,
+      'AddProviderForm create guard must always release after success or failure',
+    );
+    assert.match(
+      addForm,
+      /disabled=\{isExperimental \|\| busy\} aria-label="模型供应商 Slug"/,
+      'AddProviderForm fields must freeze while a create request is in flight so visible draft cannot drift from the submitted payload',
+    );
+    assert.match(
+      addForm,
+      /<button className="maka-button" type="button" disabled=\{busy\} onClick=\{props\.onCancel\}>取消<\/button>/,
+      'AddProviderForm cancel must be disabled while create is in flight',
+    );
     assert.doesNotMatch(
       addForm,
       /setError\(err instanceof Error \? err\.message : String\(err\)\)/,

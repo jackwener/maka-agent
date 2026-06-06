@@ -1167,12 +1167,14 @@ function AddProviderForm(props: {
   const [defaultModel, setDefaultModel] = useState(defaults.fallbackModels[0] ?? '');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
 
   const requiresBaseUrl = !defaults.baseUrl;
   const isExperimental = defaults.status === 'phase3-experimental';
   const isWiredOAuth = isWiredOAuthProvider(props.providerType);
 
   async function submit() {
+    if (busyRef.current) return;
     setError(null);
     const slugError = validateSlug(slug);
     if (slugError) return setError(slugError);
@@ -1183,6 +1185,7 @@ function AddProviderForm(props: {
         ? '请到 OAuth 分类完成账号登录；登录成功后会自动创建模型连接。'
         : '该账号登录暂未接入聊天发送；请先使用同一家厂商的 API key。');
     }
+    busyRef.current = true;
     setBusy(true);
     try {
       const connection = await props.bridge.create({
@@ -1196,6 +1199,7 @@ function AddProviderForm(props: {
     } catch (err) {
       setError(providerPanelActionErrorMessage(err));
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   }
@@ -1221,11 +1225,11 @@ function AddProviderForm(props: {
       )}
       <label>
         <span>Slug</span>
-        <input value={slug} onChange={(event) => setSlug(event.currentTarget.value)} placeholder="my-provider" disabled={isExperimental} aria-label="模型供应商 Slug" />
+        <input value={slug} onChange={(event) => setSlug(event.currentTarget.value)} placeholder="my-provider" disabled={isExperimental || busy} aria-label="模型供应商 Slug" />
       </label>
       <label>
         <span>显示名称</span>
-        <input value={name} onChange={(event) => setName(event.currentTarget.value)} placeholder={display.name} disabled={isExperimental} aria-label="模型供应商显示名称" />
+        <input value={name} onChange={(event) => setName(event.currentTarget.value)} placeholder={display.name} disabled={isExperimental || busy} aria-label="模型供应商显示名称" />
       </label>
       <label>
         <span>Base URL {requiresBaseUrl ? '(required)' : ''}</span>
@@ -1233,7 +1237,7 @@ function AddProviderForm(props: {
           value={baseUrl}
           onChange={(event) => setBaseUrl(event.currentTarget.value)}
           placeholder={defaults.baseUrl || 'https://…'}
-          disabled={isExperimental}
+          disabled={isExperimental || busy}
           aria-label="模型供应商 Base URL"
         />
       </label>
@@ -1243,13 +1247,13 @@ function AddProviderForm(props: {
           value={defaultModel}
           onChange={(event) => setDefaultModel(event.currentTarget.value)}
           placeholder={defaults.fallbackModels[0] || 'model-id'}
-          disabled={isExperimental}
+          disabled={isExperimental || busy}
           aria-label="模型供应商默认模型"
         />
       </label>
       {error && <p className="providerError">{error}</p>}
       <div className="providerActions">
-        <button className="maka-button" type="button" onClick={props.onCancel}>取消</button>
+        <button className="maka-button" type="button" disabled={busy} onClick={props.onCancel}>取消</button>
         <button className="maka-button" data-variant="primary" type="button" disabled={busy || isExperimental} onClick={submit}>
           {busy ? '保存中…' : '保存供应商'}
         </button>
