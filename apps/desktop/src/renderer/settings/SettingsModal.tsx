@@ -1953,6 +1953,7 @@ function PersonalizationSettingsPage(props: {
   const [uiLocale, setUiLocale] = useState<UiLocalePreference>(value.uiLocale);
   const toast = useToast();
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
 
   // PR-PERSONALIZATION-SYNC-0: sync form state when the persisted
   // personalization changes externally. Two real scenarios:
@@ -1971,6 +1972,8 @@ function PersonalizationSettingsPage(props: {
   }, [value.displayName, value.assistantTone, value.uiLocale]);
 
   async function save() {
+    if (savingRef.current) return;
+    savingRef.current = true;
     setSaving(true);
     try {
       const result = await props.onUpdate({
@@ -1997,6 +2000,7 @@ function PersonalizationSettingsPage(props: {
     } catch (error) {
       toast.error('保存失败', settingsActionErrorMessage(error));
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }
@@ -2013,6 +2017,7 @@ function PersonalizationSettingsPage(props: {
           maxLength={60}
           autoComplete="off"
           spellCheck={false}
+          disabled={saving}
           aria-label="显示名称"
         />
         <small>Maka 在聊天里会以这个名字称呼你。留空就用默认的「你」。</small>
@@ -2035,6 +2040,7 @@ function PersonalizationSettingsPage(props: {
           ]}
           onChange={(next) => setUiLocale(next as UiLocalePreference)}
           ariaLabel="界面语言"
+          disabled={saving}
         />
         <small>选择 Maka 界面的显示语言。保存后立即生效，重启后保持。</small>
       </div>
@@ -2048,6 +2054,7 @@ function PersonalizationSettingsPage(props: {
           rows={4}
           maxLength={500}
           spellCheck={false}
+          disabled={saving}
           aria-label="助手语气偏好"
           style={{ minHeight: 84, resize: 'vertical', borderRadius: 12 }}
         />
@@ -2063,6 +2070,8 @@ function PersonalizationSettingsPage(props: {
           className="maka-button"
           data-variant="primary"
           disabled={saving}
+          aria-busy={saving}
+          data-pending={saving ? 'true' : undefined}
           onClick={() => void save()}
         >
           {saving ? '保存中…' : '保存'}
@@ -5293,14 +5302,18 @@ function MetricCard(props: { title: string; value: string; detail?: string }) {
   );
 }
 
-function Segmented<T extends string>(props: { value: T; options: Array<[T, string]>; onChange(value: T): void; ariaLabel?: string }) {
+function Segmented<T extends string>(props: { value: T; options: Array<[T, string]>; onChange(value: T): void; ariaLabel?: string; disabled?: boolean }) {
   const values = props.options.map(([value]) => value);
   return (
     <div
       className="settingsSegmented"
       role="radiogroup"
       aria-label={props.ariaLabel}
-      onKeyDown={(event) => onSettingsRadioGroupKeyDown(event, values, props.value, props.onChange)}
+      aria-disabled={props.disabled ? 'true' : undefined}
+      onKeyDown={(event) => {
+        if (props.disabled) return;
+        onSettingsRadioGroupKeyDown(event, values, props.value, props.onChange);
+      }}
     >
       {props.options.map(([value, label]) => (
         <button
@@ -5311,6 +5324,7 @@ function Segmented<T extends string>(props: { value: T; options: Array<[T, strin
           data-active={props.value === value}
           data-radio-value={value}
           tabIndex={radioTabIndex(value, props.value, values)}
+          disabled={props.disabled}
           onClick={() => props.onChange(value)}
         >
           {label}

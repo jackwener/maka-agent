@@ -66,7 +66,9 @@ describe('Settings theme page contract', () => {
     assert.match(themePage, /data-radio-value=\{option\.value\}[\s\S]*tabIndex=\{radioTabIndex\(option\.value, props\.themePref/);
     assert.match(themePage, /data-radio-value=\{palette\}[\s\S]*tabIndex=\{radioTabIndex\(palette, currentPalette, group\.palettes\)\}/);
     assert.match(themePage, /data-radio-value=\{option\.value\}[\s\S]*tabIndex=\{radioTabIndex\(option\.value, props\.density/);
-    assert.match(segmentedBlock, /onKeyDown=\{\(event\) => onSettingsRadioGroupKeyDown\(event, values, props\.value, props\.onChange\)\}/);
+    assert.match(segmentedBlock, /if \(props\.disabled\) return;[\s\S]*onSettingsRadioGroupKeyDown\(event, values, props\.value, props\.onChange\)/);
+    assert.match(segmentedBlock, /aria-disabled=\{props\.disabled \? 'true' : undefined\}/);
+    assert.match(segmentedBlock, /disabled=\{props\.disabled\}/);
     assert.match(segmentedBlock, /data-radio-value=\{value\}[\s\S]*tabIndex=\{radioTabIndex\(value, props\.value, values\)\}/);
   });
 

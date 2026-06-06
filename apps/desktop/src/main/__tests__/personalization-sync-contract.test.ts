@@ -52,4 +52,44 @@ describe('Personalization form state sync (PR-PERSONALIZATION-SYNC-0)', () => {
       'Personalization save failures must not toast raw Error.message',
     );
   });
+
+  it('PersonalizationSettingsPage gates saves synchronously and freezes the draft while saving', async () => {
+    const page = await readPersonalizationPage();
+
+    assert.match(
+      page,
+      /const savingRef = useRef\(false\)/,
+      'Personalization save must have a synchronous ref gate, not only React state',
+    );
+    assert.match(
+      page,
+      /async function save\(\) \{[\s\S]*if \(savingRef\.current\) return;[\s\S]*savingRef\.current = true;[\s\S]*setSaving\(true\)/,
+      'Personalization save must lock before the first async settings update',
+    );
+    assert.match(
+      page,
+      /finally \{[\s\S]*savingRef\.current = false;[\s\S]*setSaving\(false\)/,
+      'Personalization save must release the synchronous gate in finally',
+    );
+    assert.match(
+      page,
+      /disabled=\{saving\}[\s\S]*aria-label="显示名称"/,
+      'Display name input must freeze while the saved payload is in flight',
+    );
+    assert.match(
+      page,
+      /ariaLabel="界面语言"[\s\S]*disabled=\{saving\}/,
+      'Locale segmented control must freeze while the saved payload is in flight',
+    );
+    assert.match(
+      page,
+      /disabled=\{saving\}[\s\S]*aria-label="助手语气偏好"/,
+      'Assistant tone textarea must freeze while the saved payload is in flight',
+    );
+    assert.match(
+      page,
+      /disabled=\{saving\}[\s\S]*aria-busy=\{saving\}[\s\S]*data-pending=\{saving \? 'true' : undefined\}/,
+      'Save button must expose pending state to the UI and accessibility tree',
+    );
+  });
 });
