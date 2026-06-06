@@ -3814,6 +3814,7 @@ function NetworkSettingsPage(props: {
   const persistedProxyRef = useRef<NetworkProxySettings>(persistedProxy);
   const proxyPendingSaveCountRef = useRef(0);
   const proxySaveTicketRef = useRef(0);
+  const proxyTestRunningRef = useRef(false);
   const toast = useToast();
 
   function commitProxyDraft(next: NetworkProxySettings) {
@@ -3850,9 +3851,11 @@ function NetworkSettingsPage(props: {
   }
 
   async function testProxy() {
+    if (proxyTestRunningRef.current) return;
+    proxyTestRunningRef.current = true;
     setTesting(true);
     try {
-      const result = await window.maka.settings.testNetworkProxy(toProxyTestInput(proxyDraft));
+      const result = await window.maka.settings.testNetworkProxy(toProxyTestInput(proxyDraftRef.current));
       const latency = result.latencyMs !== undefined ? ` · ${result.latencyMs} ms` : '';
       if (result.ok) {
         toast.success('代理可达', `${result.message}${latency}`);
@@ -3862,6 +3865,7 @@ function NetworkSettingsPage(props: {
     } catch (error) {
       toast.error('代理测试出错', settingsActionErrorMessage(error));
     } finally {
+      proxyTestRunningRef.current = false;
       setTesting(false);
     }
   }
@@ -3946,7 +3950,14 @@ function NetworkSettingsPage(props: {
           </div>
 
           <div className="settingsActionRow">
-            <button className="maka-button" type="button" disabled={testing} onClick={testProxy}>
+            <button
+              className="maka-button"
+              type="button"
+              disabled={testing}
+              aria-busy={testing}
+              data-pending={testing ? 'true' : undefined}
+              onClick={() => void testProxy()}
+            >
               {testing ? '测试中…' : '测试当前配置'}
             </button>
           </div>

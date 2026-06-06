@@ -110,6 +110,34 @@ describe('Settings network and gateway persistence contract', () => {
     );
   });
 
+  it('gates proxy tests and reads the latest draft snapshot', () => {
+    const networkBlock = blockBetween('function NetworkSettingsPage', 'function OpenGatewaySettingsPage');
+
+    assert.match(
+      networkBlock,
+      /const proxyTestRunningRef = useRef\(false\);/,
+      'Network proxy test needs a ref gate so fast double-clicks cannot duplicate proxy test IPC before React disables the button',
+    );
+    assert.match(
+      networkBlock,
+      /async function testProxy\(\) \{\s*if \(proxyTestRunningRef\.current\) return;[\s\S]*proxyTestRunningRef\.current = true;[\s\S]*window\.maka\.settings\.testNetworkProxy\(toProxyTestInput\(proxyDraftRef\.current\)\)/,
+      'Network proxy test must lock synchronously and test the latest local draft snapshot, not the previous render value',
+    );
+    assert.match(
+      networkBlock,
+      /finally \{[\s\S]*proxyTestRunningRef\.current = false;[\s\S]*setTesting\(false\);[\s\S]*\}/,
+      'Network proxy test must release the ref gate after the IPC settles',
+    );
+    assert.doesNotMatch(
+      networkBlock,
+      /testNetworkProxy\(toProxyTestInput\(proxyDraft\)\)/,
+      'Network proxy test must not read stale React state after a just-typed proxy edit',
+    );
+    assert.match(networkBlock, /aria-busy=\{testing\}/, 'Network proxy test button must expose pending state to assistive tech');
+    assert.match(networkBlock, /data-pending=\{testing \? 'true' : undefined\}/, 'Network proxy test button must expose a stable pending hook');
+    assert.match(networkBlock, /onClick=\{\(\) => void testProxy\(\)\}/, 'Network proxy test click handler must explicitly discard the async promise');
+  });
+
   it('keeps gateway success toasts behind a successful settings save', () => {
     const gatewayBlock = blockBetween('function OpenGatewaySettingsPage', 'function presentGatewayStatus');
 
