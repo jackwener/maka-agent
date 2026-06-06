@@ -2591,7 +2591,7 @@ function WebSearchSettingsPage(props: {
       if (!saved) return;
       if (!webSearchMountedRef.current) return;
       setDraftKey('');
-      toast.success('已保存 Tavily API key', '可点击「测试」做一次真实请求验证。');
+      toast.success('已保存 Tavily 密钥', '可点击「测试」做一次真实请求验证。');
     });
   }
 
@@ -2722,17 +2722,17 @@ function WebSearchSettingsPage(props: {
 
       <div className="settingsFormGrid">
         <label>
-          <span>Tavily API key</span>
+          <span>Tavily 密钥</span>
           <PasswordInput
             value={draftKey}
             onChange={setDraftKey}
             disabled={usingEnvKey || credentialActionBusy}
-            placeholder={usingEnvKey ? '由环境变量提供' : hasStoredKey ? '已保存（输入新 key 可替换）' : 'tvly-xxxxxxxx'}
-            ariaLabel="Tavily API key"
+            placeholder={usingEnvKey ? '由环境变量提供' : hasStoredKey ? '已保存（输入新密钥可替换）' : 'tvly-xxxxxxxx'}
+            ariaLabel="Tavily 密钥"
           />
           <small>
             {usingEnvKey
-              ? '当前使用环境变量 TAVILY_API_KEY / MAKA_TAVILY_API_KEY；如需改用保存的 key，请移除环境变量后重启。'
+              ? '当前使用环境变量 TAVILY_API_KEY / MAKA_TAVILY_API_KEY；如需改用保存的密钥，请移除环境变量后重启。'
               : <>保存在主进程设置中，渲染器永远看不到明文。在 <a href="https://tavily.com" target="_blank" rel="noreferrer">tavily.com</a> 申请。</>}
           </small>
         </label>
@@ -2745,7 +2745,7 @@ function WebSearchSettingsPage(props: {
           disabled={credentialActionBusy || usingEnvKey || draftKey.length === 0}
           onClick={() => void saveDraftKey()}
         >
-          {pendingCredentialAction === 'save' ? '保存中…' : '保存 key'}
+          {pendingCredentialAction === 'save' ? '保存中…' : '保存密钥'}
         </button>
         <button
           type="button"
@@ -2762,7 +2762,7 @@ function WebSearchSettingsPage(props: {
             disabled={credentialActionBusy}
             onClick={() => void clearKey()}
           >
-            {pendingCredentialAction === 'clear' ? '清空中…' : '清空 key'}
+            {pendingCredentialAction === 'clear' ? '清空中…' : '清空密钥'}
           </button>
         )}
       </div>
@@ -2779,7 +2779,7 @@ function WebSearchSettingsPage(props: {
           <input
             value={liveQuery}
             onChange={(event) => setLiveQuery(event.currentTarget.value)}
-            placeholder="例如：Electron safeStorage 最佳实践"
+            placeholder="例如：本周 AI 产品发布动态"
             aria-label="联网搜索真实查询"
             onKeyDown={(event) => {
               if (event.key === 'Enter' && !liveQueryRunning) {
@@ -2861,7 +2861,7 @@ function WebSearchSettingsPage(props: {
 }
 
 function webSearchQueryDisabledReason(input: { hasUsableKey: boolean; enabled: boolean; query: string }): string | null {
-  if (!input.hasUsableKey) return '先保存 Tavily API key，或设置 TAVILY_API_KEY 环境变量';
+  if (!input.hasUsableKey) return '先保存 Tavily 密钥，或设置 TAVILY_API_KEY 环境变量';
   if (!input.enabled) return '先启用联网搜索';
   if (input.query.trim().length === 0) return '输入查询后再搜索';
   return null;
@@ -2872,13 +2872,13 @@ function presentWebSearchCredentialStatus(
   enabled: boolean,
   status: WebSearchCredentialStatus,
 ): { label: string; tone: 'success' | 'info' | 'warning' | 'destructive' } {
-  if (credentialSource === 'none') return { label: '等待保存 key', tone: 'warning' };
+  if (credentialSource === 'none') return { label: '等待保存密钥', tone: 'warning' };
   if (status === 'valid') {
     return enabled
       ? { label: '已验证 · 已启用', tone: 'success' }
       : { label: '已验证 · 未启用', tone: 'info' };
   }
-  if (status === 'invalid_credentials') return { label: 'key 无效', tone: 'destructive' };
+  if (status === 'invalid_credentials') return { label: '密钥无效', tone: 'destructive' };
   if (status === 'rate_limited') return { label: 'Tavily 限流', tone: 'warning' };
   if (status === 'timeout') return { label: '测试超时', tone: 'warning' };
   if (status === 'network_error') return { label: '网络异常', tone: 'warning' };
@@ -2893,9 +2893,9 @@ function presentWebSearchCredentialSource(
   hasStoredKey: boolean,
 ): string {
   if (credentialSource === 'env') {
-    return hasStoredKey ? '来源：环境变量（已保存 key 备用）' : '来源：环境变量';
+    return hasStoredKey ? '来源：环境变量（已保存密钥备用）' : '来源：环境变量';
   }
-  if (credentialSource === 'saved') return '来源：本机已保存 key';
+  if (credentialSource === 'saved') return '来源：本机已保存密钥';
   return '来源：未配置';
 }
 
