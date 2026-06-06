@@ -178,6 +178,8 @@ describe('Settings coming-soon cleanup contract', () => {
     assert.ok(permissionPage, 'Permission Center page block must exist');
     assert.match(permissionPage![0], /只读取系统权限与功能能力的当前快照/, 'Permission Center must explain the current read-only snapshot boundary');
     assert.match(permissionPage![0], /系统设置 → 隐私与安全性/, 'Permission Center must point users to the current OS permission path');
+    assert.match(permissionPage![0], /<ul className="settingsCapabilityList" aria-label="功能能力列表">/, 'Permission Center capability list must have an accessible name');
+    assert.match(permissionPage![0], /<ul className="settingsOsPermissionList" aria-label="系统权限列表">/, 'Permission Center OS permission list must have an accessible name');
     assert.match(settings, /not_determined:\s*\{\s*label:\s*'等待授权'/, 'OS not_determined should read as an actionable waiting state');
     assert.match(settings, /not_configured:\s*\{\s*label:\s*'等待配置'/, 'capability not_configured should read as an actionable waiting state');
     assert.match(settings, /case\s+'missing':\s*return\s+'等待补齐配置'/, 'configuration missing should read as an actionable waiting state');
