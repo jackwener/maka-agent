@@ -1,6 +1,7 @@
 import { StrictMode, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from 'react';
 import { createRoot } from 'react-dom/client';
 import type {
+  ConnectionTestResult,
   ConnectionEvent,
   DailyReviewSummary,
   LlmConnection,
@@ -133,6 +134,25 @@ function commandPaletteActionErrorMessage(error: unknown, fallback: string): str
   return generalizedErrorMessageChinese(error, fallback);
 }
 
+function commandPaletteConnectionTestFailureMessage(result: ConnectionTestResult): string {
+  const fallback = commandPaletteConnectionTestFailureFallback(result);
+  if (!result.errorMessage) return fallback;
+  return generalizedErrorMessageChinese(new Error(result.errorMessage), fallback);
+}
+
+function commandPaletteConnectionTestFailureFallback(result: ConnectionTestResult): string {
+  if (result.statusCode === 429) return '当前账号或模型服务触发速率限制，请稍后重试。';
+  if (result.errorClass === 'timeout') return '请求超时，请检查网络或代理后重试。';
+  if (result.errorClass === 'auth' || result.statusCode === 401 || result.statusCode === 403) {
+    return '鉴权失败，请检查模型密钥、订阅账号登录或凭据配置后重试。';
+  }
+  if (result.errorClass === 'network') return '网络错误，请检查网络或代理后重试。';
+  if (result.errorClass === 'provider_unavailable' || (result.statusCode && result.statusCode >= 500)) {
+    return '模型服务返回错误，请稍后重试。';
+  }
+  return '连接测试失败，请稍后重试。';
+}
+
 function buildChatModelChoices(connections: readonly LlmConnection[]): ChatModelChoice[] {
   const choices: ChatModelChoice[] = [];
   for (const connection of connections) {
@@ -202,12 +222,18 @@ function App() {
   );
 }
 
+type ComposerImportOwner = {
+  sessionId: string | undefined;
+  navSection: NavSelection['section'];
+};
+
 function AppShell() {
   const toastApi = useToast();
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const sessionsRef = useRef<SessionSummary[]>([]);
   const [activeId, setActiveIdState] = useState<string | undefined>();
   const [navSelection, setNavSelection] = useState<NavSelection>(() => readNavSelection());
+  const navSelectionRef = useRef<NavSelection>(navSelection);
   const [messages, setMessages] = useState<StoredMessage[]>([]);
   const [messageLoadErrorBySession, setMessageLoadErrorBySession] = useState<Record<string, string>>({});
   const [messageRetryPendingBySession, setMessageRetryPendingBySession] = useState<Record<string, boolean>>({});
@@ -355,26 +381,31 @@ function AppShell() {
     markdown: string;
     label: string;
     summary: DailyReviewSummary;
-  }) {
+  }, options: { shouldShowFeedback?: () => boolean } = {}) {
+    const shouldShowFeedback = options.shouldShowFeedback ?? (() => true);
     try {
       const result = await window.maka.dailyReview.saveMarkdownToFile({
         markdown: input.markdown,
         defaultName: dailyReviewExportDefaultName(input.label),
       });
       if (result.ok) {
-        toastApi.success(
-          `已保存${input.label}回顾`,
-          `${input.summary.totals.sessionCount} 个对话 · ${input.summary.totals.requestCount} 个请求`,
-        );
+        if (shouldShowFeedback()) {
+          toastApi.success(
+            `已保存${input.label}回顾`,
+            `${input.summary.totals.sessionCount} 个对话 · ${input.summary.totals.requestCount} 个请求`,
+          );
+        }
       } else if (result.reason === 'canceled') {
         // User dismissed the dialog — no toast.
       } else if (result.reason === 'invalid_input') {
-        toastApi.error('保存失败', '导出内容无效');
+        if (shouldShowFeedback()) toastApi.error('保存失败', '导出内容无效');
       } else {
-        toastApi.error('保存失败', '无法写入选择的位置');
+        if (shouldShowFeedback()) toastApi.error('保存失败', '无法写入选择的位置');
       }
     } catch (err) {
-      toastApi.error('保存失败', dailyReviewActionErrorMessage(err, '保存每日回顾失败，请稍后重试。'));
+      if (shouldShowFeedback()) {
+        toastApi.error('保存失败', dailyReviewActionErrorMessage(err, '保存每日回顾失败，请稍后重试。'));
+      }
     }
   }
   const activePermission = activeId ? permissionBySession[activeId] : undefined;
@@ -459,6 +490,7 @@ function AppShell() {
   const pendingTurnActionsRef = useRef<Set<string>>(new Set());
   const pendingTurnActionTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const pendingSessionRowActionsRef = useRef<Set<string>>(new Set());
+  const pendingPermissionModeChangesRef = useRef<Set<string>>(new Set());
   const pendingSessionModelChangesRef = useRef<Set<string>>(new Set());
   const pendingKeyOf = (sessionId: string, turnId: string, actionId: TurnFooterActionMeta['id']) =>
     `${sessionId}:${turnId}:${actionId}`;
@@ -668,9 +700,9 @@ function AppShell() {
     turnId: string,
     actionId: TurnFooterActionMeta['id'],
   ): Promise<void> {
-    if (!activeId) return;
     if (actionId === 'copy') return; // handled in-component
-    const sessionId = activeId;
+    const sessionId = activeIdRef.current;
+    if (!sessionId) return;
     const key = pendingKeyOf(sessionId, turnId, actionId);
     // Ref-backed guard blocks same-frame double clicks before React has
     // committed the disabled state. State alone is too late here because
@@ -679,23 +711,25 @@ function AppShell() {
     try {
       if (actionId === 'retry') {
         await window.maka.sessions.retryTurn(sessionId, { sourceTurnId: turnId });
-        toastApi.info('已发起重试', '正在生成新的一轮回答');
+        if (activeIdRef.current === sessionId) toastApi.info('已发起重试', '正在生成新的一轮回答');
       } else if (actionId === 'regenerate') {
         await window.maka.sessions.regenerateTurn(sessionId, { sourceTurnId: turnId });
-        toastApi.info('已发起重新生成', '保留旧回答，生成新的并行回答');
+        if (activeIdRef.current === sessionId) toastApi.info('已发起重新生成', '保留旧回答，生成新的并行回答');
       } else if (actionId === 'branch') {
         const newSession = await window.maka.sessions.branchFromTurn(sessionId, { sourceTurnId: turnId });
-        openSessionInChat(newSession.id);
         upsertSessionSummary(newSession);
-        setMessages([]);
-        await refreshMessages(newSession.id);
+        if (activeIdRef.current === sessionId) {
+          openSessionInChat(newSession.id);
+          setMessages([]);
+          await refreshMessages(newSession.id);
+          toastApi.success('已创建分支', `新会话 ${newSession.name}`);
+        }
         await refreshSessions();
         clearPendingTurnAction(key);
-        toastApi.success('已创建分支', `新会话 ${newSession.name}`);
       }
     } catch (error) {
       clearPendingTurnAction(key);
-      toastApi.error('操作失败', cleanErrorMessage(error));
+      if (activeIdRef.current === sessionId) toastApi.error('操作失败', cleanErrorMessage(error));
     }
   }
 
@@ -781,9 +815,38 @@ function AppShell() {
     setActiveIdState(next);
   }
 
+  function isAutomationsSurfaceActive(): boolean {
+    return navSelectionRef.current.section === 'automations';
+  }
+
+  function isSkillsSurfaceActive(): boolean {
+    return navSelectionRef.current.section === 'skills';
+  }
+
+  function isDailyReviewSurfaceActive(): boolean {
+    return navSelectionRef.current.section === 'daily-review';
+  }
+
+  function captureComposerImportOwner(): ComposerImportOwner {
+    return {
+      sessionId: activeIdRef.current,
+      navSection: navSelectionRef.current.section,
+    };
+  }
+
+  function isComposerImportOwnerActive(owner: ComposerImportOwner): boolean {
+    return owner.navSection === 'sessions'
+      && navSelectionRef.current.section === 'sessions'
+      && activeIdRef.current === owner.sessionId;
+  }
+
   useEffect(() => {
     activeIdRef.current = activeId;
   }, [activeId]);
+
+  useEffect(() => {
+    navSelectionRef.current = navSelection;
+  }, [navSelection]);
 
   useEffect(() => {
     sessionsRef.current = sessions;
@@ -1332,25 +1395,35 @@ function AppShell() {
     });
   }
   async function setPermissionMode(mode: PermissionMode) {
-    if (!activeId) return;
-    const current = sessions.find((session) => session.id === activeId);
+    const sessionId = activeIdRef.current;
+    if (!sessionId) return;
+    if (pendingPermissionModeChangesRef.current.has(sessionId)) return;
+    const current = sessionsRef.current.find((session) => session.id === sessionId);
     if (!current || current.permissionMode === mode) return;
+    pendingPermissionModeChangesRef.current.add(sessionId);
     try {
-      const next = await window.maka.sessions.setPermissionMode(activeId, mode);
+      const next = await window.maka.sessions.setPermissionMode(sessionId, mode);
       // Patch the session in-place so the chat header reflects the new mode
       // immediately without waiting for a full list refresh.
-      setSessions((prev) => prev.map((session) => (session.id === next.id ? next : session)));
+      if (activeIdRef.current === sessionId) {
+        setSessions((prev) => prev.map((session) => (session.id === next.id ? next : session)));
+      }
       const labels: Record<PermissionMode, string> = {
         explore: '只读模式',
         ask: '确认模式',
         execute: '执行模式',
       };
-      toastApi.success(`已切到 ${labels[mode]}`, modeDescriptions[mode]);
+      if (activeIdRef.current === sessionId) toastApi.success(`已切到 ${labels[mode]}`, modeDescriptions[mode]);
+      await refreshSessions();
     } catch (error) {
-      toastApi.error(
-        '切换权限模式失败',
-        generalizedErrorMessageChinese(error, '权限模式暂时无法切换，请稍后重试。'),
-      );
+      if (activeIdRef.current === sessionId) {
+        toastApi.error(
+          '切换权限模式失败',
+          generalizedErrorMessageChinese(error, '权限模式暂时无法切换，请稍后重试。'),
+        );
+      }
+    } finally {
+      pendingPermissionModeChangesRef.current.delete(sessionId);
     }
   }
 
@@ -1431,23 +1504,23 @@ function AppShell() {
     }
   }
 
-  async function refreshPlanReminders() {
+  async function refreshPlanReminders(options: { shouldShowError?: () => boolean } = {}) {
     try {
       const next = await window.maka.plans.list();
       setPlanReminders(next);
     } catch (error) {
-      toastApi.error('刷新计划失败', cleanErrorMessage(error));
+      if (options.shouldShowError?.() ?? true) toastApi.error('刷新计划失败', cleanErrorMessage(error));
     }
   }
 
   async function createPlanReminder(input: { title: string; note?: string; runAt: number; recurrence?: PlanReminderRecurrence; cronExpression?: string; delivery?: PlanReminderDeliveryTarget }) {
     try {
       await window.maka.plans.create(input);
-      await refreshPlanReminders();
-      toastApi.success('已创建计划提醒', input.title);
+      await refreshPlanReminders({ shouldShowError: isAutomationsSurfaceActive });
+      if (isAutomationsSurfaceActive()) toastApi.success('已创建计划提醒', input.title);
       return true;
     } catch (error) {
-      toastApi.error('创建计划失败', cleanErrorMessage(error));
+      if (isAutomationsSurfaceActive()) toastApi.error('创建计划失败', cleanErrorMessage(error));
       return false;
     }
   }
@@ -1455,11 +1528,11 @@ function AppShell() {
   async function updatePlanReminder(id: string, patch: { title?: string; note?: string; runAt?: number; recurrence?: PlanReminderRecurrence; cronExpression?: string; delivery?: PlanReminderDeliveryTarget; enabled?: boolean }) {
     try {
       await window.maka.plans.update(id, patch);
-      await refreshPlanReminders();
-      toastApi.success('已保存计划提醒', patch.title);
+      await refreshPlanReminders({ shouldShowError: isAutomationsSurfaceActive });
+      if (isAutomationsSurfaceActive()) toastApi.success('已保存计划提醒', patch.title);
       return true;
     } catch (error) {
-      toastApi.error('保存计划失败', cleanErrorMessage(error));
+      if (isAutomationsSurfaceActive()) toastApi.error('保存计划失败', cleanErrorMessage(error));
       return false;
     }
   }
@@ -1467,10 +1540,10 @@ function AppShell() {
   async function togglePlanReminder(id: string, enabled: boolean) {
     try {
       await window.maka.plans.setEnabled(id, enabled);
-      await refreshPlanReminders();
-      toastApi.success(enabled ? '已启用提醒' : '已暂停提醒');
+      await refreshPlanReminders({ shouldShowError: isAutomationsSurfaceActive });
+      if (isAutomationsSurfaceActive()) toastApi.success(enabled ? '已启用提醒' : '已暂停提醒');
     } catch (error) {
-      toastApi.error('更新计划失败', cleanErrorMessage(error));
+      if (isAutomationsSurfaceActive()) toastApi.error('更新计划失败', cleanErrorMessage(error));
     }
   }
 
@@ -1478,10 +1551,10 @@ function AppShell() {
     const reminder = planReminders.find((entry) => entry.id === id);
     try {
       await window.maka.plans.triggerNow(id);
-      await refreshPlanReminders();
-      toastApi.success('已触发计划提醒', reminder?.title);
+      await refreshPlanReminders({ shouldShowError: isAutomationsSurfaceActive });
+      if (isAutomationsSurfaceActive()) toastApi.success('已触发计划提醒', reminder?.title);
     } catch (error) {
-      toastApi.error('触发计划失败', cleanErrorMessage(error));
+      if (isAutomationsSurfaceActive()) toastApi.error('触发计划失败', cleanErrorMessage(error));
     }
   }
 
@@ -1489,10 +1562,10 @@ function AppShell() {
     const reminder = planReminders.find((entry) => entry.id === id);
     try {
       await window.maka.plans.snooze(id);
-      await refreshPlanReminders();
-      toastApi.success('已延后 10 分钟', reminder?.title);
+      await refreshPlanReminders({ shouldShowError: isAutomationsSurfaceActive });
+      if (isAutomationsSurfaceActive()) toastApi.success('已延后 10 分钟', reminder?.title);
     } catch (error) {
-      toastApi.error('延后计划失败', cleanErrorMessage(error));
+      if (isAutomationsSurfaceActive()) toastApi.error('延后计划失败', cleanErrorMessage(error));
     }
   }
 
@@ -1508,10 +1581,10 @@ function AppShell() {
     if (!ok) return;
     try {
       await window.maka.plans.clearRunHistory(id);
-      await refreshPlanReminders();
-      toastApi.success('已清空执行记录', reminder?.title);
+      await refreshPlanReminders({ shouldShowError: isAutomationsSurfaceActive });
+      if (isAutomationsSurfaceActive()) toastApi.success('已清空执行记录', reminder?.title);
     } catch (error) {
-      toastApi.error('清空记录失败', cleanErrorMessage(error));
+      if (isAutomationsSurfaceActive()) toastApi.error('清空记录失败', cleanErrorMessage(error));
     }
   }
 
@@ -1527,10 +1600,10 @@ function AppShell() {
     if (!ok) return;
     try {
       await window.maka.plans.delete(id);
-      await refreshPlanReminders();
-      toastApi.success('已删除计划提醒');
+      await refreshPlanReminders({ shouldShowError: isAutomationsSurfaceActive });
+      if (isAutomationsSurfaceActive()) toastApi.success('已删除计划提醒');
     } catch (error) {
-      toastApi.error('删除计划失败', cleanErrorMessage(error));
+      if (isAutomationsSurfaceActive()) toastApi.error('删除计划失败', cleanErrorMessage(error));
     }
   }
 
@@ -1554,12 +1627,12 @@ function AppShell() {
   // Open the workspace's skills/ directory in Finder via the IPC allowlist.
   // Earlier we silently dropped the structured failure result; surface it
   // so missing-skills-dir / open-failed don't look like the button did nothing.
-  async function refreshSkills() {
+  async function refreshSkills(options: { shouldShowError?: () => boolean } = {}) {
     try {
       const next = await window.maka.skills.list();
       setSkills(next);
     } catch (error) {
-      toastApi.error('刷新技能失败', cleanErrorMessage(error));
+      if (options.shouldShowError?.() ?? true) toastApi.error('刷新技能失败', cleanErrorMessage(error));
     }
   }
 
@@ -1576,17 +1649,18 @@ function AppShell() {
     try {
       const result = await window.maka.skills.createStarter();
       if (!result.ok) {
-        toastApi.error('无法创建示例技能', createSkillFailureCopy(result.reason));
+        if (isSkillsSurfaceActive()) toastApi.error('无法创建示例技能', createSkillFailureCopy(result.reason));
         return;
       }
-      await refreshSkills();
+      await refreshSkills({ shouldShowError: isSkillsSurfaceActive });
+      if (!isSkillsSurfaceActive()) return;
       toastApi.success('已创建示例技能', `${result.skill.id}/SKILL.md 已放到工作区 skills 目录。`);
       const openResult = await window.maka.skills.open(result.skill.id, 'file');
       if (!openResult.ok) {
-        toastApi.error('无法打开示例技能', openSkillFailureCopy(openResult.reason));
+        if (isSkillsSurfaceActive()) toastApi.error('无法打开示例技能', openSkillFailureCopy(openResult.reason));
       }
     } catch (error) {
-      toastApi.error('无法创建示例技能', cleanErrorMessage(error));
+      if (isSkillsSurfaceActive()) toastApi.error('无法创建示例技能', cleanErrorMessage(error));
     }
   }
 
@@ -1605,10 +1679,10 @@ function AppShell() {
     try {
       const result = await window.maka.skills.open(skillId, 'file');
       if (!result.ok) {
-        toastApi.error('无法打开 Skill', openSkillFailureCopy(result.reason));
+        if (isSkillsSurfaceActive()) toastApi.error('无法打开 Skill', openSkillFailureCopy(result.reason));
       }
     } catch (error) {
-      toastApi.error('无法打开 Skill', cleanErrorMessage(error));
+      if (isSkillsSurfaceActive()) toastApi.error('无法打开 Skill', cleanErrorMessage(error));
     }
   }
 
@@ -1641,6 +1715,7 @@ function AppShell() {
   }
 
   async function send(text: string): Promise<boolean> {
+    const initialSessionId = activeIdRef.current;
     let optimisticSessionId: string | undefined;
     let optimisticTurnId: string | undefined;
     try {
@@ -1672,6 +1747,11 @@ function AppShell() {
       if (optimisticSessionId && optimisticTurnId) {
         removeOptimisticUserMessage(optimisticSessionId, optimisticTurnId);
       }
+      const feedbackSessionId = optimisticSessionId ?? initialSessionId;
+      const sendStillOwnsCurrentSurface = feedbackSessionId
+        ? activeIdRef.current === feedbackSessionId
+        : activeIdRef.current === initialSessionId;
+      if (!sendStillOwnsCurrentSurface) return false;
       if (isNoRealConnectionError(error)) {
         showModelSetupToast(cleanErrorMessage(error), noRealConnectionReasonFromError(error));
       } else {
@@ -1681,19 +1761,22 @@ function AppShell() {
     }
   }
 
-  async function importTextFilePrompt(): Promise<string | undefined> {
+  async function importTextFilePrompt(options: { shouldShowFeedback?: () => boolean } = {}): Promise<string | undefined> {
+    const shouldShowFeedback = options.shouldShowFeedback ?? (() => true);
     const result = await window.maka.context.importTextFile();
     if (!result.ok) {
-      if (result.reason !== 'cancelled') toastApi.error('导入文件失败', result.message);
+      if (result.reason !== 'cancelled' && shouldShowFeedback()) toastApi.error('导入文件失败', result.message);
       return undefined;
     }
-    toastApi.success('已导入文件内容', `${result.name}${result.truncated ? ' · 已截断' : ''}`);
+    if (shouldShowFeedback()) toastApi.success('已导入文件内容', `${result.name}${result.truncated ? ' · 已截断' : ''}`);
     return result.prompt;
   }
 
   async function importTextFileIntoComposer() {
-    const prompt = await importTextFilePrompt();
+    const owner = captureComposerImportOwner();
+    const prompt = await importTextFilePrompt({ shouldShowFeedback: () => isComposerImportOwnerActive(owner) });
     if (!prompt) return;
+    if (!isComposerImportOwnerActive(owner)) return;
     composerRef.current?.appendText(prompt);
   }
 
@@ -1721,13 +1804,14 @@ function AppShell() {
     })));
   }
 
-  async function importDroppedTextFilesPrompt(files: File[]): Promise<string | undefined> {
+  async function importDroppedTextFilesPrompt(files: File[], options: { shouldShowFeedback?: () => boolean } = {}): Promise<string | undefined> {
+    const shouldShowFeedback = options.shouldShowFeedback ?? (() => true);
     if (files.length === 0) return;
     try {
       const preflightInputs = await buildDroppedTextFilePreflightInputs(files);
       const preflight = preflightDroppedTextFilesForPromptImport(preflightInputs);
       if (!preflight.ok) {
-        toastApi.error('导入文件失败', droppedTextFilePreflightFailureCopy(preflight.reason));
+        if (shouldShowFeedback()) toastApi.error('导入文件失败', droppedTextFilePreflightFailureCopy(preflight.reason));
         return undefined;
       }
       const payloads = await Promise.all(files.map(async (file) => ({
@@ -1738,36 +1822,41 @@ function AppShell() {
       })));
       const result = await window.maka.context.importDroppedTextFiles(payloads);
       if (!result.ok) {
-        toastApi.error('导入文件失败', result.message);
+        if (shouldShowFeedback()) toastApi.error('导入文件失败', result.message);
         return undefined;
       }
-      toastApi.success('已导入文件内容', `${result.name}${result.truncated ? ' · 已截断' : ''}`);
+      if (shouldShowFeedback()) toastApi.success('已导入文件内容', `${result.name}${result.truncated ? ' · 已截断' : ''}`);
       return result.prompt;
     } catch (error) {
-      toastApi.error('导入文件失败', cleanErrorMessage(error));
+      if (shouldShowFeedback()) toastApi.error('导入文件失败', cleanErrorMessage(error));
       return undefined;
     }
   }
 
   async function importDroppedTextFilesIntoComposer(files: File[]) {
-    const prompt = await importDroppedTextFilesPrompt(files);
+    const owner = captureComposerImportOwner();
+    const prompt = await importDroppedTextFilesPrompt(files, { shouldShowFeedback: () => isComposerImportOwnerActive(owner) });
     if (!prompt) return;
+    if (!isComposerImportOwnerActive(owner)) return;
     composerRef.current?.appendText(prompt);
   }
 
-  async function importFolderOutlinePrompt(): Promise<string | undefined> {
+  async function importFolderOutlinePrompt(options: { shouldShowFeedback?: () => boolean } = {}): Promise<string | undefined> {
+    const shouldShowFeedback = options.shouldShowFeedback ?? (() => true);
     const result = await window.maka.context.importFolderOutline();
     if (!result.ok) {
-      if (result.reason !== 'cancelled') toastApi.error('导入目录失败', result.message);
+      if (result.reason !== 'cancelled' && shouldShowFeedback()) toastApi.error('导入目录失败', result.message);
       return undefined;
     }
-    toastApi.success('已导入文件夹目录', `${result.name} · ${result.entries} 项${result.truncated ? ' · 已截断' : ''}`);
+    if (shouldShowFeedback()) toastApi.success('已导入文件夹目录', `${result.name} · ${result.entries} 项${result.truncated ? ' · 已截断' : ''}`);
     return result.prompt;
   }
 
   async function importFolderOutlineIntoComposer() {
-    const prompt = await importFolderOutlinePrompt();
+    const owner = captureComposerImportOwner();
+    const prompt = await importFolderOutlinePrompt({ shouldShowFeedback: () => isComposerImportOwnerActive(owner) });
     if (!prompt) return;
+    if (!isComposerImportOwnerActive(owner)) return;
     composerRef.current?.appendText(prompt);
   }
 
@@ -1783,21 +1872,22 @@ function AppShell() {
       // UnhandledPromiseRejection and the user would see nothing.
       // Surface it as a toast so the user knows the model wasn't
       // actually interrupted and can retry.
-      toastApi.error('停止失败', cleanErrorMessage(error));
+      if (activeIdRef.current === sessionId) toastApi.error('停止失败', cleanErrorMessage(error));
     } finally {
       clearPendingStop(sessionId);
     }
   }
 
   async function respondToPermission(response: PermissionResponse) {
-    if (!activeId) return;
+    const sessionId = activeIdRef.current;
+    if (!sessionId) return;
     try {
-      await window.maka.sessions.respondToPermission(activeId, response);
+      await window.maka.sessions.respondToPermission(sessionId, response);
     } catch (error) {
       // Same fire-and-forget call site as stop() — wrap so a failed
       // permission response (main process busy / session dropped)
       // surfaces instead of dying as UnhandledPromiseRejection.
-      toastApi.error('响应失败', cleanErrorMessage(error));
+      if (activeIdRef.current === sessionId) toastApi.error('响应失败', cleanErrorMessage(error));
     }
   }
 
@@ -2039,10 +2129,12 @@ function AppShell() {
       case 'error':
         clearStreaming(sessionId);
         setPermissionBySession((current) => ({ ...current, [sessionId]: undefined }));
-        if (isNoRealConnectionEvent(event)) {
-          showModelSetupToast(cleanEventMessage(event.message), noRealConnectionReasonFromEvent(event));
-        } else {
-          toastApi.error('对话出错', event.message);
+        if (activeIdRef.current === sessionId) {
+          if (isNoRealConnectionEvent(event)) {
+            showModelSetupToast(cleanEventMessage(event.message), noRealConnectionReasonFromEvent(event));
+          } else {
+            toastApi.error('对话出错', event.message);
+          }
         }
         markInFlightToolsInterrupted(sessionId);
         void refreshSessions();
@@ -2511,15 +2603,19 @@ function AppShell() {
             onCopyDailyReviewMarkdown={async ({ markdown, label, summary }) => {
               try {
                 await navigator.clipboard.writeText(markdown);
-                toastApi.success(
-                  `已复制${label}回顾`,
-                  `${summary.totals.sessionCount} 个对话 · ${summary.totals.requestCount} 个请求`,
-                );
+                if (isDailyReviewSurfaceActive()) {
+                  toastApi.success(
+                    `已复制${label}回顾`,
+                    `${summary.totals.sessionCount} 个对话 · ${summary.totals.requestCount} 个请求`,
+                  );
+                }
               } catch (error) {
-                toastApi.error('复制失败', dailyReviewActionErrorMessage(error, '剪贴板不可用或被系统拒绝'));
+                if (isDailyReviewSurfaceActive()) {
+                  toastApi.error('复制失败', dailyReviewActionErrorMessage(error, '剪贴板不可用或被系统拒绝'));
+                }
               }
             }}
-            onSaveDailyReviewMarkdown={(input) => saveDailyReviewMarkdown(input)}
+            onSaveDailyReviewMarkdown={(input) => saveDailyReviewMarkdown(input, { shouldShowFeedback: isDailyReviewSurfaceActive })}
             dailyReviewBridge={dailyReviewBridge}
             rowActions={{
               onToggleFlag: (sessionId, next) => flagSession(sessionId, next),
@@ -2601,12 +2697,16 @@ function AppShell() {
                 onCopyDailyReviewMarkdown={async ({ markdown, label, summary }) => {
                   try {
                     await navigator.clipboard.writeText(markdown);
-                    toastApi.success(
-                      `已复制${label}回顾`,
-                      `${summary.totals.sessionCount} 个对话 · ${summary.totals.requestCount} 个请求`,
-                    );
+                    if (isDailyReviewSurfaceActive()) {
+                      toastApi.success(
+                        `已复制${label}回顾`,
+                        `${summary.totals.sessionCount} 个对话 · ${summary.totals.requestCount} 个请求`,
+                      );
+                    }
                   } catch (error) {
-                    toastApi.error('复制失败', dailyReviewActionErrorMessage(error, '剪贴板不可用或被系统拒绝'));
+                    if (isDailyReviewSurfaceActive()) {
+                      toastApi.error('复制失败', dailyReviewActionErrorMessage(error, '剪贴板不可用或被系统拒绝'));
+                    }
                   }
                 }}
                 onAppendDailyReviewMarkdown={({ markdown, label, summary }) => {
@@ -2616,7 +2716,7 @@ function AppShell() {
                     `${summary.totals.sessionCount} 个对话 · ${summary.totals.requestCount} 个请求`,
                   );
                 }}
-                onSaveDailyReviewMarkdown={(input) => saveDailyReviewMarkdown(input)}
+                onSaveDailyReviewMarkdown={(input) => saveDailyReviewMarkdown(input, { shouldShowFeedback: isDailyReviewSurfaceActive })}
                 scrollTargetTurn={
                   activeId && searchScrollTarget?.sessionId === activeId
                     ? { turnId: searchScrollTarget.turnId, nonce: searchScrollTarget.nonce }
@@ -2786,11 +2886,14 @@ function AppShell() {
                     `延迟 ${result.latencyMs ?? '?'} ms${result.modelTested ? ' · ' + result.modelTested : ''}`,
                   );
                 } else {
-                  toastApi.error(`连接测试失败 · ${name}`, result.errorMessage ?? '未知错误');
+                  toastApi.error(`连接测试失败 · ${name}`, commandPaletteConnectionTestFailureMessage(result));
                 }
                 await refreshConnections();
-              } catch (error) {
-                toastApi.error('测试出错', error instanceof Error ? error.message : String(error));
+              } catch (err) {
+                toastApi.error(
+                  '测试出错',
+                  commandPaletteActionErrorMessage(err, '连接测试暂时不可用，请稍后重试。'),
+                );
               }
             },
             onSetDefaultConnection: async (slug) => {
@@ -2799,8 +2902,11 @@ function AppShell() {
                 await refreshConnections();
                 const conn = connections.find((c) => c.slug === slug);
                 toastApi.success(`已设为默认 · ${conn?.name ?? slug}`);
-              } catch (error) {
-                toastApi.error('切换默认失败', error instanceof Error ? error.message : String(error));
+              } catch (err) {
+                toastApi.error(
+                  '切换默认失败',
+                  commandPaletteActionErrorMessage(err, '默认模型暂时无法切换，请稍后重试。'),
+                );
               }
             },
             onOpenWorkspace: async () => {

@@ -326,6 +326,12 @@ describe('text file context import', () => {
     const uiSource = await readFile(join(process.cwd(), '../../packages/ui/src/components.tsx'), 'utf8');
     const cssSource = await readFile(join(process.cwd(), 'src/renderer/maka-tokens.css'), 'utf8');
     const stylesSource = await readFile(join(process.cwd(), 'src/renderer/styles.css'), 'utf8');
+    const textFilePromptBlock = mainSource.match(/async function importTextFilePrompt[\s\S]*?async function importTextFileIntoComposer/)?.[0] ?? '';
+    const textFileComposerBlock = mainSource.match(/async function importTextFileIntoComposer\(\)[\s\S]*?function droppedTextFilePreflightFailureCopy/)?.[0] ?? '';
+    const droppedPromptBlock = mainSource.match(/async function importDroppedTextFilesPrompt[\s\S]*?async function importDroppedTextFilesIntoComposer/)?.[0] ?? '';
+    const droppedComposerBlock = mainSource.match(/async function importDroppedTextFilesIntoComposer\(files: File\[\]\)[\s\S]*?async function importFolderOutlinePrompt/)?.[0] ?? '';
+    const folderPromptBlock = mainSource.match(/async function importFolderOutlinePrompt[\s\S]*?async function importFolderOutlineIntoComposer/)?.[0] ?? '';
+    const folderComposerBlock = mainSource.match(/async function importFolderOutlineIntoComposer\(\)[\s\S]*?async function stop/)?.[0] ?? '';
 
     assert.match(mainSource, /onImportTextFile=\{importTextFilePrompt\}/);
     assert.match(mainSource, /onImportTextFile=\{importTextFileIntoComposer\}/);
@@ -339,7 +345,34 @@ describe('text file context import', () => {
       mainSource.indexOf('preflightDroppedTextFilesForPromptImport(preflightInputs)') < mainSource.indexOf('text: await file.text()'),
       'renderer must preflight count/size/type/sample before reading dropped/pasted file text',
     );
-    assert.match(mainSource, /composerRef\.current\?\.appendText\(prompt\)/);
+    assert.match(
+      mainSource,
+      /type ComposerImportOwner = \{[\s\S]*sessionId: string \| undefined;[\s\S]*navSection: NavSelection\['section'\];[\s\S]*\};[\s\S]*function captureComposerImportOwner\(\): ComposerImportOwner \{[\s\S]*activeIdRef\.current[\s\S]*navSelectionRef\.current\.section/,
+      'composer import actions must capture the source session/module before awaiting dialogs or file reads',
+    );
+    assert.match(
+      mainSource,
+      /function isComposerImportOwnerActive\(owner: ComposerImportOwner\): boolean \{[\s\S]*owner\.navSection === 'sessions'[\s\S]*navSelectionRef\.current\.section === 'sessions'[\s\S]*activeIdRef\.current === owner\.sessionId/,
+      'composer import continuation must only write back while the original chat composer is still active',
+    );
+    assert.match(textFilePromptBlock, /const shouldShowFeedback = options\.shouldShowFeedback \?\? \(\(\) => true\)/);
+    assert.match(droppedPromptBlock, /const shouldShowFeedback = options\.shouldShowFeedback \?\? \(\(\) => true\)/);
+    assert.match(folderPromptBlock, /const shouldShowFeedback = options\.shouldShowFeedback \?\? \(\(\) => true\)/);
+    assert.match(
+      textFileComposerBlock,
+      /const owner = captureComposerImportOwner\(\);[\s\S]*importTextFilePrompt\(\{ shouldShowFeedback: \(\) => isComposerImportOwnerActive\(owner\) \}\)[\s\S]*if \(!isComposerImportOwnerActive\(owner\)\) return;[\s\S]*composerRef\.current\?\.appendText\(prompt\)/,
+      'picked file import must not append into a different session/module after the file dialog resolves',
+    );
+    assert.match(
+      droppedComposerBlock,
+      /const owner = captureComposerImportOwner\(\);[\s\S]*importDroppedTextFilesPrompt\(files, \{ shouldShowFeedback: \(\) => isComposerImportOwnerActive\(owner\) \}\)[\s\S]*if \(!isComposerImportOwnerActive\(owner\)\) return;[\s\S]*composerRef\.current\?\.appendText\(prompt\)/,
+      'drop/paste import must not append into a different session/module after file reads resolve',
+    );
+    assert.match(
+      folderComposerBlock,
+      /const owner = captureComposerImportOwner\(\);[\s\S]*importFolderOutlinePrompt\(\{ shouldShowFeedback: \(\) => isComposerImportOwnerActive\(owner\) \}\)[\s\S]*if \(!isComposerImportOwnerActive\(owner\)\) return;[\s\S]*composerRef\.current\?\.appendText\(prompt\)/,
+      'folder-outline import must not append into a different session/module after the folder dialog resolves',
+    );
     assert.match(mainSource, /draftKey=\{activeId \?\? 'new-session'\}/);
     assert.match(mainProcessSource, /properties: \['openFile', 'multiSelections'\]/);
     assert.match(mainProcessSource, /context:importDroppedTextFiles/);

@@ -167,16 +167,33 @@ describe('permission mode transition guard copy', () => {
     const renderer = await readFile(join(REPO_ROOT, 'apps/desktop/src/renderer/main.tsx'), 'utf8');
     const setPermissionModeBlock = renderer.match(/async function setPermissionMode[\s\S]*?async function setSessionModel/)?.[0] ?? '';
 
+    assert.match(renderer, /const pendingPermissionModeChangesRef = useRef<Set<string>>\(new Set\(\)\);/);
     assert.match(
       setPermissionModeBlock,
-      /toastApi\.error\(\s*'切换权限模式失败',\s*generalizedErrorMessageChinese\(error, '权限模式暂时无法切换，请稍后重试。'\)/,
+      /const sessionId = activeIdRef\.current;[\s\S]*if \(!sessionId\) return;[\s\S]*pendingPermissionModeChangesRef\.current\.has\(sessionId\)/,
+      'Permission mode changes must capture the active session id and gate duplicate changes for that session',
+    );
+    assert.match(setPermissionModeBlock, /sessionsRef\.current\.find\(\(session\) => session\.id === sessionId\)/);
+    assert.match(setPermissionModeBlock, /window\.maka\.sessions\.setPermissionMode\(sessionId, mode\)/);
+    assert.match(
+      setPermissionModeBlock,
+      /if \(activeIdRef\.current === sessionId\) \{[\s\S]*setSessions\(\(prev\) => prev\.map\(\(session\) => \(session\.id === next\.id \? next : session\)\)\);[\s\S]*\}/,
+      'Permission mode success must not patch the visible chat header after the user switches sessions',
+    );
+    assert.match(setPermissionModeBlock, /if \(activeIdRef\.current === sessionId\) toastApi\.success\(`已切到 \$\{labels\[mode\]\}`/);
+    assert.match(setPermissionModeBlock, /await refreshSessions\(\)/, 'Permission mode changes must still refresh the sidebar/session list');
+    assert.match(
+      setPermissionModeBlock,
+      /if \(activeIdRef\.current === sessionId\) \{[\s\S]*toastApi\.error\(\s*'切换权限模式失败',\s*generalizedErrorMessageChinese\(error, '权限模式暂时无法切换，请稍后重试。'\)/,
       'Permission mode failures must use shared Chinese error classification/redaction before reaching toast',
     );
+    assert.match(setPermissionModeBlock, /finally \{[\s\S]*pendingPermissionModeChangesRef\.current\.delete\(sessionId\);[\s\S]*\}/);
     assert.doesNotMatch(
       setPermissionModeBlock,
       /error instanceof Error \? error\.message : String\(error\)/,
       'Permission mode failures must not render raw thrown Error.message',
     );
+    assert.doesNotMatch(setPermissionModeBlock, /window\.maka\.sessions\.setPermissionMode\(activeId, mode\)/);
   });
 });
 

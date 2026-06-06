@@ -947,6 +947,10 @@ type DailyReviewMarkdownActionInput = {
   summary: DailyReviewSummary;
 };
 
+function dailyReviewScopeKey(offsetDays: number, range: DailyReviewRange): string {
+  return `${offsetDays}:${range}`;
+}
+
 function DailyReviewPanel(props: {
   bridge: DailyReviewBridge;
   onSelectSession?: (sessionId: string) => void;
@@ -960,12 +964,16 @@ function DailyReviewPanel(props: {
   // navigates by the same span (一个 30 天 window steps back 30 days).
   const [range, setRange] = useState<DailyReviewRange>(1);
   const [summary, setSummary] = useState<DailyReviewSummary | null>(null);
+  const [summaryScopeKey, setSummaryScopeKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [reloadToken, setReloadToken] = useState(0);
   const [pendingDailyReviewAction, setPendingDailyReviewAction] = useState<string | null>(null);
   const dailyReviewMountedRef = useRef(true);
+  const summaryScopeKeyRef = useRef<string | null>(null);
   const pendingDailyReviewActionRef = useRef<string | null>(null);
+  const currentSummaryScopeKey = dailyReviewScopeKey(offsetDays, range);
+  const visibleSummary = summaryScopeKey === currentSummaryScopeKey ? summary : null;
 
   useEffect(() => {
     dailyReviewMountedRef.current = true;
@@ -977,6 +985,7 @@ function DailyReviewPanel(props: {
 
   useEffect(() => {
     let cancelled = false;
+    const scopeKey = dailyReviewScopeKey(offsetDays, range);
     setLoading(true);
     setError(null);
     props.bridge
@@ -984,11 +993,17 @@ function DailyReviewPanel(props: {
       .then((next) => {
         if (cancelled) return;
         setSummary(next);
+        summaryScopeKeyRef.current = scopeKey;
+        setSummaryScopeKey(scopeKey);
         setLoading(false);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        setSummary(null);
+        if (summaryScopeKeyRef.current !== scopeKey) {
+          summaryScopeKeyRef.current = null;
+          setSummary(null);
+          setSummaryScopeKey(null);
+        }
         setError(dailyReviewPanelErrorMessage(err));
         setLoading(false);
       });
@@ -1075,15 +1090,15 @@ function DailyReviewPanel(props: {
             </button>
           ))}
         </div>
-        {summary && summary.totals.sessionCount + summary.totals.requestCount > 0 && hasDailyReviewActions && (
+        {visibleSummary && visibleSummary.totals.sessionCount + visibleSummary.totals.requestCount > 0 && hasDailyReviewActions && (
           <div className="maka-daily-review-actions" aria-label="回顾导出操作">
             {props.onCopyMarkdown && (
               <button
                 type="button"
                 className="maka-button maka-button-ghost maka-daily-review-copy"
                 onClick={() => void runDailyReviewAction('copy', async () => {
-                  const md = formatDailyReviewMarkdown(summary, dayLabel);
-                  await props.onCopyMarkdown?.({ markdown: md, label: dayLabel, summary });
+                  const md = formatDailyReviewMarkdown(visibleSummary, dayLabel);
+                  await props.onCopyMarkdown?.({ markdown: md, label: dayLabel, summary: visibleSummary });
                 })}
                 disabled={dailyReviewActionBusy}
                 data-pending={pendingDailyReviewAction === 'copy' ? 'true' : undefined}
@@ -1098,8 +1113,8 @@ function DailyReviewPanel(props: {
                 type="button"
                 className="maka-button maka-button-ghost maka-daily-review-append"
                 onClick={() => void runDailyReviewAction('append', async () => {
-                  const md = formatDailyReviewMarkdown(summary, dayLabel);
-                  await props.onAppendMarkdown?.({ markdown: md, label: dayLabel, summary });
+                  const md = formatDailyReviewMarkdown(visibleSummary, dayLabel);
+                  await props.onAppendMarkdown?.({ markdown: md, label: dayLabel, summary: visibleSummary });
                 })}
                 disabled={dailyReviewActionBusy}
                 data-pending={pendingDailyReviewAction === 'append' ? 'true' : undefined}
@@ -1114,8 +1129,8 @@ function DailyReviewPanel(props: {
                 type="button"
                 className="maka-button maka-button-ghost maka-daily-review-save"
                 onClick={() => void runDailyReviewAction('save', async () => {
-                  const md = formatDailyReviewMarkdown(summary, dayLabel);
-                  await props.onSaveMarkdown?.({ markdown: md, label: dayLabel, summary });
+                  const md = formatDailyReviewMarkdown(visibleSummary, dayLabel);
+                  await props.onSaveMarkdown?.({ markdown: md, label: dayLabel, summary: visibleSummary });
                 })}
                 disabled={dailyReviewActionBusy}
                 data-pending={pendingDailyReviewAction === 'save' ? 'true' : undefined}
@@ -1129,20 +1144,34 @@ function DailyReviewPanel(props: {
         )}
       </nav>
 
-      {error ? (
+      {error && visibleSummary ? (
+        <div className="maka-daily-review-alert" role="alert">
+          <span>每日回顾刷新失败：{error}</span>
+          <button
+            type="button"
+            className="maka-button maka-button-ghost"
+            onClick={() => setReloadToken((n) => n + 1)}
+            disabled={loading}
+          >
+            重试
+          </button>
+        </div>
+      ) : null}
+
+      {error && !visibleSummary ? (
         <EmptyState
           Icon={CalendarDays}
           title="读取失败"
           body={error}
           cta={{ label: '重试', onClick: () => setReloadToken((n) => n + 1) }}
         />
-      ) : loading || !summary ? (
+      ) : !visibleSummary ? (
         <div className="maka-daily-review-loading" aria-busy="true">
           <div className="maka-skeleton maka-skeleton-line" style={{ width: '60%' }} />
           <div className="maka-skeleton maka-skeleton-line" style={{ width: '90%' }} />
           <div className="maka-skeleton maka-skeleton-line" style={{ width: '75%' }} />
         </div>
-      ) : summary.totals.sessionCount === 0 && summary.totals.requestCount === 0 ? (
+      ) : visibleSummary.totals.sessionCount === 0 && visibleSummary.totals.requestCount === 0 ? (
         <EmptyState
           Icon={CalendarDays}
           title={emptyActivityTitle}
@@ -1151,30 +1180,30 @@ function DailyReviewPanel(props: {
       ) : (
         <>
           <section className="maka-daily-review-totals" aria-label={`${dayLabel}总览`}>
-            <DailyReviewTotalsCell label="对话" value={summary.totals.sessionCount.toString()} />
-            <DailyReviewTotalsCell label="请求" value={summary.totals.requestCount.toString()} />
+            <DailyReviewTotalsCell label="对话" value={visibleSummary.totals.sessionCount.toString()} />
+            <DailyReviewTotalsCell label="请求" value={visibleSummary.totals.requestCount.toString()} />
             <DailyReviewTotalsCell
               label="Token"
-              value={summary.totals.totalTokens.toLocaleString()}
+              value={visibleSummary.totals.totalTokens.toLocaleString()}
             />
             <DailyReviewTotalsCell
               label="费用"
-              value={`$${summary.totals.costUsd.toFixed(2)}`}
+              value={`$${visibleSummary.totals.costUsd.toFixed(2)}`}
             />
-            {summary.totals.errorCount > 0 && (
+            {visibleSummary.totals.errorCount > 0 && (
               <DailyReviewTotalsCell
                 label="错误"
-                value={summary.totals.errorCount.toString()}
+                value={visibleSummary.totals.errorCount.toString()}
                 tone="error"
               />
             )}
           </section>
 
-          {summary.sessions.length > 0 && (
+          {visibleSummary.sessions.length > 0 && (
             <section className="maka-daily-review-section" aria-label="活跃对话">
               <h4 className="maka-daily-review-section-title">活跃对话</h4>
               <ul className="maka-daily-review-list" aria-label="活跃对话列表">
-                {summary.sessions.map((session) => (
+                {visibleSummary.sessions.map((session) => (
                   <li key={session.id} className="maka-daily-review-list-item">
                     <button
                       type="button"
@@ -1199,12 +1228,12 @@ function DailyReviewPanel(props: {
             </section>
           )}
 
-          {summary.topModels.length > 0 && (
-            <DailyReviewTopList title="模型使用" entries={summary.topModels} />
+          {visibleSummary.topModels.length > 0 && (
+            <DailyReviewTopList title="模型使用" entries={visibleSummary.topModels} />
           )}
 
-          {summary.topTools.length > 0 && (
-            <DailyReviewTopList title="工具调用" entries={summary.topTools} />
+          {visibleSummary.topTools.length > 0 && (
+            <DailyReviewTopList title="工具调用" entries={visibleSummary.topTools} />
           )}
         </>
       )}

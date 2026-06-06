@@ -181,7 +181,7 @@ describe('local MEMORY.md Settings UI contract', () => {
     const memoryPage = src.match(/function MemorySettingsPage\([\s\S]*?function MemoryEntryList/)?.[0] ?? '';
 
     assert.match(memoryPage, /pendingMemoryActionKeysRef = useRef<Set<string>>\(new Set\(\)\)/);
-    assert.match(memoryPage, /async function runMemoryAction<T>\(key: string, action: \(\) => Promise<T>\)/);
+    assert.match(memoryPage, /async function runMemoryAction<T>\([\s\S]*key: string,[\s\S]*action: \(isCurrent: \(\) => boolean\) => Promise<T>,/);
     assert.match(memoryPage, /if \(pendingMemoryActionKeysRef\.current\.has\(key\)\) return undefined/);
     assert.match(memoryPage, /pendingMemoryActionKeysRef\.current\.add\(key\)/);
     assert.match(memoryPage, /pendingMemoryActionKeysRef\.current\.delete\(key\)/);
@@ -217,7 +217,7 @@ describe('local MEMORY.md Settings UI contract', () => {
     assert.match(memoryPage, /const memoryWriteBusyRef = useRef\(false\)/);
     assert.match(
       memoryPage,
-      /async function runMemoryWriteAction<T>\(action: MemoryWriteAction, run: \(\) => Promise<T>\)[\s\S]*if \(memoryWriteBusyRef\.current\) return undefined;[\s\S]*memoryWriteBusyRef\.current = true;[\s\S]*setPendingMemoryWriteAction\(action\);[\s\S]*setBusy\(true\);/,
+      /async function runMemoryWriteAction<T>\([\s\S]*action: MemoryWriteAction,[\s\S]*run: \(isCurrent: \(\) => boolean\) => Promise<T>,[\s\S]*if \(memoryWriteBusyRef\.current\) return undefined;[\s\S]*memoryWriteBusyRef\.current = true;[\s\S]*setPendingMemoryWriteAction\(action\);[\s\S]*setBusy\(true\);/,
       'local memory writes must set a synchronous busy guard before awaiting file/settings writes',
     );
     assert.match(
@@ -237,6 +237,88 @@ describe('local MEMORY.md Settings UI contract', () => {
     assert.match(memoryPage, /pendingMemoryWriteAction === 'save' \? '保存中…' : memoryDraftDirty \? '保存' : '已保存'/);
     assert.match(memoryPage, /pendingMemoryWriteAction === 'reload' \? '载入中…' : '重新载入'/);
     assert.match(memoryPage, /pendingMemoryWriteAction === 'reset' \? '重置中…' : '重置并备份'/);
+  });
+
+  it('drops late local memory reload and pending cleanup after Settings is closed', async () => {
+    const src = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
+    const memoryPage = src.match(/function MemorySettingsPage\([\s\S]*?function MemoryEntryList/)?.[0] ?? '';
+    const reloadBlock = memoryPage.match(/async function reload\(\)[\s\S]*?async function reloadDraftFromDisk/)?.[0] ?? '';
+    const enableBlock = memoryPage.match(/async function setEnabled\(enabled: boolean\)[\s\S]*?async function setAgentReadEnabled/)?.[0] ?? '';
+    const agentReadBlock = memoryPage.match(/async function setAgentReadEnabled[\s\S]*?async function setWorkspaceInstructionsEnabled/)?.[0] ?? '';
+    const saveBlock = memoryPage.match(/async function save\(\)[\s\S]*?async function reset/)?.[0] ?? '';
+    const resetBlock = memoryPage.match(/async function reset\(\)[\s\S]*?async function restoreLatestBackup/)?.[0] ?? '';
+    const restoreLatestBlock = memoryPage.match(/async function restoreLatestBackup\(\)[\s\S]*?async function restoreBackupCandidate/)?.[0] ?? '';
+    const restoreCandidateBlock = memoryPage.match(/async function restoreBackupCandidate[\s\S]*?async function openFile/)?.[0] ?? '';
+    const openFileBlock = memoryPage.match(/async function openFile\(\)[\s\S]*?async function openLatestBackup/)?.[0] ?? '';
+    const openLatestBlock = memoryPage.match(/async function openLatestBackup\(\)[\s\S]*?async function openBackupCandidate/)?.[0] ?? '';
+    const openCandidateBlock = memoryPage.match(/async function openBackupCandidate[\s\S]*?async function openFolder/)?.[0] ?? '';
+    const openFolderBlock = memoryPage.match(/async function openFolder\(\)[\s\S]*?async function openWorkspaceInstructionFile/)?.[0] ?? '';
+    const openInstructionBlock = memoryPage.match(/async function openWorkspaceInstructionFile[\s\S]*?async function createWorkspaceInstructionFile/)?.[0] ?? '';
+    const createInstructionBlock = memoryPage.match(/async function createWorkspaceInstructionFile[\s\S]*?async function copyPath/)?.[0] ?? '';
+    const copyPathBlock = memoryPage.match(/async function copyPath\(\)[\s\S]*?async function copyBackupReference/)?.[0] ?? '';
+    const copyBackupBlock = memoryPage.match(/async function copyBackupReference[\s\S]*?async function copyLatestBackupReference/)?.[0] ?? '';
+    const copyEntryBlock = memoryPage.match(/async function copyMemoryEntryReference[\s\S]*?function focusMemoryEntryInDraft/)?.[0] ?? '';
+    const updateStatusBlock = memoryPage.match(/async function updateMemoryEntryStatus[\s\S]*?\n  }\n\n  const effective =/)?.[0] ?? '';
+    const promptPreviewCopyBlock = memoryPage.match(/async function copyLocalMemoryPromptPreview\(\)[\s\S]*?return \(/)?.[0] ?? '';
+    const writeActionBlock = memoryPage.match(/async function runMemoryWriteAction<T>[\s\S]*?async function runMemoryAction/)?.[0] ?? '';
+    const actionBlock = memoryPage.match(/async function runMemoryAction<T>[\s\S]*?async function reload/)?.[0] ?? '';
+
+    assert.match(memoryPage, /const memoryPageMountedRef = useRef\(false\)/);
+    assert.match(memoryPage, /const memoryPageLifecycleRef = useRef\(0\)/);
+    assert.match(memoryPage, /const memoryReloadTicketRef = useRef\(0\)/);
+    assert.match(
+      memoryPage,
+      /useEffect\(\(\) => \{[\s\S]*memoryPageLifecycleRef\.current \+= 1;[\s\S]*memoryPageMountedRef\.current = true;[\s\S]*const lifecycle = memoryPageLifecycleRef\.current;[\s\S]*return \(\) => \{[\s\S]*memoryPageMountedRef\.current = false;[\s\S]*memoryReloadTicketRef\.current \+= 1;[\s\S]*memoryWriteBusyRef\.current = false;[\s\S]*pendingMemoryActionKeysRef\.current\.clear\(\);/,
+      'Memory page cleanup must invalidate reloads and release pending owners',
+    );
+    assert.match(
+      memoryPage,
+      /function isMemoryPageCurrent\(lifecycle: number\): boolean \{[\s\S]*return memoryPageMountedRef\.current && memoryPageLifecycleRef\.current === lifecycle;/,
+      'Memory page lifecycle checks must be StrictMode-safe, not just a mounted boolean',
+    );
+    assert.match(
+      reloadBlock,
+      /const lifecycle = memoryPageLifecycleRef\.current;[\s\S]*const ticket = \+\+memoryReloadTicketRef\.current;[\s\S]*await Promise\.all\([\s\S]*if \(!isMemoryPageCurrent\(lifecycle\) \|\| ticket !== memoryReloadTicketRef\.current\) return false;[\s\S]*setState\(next\);/,
+      'Local memory reload must not write loaded state after unmount or a stale reload ticket',
+    );
+    assert.match(
+      reloadBlock,
+      /catch \(error\) \{[\s\S]*if \(isMemoryPageCurrent\(lifecycle\) && ticket === memoryReloadTicketRef\.current\) \{[\s\S]*toast\.error\('载入本地记忆失败', settingsActionErrorMessage\(error\)\);/,
+      'Local memory reload errors must not toast after Settings closes',
+    );
+    assert.match(
+      reloadBlock,
+      /finally \{[\s\S]*if \(isMemoryPageCurrent\(lifecycle\) && ticket === memoryReloadTicketRef\.current\) \{[\s\S]*setLoadingMemory\(false\);/,
+      'Local memory reload must not clear loading state after unmount',
+    );
+    assert.match(
+      writeActionBlock,
+      /const lifecycle = memoryPageLifecycleRef\.current;[\s\S]*return await run\(\(\) => isMemoryPageCurrent\(lifecycle\)\);[\s\S]*catch \(error\) \{[\s\S]*if \(!isMemoryPageCurrent\(lifecycle\)\) return undefined;[\s\S]*finally \{[\s\S]*memoryWriteBusyRef\.current = false;[\s\S]*if \(isMemoryPageCurrent\(lifecycle\)\) \{[\s\S]*setPendingMemoryWriteAction\(null\);[\s\S]*setBusy\(false\);/,
+      'Memory write wrapper must release refs but not write pending state after unmount',
+    );
+    assert.match(enableBlock, /await runMemoryWriteAction\('enable', async \(isCurrent\) => \{[\s\S]*await props\.onReloadSettings\(\);[\s\S]*if \(!isCurrent\(\)\) return;[\s\S]*setState\(next\);/);
+    assert.match(agentReadBlock, /await runMemoryWriteAction\('agent-read', async \(isCurrent\) => \{[\s\S]*await props\.onReloadSettings\(\);[\s\S]*if \(!isCurrent\(\)\) return;[\s\S]*setState\(next\);/);
+    assert.match(saveBlock, /await runMemoryWriteAction\('save', async \(isCurrent\) => \{[\s\S]*const next = await window\.maka\.memory\.save\(draft\);[\s\S]*if \(!isCurrent\(\)\) return;[\s\S]*setState\(next\);/);
+    assert.match(resetBlock, /await runMemoryWriteAction\('reset', async \(isCurrent\) => \{[\s\S]*const next = await window\.maka\.memory\.reset\(\);[\s\S]*if \(!isCurrent\(\)\) return;[\s\S]*setState\(next\);/);
+    assert.match(restoreLatestBlock, /await runMemoryWriteAction\('restore', async \(isCurrent\) => \{[\s\S]*if \(!isCurrent\(\)\) return;[\s\S]*const result = await window\.maka\.memory\.restoreLatestBackup\(\);[\s\S]*if \(!isCurrent\(\)\) return;[\s\S]*setState\(result\.state\);/);
+    assert.match(restoreCandidateBlock, /await runMemoryWriteAction\('restore', async \(isCurrent\) => \{[\s\S]*if \(!isCurrent\(\)\) return;[\s\S]*const result = await window\.maka\.memory\.restoreBackup\(backup\.kind\);[\s\S]*if \(!isCurrent\(\)\) return;[\s\S]*setState\(result\.state\);/);
+    assert.match(createInstructionBlock, /await runMemoryWriteAction\('instruction-create', async \(isCurrent\) => \{[\s\S]*const result = await window\.maka\.workspaceInstructions\.createFile\(file\);[\s\S]*if \(!isCurrent\(\)\) return;[\s\S]*const instructions = await window\.maka\.workspaceInstructions\.getState\(\);[\s\S]*if \(!isCurrent\(\)\) return;[\s\S]*setWorkspaceInstructionState\(instructions\);/);
+    assert.match(updateStatusBlock, /await runMemoryWriteAction\('entry-status', async \(isCurrent\) => \{[\s\S]*const next = await window\.maka\.memory\.save\(result\.draft\);[\s\S]*if \(!isCurrent\(\)\) return;[\s\S]*setState\(next\);/);
+    assert.match(
+      actionBlock,
+      /action: \(isCurrent: \(\) => boolean\) => Promise<T>,[\s\S]*const lifecycle = memoryPageLifecycleRef\.current;[\s\S]*return await action\(\(\) => isMemoryPageCurrent\(lifecycle\)\);[\s\S]*catch \(error\) \{[\s\S]*if \(!isMemoryPageCurrent\(lifecycle\)\) return undefined;[\s\S]*finally \{[\s\S]*pendingMemoryActionKeysRef\.current\.delete\(key\);[\s\S]*if \(isMemoryPageCurrent\(lifecycle\)\) \{[\s\S]*setPendingMemoryActions/,
+      'Memory file-action wrapper must release refs but not write pending state after unmount',
+    );
+    assert.match(openFileBlock, /await runMemoryAction\('memory:file:open', async \(isCurrent\) => \{[\s\S]*const result = await window\.maka\.memory\.openFile\(\);[\s\S]*if \(!isCurrent\(\)\) return;[\s\S]*if \(!result\.ok\) toast\.error/);
+    assert.match(openLatestBlock, /await runMemoryAction\('backup:latest:open', async \(isCurrent\) => \{[\s\S]*const result = await window\.maka\.memory\.openLatestBackup\(\);[\s\S]*if \(!isCurrent\(\)\) return;[\s\S]*if \(!result\.ok\) toast\.error/);
+    assert.match(openCandidateBlock, /await runMemoryAction\(`backup:\$\{backup\.kind\}:open`, async \(isCurrent\) => \{[\s\S]*const result = await window\.maka\.memory\.openBackup\(backup\.kind\);[\s\S]*if \(!isCurrent\(\)\) return;[\s\S]*if \(!result\.ok\)/);
+    assert.match(openFolderBlock, /await runMemoryAction\('memory:folder:open', async \(isCurrent\) => \{[\s\S]*const result = await window\.maka\.app\.openPath\('memory'\);[\s\S]*if \(!isCurrent\(\)\) return;[\s\S]*if \(!result\.ok\)/);
+    assert.match(openInstructionBlock, /await runMemoryAction\(`instruction:\$\{file\}:open`, async \(isCurrent\) => \{[\s\S]*const result = await window\.maka\.workspaceInstructions\.openFile\(file\);[\s\S]*if \(!isCurrent\(\)\) return;[\s\S]*if \(!result\.ok\)/);
+    assert.match(createInstructionBlock, /await runMemoryAction\(`instruction:\$\{file\}:create`, async \(isActionCurrent\) => \{[\s\S]*catch \(error\) \{[\s\S]*if \(isActionCurrent\(\)\) toast\.error\('创建项目指令失败', settingsActionErrorMessage\(error\)\);/);
+    assert.match(copyPathBlock, /await navigator\.clipboard\.writeText\(state\.path\);[\s\S]*if \(isCurrent\(\)\) toast\.success\('已复制路径', state\.path\);[\s\S]*catch \{[\s\S]*if \(isCurrent\(\)\) toast\.error\('复制失败'/);
+    assert.match(copyBackupBlock, /await navigator\.clipboard\.writeText\(reference\);[\s\S]*if \(isCurrent\(\)\) toast\.success\('已复制上一版引用'/);
+    assert.match(copyEntryBlock, /await navigator\.clipboard\.writeText\(reference\);[\s\S]*if \(isCurrent\(\)\) toast\.success\('已复制记忆引用', entry\.id\);/);
+    assert.match(promptPreviewCopyBlock, /await navigator\.clipboard\.writeText\(localMemoryPromptPreview\);[\s\S]*if \(isCurrent\(\)\) toast\.success\('已复制模型上下文预览'/);
   });
 
   it('manual add stays draft-only and routes through the core helper', async () => {

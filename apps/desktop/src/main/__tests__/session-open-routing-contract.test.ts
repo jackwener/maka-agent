@@ -31,20 +31,39 @@ describe('session open routing contract', () => {
     );
   });
 
-  it('binds branched sessions before refreshing the sidebar list', async () => {
+  it('opens branched sessions only while the source session is still active', async () => {
     const main = await readFile(resolve(REPO_ROOT, 'apps/desktop/src/renderer/main.tsx'), 'utf8');
-    const branchBlock = main.match(/else if \(actionId === 'branch'\) \{[\s\S]*?toastApi\.success/)?.[0] ?? '';
+    const handlerBlock = main.match(/async function handleTurnFooterAction[\s\S]*?const chatSessionStatusBadge/)?.[0] ?? '';
+    const branchBlock = handlerBlock.match(/else if \(actionId === 'branch'\) \{[\s\S]*?clearPendingTurnAction\(key\);[\s\S]*?\}/)?.[0] ?? '';
 
+    assert.match(handlerBlock, /const sessionId = activeIdRef\.current;/);
+    assert.match(
+      handlerBlock,
+      /await window\.maka\.sessions\.retryTurn\(sessionId, \{ sourceTurnId: turnId \}\);[\s\S]*?if \(activeIdRef\.current === sessionId\) toastApi\.info\('已发起重试'/,
+      'retry feedback must stay owned by the source session',
+    );
+    assert.match(
+      handlerBlock,
+      /await window\.maka\.sessions\.regenerateTurn\(sessionId, \{ sourceTurnId: turnId \}\);[\s\S]*?if \(activeIdRef\.current === sessionId\) toastApi\.info\('已发起重新生成'/,
+      'regenerate feedback must stay owned by the source session',
+    );
     assert.match(branchBlock, /const newSession = await window\.maka\.sessions\.branchFromTurn/);
-    assert.match(branchBlock, /openSessionInChat\(newSession\.id\);/);
     assert.match(branchBlock, /upsertSessionSummary\(newSession\);/);
-    assert.match(branchBlock, /setMessages\(\[\]\);/);
-    assert.match(branchBlock, /await refreshMessages\(newSession\.id\);/);
+    assert.match(
+      branchBlock,
+      /if \(activeIdRef\.current === sessionId\) \{[\s\S]*openSessionInChat\(newSession\.id\);[\s\S]*setMessages\(\[\]\);[\s\S]*await refreshMessages\(newSession\.id\);[\s\S]*toastApi\.success\('已创建分支', `新会话 \$\{newSession\.name\}`\);[\s\S]*\}/,
+      'branch completion must not navigate or toast after the user leaves the source session',
+    );
     assert.match(branchBlock, /await refreshSessions\(\);/);
     assert.doesNotMatch(
       branchBlock,
-      /await refreshSessions\(\);[\s\S]*setActiveId\(newSession\.id\)/,
-      'branch navigation must not wait for sidebar refresh before binding the newly created session',
+      /openSessionInChat\(newSession\.id\);[\s\S]*await refreshSessions\(\);[\s\S]*toastApi\.success/,
+      'branch success feedback must be owned by the active source-session guard',
+    );
+    assert.match(
+      handlerBlock,
+      /catch \(error\) \{[\s\S]*clearPendingTurnAction\(key\);[\s\S]*if \(activeIdRef\.current === sessionId\) toastApi\.error\('操作失败', cleanErrorMessage\(error\)\);[\s\S]*\}/,
+      'turn footer failures must not toast after the user leaves the source session',
     );
   });
 

@@ -39,7 +39,7 @@ describe('Model OAuth catalog contract (PR-MODEL-OAUTH-ALL-0 + PR-CLAUDE-CARD-MO
     assert.match(tabs[0], /id:\s*'oauth'[\s\S]*label:\s*'OAuth'/, 'OAuth must be a catalog tab');
     assert.match(
       src,
-      /catalogTab === 'oauth'\s*\?\s*\(\s*<ModelOAuthSection\s+onConnectionsChanged=\{reload\}\s*\/>/,
+      /catalogTab === 'oauth'\s*\?\s*\(\s*<ModelOAuthSection\s+onConnectionsChanged=\{async \(\) => \{ await reload\(\); \}\}\s*\/>/,
       'OAuth login UI must render from the tab content branch and refresh enabled models',
     );
     const marketStart = src.indexOf('<section className="providerMarket">');
@@ -67,22 +67,43 @@ describe('Model OAuth catalog contract (PR-MODEL-OAUTH-ALL-0 + PR-CLAUDE-CARD-MO
 
   it('ProvidersPanel surfaces model connection reload failures instead of sticking on loading', async () => {
     const src = await readFile(PROVIDERS_PANEL_SOURCE, 'utf8');
-    const reloadMatch = src.match(/async function reload\(\) \{[\s\S]*?\n  \}/);
+    const panel = src.match(/export function ProvidersPanel[\s\S]*?const selected = useMemo/)?.[0] ?? '';
+    const reloadMatch = src.match(/async function reload\(\): Promise<boolean> \{[\s\S]*?\n  \}/);
     assert.ok(reloadMatch, 'ProvidersPanel reload() must exist');
     assert.match(
-      reloadMatch[0],
-      /try \{[\s\S]*Promise\.all\(\[[\s\S]*bridge\.list\(\),[\s\S]*bridge\.getDefault\(\),[\s\S]*\]\)[\s\S]*setLoadError\(null\)[\s\S]*setLoading\(false\)/,
-      'successful reload must clear load error and exit loading state',
+      panel,
+      /const providersPanelMountedRef = useRef\(false\);[\s\S]*const providersReloadTicketRef = useRef\(0\);/,
+      'ProvidersPanel reloads must track mounted state and latest request ownership',
     );
     assert.match(
       reloadMatch[0],
-      /catch \(error\) \{[\s\S]*providerPanelActionErrorMessage\(error\)[\s\S]*setLoadError\(message\)[\s\S]*setLoading\(false\)[\s\S]*toast\.error\('载入模型连接失败', message\)/,
-      'failed reload must not leave the provider panel in a skeleton-only state',
+      /const ticket = \+\+providersReloadTicketRef\.current;[\s\S]*Promise\.all\(\[[\s\S]*bridge\.list\(\),[\s\S]*bridge\.getDefault\(\),[\s\S]*\]\)[\s\S]*if \(!providersPanelMountedRef\.current \|\| providersReloadTicketRef\.current !== ticket\) return false;[\s\S]*setLoadError\(null\)[\s\S]*setLoading\(false\)[\s\S]*return true;/,
+      'successful reload must clear load error only for the latest mounted request',
+    );
+    assert.match(
+      reloadMatch[0],
+      /catch \(error\) \{[\s\S]*if \(!providersPanelMountedRef\.current \|\| providersReloadTicketRef\.current !== ticket\) return false;[\s\S]*providerPanelActionErrorMessage\(error\)[\s\S]*setLoadError\(message\)[\s\S]*setLoading\(false\)[\s\S]*toast\.error\('载入模型连接失败', message\)[\s\S]*return false;/,
+      'failed reload must not toast or write stale failure state after unmount or a newer reload',
+    );
+    assert.match(
+      panel,
+      /return \(\) => \{[\s\S]*providersPanelMountedRef\.current = false;[\s\S]*providersReloadTicketRef\.current \+= 1;[\s\S]*unsubscribe\?\.\(\);/,
+      'ProvidersPanel cleanup must invalidate in-flight reloads and unsubscribe from connection events',
     );
     assert.match(
       src,
       /loadError \? \([\s\S]*模型连接载入失败[\s\S]*点击重试/,
       'enabled-model strip must show a retryable load-failure state',
+    );
+    assert.match(
+      src,
+      /onCreated=\{async \(slug\) => \{[\s\S]*const reloaded = await reload\(\);[\s\S]*if \(!reloaded \|\| !providersPanelMountedRef\.current\) return;[\s\S]*setSelectedSlug\(slug\);[\s\S]*setAddingType\(null\);/,
+      'AddProviderForm completion must not select/close a stale sheet after ProvidersPanel unmounts',
+    );
+    assert.match(
+      src,
+      /onDeleted=\{async \(\) => \{[\s\S]*if \(!providersPanelMountedRef\.current\) return;[\s\S]*setSelectedSlug\(null\);[\s\S]*await reload\(\);/,
+      'Connection delete completion must not write ProvidersPanel state after unmount',
     );
   });
 
@@ -583,7 +604,7 @@ describe('Model OAuth catalog contract (PR-MODEL-OAUTH-ALL-0 + PR-CLAUDE-CARD-MO
     assert.match(detail, /const hasUsableCredential = !requiresCredential \|\| hasSecret === true/);
     assert.match(
       detail,
-      /props\.bridge[\s\S]*\.hasSecret\(connection\.slug\)[\s\S]*\.then\(setHasSecret\)[\s\S]*\.catch\(\(error\) => \{[\s\S]*setHasSecret\('error'\);[\s\S]*toast\.error\('读取模型凭据状态失败', providerPanelActionErrorMessage\(error\)\)/,
+      /props\.bridge[\s\S]*\.hasSecret\(connection\.slug\)[\s\S]*\.then\(\(next\) => \{[\s\S]*if \(isConnectionDetailCurrent\(lifecycle\)\) setHasSecret\(next\);[\s\S]*\.catch\(\(error\) => \{[\s\S]*if \(!isConnectionDetailCurrent\(lifecycle\)\) return;[\s\S]*setHasSecret\('error'\);[\s\S]*toast\.error\('读取模型凭据状态失败', providerPanelActionErrorMessage\(error\)\)/,
       'ConnectionDetail must show a visible error and keep unknown credential state distinct when probing fails',
     );
     assert.doesNotMatch(
@@ -598,6 +619,52 @@ describe('Model OAuth catalog contract (PR-MODEL-OAUTH-ALL-0 + PR-CLAUDE-CARD-MO
       detail,
       /void props\.bridge\.hasSecret\(connection\.slug\)\.then\(setHasSecret\);/,
       'ConnectionDetail must not leave credential-presence probe rejections unhandled',
+    );
+  });
+
+  it('provider detail async actions stop writing UI after the detail sheet is closed or switched', async () => {
+    const src = await readFile(PROVIDERS_PANEL_SOURCE, 'utf8');
+    const detail = src.match(/function ConnectionDetail[\s\S]*?function ModelTable/)?.[0] ?? '';
+
+    assert.match(
+      detail,
+      /const connectionDetailMountedRef = useRef\(false\);[\s\S]*const connectionDetailLifecycleRef = useRef\(0\);/,
+      'ConnectionDetail must track mounted/lifecycle ownership',
+    );
+    assert.match(
+      detail,
+      /useEffect\(\(\) => \{[\s\S]*connectionDetailMountedRef\.current = true;[\s\S]*connectionDetailLifecycleRef\.current \+= 1;[\s\S]*return \(\) => \{[\s\S]*connectionDetailMountedRef\.current = false;[\s\S]*connectionDetailLifecycleRef\.current \+= 1;[\s\S]*busyRef\.current = false;[\s\S]*testingRef\.current = false;[\s\S]*fetchingModelsRef\.current = false;[\s\S]*settingDefaultRef\.current = false;[\s\S]*deletingRef\.current = false;[\s\S]*\};[\s\S]*\}, \[connection\.slug\]\);/,
+      'ConnectionDetail cleanup must release every pending action owner on close or provider switch',
+    );
+    assert.match(
+      detail,
+      /function isConnectionDetailCurrent\(lifecycle: number\): boolean \{[\s\S]*return connectionDetailMountedRef\.current && connectionDetailLifecycleRef\.current === lifecycle;[\s\S]*\}/,
+      'ConnectionDetail must expose a single current-owner predicate',
+    );
+    assert.match(
+      detail,
+      /async function save\(\) \{[\s\S]*const lifecycle = connectionDetailLifecycleRef\.current;[\s\S]*await props\.bridge\.update\(connection\.slug,[\s\S]*saved = true;[\s\S]*if \(!isConnectionDetailCurrent\(lifecycle\)\) return;[\s\S]*await props\.onChanged\(\);[\s\S]*if \(!isConnectionDetailCurrent\(lifecycle\)\) return;[\s\S]*catch \(error\) \{[\s\S]*if \(!isConnectionDetailCurrent\(lifecycle\)\) return;[\s\S]*toast\.error/,
+      'ConnectionDetail save must not write stale state or toast after close',
+    );
+    assert.match(
+      detail,
+      /async function runTest\(\) \{[\s\S]*const lifecycle = connectionDetailLifecycleRef\.current;[\s\S]*await props\.bridge\.test\(connection\.slug,[\s\S]*if \(!isConnectionDetailCurrent\(lifecycle\)\) return;[\s\S]*catch \(error\) \{[\s\S]*if \(!isConnectionDetailCurrent\(lifecycle\)\) return;[\s\S]*toast\.error/,
+      'ConnectionDetail test must not toast after close',
+    );
+    assert.match(
+      detail,
+      /async function refreshModels\(opts: \{ silent\?: boolean \} = \{\}\) \{[\s\S]*const lifecycle = connectionDetailLifecycleRef\.current;[\s\S]*await props\.bridge\.fetchModels\(connection\.slug\);[\s\S]*if \(!isConnectionDetailCurrent\(lifecycle\)\) return;[\s\S]*await props\.onChanged\(\);[\s\S]*if \(!isConnectionDetailCurrent\(lifecycle\)\) return;[\s\S]*catch \(error\) \{[\s\S]*if \(!isConnectionDetailCurrent\(lifecycle\)\) return;[\s\S]*toast\.error/,
+      'ConnectionDetail model refresh must not write stale model state or toast after close',
+    );
+    assert.match(
+      detail,
+      /async function setAsDefault\(\) \{[\s\S]*const lifecycle = connectionDetailLifecycleRef\.current;[\s\S]*await props\.bridge\.setDefault\(connection\.slug\);[\s\S]*if \(!isConnectionDetailCurrent\(lifecycle\)\) return;[\s\S]*await props\.onChanged\(\);[\s\S]*if \(!isConnectionDetailCurrent\(lifecycle\)\) return;[\s\S]*toast\.success\(`已设为默认/,
+      'ConnectionDetail set-default must not toast after close',
+    );
+    assert.match(
+      detail,
+      /async function remove\(\) \{[\s\S]*const lifecycle = connectionDetailLifecycleRef\.current;[\s\S]*const ok = await toast\.confirm[\s\S]*if \(!isConnectionDetailCurrent\(lifecycle\)\) return;[\s\S]*await props\.bridge\.delete\(connection\.slug\);[\s\S]*deleted = true;[\s\S]*if \(!isConnectionDetailCurrent\(lifecycle\)\) return;[\s\S]*await props\.onDeleted\(\);[\s\S]*catch \(error\) \{[\s\S]*if \(!isConnectionDetailCurrent\(lifecycle\)\) return;[\s\S]*toast\.error/,
+      'ConnectionDetail delete must not continue or toast after close',
     );
   });
 
@@ -697,7 +764,7 @@ describe('Model OAuth catalog contract (PR-MODEL-OAUTH-ALL-0 + PR-CLAUDE-CARD-MO
       'refreshAllCards must query each subscription snapshot',
     );
     // 3. useEffect on mount fires the initial refresh.
-    const refreshOnMount = src.match(/useEffect\(\(\) =>\s*\{\s*void refreshAllCards\(\);[\s\S]*?\},\s*\[\]\)/);
+    const refreshOnMount = src.match(/useEffect\(\(\) =>\s*\{[\s\S]*void refreshAllCards\(\);[\s\S]*?\},\s*\[\]\)/);
     assert.ok(refreshOnMount, 'ModelOAuthSection must refresh on mount');
     // 4. Modal onClose triggers a re-fetch through a helper that also
     // catches enabled-model refresh failures.
@@ -771,6 +838,39 @@ describe('Model OAuth catalog contract (PR-MODEL-OAUTH-ALL-0 + PR-CLAUDE-CARD-MO
     assert.match(styles, /\.providerOAuthError\s*\{/, 'OAuth refresh alert must have a stable style hook');
   });
 
+  it('OAuth card refresh owns the mounted latest request before writing Settings UI feedback', async () => {
+    const src = await readFile(PROVIDERS_PANEL_SOURCE, 'utf8');
+    const sectionMatch = src.match(/function ModelOAuthSection[\s\S]*?function ClaudeSubscriptionModal/);
+    assert.ok(sectionMatch, 'ModelOAuthSection must exist');
+    const section = sectionMatch[0]!;
+
+    assert.match(
+      section,
+      /const modelOAuthMountedRef = useRef\(false\);[\s\S]*const modelOAuthRefreshTicketRef = useRef\(0\);/,
+      'ModelOAuthSection must keep mounted and latest-refresh ownership refs',
+    );
+    assert.match(
+      section,
+      /async function refreshAllCards\(\) \{[\s\S]*const ticket = modelOAuthRefreshTicketRef\.current \+ 1;[\s\S]*modelOAuthRefreshTicketRef\.current = ticket;[\s\S]*await Promise\.all[\s\S]*if \(!modelOAuthMountedRef\.current \|\| modelOAuthRefreshTicketRef\.current !== ticket\) return false;[\s\S]*setCardStates/,
+      'OAuth card refresh must drop stale or unmounted snapshot results before setState',
+    );
+    assert.match(
+      section,
+      /useEffect\(\(\) => \{[\s\S]*modelOAuthMountedRef\.current = true;[\s\S]*void refreshAllCards\(\);[\s\S]*return \(\) => \{[\s\S]*modelOAuthMountedRef\.current = false;[\s\S]*modelOAuthRefreshTicketRef\.current \+= 1;[\s\S]*\};[\s\S]*\}, \[\]\);/,
+      'OAuth card refresh must invalidate in-flight requests on unmount',
+    );
+    assert.match(
+      section,
+      /async function refreshAfterModalClose\(\) \{[\s\S]*const refreshed = await refreshAllCards\(\);[\s\S]*if \(!modelOAuthMountedRef\.current \|\| !refreshed\) return;[\s\S]*await props\.onConnectionsChanged\(\);/,
+      'modal close continuation must not refresh enabled providers after a stale OAuth card refresh',
+    );
+    assert.match(
+      section,
+      /catch \(error\) \{[\s\S]*if \(!modelOAuthMountedRef\.current\) return;[\s\S]*toast\.error\('刷新已启用模型失败', subscriptionActionErrorMessage\(error\)\)/,
+      'enabled-provider refresh failures after modal close must not toast after Settings unmount',
+    );
+  });
+
   it('SettingsModal validates jumpToSettingsSection payloads against SETTINGS_NAV (PR-OAUTH-CARD-LIVE-STATE-0)', async () => {
     // Before: any truthy `detail.section` was passed to setSection,
     // so a typo or stale dispatch would silently land the user on
@@ -842,7 +942,7 @@ describe('Model OAuth catalog contract (PR-MODEL-OAUTH-ALL-0 + PR-CLAUDE-CARD-MO
     assert.match(helper, /redactSecrets\(message \?\? ''\)\.trim\(\)/, 'OAuth service messages must be redacted before reaching visible UI');
     assert.match(helper, /generalizedErrorMessageChinese\(new Error\(raw\), ''\)/, 'OAuth service messages must pass through Chinese error classification');
     assert.match(helper, /\/\[\\u4e00-\\u9fff\]\/\.test\(raw\)/, 'already-Chinese OAuth diagnostics may be preserved after redaction');
-    assert.match(browserModal, /async function refresh\(\)[\s\S]*catch \(error\) \{[\s\S]*toast\.error\('刷新登录状态失败', message\);[\s\S]*setErrorMessage\(message\);/, 'browser OAuth state refresh must surface thrown failures');
+    assert.match(browserModal, /async function refresh\(\)(?:: Promise<boolean>)?[\s\S]*catch \(error\) \{[\s\S]*toast\.error\('刷新登录状态失败', message\);[\s\S]*setErrorMessage\(message\);/, 'browser OAuth state refresh must surface thrown failures');
     assert.match(browserModal, /catch \(error\) \{[\s\S]*toast\.error\('登录失败', message\);[\s\S]*setErrorMessage\(message\);/, 'browser OAuth login must toast thrown failures');
     assert.match(browserModal, /catch \(error\) \{[\s\S]*toast\.error\('退出失败', subscriptionActionErrorMessage\(error\)\);/, 'browser OAuth logout must toast thrown failures');
     assert.doesNotMatch(browserModal, /toast\.error\('[^']+', (?:payload|opened|result)\.message\)/, 'browser OAuth action envelopes must not toast raw service messages');
@@ -862,11 +962,56 @@ describe('Model OAuth catalog contract (PR-MODEL-OAUTH-ALL-0 + PR-CLAUDE-CARD-MO
     );
     assert.match(
       browserModal,
+      /const browserSubscriptionMountedRef = useRef\(false\)/,
+      'browser OAuth modal must own mounted state before writing async feedback',
+    );
+    assert.match(
+      browserModal,
+      /const authRequestIdRef = useRef<string \| null>\(null\)/,
+      'browser OAuth modal must keep the pending authorization request in a ref for cleanup',
+    );
+    assert.match(
+      browserModal,
+      /async function refresh\(\): Promise<boolean> \{[\s\S]*const next = \(await bridge\.getAccountState\(\)\) as SubscriptionSnapshot;[\s\S]*if \(!browserSubscriptionMountedRef\.current\) return false;[\s\S]*setState\(next\);[\s\S]*catch \(error\) \{[\s\S]*if \(!browserSubscriptionMountedRef\.current\) return false;[\s\S]*toast\.error\('刷新登录状态失败', message\);[\s\S]*return true;/,
+      'browser OAuth refresh must drop late state/error writes after modal close',
+    );
+    assert.match(
+      browserModal,
+      /useEffect\(\(\) => \{[\s\S]*browserSubscriptionMountedRef\.current = true;[\s\S]*void refresh\(\);[\s\S]*return \(\) => \{[\s\S]*browserSubscriptionMountedRef\.current = false;[\s\S]*pendingActionRef\.current = null;[\s\S]*const pendingAuthRequestId = authRequestIdRef\.current;[\s\S]*authRequestIdRef\.current = null;[\s\S]*if \(pendingAuthRequestId\) void bridge\.cancelAuthorization\(pendingAuthRequestId\);[\s\S]*\};[\s\S]*\}, \[\]\);/,
+      'browser OAuth modal cleanup must invalidate async feedback and cancel pending authorization',
+    );
+    assert.match(
+      browserModal,
+      /function finishPendingAction\(\) \{[\s\S]*pendingActionRef\.current = null;[\s\S]*if \(browserSubscriptionMountedRef\.current\) setPendingAction\(null\);[\s\S]*\}/,
+      'browser OAuth pending cleanup must not set state after unmount',
+    );
+    assert.match(
+      browserModal,
       /function beginPendingAction\(action: BrowserSubscriptionPendingAction\): boolean \{[\s\S]*if \(pendingActionRef\.current !== null\) return false;[\s\S]*pendingActionRef\.current = action;[\s\S]*setPendingAction\(action\);[\s\S]*return true;/,
       'browser OAuth duplicate clicks must be rejected before React re-renders disabled buttons',
     );
     assert.match(browserModal, /if \(!beginPendingAction\('login'\)\) return;/, 'browser OAuth login must use the ref-backed action guard');
     assert.match(browserModal, /if \(!beginPendingAction\('logout'\)\) return;/, 'browser OAuth logout must use the ref-backed action guard');
+    assert.match(
+      browserModal,
+      /const payload = await bridge\.getAuthUrl\(\);[\s\S]*authRequestIdRef\.current = payload\.authRequestId;[\s\S]*if \(!browserSubscriptionMountedRef\.current\) \{[\s\S]*authRequestIdRef\.current = null;[\s\S]*void bridge\.cancelAuthorization\(payload\.authRequestId\);[\s\S]*return;[\s\S]*\}[\s\S]*const opened = await bridge\.openAuthUrl\(payload\.authRequestId\);[\s\S]*if \(!browserSubscriptionMountedRef\.current\) return;[\s\S]*const refreshed = await refresh\(\);[\s\S]*if \(!browserSubscriptionMountedRef\.current \|\| !refreshed\) return;[\s\S]*const result = await bridge\.completeAuthorization\(payload\.authRequestId\);[\s\S]*if \(!browserSubscriptionMountedRef\.current\) return;[\s\S]*authRequestIdRef\.current = null;/,
+      'browser OAuth login must stop each async continuation after modal close',
+    );
+    assert.match(
+      browserModal,
+      /if \(!opened\.ok\) \{[\s\S]*void bridge\.cancelAuthorization\(payload\.authRequestId\);[\s\S]*authRequestIdRef\.current = null;[\s\S]*setAuthRequestId\(null\);[\s\S]*setStateHint\(null\);/,
+      'browser OAuth open-browser failures must clear and cancel the pending authorization request',
+    );
+    assert.match(
+      browserModal,
+      /catch \(error\) \{[\s\S]*const pendingAuthRequestId = authRequestIdRef\.current;[\s\S]*authRequestIdRef\.current = null;[\s\S]*if \(pendingAuthRequestId\) void bridge\.cancelAuthorization\(pendingAuthRequestId\);[\s\S]*setAuthRequestId\(null\);[\s\S]*setStateHint\(null\);/,
+      'browser OAuth thrown login failures must clear and cancel the pending authorization request',
+    );
+    assert.match(
+      browserModal,
+      /const result = await bridge\.logout\(\);[\s\S]*if \(!browserSubscriptionMountedRef\.current\) return;[\s\S]*catch \(error\) \{[\s\S]*if \(!browserSubscriptionMountedRef\.current\) return;[\s\S]*toast\.error\('退出失败', subscriptionActionErrorMessage\(error\)\);/,
+      'browser OAuth logout must not toast after modal close',
+    );
     assert.match(browserModal, /const actionBusy = pendingAction !== null/, 'browser OAuth modal needs a shared busy flag derived from the named action');
     assert.match(browserModal, /disabled=\{actionBusy\}/, 'browser OAuth action buttons must disable while another one-shot action is pending');
     assert.match(browserModal, /pendingAction === 'login' \? '打开浏览器…' : `登录 \$\{display\.shortName\}`/, 'browser OAuth login start must expose specific pending copy');

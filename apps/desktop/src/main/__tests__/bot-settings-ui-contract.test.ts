@@ -88,6 +88,118 @@ describe('Bot settings UI contract', () => {
     assert.match(actionRowBlock, /support === 'runtime' && \(?selectedStatus\?\.running/, 'Already-running channels must keep separate test/restart actions');
   });
 
+  it('keeps bot allowlist validation copy text-only and Chinese-first', async () => {
+    const settings = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
+    const styles = await readRepo('apps/desktop/src/renderer/styles.css');
+    const allowlistBlock = settings.match(/function BotAllowedUserIdsField[\s\S]*?function botConnectionLabel/)?.[0] ?? '';
+
+    assert.match(
+      allowlistBlock,
+      /className="settingsFieldWarning"[\s\S]*data-tone="warning"[\s\S]*下列不是数字 ID，可能是用户名之类的输入/,
+      'Invalid bot allowlist entries should render as styled Chinese warning text',
+    );
+    assert.doesNotMatch(
+      allowlistBlock,
+      /⚠|⚠️|@username/,
+      'Bot allowlist validation must not rely on emoji or English placeholder copy',
+    );
+    assert.match(
+      styles,
+      /\.settingsFieldWarning\s*\{[\s\S]*color:\s*var\(--warning-text, var\(--info-text\)\);/,
+      'Bot allowlist warning should use the design token instead of a decorative glyph',
+    );
+  });
+
+  it('drops late bot action feedback after Settings is closed', async () => {
+    const settings = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
+    const pageBlock = settings.match(/function BotChatSettingsPage\([\s\S]*?function BotAllowedUserIdsField/)?.[0] ?? '';
+    const finishBlock = pageBlock.match(/function finishBotAction[\s\S]*?async function updateChannelFor/)?.[0] ?? '';
+    const updateBlock = pageBlock.match(/async function updateChannelFor[\s\S]*?async function updateChannel/)?.[0] ?? '';
+    const statusEffectBlock = pageBlock.match(/useEffect\(\(\) => \{[\s\S]*?window\.maka\.settings\.bots\.subscribeStatusChanges[\s\S]*?\}, \[\]\);/)?.[0] ?? '';
+    const testBlock = pageBlock.match(/async function testChannel\(\)[\s\S]*?\n\s*\/\*\*/)?.[0] ?? '';
+    const connectBlock = pageBlock.match(/async function testAndConnect\(\)[\s\S]*?async function restartBotProvider/)?.[0] ?? '';
+    const restartProviderBlock = pageBlock.match(/async function restartBotProvider\(provider: BotProvider\)[\s\S]*?async function restartChannel/)?.[0] ?? '';
+    const refreshBlock = pageBlock.match(/async function refreshBotStatuses\(\)[\s\S]*?async function disconnectWechatLogin/)?.[0] ?? '';
+    const disconnectBlock = pageBlock.match(/async function disconnectWechatLogin\(\)[\s\S]*?const support =/)?.[0] ?? '';
+
+    assert.match(pageBlock, /const botPageMountedRef = useRef\(false\)/);
+    assert.match(
+      pageBlock,
+      /useEffect\(\(\) => \{[\s\S]*botPageMountedRef\.current = true;[\s\S]*return \(\) => \{[\s\S]*botPageMountedRef\.current = false;[\s\S]*pendingBotActionRef\.current = null;/,
+      'Bot settings page cleanup must release owned async actions when Settings closes',
+    );
+    assert.match(
+      finishBlock,
+      /pendingBotActionRef\.current = null;[\s\S]*if \(botPageMountedRef\.current\) \{[\s\S]*setPendingBotAction\(null\);/,
+      'Bot pending cleanup must release the ref but not write React state after unmount',
+    );
+    assert.match(
+      updateBlock,
+      /await props\.onUpdate\(\{ botChat: \{ channels: \{ \[provider\]: patch \} \} \}\);[\s\S]*if \(!botPageMountedRef\.current\) return false;[\s\S]*return true;/,
+      'Bot field saves must not report success to a continuation after Settings closes',
+    );
+    assert.match(
+      updateBlock,
+      /catch \(error\) \{[\s\S]*if \(botPageMountedRef\.current\) \{[\s\S]*toast\.error\(`\$\{BOT_LABELS\[provider\]\.label\} 保存失败`, settingsActionErrorMessage\(error\)\);/,
+      'Bot field-save failures must not toast after Settings closes',
+    );
+    assert.match(
+      statusEffectBlock,
+      /subscribeStatusChanges\(\(status\) => \{[\s\S]*if \(!botPageMountedRef\.current\) return;[\s\S]*setStatusLoadError\(null\);/,
+      'Bot status subscriptions must not write status state after unmount',
+    );
+    assert.match(
+      testBlock,
+      /const result = await window\.maka\.settings\.testBotChannel\(provider\);[\s\S]*if \(!botPageMountedRef\.current\) return;[\s\S]*toast\.success/,
+      'Separate bot tests must drop late success/failure feedback after unmount',
+    );
+    assert.match(
+      testBlock,
+      /catch \(error\) \{[\s\S]*if \(botPageMountedRef\.current\) \{[\s\S]*toast\.error\(`\$\{BOT_LABELS\[provider\]\.label\} 测试出错`, settingsActionErrorMessage\(error\)\);/,
+      'Separate bot thrown-test errors must not toast after unmount',
+    );
+    assert.match(
+      connectBlock,
+      /const result = await window\.maka\.settings\.testBotChannel\(provider\);[\s\S]*if \(!botPageMountedRef\.current\) return;[\s\S]*toast\.success/,
+      'Combined bot connect tests must drop late credential-test feedback after unmount',
+    );
+    assert.match(
+      connectBlock,
+      /try \{[\s\S]*if \(!botPageMountedRef\.current\) return;[\s\S]*if \(!testOk \|\| providerSupport !== 'runtime'\) return;[\s\S]*const saved = await updateChannelFor\(provider, \{ enabled: true \}\);[\s\S]*if \(!saved\) return;[\s\S]*if \(!botPageMountedRef\.current\) return;[\s\S]*await restartBotProvider\(provider\);/,
+      'Combined bot connect must not continue into enable/restart after unmount',
+    );
+    assert.match(
+      restartProviderBlock,
+      /async function restartBotProvider\(provider: BotProvider\): Promise<boolean> \{[\s\S]*if \(!botPageMountedRef\.current\) return false;[\s\S]*const status = await window\.maka\.settings\.bots\.restart\(provider\);/,
+      'Bot restart must not start after Settings has already closed',
+    );
+    assert.match(
+      restartProviderBlock,
+      /const status = await window\.maka\.settings\.bots\.restart\(provider\);[\s\S]*if \(!botPageMountedRef\.current\) return status\.running;[\s\S]*setStatuses/,
+      'Bot restart must not write status or toast after unmount',
+    );
+    assert.match(
+      restartProviderBlock,
+      /catch \(error\) \{[\s\S]*if \(!botPageMountedRef\.current\) return false;[\s\S]*toast\.error/,
+      'Bot restart thrown errors must not toast after unmount',
+    );
+    assert.match(
+      refreshBlock,
+      /async function refreshBotStatuses\(\): Promise<boolean> \{[\s\S]*if \(!botPageMountedRef\.current\) return false;[\s\S]*await props\.onReload\(\);[\s\S]*if \(!botPageMountedRef\.current\) return false;[\s\S]*const nextStatuses = await window\.maka\.settings\.bots\.listStatuses\(\);[\s\S]*if \(!botPageMountedRef\.current\) return false;[\s\S]*setStatuses\(nextStatuses\);/,
+      'Bot status refresh must not write refreshed statuses after unmount',
+    );
+    assert.match(
+      refreshBlock,
+      /catch \(error\) \{[\s\S]*if \(!botPageMountedRef\.current\) return false;[\s\S]*setStatusLoadError\(message\);[\s\S]*toast\.error\('刷新机器人运行状态失败', message\);/,
+      'Bot status refresh errors must not toast after unmount',
+    );
+    assert.match(
+      disconnectBlock,
+      /const saved = await updateChannelFor\(provider,[\s\S]*if \(!saved\) return;[\s\S]*if \(!botPageMountedRef\.current\) return;[\s\S]*await refreshBotStatuses\(\);[\s\S]*if \(botPageMountedRef\.current\) \{[\s\S]*toast\.success\('微信登录已断开', '本机扫码登录凭据已清除。'\);/,
+      'WeChat disconnect success must not toast after unmount',
+    );
+  });
+
   it('opens an in-app WeChat QR login modal instead of handing scan login off to a toast', async () => {
     const settings = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
     const styles = await readRepo('apps/desktop/src/renderer/styles.css');
@@ -99,14 +211,53 @@ describe('Bot settings UI contract', () => {
 
     assert.match(settings, /function WeChatScanLoginModal\b/, 'WeChat direct scan login must render its own QR modal');
     assert.match(settings, /const fetchingQrRef = useRef\(false\)/, 'Direct WeChat scan-login refresh must keep a synchronous pending guard');
-    assert.match(settings, /if \(fetchingQrRef\.current\) return;[\s\S]*fetchingQrRef\.current = true;[\s\S]*setStatus\('fetching'\)/, 'Direct WeChat scan-login QR fetch must block rapid duplicate refreshes before React rerenders');
-    assert.match(settings, /finally \{[\s\S]*fetchingQrRef\.current = false;[\s\S]*\}/, 'Direct WeChat scan-login QR fetch must release its pending guard');
+    assert.match(settings, /const scanLoginPollingRef = useRef\(false\)/, 'Direct WeChat scan-login status polling must keep a synchronous in-flight guard');
+    assert.match(settings, /const scanLoginConfirmingRef = useRef\(false\)/, 'Direct WeChat scan-login confirmation must keep a synchronous owner guard');
+    assert.match(settings, /const scanLoginMountedRef = useRef\(false\)/, 'Direct WeChat scan-login modal must track mounted ownership');
+    assert.match(settings, /const scanLoginFetchTicketRef = useRef\(0\)/, 'Direct WeChat scan-login modal must invalidate stale QR fetches across remounts');
+    assert.match(
+      settings,
+      /useEffect\(\(\) => \{[\s\S]*scanLoginMountedRef\.current = true;[\s\S]*void fetchQr\(\);[\s\S]*return \(\) => \{[\s\S]*scanLoginMountedRef\.current = false;[\s\S]*scanLoginFetchTicketRef\.current \+= 1;[\s\S]*fetchingQrRef\.current = false;[\s\S]*scanLoginPollingRef\.current = false;[\s\S]*scanLoginConfirmingRef\.current = false;/,
+      'Direct WeChat scan-login modal must release QR, poll, and confirmation ownership when closed',
+    );
+    assert.match(settings, /if \(fetchingQrRef\.current\) return;[\s\S]*fetchingQrRef\.current = true;[\s\S]*const ticket = \+\+scanLoginFetchTicketRef\.current;[\s\S]*setStatus\('fetching'\)/, 'Direct WeChat scan-login QR fetch must block rapid duplicate refreshes before React rerenders');
+    assert.match(
+      settings,
+      /const isCurrentRequest = \(\) => scanLoginMountedRef\.current && scanLoginFetchTicketRef\.current === ticket;[\s\S]*const result = await window\.maka\.settings\.bots\.wechat\.fetchQrcode\(\);[\s\S]*if \(!isCurrentRequest\(\)\) return;[\s\S]*if \(!result\.ok\) \{/,
+      'Direct WeChat scan-login QR fetch must not write stale result state after close or remount',
+    );
+    assert.match(
+      settings,
+      /catch \(error\) \{[\s\S]*if \(isCurrentRequest\(\)\) \{[\s\S]*setStatus\('error'\);[\s\S]*setErrorMessage\(settingsActionErrorMessage\(error\)\);/,
+      'Direct WeChat scan-login thrown QR failures must not write stale error state after close or remount',
+    );
+    assert.match(settings, /finally \{[\s\S]*if \(!scanLoginMountedRef\.current \|\| scanLoginFetchTicketRef\.current === ticket\) \{[\s\S]*fetchingQrRef\.current = false;[\s\S]*\}/, 'Direct WeChat scan-login QR fetch must release only current pending ownership');
+    assert.match(
+      settings,
+      /if \(cancelled \|\| scanLoginPollingRef\.current \|\| scanLoginConfirmingRef\.current\) return;[\s\S]*scanLoginPollingRef\.current = true;[\s\S]*const result = await window\.maka\.settings\.bots\.wechat\.pollQrcodeStatus\(qr\.qrToken\);/,
+      'Direct WeChat scan-login status polling must block overlapping interval requests',
+    );
+    assert.match(
+      settings,
+      /if \(cancelled \|\| !scanLoginMountedRef\.current\) return;[\s\S]*if \(result\.data\.status === 'confirmed'\) \{[\s\S]*scanLoginConfirmingRef\.current = true;[\s\S]*setStatus\('confirmed'\);[\s\S]*await props\.onConfirmed\(result\.data\.credentials\);/,
+      'Direct WeChat scan-login confirmation must be owned and must not continue from a stale poll',
+    );
+    assert.match(
+      settings,
+      /finally \{[\s\S]*if \(!scanLoginConfirmingRef\.current\) \{[\s\S]*scanLoginPollingRef\.current = false;[\s\S]*\}/,
+      'Direct WeChat scan-login polling ownership must release unless confirmation has taken over',
+    );
     assert.match(settings, /window\.maka\.settings\.bots\.wechat\.fetchQrcode\(\)/, 'Direct scan login must fetch an iLink QR code through main');
     assert.match(settings, /window\.maka\.settings\.bots\.wechat\.pollQrcodeStatus\(qr\.qrToken\)/, 'Direct scan login must poll iLink status');
     assert.match(settings, /setErrorMessage\(settingsActionErrorMessage\(result\.error\.message\)\)/, 'Direct scan login result failures must use the Settings error scrubber before rendering');
     assert.doesNotMatch(settings, /setErrorMessage\(result\.error\.message\)/, 'Direct scan login must not render raw Result error messages');
     assert.doesNotMatch(settings, /setErrorMessage\(error instanceof Error \? error\.message : String\(error\)\)/, 'Direct scan login thrown failures must not render raw Error.message');
     assert.match(settings, /token:\s*credentials\.botToken[\s\S]*webhookUrl:\s*credentials\.baseUrl[\s\S]*botUserId:\s*credentials\.botId/, 'Confirmed iLink credentials must be persisted into the WeChat channel');
+    assert.match(
+      settings,
+      /await props\.onReload\(\);[\s\S]*if \(!botPageMountedRef\.current\) return;[\s\S]*setScanLoginOpen\(false\);[\s\S]*toast\.success\('微信已扫码登录'/,
+      'Confirmed WeChat scan login must not close the modal or toast success after Settings unmounts during reload',
+    );
     assert.match(settings, /function WechatQrLoginModal\b/, 'WeChat scan login must render its own QR modal');
     assert.match(settings, /const loadingQrRef = useRef\(false\)/, 'WeChat bridge QR modal must keep a synchronous reload guard');
     assert.match(settings, /function reloadQrCode\(\) \{[\s\S]*if \(loadingQrRef\.current\) return;[\s\S]*loadingQrRef\.current = true;[\s\S]*setLoading\(true\);[\s\S]*setReloadNonce\(\(current\) => current \+ 1\)/, 'WeChat bridge QR refresh buttons and polling must share the reload guard');

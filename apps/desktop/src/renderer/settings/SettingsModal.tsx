@@ -410,15 +410,22 @@ function WeChatScanLoginModal(props: {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const fetchingQrRef = useRef(false);
+  const scanLoginPollingRef = useRef(false);
+  const scanLoginConfirmingRef = useRef(false);
+  const scanLoginMountedRef = useRef(false);
+  const scanLoginFetchTicketRef = useRef(0);
   useModalA11y(dialogRef, props.onClose);
 
   async function fetchQr() {
     if (fetchingQrRef.current) return;
     fetchingQrRef.current = true;
+    const ticket = ++scanLoginFetchTicketRef.current;
+    const isCurrentRequest = () => scanLoginMountedRef.current && scanLoginFetchTicketRef.current === ticket;
     setStatus('fetching');
     setErrorMessage(null);
     try {
       const result = await window.maka.settings.bots.wechat.fetchQrcode();
+      if (!isCurrentRequest()) return;
       if (!result.ok) {
         setStatus('error');
         setErrorMessage(settingsActionErrorMessage(result.error.message));
@@ -427,45 +434,64 @@ function WeChatScanLoginModal(props: {
       setQr(result.data);
       setStatus('waiting');
     } catch (error) {
-      setStatus('error');
-      setErrorMessage(settingsActionErrorMessage(error));
+      if (isCurrentRequest()) {
+        setStatus('error');
+        setErrorMessage(settingsActionErrorMessage(error));
+      }
     } finally {
-      fetchingQrRef.current = false;
+      if (!scanLoginMountedRef.current || scanLoginFetchTicketRef.current === ticket) {
+        fetchingQrRef.current = false;
+      }
     }
   }
 
   useEffect(() => {
+    scanLoginMountedRef.current = true;
     void fetchQr();
+    return () => {
+      scanLoginMountedRef.current = false;
+      scanLoginFetchTicketRef.current += 1;
+      fetchingQrRef.current = false;
+      scanLoginPollingRef.current = false;
+      scanLoginConfirmingRef.current = false;
+    };
   }, []);
 
   useEffect(() => {
     if (status !== 'waiting' || !qr?.qrToken) return;
     let cancelled = false;
     const interval = window.setInterval(async () => {
-      if (cancelled) return;
+      if (cancelled || scanLoginPollingRef.current || scanLoginConfirmingRef.current) return;
+      scanLoginPollingRef.current = true;
       try {
         const result = await window.maka.settings.bots.wechat.pollQrcodeStatus(qr.qrToken);
-        if (cancelled) return;
+        if (cancelled || !scanLoginMountedRef.current) return;
         if (!result.ok) {
           setStatus('error');
           setErrorMessage(settingsActionErrorMessage(result.error.message));
           return;
         }
         if (result.data.status === 'confirmed') {
+          scanLoginConfirmingRef.current = true;
           setStatus('confirmed');
           await props.onConfirmed(result.data.credentials);
         } else if (result.data.status === 'expired') {
           setStatus('expired');
         }
       } catch (error) {
-        if (cancelled) return;
+        if (cancelled || !scanLoginMountedRef.current) return;
         setStatus('error');
         setErrorMessage(settingsActionErrorMessage(error));
+      } finally {
+        if (!scanLoginConfirmingRef.current) {
+          scanLoginPollingRef.current = false;
+        }
       }
     }, 2500);
     return () => {
       cancelled = true;
       window.clearInterval(interval);
+      scanLoginPollingRef.current = false;
     };
   }, [status, qr?.qrToken]);
 
@@ -2073,6 +2099,7 @@ function PersonalizationSettingsPage(props: {
           uiLocale,
         },
       });
+      if (!personalizationMountedRef.current) return;
       // PR-LANG-PREF-0: apply the chosen locale to <html> right
       // after save so the change takes effect immediately in the
       // current window. The persisted value also drives next-boot
@@ -2531,7 +2558,9 @@ function WebSearchSettingsPage(props: {
       await props.onUpdate({ webSearch: patch });
       return true;
     } catch (error) {
-      toast.error(failureTitle, settingsActionErrorMessage(error));
+      if (webSearchMountedRef.current) {
+        toast.error(failureTitle, settingsActionErrorMessage(error));
+      }
       return false;
     }
   }
@@ -2560,10 +2589,9 @@ function WebSearchSettingsPage(props: {
     await runCredentialAction('save', async () => {
       const saved = await updateWebSearch({ providers: { tavily: { apiKey: draftKey } } });
       if (!saved) return;
-      if (webSearchMountedRef.current) {
-        setDraftKey('');
-      }
-      toast.success('已保存 Tavily API key', '可点击「测试」做一次真实请求验证。');
+      if (!webSearchMountedRef.current) return;
+      setDraftKey('');
+      toast.success('已保存 Tavily 密钥', '可点击「测试」做一次真实请求验证。');
     });
   }
 
@@ -2571,9 +2599,8 @@ function WebSearchSettingsPage(props: {
     await runCredentialAction('clear', async () => {
       const saved = await updateWebSearch({ enabled: false, providers: { tavily: { apiKey: '' } } });
       if (!saved) return;
-      if (webSearchMountedRef.current) {
-        setDraftKey('');
-      }
+      if (!webSearchMountedRef.current) return;
+      setDraftKey('');
       toast.success('已清空 Tavily 凭据', '联网搜索已自动关闭。');
     });
   }
@@ -2589,6 +2616,7 @@ function WebSearchSettingsPage(props: {
         provider: 'tavily',
         apiKey: usesDraftKey ? draftKey : undefined,
       });
+      if (!webSearchMountedRef.current) return;
       if (!usesDraftKey && hasUsableKey) {
         void persistCredentialStatus(webSearchCredentialStatusFromResponse(result), testedCredentialVersion);
       }
@@ -2598,7 +2626,9 @@ function WebSearchSettingsPage(props: {
         toast.error('Tavily 测试失败', result.message);
       }
     } catch (err) {
-      toast.error('Tavily 测试出错', settingsActionErrorMessage(err));
+      if (webSearchMountedRef.current) {
+        toast.error('Tavily 测试出错', settingsActionErrorMessage(err));
+      }
     } finally {
       testingRef.current = false;
       if (webSearchMountedRef.current) {
@@ -2622,17 +2652,14 @@ function WebSearchSettingsPage(props: {
         query: trimmed,
         limit: 5,
       });
+      if (!webSearchMountedRef.current) return;
       if (result.ok) {
-        if (webSearchMountedRef.current) {
-          setLiveQueryResults(result.results);
-        }
+        setLiveQueryResults(result.results);
         if (hasUsableKey) {
           void persistCredentialStatus('valid', queriedCredentialVersion);
         }
       } else {
-        if (webSearchMountedRef.current) {
-          setLiveQueryError(result.message);
-        }
+        setLiveQueryError(result.message);
         if (hasUsableKey) {
           void persistCredentialStatus(webSearchCredentialStatusFromResponse(result), queriedCredentialVersion);
         }
@@ -2695,17 +2722,17 @@ function WebSearchSettingsPage(props: {
 
       <div className="settingsFormGrid">
         <label>
-          <span>Tavily API key</span>
+          <span>Tavily 密钥</span>
           <PasswordInput
             value={draftKey}
             onChange={setDraftKey}
             disabled={usingEnvKey || credentialActionBusy}
-            placeholder={usingEnvKey ? '由环境变量提供' : hasStoredKey ? '已保存（输入新 key 可替换）' : 'tvly-xxxxxxxx'}
-            ariaLabel="Tavily API key"
+            placeholder={usingEnvKey ? '由环境变量提供' : hasStoredKey ? '已保存（输入新密钥可替换）' : 'tvly-xxxxxxxx'}
+            ariaLabel="Tavily 密钥"
           />
           <small>
             {usingEnvKey
-              ? '当前使用环境变量 TAVILY_API_KEY / MAKA_TAVILY_API_KEY；如需改用保存的 key，请移除环境变量后重启。'
+              ? '当前使用环境变量 TAVILY_API_KEY / MAKA_TAVILY_API_KEY；如需改用保存的密钥，请移除环境变量后重启。'
               : <>保存在主进程设置中，渲染器永远看不到明文。在 <a href="https://tavily.com" target="_blank" rel="noreferrer">tavily.com</a> 申请。</>}
           </small>
         </label>
@@ -2718,7 +2745,7 @@ function WebSearchSettingsPage(props: {
           disabled={credentialActionBusy || usingEnvKey || draftKey.length === 0}
           onClick={() => void saveDraftKey()}
         >
-          {pendingCredentialAction === 'save' ? '保存中…' : '保存 key'}
+          {pendingCredentialAction === 'save' ? '保存中…' : '保存密钥'}
         </button>
         <button
           type="button"
@@ -2735,7 +2762,7 @@ function WebSearchSettingsPage(props: {
             disabled={credentialActionBusy}
             onClick={() => void clearKey()}
           >
-            {pendingCredentialAction === 'clear' ? '清空中…' : '清空 key'}
+            {pendingCredentialAction === 'clear' ? '清空中…' : '清空密钥'}
           </button>
         )}
       </div>
@@ -2752,7 +2779,7 @@ function WebSearchSettingsPage(props: {
           <input
             value={liveQuery}
             onChange={(event) => setLiveQuery(event.currentTarget.value)}
-            placeholder="例如：Electron safeStorage 最佳实践"
+            placeholder="例如：本周 AI 产品发布动态"
             aria-label="联网搜索真实查询"
             onKeyDown={(event) => {
               if (event.key === 'Enter' && !liveQueryRunning) {
@@ -2834,7 +2861,7 @@ function WebSearchSettingsPage(props: {
 }
 
 function webSearchQueryDisabledReason(input: { hasUsableKey: boolean; enabled: boolean; query: string }): string | null {
-  if (!input.hasUsableKey) return '先保存 Tavily API key，或设置 TAVILY_API_KEY 环境变量';
+  if (!input.hasUsableKey) return '先保存 Tavily 密钥，或设置 TAVILY_API_KEY 环境变量';
   if (!input.enabled) return '先启用联网搜索';
   if (input.query.trim().length === 0) return '输入查询后再搜索';
   return null;
@@ -2845,13 +2872,13 @@ function presentWebSearchCredentialStatus(
   enabled: boolean,
   status: WebSearchCredentialStatus,
 ): { label: string; tone: 'success' | 'info' | 'warning' | 'destructive' } {
-  if (credentialSource === 'none') return { label: '等待保存 key', tone: 'warning' };
+  if (credentialSource === 'none') return { label: '等待保存密钥', tone: 'warning' };
   if (status === 'valid') {
     return enabled
       ? { label: '已验证 · 已启用', tone: 'success' }
       : { label: '已验证 · 未启用', tone: 'info' };
   }
-  if (status === 'invalid_credentials') return { label: 'key 无效', tone: 'destructive' };
+  if (status === 'invalid_credentials') return { label: '密钥无效', tone: 'destructive' };
   if (status === 'rate_limited') return { label: 'Tavily 限流', tone: 'warning' };
   if (status === 'timeout') return { label: '测试超时', tone: 'warning' };
   if (status === 'network_error') return { label: '网络异常', tone: 'warning' };
@@ -2866,9 +2893,9 @@ function presentWebSearchCredentialSource(
   hasStoredKey: boolean,
 ): string {
   if (credentialSource === 'env') {
-    return hasStoredKey ? '来源：环境变量（已保存 key 备用）' : '来源：环境变量';
+    return hasStoredKey ? '来源：环境变量（已保存密钥备用）' : '来源：环境变量';
   }
-  if (credentialSource === 'saved') return '来源：本机已保存 key';
+  if (credentialSource === 'saved') return '来源：本机已保存密钥';
   return '来源：未配置';
 }
 
@@ -2905,61 +2932,106 @@ function MemorySettingsPage(props: {
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
   const memoryWriteBusyRef = useRef(false);
   const pendingMemoryActionKeysRef = useRef<Set<string>>(new Set());
+  const memoryPageMountedRef = useRef(false);
+  const memoryPageLifecycleRef = useRef(0);
+  const memoryReloadTicketRef = useRef(0);
   const toast = useToast();
 
-  async function runMemoryWriteAction<T>(action: MemoryWriteAction, run: () => Promise<T>): Promise<T | undefined> {
+  useEffect(() => {
+    memoryPageLifecycleRef.current += 1;
+    memoryPageMountedRef.current = true;
+    const lifecycle = memoryPageLifecycleRef.current;
+    return () => {
+      if (memoryPageLifecycleRef.current !== lifecycle) return;
+      memoryPageMountedRef.current = false;
+      memoryReloadTicketRef.current += 1;
+      memoryWriteBusyRef.current = false;
+      pendingMemoryActionKeysRef.current.clear();
+    };
+  }, []);
+
+  function isMemoryPageCurrent(lifecycle: number): boolean {
+    return memoryPageMountedRef.current && memoryPageLifecycleRef.current === lifecycle;
+  }
+
+  async function runMemoryWriteAction<T>(
+    action: MemoryWriteAction,
+    run: (isCurrent: () => boolean) => Promise<T>,
+  ): Promise<T | undefined> {
     if (memoryWriteBusyRef.current) return undefined;
+    const lifecycle = memoryPageLifecycleRef.current;
     memoryWriteBusyRef.current = true;
     setPendingMemoryWriteAction(action);
     setBusy(true);
     try {
-      return await run();
+      return await run(() => isMemoryPageCurrent(lifecycle));
+    } catch (error) {
+      if (!isMemoryPageCurrent(lifecycle)) return undefined;
+      throw error;
     } finally {
       memoryWriteBusyRef.current = false;
-      setPendingMemoryWriteAction(null);
-      setBusy(false);
+      if (isMemoryPageCurrent(lifecycle)) {
+        setPendingMemoryWriteAction(null);
+        setBusy(false);
+      }
     }
   }
 
-  async function runMemoryAction<T>(key: string, action: () => Promise<T>): Promise<T | undefined> {
+  async function runMemoryAction<T>(
+    key: string,
+    action: (isCurrent: () => boolean) => Promise<T>,
+  ): Promise<T | undefined> {
     if (pendingMemoryActionKeysRef.current.has(key)) return undefined;
+    const lifecycle = memoryPageLifecycleRef.current;
     pendingMemoryActionKeysRef.current.add(key);
     setPendingMemoryActions((current) => new Set(current).add(key));
     try {
-      return await action();
+      return await action(() => isMemoryPageCurrent(lifecycle));
+    } catch (error) {
+      if (!isMemoryPageCurrent(lifecycle)) return undefined;
+      throw error;
     } finally {
       pendingMemoryActionKeysRef.current.delete(key);
-      setPendingMemoryActions((current) => {
-        const next = new Set(current);
-        next.delete(key);
-        return next;
-      });
+      if (isMemoryPageCurrent(lifecycle)) {
+        setPendingMemoryActions((current) => {
+          const next = new Set(current);
+          next.delete(key);
+          return next;
+        });
+      }
     }
   }
 
   async function reload(): Promise<boolean> {
+    const lifecycle = memoryPageLifecycleRef.current;
+    const ticket = ++memoryReloadTicketRef.current;
     try {
       const [next, instructions] = await Promise.all([
         window.maka.memory.getState(),
         window.maka.workspaceInstructions.getState(),
       ]);
+      if (!isMemoryPageCurrent(lifecycle) || ticket !== memoryReloadTicketRef.current) return false;
       setState(next);
       setWorkspaceInstructionState(instructions);
       setDraft(next.content);
       setLastSaveSummary(null);
       return true;
     } catch (error) {
-      toast.error('载入本地记忆失败', settingsActionErrorMessage(error));
+      if (isMemoryPageCurrent(lifecycle) && ticket === memoryReloadTicketRef.current) {
+        toast.error('载入本地记忆失败', settingsActionErrorMessage(error));
+      }
       return false;
     } finally {
-      setLoadingMemory(false);
+      if (isMemoryPageCurrent(lifecycle) && ticket === memoryReloadTicketRef.current) {
+        setLoadingMemory(false);
+      }
     }
   }
 
   async function reloadDraftFromDisk() {
-    await runMemoryWriteAction('reload', async () => {
+    await runMemoryWriteAction('reload', async (isCurrent) => {
       const ok = await reload();
-      if (ok) toast.success('已重新载入 MEMORY.md', '未保存的草稿修改已丢弃。');
+      if (ok && isCurrent()) toast.success('已重新载入 MEMORY.md', '未保存的草稿修改已丢弃。');
     });
   }
 
@@ -2969,9 +3041,10 @@ function MemorySettingsPage(props: {
 
   async function setEnabled(enabled: boolean) {
     try {
-      await runMemoryWriteAction('enable', async () => {
+      await runMemoryWriteAction('enable', async (isCurrent) => {
         const next = await window.maka.memory.setEnabled(enabled);
         await props.onReloadSettings();
+        if (!isCurrent()) return;
         setState(next);
         setDraft(next.content);
       });
@@ -2982,9 +3055,10 @@ function MemorySettingsPage(props: {
 
   async function setAgentReadEnabled(agentReadEnabled: boolean) {
     try {
-      await runMemoryWriteAction('agent-read', async () => {
+      await runMemoryWriteAction('agent-read', async (isCurrent) => {
         const next = await window.maka.memory.setAgentReadEnabled(agentReadEnabled);
         await props.onReloadSettings();
+        if (!isCurrent()) return;
         setState(next);
         setDraft(next.content);
       });
@@ -3006,8 +3080,9 @@ function MemorySettingsPage(props: {
 
   async function save() {
     try {
-      await runMemoryWriteAction('save', async () => {
+      await runMemoryWriteAction('save', async (isCurrent) => {
         const next = await window.maka.memory.save(draft);
+        if (!isCurrent()) return;
         const redacted = next.content !== draft;
         setState(next);
         setDraft(next.content);
@@ -3031,8 +3106,9 @@ function MemorySettingsPage(props: {
 
   async function reset() {
     try {
-      await runMemoryWriteAction('reset', async () => {
+      await runMemoryWriteAction('reset', async (isCurrent) => {
         const next = await window.maka.memory.reset();
+        if (!isCurrent()) return;
         setState(next);
         setDraft(next.content);
         setLastSaveSummary(null);
@@ -3046,7 +3122,7 @@ function MemorySettingsPage(props: {
   async function restoreLatestBackup() {
     await runMemoryAction('backup:latest:restore', async () => {
       try {
-        await runMemoryWriteAction('restore', async () => {
+        await runMemoryWriteAction('restore', async (isCurrent) => {
           const backup = state?.latestBackup;
           if (!backup) {
             toast.error('没有可恢复备份', '保存或重置 MEMORY.md 后才会生成上一版备份。');
@@ -3061,7 +3137,9 @@ function MemorySettingsPage(props: {
             destructive: true,
           });
           if (!ok) return;
+          if (!isCurrent()) return;
           const result = await window.maka.memory.restoreLatestBackup();
+          if (!isCurrent()) return;
           setState(result.state);
           setDraft(result.state.content);
           setLastSaveSummary(null);
@@ -3080,7 +3158,7 @@ function MemorySettingsPage(props: {
   async function restoreBackupCandidate(backup: NonNullable<LocalMemoryState['latestBackup']>) {
     await runMemoryAction(`backup:${backup.kind}:restore`, async () => {
       try {
-        await runMemoryWriteAction('restore', async () => {
+        await runMemoryWriteAction('restore', async (isCurrent) => {
           const backupLabel = `${localMemoryBackupKindLabel(backup.kind)} · ${localMemoryBackupSummary(backup)} · ${new Date(backup.updatedAt).toLocaleString()}`;
           const ok = await toast.confirm({
             title: '恢复这个 MEMORY.md 备份？',
@@ -3090,7 +3168,9 @@ function MemorySettingsPage(props: {
             destructive: true,
           });
           if (!ok) return;
+          if (!isCurrent()) return;
           const result = await window.maka.memory.restoreBackup(backup.kind);
+          if (!isCurrent()) return;
           setState(result.state);
           setDraft(result.state.content);
           setLastSaveSummary(null);
@@ -3107,100 +3187,107 @@ function MemorySettingsPage(props: {
   }
 
   async function openFile() {
-    await runMemoryAction('memory:file:open', async () => {
+    await runMemoryAction('memory:file:open', async (isCurrent) => {
       try {
         const result = await window.maka.memory.openFile();
+        if (!isCurrent()) return;
         if (!result.ok) toast.error('打开失败', result.message);
       } catch (error) {
-        toast.error('打开失败', settingsActionErrorMessage(error));
+        if (isCurrent()) toast.error('打开失败', settingsActionErrorMessage(error));
       }
     });
   }
 
   async function openLatestBackup() {
-    await runMemoryAction('backup:latest:open', async () => {
+    await runMemoryAction('backup:latest:open', async (isCurrent) => {
       try {
         const result = await window.maka.memory.openLatestBackup();
+        if (!isCurrent()) return;
         if (!result.ok) toast.error('打开上一版失败', result.message);
       } catch (error) {
-        toast.error('打开上一版失败', settingsActionErrorMessage(error));
+        if (isCurrent()) toast.error('打开上一版失败', settingsActionErrorMessage(error));
       }
     });
   }
 
   async function openBackupCandidate(backup: NonNullable<LocalMemoryState['latestBackup']>) {
-    await runMemoryAction(`backup:${backup.kind}:open`, async () => {
+    await runMemoryAction(`backup:${backup.kind}:open`, async (isCurrent) => {
       try {
         const result = await window.maka.memory.openBackup(backup.kind);
+        if (!isCurrent()) return;
         if (!result.ok) {
           toast.error(`打开${localMemoryBackupKindLabel(backup.kind)}失败`, result.message);
         }
       } catch (error) {
-        toast.error(`打开${localMemoryBackupKindLabel(backup.kind)}失败`, settingsActionErrorMessage(error));
+        if (isCurrent()) toast.error(`打开${localMemoryBackupKindLabel(backup.kind)}失败`, settingsActionErrorMessage(error));
       }
     });
   }
 
   async function openFolder() {
-    await runMemoryAction('memory:folder:open', async () => {
+    await runMemoryAction('memory:folder:open', async (isCurrent) => {
       try {
         const result = await window.maka.app.openPath('memory');
+        if (!isCurrent()) return;
         if (!result.ok) {
           toast.error(`打开${openPathActionLabel('memory')}失败`, openPathFailureCopy(result.reason));
         }
       } catch (error) {
-        toast.error(`打开${openPathActionLabel('memory')}失败`, settingsActionErrorMessage(error));
+        if (isCurrent()) toast.error(`打开${openPathActionLabel('memory')}失败`, settingsActionErrorMessage(error));
       }
     });
   }
 
   async function openWorkspaceInstructionFile(file: string) {
-    await runMemoryAction(`instruction:${file}:open`, async () => {
+    await runMemoryAction(`instruction:${file}:open`, async (isCurrent) => {
       try {
         const result = await window.maka.workspaceInstructions.openFile(file);
+        if (!isCurrent()) return;
         if (!result.ok) {
           toast.error('打开项目指令失败', result.message);
         }
       } catch (error) {
-        toast.error('打开项目指令失败', settingsActionErrorMessage(error));
+        if (isCurrent()) toast.error('打开项目指令失败', settingsActionErrorMessage(error));
       }
     });
   }
 
   async function createWorkspaceInstructionFile(file: string) {
-    await runMemoryAction(`instruction:${file}:create`, async () => {
+    await runMemoryAction(`instruction:${file}:create`, async (isActionCurrent) => {
       try {
-        await runMemoryWriteAction('instruction-create', async () => {
+        await runMemoryWriteAction('instruction-create', async (isCurrent) => {
           const result = await window.maka.workspaceInstructions.createFile(file);
+          if (!isCurrent()) return;
           if (!result.ok) {
             toast.error('创建项目指令失败', result.message);
             return;
           }
           const instructions = await window.maka.workspaceInstructions.getState();
+          if (!isCurrent()) return;
           setWorkspaceInstructionState(instructions);
           toast.success('已创建项目指令', file);
           await openWorkspaceInstructionFile(file);
         });
       } catch (error) {
-        toast.error('创建项目指令失败', settingsActionErrorMessage(error));
+        if (isActionCurrent()) toast.error('创建项目指令失败', settingsActionErrorMessage(error));
       }
     });
   }
 
   async function copyPath() {
-    await runMemoryAction('memory:path:copy', async () => {
+    await runMemoryAction('memory:path:copy', async (isCurrent) => {
       if (!state?.path) return;
       try {
         await navigator.clipboard.writeText(state.path);
-        toast.success('已复制路径', state.path);
+        if (isCurrent()) toast.success('已复制路径', state.path);
       } catch {
-        toast.error('复制失败', '剪贴板不可用或被系统拒绝。');
+        if (isCurrent()) toast.error('复制失败', '剪贴板不可用或被系统拒绝。');
       }
     });
   }
 
   async function copyBackupReference(backup: NonNullable<LocalMemoryState['latestBackup']>) {
-    await runMemoryAction(`backup:${backup.kind}:copy`, async () => {
+    await runMemoryAction(`backup:${backup.kind}:copy`, async (isCurrent) => {
       const reference = [
         `Memory backup: ${localMemoryBackupKindLabel(backup.kind)}`,
         `Path: ${backup.path}`,
@@ -3211,9 +3298,9 @@ function MemorySettingsPage(props: {
       ].join('\n');
       try {
         await navigator.clipboard.writeText(reference);
-        toast.success('已复制上一版引用', localMemoryBackupSummary(backup));
+        if (isCurrent()) toast.success('已复制上一版引用', localMemoryBackupSummary(backup));
       } catch {
-        toast.error('复制失败', '剪贴板不可用或被系统拒绝。');
+        if (isCurrent()) toast.error('复制失败', '剪贴板不可用或被系统拒绝。');
       }
     });
   }
@@ -3225,7 +3312,7 @@ function MemorySettingsPage(props: {
   }
 
   async function copyMemoryEntryReference(entry: LocalMemoryState['entries'][number]) {
-    await runMemoryAction(`entry:${entry.id}:copy`, async () => {
+    await runMemoryAction(`entry:${entry.id}:copy`, async (isCurrent) => {
       const reference = [
         `Memory entry: ${entry.title}`,
         `ID: ${entry.id}`,
@@ -3237,9 +3324,9 @@ function MemorySettingsPage(props: {
       ].filter(Boolean).join('\n');
       try {
         await navigator.clipboard.writeText(reference);
-        toast.success('已复制记忆引用', entry.id);
+        if (isCurrent()) toast.success('已复制记忆引用', entry.id);
       } catch {
-        toast.error('复制失败', '剪贴板不可用或被系统拒绝。');
+        if (isCurrent()) toast.error('复制失败', '剪贴板不可用或被系统拒绝。');
       }
     });
   }
@@ -3313,8 +3400,9 @@ function MemorySettingsPage(props: {
     }
 
     try {
-      await runMemoryWriteAction('entry-status', async () => {
+      await runMemoryWriteAction('entry-status', async (isCurrent) => {
         const next = await window.maka.memory.save(result.draft);
+        if (!isCurrent()) return;
         setState(next);
         setDraft(next.content);
         if (next.status === 'safe_mode') {
@@ -3373,12 +3461,12 @@ function MemorySettingsPage(props: {
 
   async function copyLocalMemoryPromptPreview() {
     if (!localMemoryPromptPreview) return;
-    await runMemoryAction('memory:prompt-preview:copy', async () => {
+    await runMemoryAction('memory:prompt-preview:copy', async (isCurrent) => {
       try {
         await navigator.clipboard.writeText(localMemoryPromptPreview);
-        toast.success('已复制模型上下文预览', '使用同一条 prompt 预览和遮蔽路径。');
+        if (isCurrent()) toast.success('已复制模型上下文预览', '使用同一条 prompt 预览和遮蔽路径。');
       } catch {
-        toast.error('复制失败', '剪贴板不可用或被系统拒绝。');
+        if (isCurrent()) toast.error('复制失败', '剪贴板不可用或被系统拒绝。');
       }
     });
   }
@@ -4527,10 +4615,19 @@ function BotChatSettingsPage(props: {
   const toast = useToast();
   const selectedStatus = statuses?.[selected];
   const pendingBotActionRef = useRef<BotPendingAction | null>(null);
+  const botPageMountedRef = useRef(false);
   const botActionBusy = pendingBotAction !== null;
   const selectedBotActionPending = pendingBotAction?.provider === selected ? pendingBotAction.action : null;
   const testing = selectedBotActionPending === 'test' || selectedBotActionPending === 'connect';
   const restarting = selectedBotActionPending === 'restart';
+
+  useEffect(() => {
+    botPageMountedRef.current = true;
+    return () => {
+      botPageMountedRef.current = false;
+      pendingBotActionRef.current = null;
+    };
+  }, []);
 
   function beginBotAction(provider: BotProvider, action: BotPendingActionName): boolean {
     if (pendingBotActionRef.current !== null) return false;
@@ -4544,15 +4641,20 @@ function BotChatSettingsPage(props: {
     const current = pendingBotActionRef.current;
     if (!current || current.provider !== provider || current.action !== action) return;
     pendingBotActionRef.current = null;
-    setPendingBotAction(null);
+    if (botPageMountedRef.current) {
+      setPendingBotAction(null);
+    }
   }
 
   async function updateChannelFor(provider: BotProvider, patch: Partial<typeof channel>): Promise<boolean> {
     try {
       await props.onUpdate({ botChat: { channels: { [provider]: patch } } });
+      if (!botPageMountedRef.current) return false;
       return true;
     } catch (error) {
-      toast.error(`${BOT_LABELS[provider].label} 保存失败`, settingsActionErrorMessage(error));
+      if (botPageMountedRef.current) {
+        toast.error(`${BOT_LABELS[provider].label} 保存失败`, settingsActionErrorMessage(error));
+      }
       return false;
     }
   }
@@ -4574,6 +4676,7 @@ function BotChatSettingsPage(props: {
       toast.error('载入机器人运行状态失败', message);
     });
     const unsubscribe = window.maka.settings.bots.subscribeStatusChanges((status) => {
+      if (!botPageMountedRef.current) return;
       setStatusLoadError(null);
       setStatuses((current) => ({
         ...(current ?? ({} as Record<BotProvider, BotStatus>)),
@@ -4591,6 +4694,7 @@ function BotChatSettingsPage(props: {
     if (!beginBotAction(provider, 'test')) return;
     try {
       const result = await window.maka.settings.testBotChannel(provider);
+      if (!botPageMountedRef.current) return;
       const platform = BOT_LABELS[provider].label;
       if (result.ok) {
         // PR-BOT-CHAT-POLISH-0: title now matches kenji boundary 2's
@@ -4604,7 +4708,9 @@ function BotChatSettingsPage(props: {
       }
       await refreshBotStatuses();
     } catch (error) {
-      toast.error(`${BOT_LABELS[provider].label} 测试出错`, settingsActionErrorMessage(error));
+      if (botPageMountedRef.current) {
+        toast.error(`${BOT_LABELS[provider].label} 测试出错`, settingsActionErrorMessage(error));
+      }
     } finally {
       finishBotAction(provider, 'test');
     }
@@ -4625,6 +4731,7 @@ function BotChatSettingsPage(props: {
     let testOk = false;
     try {
       const result = await window.maka.settings.testBotChannel(provider);
+      if (!botPageMountedRef.current) return;
       const platform = BOT_LABELS[provider].label;
       testOk = result.ok;
       if (result.ok) {
@@ -4634,16 +4741,20 @@ function BotChatSettingsPage(props: {
       }
       await refreshBotStatuses();
     } catch (error) {
-      toast.error(`${BOT_LABELS[provider].label} 测试出错`, settingsActionErrorMessage(error));
+      if (botPageMountedRef.current) {
+        toast.error(`${BOT_LABELS[provider].label} 测试出错`, settingsActionErrorMessage(error));
+      }
       finishBotAction(provider, 'connect');
       return;
     }
     try {
+      if (!botPageMountedRef.current) return;
       if (!testOk || providerSupport !== 'runtime') return;
       if (!providerChannel.enabled) {
         const saved = await updateChannelFor(provider, { enabled: true });
         if (!saved) return;
       }
+      if (!botPageMountedRef.current) return;
       await restartBotProvider(provider);
     } finally {
       finishBotAction(provider, 'connect');
@@ -4651,8 +4762,10 @@ function BotChatSettingsPage(props: {
   }
 
   async function restartBotProvider(provider: BotProvider): Promise<boolean> {
+    if (!botPageMountedRef.current) return false;
     try {
       const status = await window.maka.settings.bots.restart(provider);
+      if (!botPageMountedRef.current) return status.running;
       setStatuses((current) => ({
         ...(current ?? ({} as Record<BotProvider, BotStatus>)),
         [status.platform]: status,
@@ -4669,6 +4782,7 @@ function BotChatSettingsPage(props: {
       }
       return status.running;
     } catch (error) {
+      if (!botPageMountedRef.current) return false;
       const message = settingsActionErrorMessage(error);
       toast.error(`${BOT_LABELS[provider].label} 启动失败`, message);
       return false;
@@ -4686,13 +4800,17 @@ function BotChatSettingsPage(props: {
   }
 
   async function refreshBotStatuses(): Promise<boolean> {
+    if (!botPageMountedRef.current) return false;
     try {
       await props.onReload();
+      if (!botPageMountedRef.current) return false;
       const nextStatuses = await window.maka.settings.bots.listStatuses();
+      if (!botPageMountedRef.current) return false;
       setStatuses(nextStatuses);
       setStatusLoadError(null);
       return true;
     } catch (error) {
+      if (!botPageMountedRef.current) return false;
       const message = settingsActionErrorMessage(error);
       setStatusLoadError(message);
       toast.error('刷新机器人运行状态失败', message);
@@ -4725,8 +4843,11 @@ function BotChatSettingsPage(props: {
         lastError: undefined,
       });
       if (!saved) return;
+      if (!botPageMountedRef.current) return;
       await refreshBotStatuses();
-      toast.success('微信登录已断开', '本机扫码登录凭据已清除。');
+      if (botPageMountedRef.current) {
+        toast.success('微信登录已断开', '本机扫码登录凭据已清除。');
+      }
     } finally {
       finishBotAction(provider, 'disconnect');
     }
@@ -5026,6 +5147,7 @@ function BotChatSettingsPage(props: {
               });
               if (!saved) return;
               await props.onReload();
+              if (!botPageMountedRef.current) return;
               setScanLoginOpen(false);
               toast.success('微信已扫码登录', credentials.botId ? `Bot ID ${credentials.botId}` : '凭据已保存');
             }}
@@ -5174,8 +5296,8 @@ function BotAllowedUserIdsField(props: {
         Telegram 用户 ID 是 64 位整数；填入后只接收列表里这些 ID 的来信，其它人发的消息会被静默忽略（不会回弹任何提示）。
         {atCap && <strong>（已达到上限）</strong>}
         {invalidEntries.length > 0 && (
-          <span data-tone="warning" style={{ display: 'block', marginTop: 4 }}>
-            ⚠️ 下列不是数字 ID，可能是 @username 之类的输入，匹配不到任何人：{invalidEntries.slice(0, 3).join('、')}
+          <span className="settingsFieldWarning" data-tone="warning">
+            下列不是数字 ID，可能是用户名之类的输入，匹配不到任何人：{invalidEntries.slice(0, 3).join('、')}
             {invalidEntries.length > 3 && ` 等 ${invalidEntries.length} 项`}
           </span>
         )}

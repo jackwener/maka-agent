@@ -88,6 +88,8 @@ export function ProvidersPanel({ bridge }: { bridge: ConnectionsBridge }) {
   const [catalogTab, setCatalogTab] = useState<CatalogTab>('domestic');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const providersPanelMountedRef = useRef(false);
+  const providersReloadTicketRef = useRef(0);
   const toast = useToast();
 
   function onCatalogTabsKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
@@ -104,12 +106,14 @@ export function ProvidersPanel({ bridge }: { bridge: ConnectionsBridge }) {
     }, 0);
   }
 
-  async function reload() {
+  async function reload(): Promise<boolean> {
+    const ticket = ++providersReloadTicketRef.current;
     try {
       const [list, defaultConnection] = await Promise.all([
         bridge.list(),
         bridge.getDefault(),
       ]);
+      if (!providersPanelMountedRef.current || providersReloadTicketRef.current !== ticket) return false;
       setConnections(list);
       setDefaultSlug(defaultConnection);
       setLoadError(null);
@@ -119,20 +123,26 @@ export function ProvidersPanel({ bridge }: { bridge: ConnectionsBridge }) {
           ? current
           : null,
       );
+      return true;
     } catch (error) {
+      if (!providersPanelMountedRef.current || providersReloadTicketRef.current !== ticket) return false;
       const message = providerPanelActionErrorMessage(error);
       setLoadError(message);
       setLoading(false);
       toast.error('载入模型连接失败', message);
+      return false;
     }
   }
 
   useEffect(() => {
+    providersPanelMountedRef.current = true;
     void reload();
     const unsubscribe = bridge.subscribeEvents?.(() => {
       void reload();
     });
     return () => {
+      providersPanelMountedRef.current = false;
+      providersReloadTicketRef.current += 1;
       unsubscribe?.();
     };
   }, [bridge]);
@@ -281,7 +291,7 @@ export function ProvidersPanel({ bridge }: { bridge: ConnectionsBridge }) {
         </div>
 
         {catalogTab === 'oauth' ? (
-          <ModelOAuthSection onConnectionsChanged={reload} />
+          <ModelOAuthSection onConnectionsChanged={async () => { await reload(); }} />
         ) : (
           <div className="catalogGrid providerMarketGrid">
             {catalogProviders.map((type) => (
@@ -323,7 +333,8 @@ export function ProvidersPanel({ bridge }: { bridge: ConnectionsBridge }) {
                 existingSlugs={connections.map((connection) => connection.slug)}
                 onCancel={() => setAddingType(null)}
                 onCreated={async (slug) => {
-                  await reload();
+                  const reloaded = await reload();
+                  if (!reloaded || !providersPanelMountedRef.current) return;
                   setSelectedSlug(slug);
                   setAddingType(null);
                 }}
@@ -334,8 +345,9 @@ export function ProvidersPanel({ bridge }: { bridge: ConnectionsBridge }) {
                 bridge={bridge}
                 connection={selected}
                 isDefault={selected.slug === defaultSlug}
-                onChanged={reload}
+                onChanged={async () => { await reload(); }}
                 onDeleted={async () => {
+                  if (!providersPanelMountedRef.current) return;
                   setSelectedSlug(null);
                   await reload();
                 }}
@@ -577,6 +589,8 @@ const MODEL_OAUTH_CARDS: ReadonlyArray<ModelOAuthCard> = [
 function ModelOAuthSection(props: { onConnectionsChanged(): Promise<void> }) {
   const [openModal, setOpenModal] = useState<OAuthServiceId | null>(null);
   const toast = useToast();
+  const modelOAuthMountedRef = useRef(false);
+  const modelOAuthRefreshTicketRef = useRef(0);
   // PR-OAUTH-CARD-LIVE-STATE-0 (WAWQAQ msg d79fd115 follow-up):
   // before this lift the 3 button cards stayed at the static
   // "可用 / 预览" label even after the user finished the OAuth
@@ -594,6 +608,8 @@ function ModelOAuthSection(props: { onConnectionsChanged(): Promise<void> }) {
   const [cardRefreshError, setCardRefreshError] = useState<string | null>(null);
 
   async function refreshAllCards() {
+    const ticket = modelOAuthRefreshTicketRef.current + 1;
+    modelOAuthRefreshTicketRef.current = ticket;
     const results = await Promise.all(
       MODEL_OAUTH_CARDS.map(async (card) => {
         try {
@@ -604,6 +620,7 @@ function ModelOAuthSection(props: { onConnectionsChanged(): Promise<void> }) {
         }
       }),
     );
+    if (!modelOAuthMountedRef.current || modelOAuthRefreshTicketRef.current !== ticket) return false;
     const failures = results.filter((result) => 'error' in result);
     setCardStates((prev) => {
       const next = { ...prev };
@@ -626,16 +643,23 @@ function ModelOAuthSection(props: { onConnectionsChanged(): Promise<void> }) {
   }
 
   async function refreshAfterModalClose() {
-    await refreshAllCards();
+    const refreshed = await refreshAllCards();
+    if (!modelOAuthMountedRef.current || !refreshed) return;
     try {
       await props.onConnectionsChanged();
     } catch (error) {
+      if (!modelOAuthMountedRef.current) return;
       toast.error('刷新已启用模型失败', subscriptionActionErrorMessage(error));
     }
   }
 
   useEffect(() => {
+    modelOAuthMountedRef.current = true;
     void refreshAllCards();
+    return () => {
+      modelOAuthMountedRef.current = false;
+      modelOAuthRefreshTicketRef.current += 1;
+    };
   }, []);
 
   return (
@@ -768,34 +792,37 @@ function SubscriptionLoginModal(props: { serviceId: BrowserOAuthServiceId; onClo
   const [stateHint, setStateHint] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<BrowserSubscriptionPendingAction | null>(null);
   const pendingActionRef = useRef<BrowserSubscriptionPendingAction | null>(null);
+  const authRequestIdRef = useRef<string | null>(null);
+  const browserSubscriptionMountedRef = useRef(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const display = subscriptionDisplay(props.serviceId);
 
-  async function refresh() {
+  async function refresh(): Promise<boolean> {
     try {
       const next = (await bridge.getAccountState()) as SubscriptionSnapshot;
+      if (!browserSubscriptionMountedRef.current) return false;
       setState(next);
       setErrorMessage(null);
     } catch (error) {
+      if (!browserSubscriptionMountedRef.current) return false;
       const message = subscriptionActionErrorMessage(error);
       toast.error('刷新登录状态失败', message);
       setErrorMessage(message);
     }
+    return true;
   }
 
   useEffect(() => {
+    browserSubscriptionMountedRef.current = true;
     void refresh();
-  }, []);
-
-  // Cancel any pending authorization if the modal closes mid-flow.
-  useEffect(() => {
     return () => {
-      if (authRequestId) {
-        void bridge.cancelAuthorization(authRequestId);
-      }
+      browserSubscriptionMountedRef.current = false;
+      pendingActionRef.current = null;
+      const pendingAuthRequestId = authRequestIdRef.current;
+      authRequestIdRef.current = null;
+      if (pendingAuthRequestId) void bridge.cancelAuthorization(pendingAuthRequestId);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authRequestId]);
+  }, []);
 
   function beginPendingAction(action: BrowserSubscriptionPendingAction): boolean {
     if (pendingActionRef.current !== null) return false;
@@ -806,7 +833,7 @@ function SubscriptionLoginModal(props: { serviceId: BrowserOAuthServiceId; onClo
 
   function finishPendingAction() {
     pendingActionRef.current = null;
-    setPendingAction(null);
+    if (browserSubscriptionMountedRef.current) setPendingAction(null);
   }
 
   async function startLogin() {
@@ -815,25 +842,38 @@ function SubscriptionLoginModal(props: { serviceId: BrowserOAuthServiceId; onClo
     try {
       const payload = await bridge.getAuthUrl();
       if ('ok' in payload) {
+        if (!browserSubscriptionMountedRef.current) return;
         const failureMessage = payload.ok ? '请稍后再试。' : subscriptionResultMessage(payload.message, '无法开始登录，请稍后再试。');
         toast.error('无法开始登录', failureMessage);
         setErrorMessage(failureMessage);
         return;
       }
+      authRequestIdRef.current = payload.authRequestId;
+      if (!browserSubscriptionMountedRef.current) {
+        authRequestIdRef.current = null;
+        void bridge.cancelAuthorization(payload.authRequestId);
+        return;
+      }
       setAuthRequestId(payload.authRequestId);
       setStateHint(payload.stateHint);
       const opened = await bridge.openAuthUrl(payload.authRequestId);
+      if (!browserSubscriptionMountedRef.current) return;
       if (!opened.ok) {
         const message = subscriptionResultMessage(opened.message, '无法打开浏览器，请稍后重试。');
         toast.error('无法打开浏览器', message);
         setErrorMessage(message);
+        void bridge.cancelAuthorization(payload.authRequestId);
+        authRequestIdRef.current = null;
         setAuthRequestId(null);
         setStateHint(null);
         return;
       }
-      await refresh();
+      const refreshed = await refresh();
+      if (!browserSubscriptionMountedRef.current || !refreshed) return;
       // Loopback / polling — wait for the backend to complete.
       const result = await bridge.completeAuthorization(payload.authRequestId);
+      if (!browserSubscriptionMountedRef.current) return;
+      authRequestIdRef.current = null;
       setAuthRequestId(null);
       setStateHint(null);
       if (result.ok) {
@@ -845,6 +885,12 @@ function SubscriptionLoginModal(props: { serviceId: BrowserOAuthServiceId; onClo
         setErrorMessage(message);
       }
     } catch (error) {
+      if (!browserSubscriptionMountedRef.current) return;
+      const pendingAuthRequestId = authRequestIdRef.current;
+      authRequestIdRef.current = null;
+      if (pendingAuthRequestId) void bridge.cancelAuthorization(pendingAuthRequestId);
+      setAuthRequestId(null);
+      setStateHint(null);
       const message = subscriptionActionErrorMessage(error);
       toast.error('登录失败', message);
       setErrorMessage(message);
@@ -865,6 +911,7 @@ function SubscriptionLoginModal(props: { serviceId: BrowserOAuthServiceId; onClo
       });
       if (!ok) return;
       const result = await bridge.logout();
+      if (!browserSubscriptionMountedRef.current) return;
       if (result.ok) {
         toast.success('已退出登录', '本地凭据已清除。');
         await refresh();
@@ -872,6 +919,7 @@ function SubscriptionLoginModal(props: { serviceId: BrowserOAuthServiceId; onClo
         toast.error('退出失败', subscriptionResultMessage(result.message, '退出登录失败，请稍后重试。'));
       }
     } catch (error) {
+      if (!browserSubscriptionMountedRef.current) return;
       toast.error('退出失败', subscriptionActionErrorMessage(error));
     } finally {
       finishPendingAction();
@@ -1297,6 +1345,8 @@ function ConnectionDetail(props: {
   const fetchingModelsRef = useRef(false);
   const settingDefaultRef = useRef(false);
   const deletingRef = useRef(false);
+  const connectionDetailMountedRef = useRef(false);
+  const connectionDetailLifecycleRef = useRef(0);
   const toast = useToast();
   const needsApiKey = defaults.authKind === 'api_key';
   const needsOAuth = defaults.authKind === 'oauth_token';
@@ -1317,15 +1367,37 @@ function ConnectionDetail(props: {
   const detailActionBusy = busy || testing || fetchingModels || settingDefault || deleting;
 
   useEffect(() => {
+    connectionDetailMountedRef.current = true;
+    connectionDetailLifecycleRef.current += 1;
+    return () => {
+      connectionDetailMountedRef.current = false;
+      connectionDetailLifecycleRef.current += 1;
+      busyRef.current = false;
+      testingRef.current = false;
+      fetchingModelsRef.current = false;
+      settingDefaultRef.current = false;
+      deletingRef.current = false;
+    };
+  }, [connection.slug]);
+
+  function isConnectionDetailCurrent(lifecycle: number): boolean {
+    return connectionDetailMountedRef.current && connectionDetailLifecycleRef.current === lifecycle;
+  }
+
+  useEffect(() => {
+    const lifecycle = connectionDetailLifecycleRef.current;
     if (defaults.authKind === 'none') {
-      setHasSecret(true);
+      if (isConnectionDetailCurrent(lifecycle)) setHasSecret(true);
       return;
     }
     setHasSecret('loading');
     void props.bridge
       .hasSecret(connection.slug)
-      .then(setHasSecret)
+      .then((next) => {
+        if (isConnectionDetailCurrent(lifecycle)) setHasSecret(next);
+      })
       .catch((error) => {
+        if (!isConnectionDetailCurrent(lifecycle)) return;
         setHasSecret('error');
         toast.error('读取模型凭据状态失败', providerPanelActionErrorMessage(error));
       });
@@ -1376,6 +1448,7 @@ function ConnectionDetail(props: {
 
   async function save() {
     if (busyRef.current || testingRef.current || fetchingModelsRef.current || settingDefaultRef.current || deletingRef.current) return;
+    const lifecycle = connectionDetailLifecycleRef.current;
     busyRef.current = true;
     setBusy(true);
     let saved = false;
@@ -1386,11 +1459,14 @@ function ConnectionDetail(props: {
         ...(apiKey ? { apiKey } : {}),
       });
       saved = true;
+      if (!isConnectionDetailCurrent(lifecycle)) return;
       const wroteNewKey = apiKey.length > 0;
       setApiKey('');
       const nextHasSecret = requiresCredential ? await props.bridge.hasSecret(connection.slug) : true;
+      if (!isConnectionDetailCurrent(lifecycle)) return;
       setHasSecret(nextHasSecret);
       await props.onChanged();
+      if (!isConnectionDetailCurrent(lifecycle)) return;
       // Auto-fetch live model list as soon as the secret is in place. Without
       // this, the user lands on a Settings · 模型 row whose `defaultModel`
       // dropdown only contains the static fallback list (e.g. Z.ai → just
@@ -1400,6 +1476,7 @@ function ConnectionDetail(props: {
         void refreshModels({ silent: true });
       }
     } catch (error) {
+      if (!isConnectionDetailCurrent(lifecycle)) return;
       if (saved && requiresCredential) {
         setHasSecret('error');
       }
@@ -1409,16 +1486,18 @@ function ConnectionDetail(props: {
       );
     } finally {
       busyRef.current = false;
-      setBusy(false);
+      if (isConnectionDetailCurrent(lifecycle)) setBusy(false);
     }
   }
 
   async function runTest() {
     if (testingRef.current || busyRef.current || fetchingModelsRef.current || settingDefaultRef.current || deletingRef.current) return;
+    const lifecycle = connectionDetailLifecycleRef.current;
     testingRef.current = true;
     setTesting(true);
     try {
       const result: ConnectionTestResult = await props.bridge.test(connection.slug, { model: defaultModel });
+      if (!isConnectionDetailCurrent(lifecycle)) return;
       if (result.ok) {
         toast.success(
           `连接成功 · ${connection.name}`,
@@ -1431,17 +1510,19 @@ function ConnectionDetail(props: {
         );
       }
     } catch (error) {
+      if (!isConnectionDetailCurrent(lifecycle)) return;
       const message = providerPanelActionErrorMessage(error);
       toast.error(`连接测试出错 · ${connection.name}`, message);
     } finally {
       testingRef.current = false;
-      setTesting(false);
+      if (isConnectionDetailCurrent(lifecycle)) setTesting(false);
     }
   }
 
   async function refreshModels(opts: { silent?: boolean } = {}) {
     if (fetchingModelsRef.current) return;
     if (!opts.silent && (busyRef.current || testingRef.current || settingDefaultRef.current || deletingRef.current)) return;
+    const lifecycle = connectionDetailLifecycleRef.current;
     fetchingModelsRef.current = true;
     setFetchingModels(true);
     try {
@@ -1451,13 +1532,16 @@ function ConnectionDetail(props: {
       // verbatim instead of inferring from list length, so a provider that
       // legitimately returns 0 models still reads as 'fetched'.
       const result = await props.bridge.fetchModels(connection.slug);
+      if (!isConnectionDetailCurrent(lifecycle)) return;
       setModels(result.models);
       setModelSource(result.source);
       await props.onChanged();
+      if (!isConnectionDetailCurrent(lifecycle)) return;
       if (!opts.silent) {
         toast.success(`已拉取 ${result.models.length} 个模型 · ${connection.name}`);
       }
     } catch (error) {
+      if (!isConnectionDetailCurrent(lifecycle)) return;
       const message = providerPanelActionErrorMessage(error);
       // Leave the previously-known source / models intact (so the dropdown
       // doesn't suddenly empty out), but downgrade the source label back to
@@ -1470,7 +1554,7 @@ function ConnectionDetail(props: {
       );
     } finally {
       fetchingModelsRef.current = false;
-      setFetchingModels(false);
+      if (isConnectionDetailCurrent(lifecycle)) setFetchingModels(false);
     }
   }
 
@@ -1480,22 +1564,27 @@ function ConnectionDetail(props: {
       toast.error('无法设为默认', '这个模型连接已禁用，请重新登录或启用后再设为默认。');
       return;
     }
+    const lifecycle = connectionDetailLifecycleRef.current;
     settingDefaultRef.current = true;
     setSettingDefault(true);
     try {
       await props.bridge.setDefault(connection.slug);
+      if (!isConnectionDetailCurrent(lifecycle)) return;
       await props.onChanged();
+      if (!isConnectionDetailCurrent(lifecycle)) return;
       toast.success(`已设为默认 · ${connection.name}`);
     } catch (error) {
+      if (!isConnectionDetailCurrent(lifecycle)) return;
       toast.error('切换默认失败', providerPanelActionErrorMessage(error));
     } finally {
       settingDefaultRef.current = false;
-      setSettingDefault(false);
+      if (isConnectionDetailCurrent(lifecycle)) setSettingDefault(false);
     }
   }
 
   async function remove() {
     if (deletingRef.current || busyRef.current || testingRef.current || fetchingModelsRef.current || settingDefaultRef.current) return;
+    const lifecycle = connectionDetailLifecycleRef.current;
     deletingRef.current = true;
     setDeleting(true);
     const ok = await toast.confirm({
@@ -1505,6 +1594,7 @@ function ConnectionDetail(props: {
       cancelLabel: '取消',
       destructive: true,
     });
+    if (!isConnectionDetailCurrent(lifecycle)) return;
     if (!ok) {
       deletingRef.current = false;
       setDeleting(false);
@@ -1514,15 +1604,17 @@ function ConnectionDetail(props: {
     try {
       await props.bridge.delete(connection.slug);
       deleted = true;
+      if (!isConnectionDetailCurrent(lifecycle)) return;
       await props.onDeleted();
     } catch (error) {
+      if (!isConnectionDetailCurrent(lifecycle)) return;
       toast.error(
         deleted ? '刷新模型列表失败' : '删除模型连接失败',
         providerPanelActionErrorMessage(error),
       );
     } finally {
       deletingRef.current = false;
-      setDeleting(false);
+      if (isConnectionDetailCurrent(lifecycle)) setDeleting(false);
     }
   }
 

@@ -59,6 +59,35 @@ describe('module main surface contract', () => {
     );
   });
 
+  it('keeps same-scope Daily Review data visible when refresh fails', async () => {
+    const ui = await readRepo('packages/ui/src/components.tsx');
+    const panelBlock = ui.match(/function DailyReviewPanel[\s\S]*?function PlanReminderPanel/)?.[0] ?? '';
+
+    assert.match(ui, /function dailyReviewScopeKey\(offsetDays: number, range: DailyReviewRange\): string/);
+    assert.match(panelBlock, /const \[summaryScopeKey, setSummaryScopeKey\] = useState<string \| null>\(null\)/);
+    assert.match(panelBlock, /const summaryScopeKeyRef = useRef<string \| null>\(null\)/);
+    assert.match(
+      panelBlock,
+      /const visibleSummary = summaryScopeKey === currentSummaryScopeKey \? summary : null/,
+      'Daily Review must not render a previous date/range summary under the current label',
+    );
+    assert.match(panelBlock, /summaryScopeKeyRef\.current = scopeKey/);
+    assert.match(panelBlock, /setSummaryScopeKey\(scopeKey\)/);
+    assert.match(
+      panelBlock,
+      /if \(summaryScopeKeyRef\.current !== scopeKey\) \{[\s\S]*setSummary\(null\)[\s\S]*setSummaryScopeKey\(null\)/,
+      'Only a different-scope load failure may clear the visible summary',
+    );
+    assert.doesNotMatch(
+      panelBlock,
+      /\.catch\(\(err: unknown\) => \{[\s\S]*?if \(cancelled\) return;\s*setSummary\(null\);\s*setError/,
+      'Same-scope refresh failures should preserve the current Daily Review dashboard',
+    );
+    assert.match(panelBlock, /<div className="maka-daily-review-alert" role="alert">/);
+    assert.match(panelBlock, /每日回顾刷新失败：\{error\}/);
+    assert.match(panelBlock, /summary: visibleSummary/);
+  });
+
   it('renders Skills in the main content pane, not as a left-bottom list', async () => {
     const ui = await readRepo('packages/ui/src/components.tsx');
     const sidebarListBlock = ui.match(/<section className="maka-session-list"[\s\S]*?<footer className="maka-session-panel-footer">/)?.[0] ?? '';

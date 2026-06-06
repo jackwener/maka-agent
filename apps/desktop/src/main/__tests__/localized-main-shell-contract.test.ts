@@ -116,7 +116,7 @@ describe('localized main shell contract', () => {
 
   it('exposes the selected Daily Review range in the segmented control', async () => {
     const components = await readFile(resolve(process.cwd(), '..', '..', 'packages', 'ui', 'src', 'components.tsx'), 'utf8');
-    const dailyReviewRange = components.match(/<nav className="maka-daily-review-range"[\s\S]*?\{summary && summary\.totals/)?.[0] ?? '';
+    const dailyReviewRange = components.match(/<nav className="maka-daily-review-range"[\s\S]*?\{visibleSummary && visibleSummary\.totals/)?.[0] ?? '';
 
     assert.match(
       dailyReviewRange,

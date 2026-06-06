@@ -141,7 +141,7 @@ describe('permission response IPC boundary', () => {
     assert.doesNotMatch(sendHandler, /command\.attachments/);
   });
 
-  it('renderer stop() and respondToPermission() surface IPC failures as toasts (PR-STOP-ERROR-SURFACE-0)', async () => {
+  it('renderer stop() and respondToPermission() surface IPC failures only for the source session', async () => {
     // The Composer wires onStop via both the button onClick and the
     // Escape key handler, neither of which awaits the returned
     // promise. If stop() lets the IPC reject without try/catch the
@@ -160,12 +160,27 @@ describe('permission response IPC boundary', () => {
     assert.match(stop[0], /if \(!sessionId \|\| !addPendingStop\(sessionId\)\) return;/);
     assert.match(stop[0], /try\s*\{[\s\S]*?await window\.maka\.sessions\.stop/);
     assert.match(stop[0], /await window\.maka\.sessions\.stop\(sessionId, \{ source: 'stop_button' \}\);/);
-    assert.match(stop[0], /catch \(error\)[\s\S]*?toastApi\.error\(['"]停止失败['"]/);
+    assert.match(
+      stop[0],
+      /catch \(error\)[\s\S]*?if \(activeIdRef\.current === sessionId\) toastApi\.error\(['"]停止失败['"]/,
+      'stop failure feedback must not leak onto a different active session',
+    );
     assert.match(stop[0], /finally \{[\s\S]*?clearPendingStop\(sessionId\);[\s\S]*?\}/);
     const respond = renderer.match(/async function respondToPermission\([\s\S]*?\n  \}/);
     assert.ok(respond, 'respondToPermission() must exist');
-    assert.match(respond[0], /try\s*\{[\s\S]*?await window\.maka\.sessions\.respondToPermission/);
-    assert.match(respond[0], /catch \(error\)[\s\S]*?toastApi\.error\(['"]响应失败['"]/);
+    assert.match(respond[0], /const sessionId = activeIdRef\.current;/);
+    assert.match(respond[0], /if \(!sessionId\) return;/);
+    assert.match(respond[0], /try\s*\{[\s\S]*?await window\.maka\.sessions\.respondToPermission\(sessionId, response\);/);
+    assert.doesNotMatch(
+      respond[0],
+      /respondToPermission\(activeId, response\)/,
+      'permission response IPC must use the captured source session, not render-time activeId',
+    );
+    assert.match(
+      respond[0],
+      /catch \(error\)[\s\S]*?if \(activeIdRef\.current === sessionId\) toastApi\.error\(['"]响应失败['"]/,
+      'permission response failure feedback must not leak onto a different active session',
+    );
   });
 
   it('renderer clears permission overlay when a session completes (PR-PERMISSION-UI-CLEANUP-0)', async () => {
@@ -230,6 +245,18 @@ describe('permission response IPC boundary', () => {
     assert.match(
       renderer,
       /event\.reason === 'message-appended'[\s\S]{0,80}?(?:event\.sessionId|changedSessionId) === activeIdRef\.current[\s\S]*?refreshMessages\((?:event\.sessionId|changedSessionId)\)/,
+    );
+  });
+
+  it('scopes session event error feedback to the active chat surface', async () => {
+    const rendererPath = fileURLToPath(new URL('../../../src/renderer/main.tsx', import.meta.url));
+    const renderer = await readFile(rendererPath, 'utf8');
+    const errorBranch = renderer.match(/case 'error':[\s\S]*?case 'abort':/)?.[0] ?? '';
+
+    assert.match(
+      errorBranch,
+      /clearStreaming\(sessionId\);[\s\S]*setPermissionBySession[\s\S]*if \(activeIdRef\.current === sessionId\) \{[\s\S]*if \(isNoRealConnectionEvent\(event\)\) \{[\s\S]*showModelSetupToast\(cleanEventMessage\(event\.message\), noRealConnectionReasonFromEvent\(event\)\);[\s\S]*\} else \{[\s\S]*toastApi\.error\('对话出错', event\.message\);[\s\S]*\}[\s\S]*\}[\s\S]*markInFlightToolsInterrupted\(sessionId\);[\s\S]*refreshSessions\(\);[\s\S]*refreshMessages\(sessionId\);/,
+      'background session error events may update stored state, but must not show toasts or open Settings on the active chat surface',
     );
   });
 
@@ -350,6 +377,7 @@ describe('permission response IPC boundary', () => {
       /async function refreshMessagesUntilTurn\(sessionId: string, turnId: string\): Promise<void> \{[\s\S]*?\n  \}/,
     )?.[0] ?? '';
 
+    assert.match(sendBlock, /const initialSessionId = activeIdRef\.current;/);
     assert.match(sendBlock, /const turnId = crypto\.randomUUID\(\)/);
     assert.match(
       newSessionBranch,
@@ -375,6 +403,16 @@ describe('permission response IPC boundary', () => {
       sendBlock,
       /catch \(error\) \{[\s\S]*removeOptimisticUserMessage\(optimisticSessionId, optimisticTurnId\)[\s\S]*toastApi\.error\('发送失败'/,
       'send readiness failures must remove the optimistic user turn instead of leaving a fake message behind',
+    );
+    assert.match(
+      sendBlock,
+      /const feedbackSessionId = optimisticSessionId \?\? initialSessionId;[\s\S]*const sendStillOwnsCurrentSurface = feedbackSessionId[\s\S]*activeIdRef\.current === feedbackSessionId[\s\S]*activeIdRef\.current === initialSessionId;[\s\S]*if \(!sendStillOwnsCurrentSurface\) return false;/,
+      'send failure feedback must not toast or open setup from a stale session after the user switches chats',
+    );
+    assert.match(
+      sendBlock,
+      /if \(!sendStillOwnsCurrentSurface\) return false;[\s\S]*if \(isNoRealConnectionError\(error\)\) \{[\s\S]*showModelSetupToast[\s\S]*\} else \{[\s\S]*toastApi\.error\('发送失败'/,
+      'both model-setup feedback and generic send-failure toast must be guarded by the active-session owner check',
     );
     assert.match(
       refreshUntilTurn,
