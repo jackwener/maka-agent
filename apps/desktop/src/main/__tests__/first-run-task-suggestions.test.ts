@@ -85,14 +85,14 @@ describe('FIRST_RUN_TASK_SUGGESTIONS', () => {
     assert.match(readyBlock, /const suggestionActionBusy = pendingSuggestionAction !== null/);
     assert.match(
       suggestionGateBlock,
-      /if \(!action \|\| props\.quickChatPending \|\| pendingSuggestionActionRef\.current !== null\) return;[\s\S]*pendingSuggestionActionRef\.current = actionKey[\s\S]*setPendingSuggestionAction\(actionKey\)[\s\S]*await action\(\)[\s\S]*pendingSuggestionActionRef\.current = null[\s\S]*setPendingSuggestionAction\(null\)/,
+      /if \(!action \|\| quickChatBusy \|\| pendingSuggestionActionRef\.current !== null\) return;[\s\S]*pendingSuggestionActionRef\.current = actionKey[\s\S]*setPendingSuggestionAction\(actionKey\)[\s\S]*await action\(\)[\s\S]*pendingSuggestionActionRef\.current = null[\s\S]*setPendingSuggestionAction\(null\)/,
       'suggestion dismiss/restore must await the async milestone write behind a ref-backed pending gate',
     );
-    assert.match(readyBlock, /if \(props\.quickChatPending \|\| suggestionActionBusy\) return;[\s\S]*appendPromptContextDraft\(draft, prompt\)/, 'prefill must not append while suggestion milestone writes are pending');
+    assert.match(readyBlock, /if \(quickChatBusy \|\| suggestionActionBusy\) return;[\s\S]*appendPromptContextDraft\(draft, prompt\)/, 'prefill must not append while suggestion milestone writes are pending');
     assert.match(readyBlock, /runSuggestionAction\([\s\S]*'restore'[\s\S]*\(\) => props\.onRestoreTaskSuggestions\?\.\(hiddenSuggestions\.map\(\(item\) => item\.id\)\)[\s\S]*\)/);
     assert.match(readyBlock, /runSuggestionAction\([\s\S]*`dismiss:\$\{suggestion\.id\}`[\s\S]*\(\) => props\.onDismissTaskSuggestion\?\.\(suggestion\.id\)[\s\S]*\)/);
-    assert.match(readyBlock, /disabled=\{props\.quickChatPending \|\| suggestionActionBusy \|\| !props\.onRestoreTaskSuggestions\}/);
-    assert.match(readyBlock, /disabled=\{props\.quickChatPending \|\| suggestionActionBusy\}/);
+    assert.match(readyBlock, /disabled=\{quickChatBusy \|\| suggestionActionBusy \|\| !props\.onRestoreTaskSuggestions\}/);
+    assert.match(readyBlock, /disabled=\{quickChatBusy \|\| suggestionActionBusy\}/);
     assert.match(readyBlock, /aria-busy=\{pendingSuggestionAction === 'restore' \? 'true' : undefined\}/);
     assert.match(readyBlock, /pendingSuggestionAction === 'restore' \? '恢复中…' : `恢复 \$\{hiddenSuggestions\.length\} 项`/);
     assert.match(readyBlock, /aria-busy=\{pendingSuggestionAction === `dismiss:\$\{suggestion\.id\}` \? 'true' : undefined\}/);
@@ -111,15 +111,15 @@ describe('FIRST_RUN_TASK_SUGGESTIONS', () => {
     assert.match(readyBlock, /const importActionBusy = pendingImportAction !== null/);
     assert.match(
       gateBlock,
-      /if \(pendingImportActionRef\.current !== null \|\| props\.quickChatPending\) return;[\s\S]*pendingImportActionRef\.current = actionKey[\s\S]*setPendingImportAction\(actionKey\)[\s\S]*const prompt = await action\(\)[\s\S]*if \(prompt\) appendImportedPrompt\(prompt\)[\s\S]*pendingImportActionRef\.current = null[\s\S]*setPendingImportAction\(null\)/,
+      /if \(pendingImportActionRef\.current !== null \|\| quickChatBusy\) return;[\s\S]*pendingImportActionRef\.current = actionKey[\s\S]*setPendingImportAction\(actionKey\)[\s\S]*const prompt = await action\(\)[\s\S]*if \(prompt\) appendImportedPrompt\(prompt\)[\s\S]*pendingImportActionRef\.current = null[\s\S]*setPendingImportAction\(null\)/,
       'first-run import actions must use a ref-backed pending gate and append only through one shared path',
     );
     assert.match(readyBlock, /runImportAction\('file', props\.onImportTextFile\)/);
     assert.match(readyBlock, /runImportAction\('folder', props\.onImportFolderOutline\)/);
     assert.match(readyBlock, /runImportAction\('drop', async \(\) => props\.onImportDroppedTextFiles\?\.\(files\)\)/);
     assert.match(readyBlock, /runImportAction\('paste', async \(\) => props\.onImportDroppedTextFiles\?\.\(files\)\)/);
-    assert.match(readyBlock, /props\.onImportDroppedTextFiles && !props\.quickChatPending && !importActionBusy/);
-    assert.match(readyBlock, /disabled=\{props\.quickChatPending \|\| importActionBusy\}/);
+    assert.match(readyBlock, /props\.onImportDroppedTextFiles && !quickChatBusy && !importActionBusy/);
+    assert.match(readyBlock, /disabled=\{quickChatBusy \|\| importActionBusy\}/);
     assert.match(readyBlock, /aria-busy=\{pendingImportAction === 'file' \? 'true' : undefined\}/);
     assert.match(readyBlock, /aria-busy=\{pendingImportAction === 'folder' \? 'true' : undefined\}/);
     assert.match(readyBlock, /pendingImportAction === 'file' \? '导入中…' : '导入文件内容'/);
