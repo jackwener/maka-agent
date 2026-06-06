@@ -1816,21 +1816,22 @@ function AppShell() {
       // UnhandledPromiseRejection and the user would see nothing.
       // Surface it as a toast so the user knows the model wasn't
       // actually interrupted and can retry.
-      toastApi.error('停止失败', cleanErrorMessage(error));
+      if (activeIdRef.current === sessionId) toastApi.error('停止失败', cleanErrorMessage(error));
     } finally {
       clearPendingStop(sessionId);
     }
   }
 
   async function respondToPermission(response: PermissionResponse) {
-    if (!activeId) return;
+    const sessionId = activeIdRef.current;
+    if (!sessionId) return;
     try {
-      await window.maka.sessions.respondToPermission(activeId, response);
+      await window.maka.sessions.respondToPermission(sessionId, response);
     } catch (error) {
       // Same fire-and-forget call site as stop() — wrap so a failed
       // permission response (main process busy / session dropped)
       // surfaces instead of dying as UnhandledPromiseRejection.
-      toastApi.error('响应失败', cleanErrorMessage(error));
+      if (activeIdRef.current === sessionId) toastApi.error('响应失败', cleanErrorMessage(error));
     }
   }
 

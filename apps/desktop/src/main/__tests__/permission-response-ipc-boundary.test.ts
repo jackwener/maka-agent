@@ -141,7 +141,7 @@ describe('permission response IPC boundary', () => {
     assert.doesNotMatch(sendHandler, /command\.attachments/);
   });
 
-  it('renderer stop() and respondToPermission() surface IPC failures as toasts (PR-STOP-ERROR-SURFACE-0)', async () => {
+  it('renderer stop() and respondToPermission() surface IPC failures only for the source session', async () => {
     // The Composer wires onStop via both the button onClick and the
     // Escape key handler, neither of which awaits the returned
     // promise. If stop() lets the IPC reject without try/catch the
@@ -160,12 +160,27 @@ describe('permission response IPC boundary', () => {
     assert.match(stop[0], /if \(!sessionId \|\| !addPendingStop\(sessionId\)\) return;/);
     assert.match(stop[0], /try\s*\{[\s\S]*?await window\.maka\.sessions\.stop/);
     assert.match(stop[0], /await window\.maka\.sessions\.stop\(sessionId, \{ source: 'stop_button' \}\);/);
-    assert.match(stop[0], /catch \(error\)[\s\S]*?toastApi\.error\(['"]停止失败['"]/);
+    assert.match(
+      stop[0],
+      /catch \(error\)[\s\S]*?if \(activeIdRef\.current === sessionId\) toastApi\.error\(['"]停止失败['"]/,
+      'stop failure feedback must not leak onto a different active session',
+    );
     assert.match(stop[0], /finally \{[\s\S]*?clearPendingStop\(sessionId\);[\s\S]*?\}/);
     const respond = renderer.match(/async function respondToPermission\([\s\S]*?\n  \}/);
     assert.ok(respond, 'respondToPermission() must exist');
-    assert.match(respond[0], /try\s*\{[\s\S]*?await window\.maka\.sessions\.respondToPermission/);
-    assert.match(respond[0], /catch \(error\)[\s\S]*?toastApi\.error\(['"]响应失败['"]/);
+    assert.match(respond[0], /const sessionId = activeIdRef\.current;/);
+    assert.match(respond[0], /if \(!sessionId\) return;/);
+    assert.match(respond[0], /try\s*\{[\s\S]*?await window\.maka\.sessions\.respondToPermission\(sessionId, response\);/);
+    assert.doesNotMatch(
+      respond[0],
+      /respondToPermission\(activeId, response\)/,
+      'permission response IPC must use the captured source session, not render-time activeId',
+    );
+    assert.match(
+      respond[0],
+      /catch \(error\)[\s\S]*?if \(activeIdRef\.current === sessionId\) toastApi\.error\(['"]响应失败['"]/,
+      'permission response failure feedback must not leak onto a different active session',
+    );
   });
 
   it('renderer clears permission overlay when a session completes (PR-PERMISSION-UI-CLEANUP-0)', async () => {
