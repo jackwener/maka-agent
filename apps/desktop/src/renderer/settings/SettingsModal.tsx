@@ -2275,12 +2275,25 @@ function ThemeSettingsPage(props: {
   onThemePaletteChange(palette: ThemePalette): void;
 }) {
   const toast = useToast();
+  const themePageMountedRef = useRef(false);
+  const themePersistTicketRef = useRef(0);
+
+  useEffect(() => {
+    themePageMountedRef.current = true;
+    return () => {
+      themePageMountedRef.current = false;
+      themePersistTicketRef.current += 1;
+    };
+  }, []);
 
   async function persistAppearance(patch: NonNullable<Parameters<typeof window.maka.settings.update>[0]['appearance']>) {
+    const ticket = ++themePersistTicketRef.current;
     try {
       await props.onUpdate({ appearance: patch });
     } catch (error) {
-      toast.error('保存外观设置失败', settingsActionErrorMessage(error));
+      if (themePageMountedRef.current && ticket === themePersistTicketRef.current) {
+        toast.error('保存外观设置失败', settingsActionErrorMessage(error));
+      }
     }
   }
 
