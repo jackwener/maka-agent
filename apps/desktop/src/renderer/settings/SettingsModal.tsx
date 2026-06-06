@@ -409,9 +409,12 @@ function WeChatScanLoginModal(props: {
   const [status, setStatus] = useState<'fetching' | 'waiting' | 'expired' | 'confirmed' | 'error'>('fetching');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const fetchingQrRef = useRef(false);
   useModalA11y(dialogRef, props.onClose);
 
   async function fetchQr() {
+    if (fetchingQrRef.current) return;
+    fetchingQrRef.current = true;
     setStatus('fetching');
     setErrorMessage(null);
     try {
@@ -426,6 +429,8 @@ function WeChatScanLoginModal(props: {
     } catch (error) {
       setStatus('error');
       setErrorMessage(settingsActionErrorMessage(error));
+    } finally {
+      fetchingQrRef.current = false;
     }
   }
 
@@ -531,10 +536,19 @@ function WechatQrLoginModal(props: {
   const [loading, setLoading] = useState(true);
   const [reloadNonce, setReloadNonce] = useState(0);
   const notifiedLoggedInRef = useRef(false);
+  const loadingQrRef = useRef(false);
   useModalA11y(dialogRef, props.onClose);
+
+  function reloadQrCode() {
+    if (loadingQrRef.current) return;
+    loadingQrRef.current = true;
+    setLoading(true);
+    setReloadNonce((current) => current + 1);
+  }
 
   useEffect(() => {
     let active = true;
+    loadingQrRef.current = true;
     setLoading(true);
     void window.maka.settings.bots.wechatQrCode()
       .then((next) => {
@@ -549,12 +563,15 @@ function WechatQrLoginModal(props: {
         if (!active) return;
         setResult({
           ok: false,
-          error: error instanceof Error ? error.message : String(error),
+          error: settingsActionErrorMessage(error),
           hint: '读取本机 wechat-bridge 二维码失败，请确认 bridge 已启动。',
         });
       })
       .finally(() => {
-        if (active) setLoading(false);
+        if (active) {
+          setLoading(false);
+          loadingQrRef.current = false;
+        }
       });
     return () => {
       active = false;
@@ -564,7 +581,7 @@ function WechatQrLoginModal(props: {
   useEffect(() => {
     if (!result?.ok || result.loggedIn || result.expired) return undefined;
     const interval = window.setInterval(() => {
-      setReloadNonce((current) => current + 1);
+      reloadQrCode();
     }, 3_000);
     return () => window.clearInterval(interval);
   }, [result]);
@@ -616,8 +633,8 @@ function WechatQrLoginModal(props: {
           ) : expired ? (
             <div className="settingsWechatQrState" data-tone="warning">
               二维码已过期
-              <button type="button" className="settingsWechatQrSecondary" onClick={() => setReloadNonce((current) => current + 1)}>
-                刷新二维码
+              <button type="button" className="settingsWechatQrSecondary" disabled={loading} onClick={reloadQrCode}>
+                {loading ? '刷新中…' : '刷新二维码'}
               </button>
             </div>
           ) : qrDataUrl ? (
@@ -631,15 +648,15 @@ function WechatQrLoginModal(props: {
             <div className="settingsWechatQrState" data-tone="error" role="alert">
               <strong>{error.error}</strong>
               <span>{error.hint}</span>
-              <button type="button" className="settingsWechatQrSecondary" onClick={() => setReloadNonce((current) => current + 1)}>
-                重试
+              <button type="button" className="settingsWechatQrSecondary" disabled={loading} onClick={reloadQrCode}>
+                {loading ? '重试中…' : '重试'}
               </button>
             </div>
           ) : (
             <div className="settingsWechatQrState" data-tone="loading">
               bridge 正在生成二维码
-              <button type="button" className="settingsWechatQrSecondary" onClick={() => setReloadNonce((current) => current + 1)}>
-                重新获取
+              <button type="button" className="settingsWechatQrSecondary" disabled={loading} onClick={reloadQrCode}>
+                {loading ? '获取中…' : '重新获取'}
               </button>
             </div>
           )}

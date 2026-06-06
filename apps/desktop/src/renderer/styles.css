@@ -5972,6 +5972,11 @@ button:active {
   background: oklch(from var(--accent) l c h / 0.08);
 }
 
+.settingsWechatQrSecondary:disabled {
+  opacity: 0.58;
+  cursor: progress;
+}
+
 .settingsThemeSwatch {
   width: 56px;
   height: 40px;

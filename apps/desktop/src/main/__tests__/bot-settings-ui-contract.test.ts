@@ -88,6 +88,9 @@ describe('Bot settings UI contract', () => {
     const desktopPackage = await readRepo('apps/desktop/package.json');
 
     assert.match(settings, /function WeChatScanLoginModal\b/, 'WeChat direct scan login must render its own QR modal');
+    assert.match(settings, /const fetchingQrRef = useRef\(false\)/, 'Direct WeChat scan-login refresh must keep a synchronous pending guard');
+    assert.match(settings, /if \(fetchingQrRef\.current\) return;[\s\S]*fetchingQrRef\.current = true;[\s\S]*setStatus\('fetching'\)/, 'Direct WeChat scan-login QR fetch must block rapid duplicate refreshes before React rerenders');
+    assert.match(settings, /finally \{[\s\S]*fetchingQrRef\.current = false;[\s\S]*\}/, 'Direct WeChat scan-login QR fetch must release its pending guard');
     assert.match(settings, /window\.maka\.settings\.bots\.wechat\.fetchQrcode\(\)/, 'Direct scan login must fetch an iLink QR code through main');
     assert.match(settings, /window\.maka\.settings\.bots\.wechat\.pollQrcodeStatus\(qr\.qrToken\)/, 'Direct scan login must poll iLink status');
     assert.match(settings, /setErrorMessage\(settingsActionErrorMessage\(result\.error\.message\)\)/, 'Direct scan login result failures must use the Settings error scrubber before rendering');
@@ -95,6 +98,13 @@ describe('Bot settings UI contract', () => {
     assert.doesNotMatch(settings, /setErrorMessage\(error instanceof Error \? error\.message : String\(error\)\)/, 'Direct scan login thrown failures must not render raw Error.message');
     assert.match(settings, /token:\s*credentials\.botToken[\s\S]*webhookUrl:\s*credentials\.baseUrl[\s\S]*botUserId:\s*credentials\.botId/, 'Confirmed iLink credentials must be persisted into the WeChat channel');
     assert.match(settings, /function WechatQrLoginModal\b/, 'WeChat scan login must render its own QR modal');
+    assert.match(settings, /const loadingQrRef = useRef\(false\)/, 'WeChat bridge QR modal must keep a synchronous reload guard');
+    assert.match(settings, /function reloadQrCode\(\) \{[\s\S]*if \(loadingQrRef\.current\) return;[\s\S]*loadingQrRef\.current = true;[\s\S]*setLoading\(true\);[\s\S]*setReloadNonce\(\(current\) => current \+ 1\)/, 'WeChat bridge QR refresh buttons and polling must share the reload guard');
+    assert.match(settings, /window\.setInterval\(\(\) => \{[\s\S]*reloadQrCode\(\)/, 'WeChat bridge QR polling must not bypass the reload guard');
+    assert.match(settings, /setResult\(\{[\s\S]*ok: false,[\s\S]*error: settingsActionErrorMessage\(error\),[\s\S]*hint: '读取本机 wechat-bridge 二维码失败，请确认 bridge 已启动。'/, 'WeChat bridge QR thrown failures must use the Settings scrubber before rendering');
+    assert.doesNotMatch(settings, /error: error instanceof Error \? error\.message : String\(error\)/, 'WeChat bridge QR modal must not render raw thrown Error.message');
+    assert.match(settings, /className="settingsWechatQrSecondary" disabled=\{loading\} onClick=\{reloadQrCode\}/, 'WeChat bridge QR refresh buttons must disable while a QR reload is in flight');
+    assert.match(styles, /\.settingsWechatQrSecondary:disabled\s*\{[\s\S]*cursor:\s*progress/, 'WeChat bridge QR reload buttons must have a visible pending state');
     assert.match(settings, /window\.maka\.settings\.bots\.wechatQrCode\(\)/, 'QR modal must call the bridge QR IPC');
     assert.match(settings, /<img src=\{qrDataUrl\} alt="微信扫码登录二维码"/, 'QR modal must render a visible QR image');
     assert.match(settings, /setWechatQrOpen\(true\)/, 'Scan-login button must open the QR modal');
