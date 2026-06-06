@@ -33,6 +33,32 @@ describe('module main surface contract', () => {
     assert.match(panelBlock, /body=\{emptyActivityBody\}/);
   });
 
+  it('wires Daily Review retry to a real reload trigger instead of a no-op state write', async () => {
+    const ui = await readRepo('packages/ui/src/components.tsx');
+    const panelBlock = ui.match(/function DailyReviewPanel[\s\S]*?function PlanReminderPanel/)?.[0] ?? '';
+
+    assert.match(
+      panelBlock,
+      /const \[reloadToken, setReloadToken\] = useState\(0\)/,
+      'Daily Review needs an explicit retry token so retry works when the date/range did not change',
+    );
+    assert.match(
+      panelBlock,
+      /\}, \[offsetDays, range, reloadToken, props\.bridge\]\)/,
+      'Daily Review fetch effect must depend on the retry token',
+    );
+    assert.match(
+      panelBlock,
+      /cta=\{\{ label: '重试', onClick: \(\) => setReloadToken\(\(n\) => n \+ 1\) \}\}/,
+      'Retry must mutate the retry token and force a new fetch',
+    );
+    assert.doesNotMatch(
+      panelBlock,
+      /cta=\{\{ label: '重试', onClick: \(\) => setOffsetDays\(\(n\) => n\) \}\}/,
+      'Retry must not set the same offsetDays value, because React will bail out and skip refetch',
+    );
+  });
+
   it('renders Skills in the main content pane, not as a left-bottom list', async () => {
     const ui = await readRepo('packages/ui/src/components.tsx');
     const sidebarListBlock = ui.match(/<section className="maka-session-list"[\s\S]*?<footer className="maka-session-panel-footer">/)?.[0] ?? '';

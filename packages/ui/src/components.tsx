@@ -877,6 +877,7 @@ function DailyReviewPanel(props: {
   const [summary, setSummary] = useState<DailyReviewSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -898,7 +899,7 @@ function DailyReviewPanel(props: {
     return () => {
       cancelled = true;
     };
-  }, [offsetDays, range, props.bridge]);
+  }, [offsetDays, range, reloadToken, props.bridge]);
 
   const dayLabel = (() => {
     if (range === 1) {
@@ -1013,7 +1014,7 @@ function DailyReviewPanel(props: {
           Icon={CalendarDays}
           title="读取失败"
           body={error}
-          cta={{ label: '重试', onClick: () => setOffsetDays((n) => n) }}
+          cta={{ label: '重试', onClick: () => setReloadToken((n) => n + 1) }}
         />
       ) : loading || !summary ? (
         <div className="maka-daily-review-loading" aria-busy="true">
