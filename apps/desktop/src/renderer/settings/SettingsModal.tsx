@@ -2099,6 +2099,7 @@ function PersonalizationSettingsPage(props: {
           uiLocale,
         },
       });
+      if (!personalizationMountedRef.current) return;
       // PR-LANG-PREF-0: apply the chosen locale to <html> right
       // after save so the change takes effect immediately in the
       // current window. The persisted value also drives next-boot
