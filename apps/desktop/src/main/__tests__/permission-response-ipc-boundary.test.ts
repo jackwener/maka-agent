@@ -456,13 +456,23 @@ describe('permission response IPC boundary', () => {
     );
     assert.match(
       sendBlock,
-      /if \(!sendStillOwnsCurrentSurface\) return false;[\s\S]*if \(isNoRealConnectionError\(error\)\) \{[\s\S]*showModelSetupToast[\s\S]*\} else \{[\s\S]*toastApi\.error\('发送失败', sendActionErrorMessage\(error\)\)/,
+      /if \(!sendStillOwnsCurrentSurface\) return false;[\s\S]*if \(isNoRealConnectionError\(error\)\) \{[\s\S]*const reason = noRealConnectionReasonFromError\(error\);[\s\S]*showModelSetupToast\(noRealConnectionSetupDescription\(reason\), reason\);[\s\S]*\} else \{[\s\S]*toastApi\.error\('发送失败', sendActionErrorMessage\(error\)\)/,
       'both model-setup feedback and generic send-failure toast must be guarded by the active-session owner check',
+    );
+    assert.doesNotMatch(
+      sendBlock,
+      /showModelSetupToast\(cleanErrorMessage\(error\), noRealConnectionReasonFromError\(error\)\)/,
+      'model-setup send failures must not expose the cleaned raw exception body as visible copy',
     );
     assert.doesNotMatch(
       sendBlock,
       /toastApi\.error\('发送失败', cleanErrorMessage\(error\)\)/,
       'generic send failure feedback must not expose raw IPC/provider/storage details',
+    );
+    assert.match(
+      renderer,
+      /function noRealConnectionSetupDescription\(reason: string \| undefined\): string \{[\s\S]*case 'missing_default_connection':[\s\S]*等待配置默认模型[\s\S]*case 'missing_api_key':[\s\S]*当前模型连接还没有可用凭据[\s\S]*case 'fake_backend':[\s\S]*当前会话来自旧的本地模拟连接/,
+      'model-setup send failures should use reason-driven Chinese copy instead of backend exception text',
     );
     assert.match(
       renderer,
