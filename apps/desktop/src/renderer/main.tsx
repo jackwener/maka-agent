@@ -1759,7 +1759,7 @@ function AppShell() {
       if (isNoRealConnectionError(error)) {
         showModelSetupToast(cleanErrorMessage(error), noRealConnectionReasonFromError(error));
       } else {
-        toastApi.error('发送失败', cleanErrorMessage(error));
+        toastApi.error('发送失败', sendActionErrorMessage(error));
       }
       return false;
     }
@@ -3294,6 +3294,10 @@ function sessionModelActionErrorMessage(error: unknown): string {
 
 function sessionControlActionErrorMessage(error: unknown): string {
   return generalizedErrorMessageChinese(error, '会话操作失败，请稍后重试。');
+}
+
+function sendActionErrorMessage(error: unknown): string {
+  return generalizedErrorMessageChinese(error, '消息暂时无法发送，请稍后重试。');
 }
 
 function cleanErrorMessage(error: unknown): string {

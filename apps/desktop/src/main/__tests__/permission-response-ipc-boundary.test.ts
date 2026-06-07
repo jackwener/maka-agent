@@ -433,7 +433,7 @@ describe('permission response IPC boundary', () => {
     );
     assert.match(
       sendBlock,
-      /catch \(error\) \{[\s\S]*removeOptimisticUserMessage\(optimisticSessionId, optimisticTurnId\)[\s\S]*toastApi\.error\('发送失败'/,
+      /catch \(error\) \{[\s\S]*removeOptimisticUserMessage\(optimisticSessionId, optimisticTurnId\)[\s\S]*toastApi\.error\('发送失败', sendActionErrorMessage\(error\)\)/,
       'send readiness failures must remove the optimistic user turn instead of leaving a fake message behind',
     );
     assert.match(
@@ -443,8 +443,18 @@ describe('permission response IPC boundary', () => {
     );
     assert.match(
       sendBlock,
-      /if \(!sendStillOwnsCurrentSurface\) return false;[\s\S]*if \(isNoRealConnectionError\(error\)\) \{[\s\S]*showModelSetupToast[\s\S]*\} else \{[\s\S]*toastApi\.error\('发送失败'/,
+      /if \(!sendStillOwnsCurrentSurface\) return false;[\s\S]*if \(isNoRealConnectionError\(error\)\) \{[\s\S]*showModelSetupToast[\s\S]*\} else \{[\s\S]*toastApi\.error\('发送失败', sendActionErrorMessage\(error\)\)/,
       'both model-setup feedback and generic send-failure toast must be guarded by the active-session owner check',
+    );
+    assert.doesNotMatch(
+      sendBlock,
+      /toastApi\.error\('发送失败', cleanErrorMessage\(error\)\)/,
+      'generic send failure feedback must not expose raw IPC/provider/storage details',
+    );
+    assert.match(
+      renderer,
+      /function sendActionErrorMessage\(error: unknown\): string \{[\s\S]*generalizedErrorMessageChinese\(error, '消息暂时无法发送，请稍后重试。'\)/,
+      'generic send visible failures must use a generalized Chinese fallback',
     );
     assert.match(
       refreshUntilTurn,
