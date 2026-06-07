@@ -733,7 +733,7 @@ function AppShell() {
       }
     } catch (error) {
       clearPendingTurnAction(key);
-      if (activeIdRef.current === sessionId) toastApi.error('操作失败', cleanErrorMessage(error));
+      if (activeIdRef.current === sessionId) toastApi.error('操作失败', turnFooterActionErrorMessage(error));
     }
   }
 
@@ -3278,6 +3278,10 @@ function noRealConnectionReasonFromEvent(event: Extract<SessionEvent, { type: 'e
 
 function sessionEventErrorMessage(event: Extract<SessionEvent, { type: 'error' }>): string {
   return generalizedErrorMessageChinese(new Error(event.message), '对话运行失败，请稍后重试。');
+}
+
+function turnFooterActionErrorMessage(error: unknown): string {
+  return generalizedErrorMessageChinese(error, '对话操作失败，请稍后重试。');
 }
 
 function cleanErrorMessage(error: unknown): string {
