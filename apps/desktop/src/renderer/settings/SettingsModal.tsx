@@ -2701,7 +2701,7 @@ function WebSearchSettingsPage(props: {
           <strong>启用联网搜索</strong>
           <small>开关启用后，界面里显式触发的查询才会真的请求 Tavily。模型不会自动调用。</small>
         </div>
-        <div className="settingsWebSearchStatusCluster">
+        <div className="settingsWebSearchStatusCluster" role="group" aria-label="联网搜索凭据状态">
           <span className="settingsConnectionBadge" data-tone={statusCopy.tone}>
             {statusCopy.label}
           </span>
