@@ -6196,7 +6196,7 @@ function HealthCenterPage() {
         </div>
       </header>
 
-      <section aria-label="健康摘要" className="settingsHealthSummary">
+      <section aria-label="健康摘要" className="settingsHealthSummary" role="list">
         <HealthSummaryTile tone="success" label="正常" count={snapshot.summary.ok} />
         <HealthSummaryTile tone="info" label="提示" count={snapshot.summary.info} />
         <HealthSummaryTile tone="warning" label="警告" count={snapshot.summary.warning} />
@@ -6252,7 +6252,7 @@ function HealthSummaryTile(props: {
   count: number;
 }) {
   return (
-    <div className="settingsHealthSummaryTile" data-tone={props.tone} data-empty={props.count === 0}>
+    <div className="settingsHealthSummaryTile" role="listitem" data-tone={props.tone} data-empty={props.count === 0}>
       <strong>{props.count}</strong>
       <small>{props.label}</small>
     </div>
