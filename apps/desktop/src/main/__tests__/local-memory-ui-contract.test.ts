@@ -203,6 +203,8 @@ describe('local MEMORY.md Settings UI contract', () => {
     assert.match(memoryPage, /runMemoryAction\('backup:latest:open'/);
     assert.match(memoryPage, /runMemoryAction\('backup:latest:restore'/);
     assert.match(memoryPage, /runMemoryAction\('memory:path:copy'/);
+    assert.match(memoryPage, /<div className="settingsActionRow" role="group" aria-label="MEMORY\.md 文件操作">/);
+    assert.doesNotMatch(memoryPage, /<div className="settingsActionRow">\s*<button type="button" className="maka-button" disabled=\{memoryControlsDisabled \|\| !effective\.enabled \|\| !memoryDraftDirty\}/);
 
     assert.match(memoryPage, /disabled=\{memoryControlsDisabled \|\| isMemoryActionPending\(`instruction:\$\{file\.file\}:open`\)\}/);
     assert.match(memoryPage, /isMemoryActionPending\(`instruction:\$\{file\.file\}:open`\) \? '打开中…' : '打开'/);
