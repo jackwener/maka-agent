@@ -60,10 +60,16 @@ describe('renderer startup fail-soft contract', () => {
       'startup shell settings failures must not force default language/theme/density/palette over unknown persisted settings',
     );
     assert.match(
-      refreshConnections,
-      /try \{[\s\S]*window\.maka\.connections\.list\(\)[\s\S]*window\.maka\.connections\.getDefault\(\)[\s\S]*setConnections\(next\)[\s\S]*setDefaultConnection\(nextDefault\)[\s\S]*\} catch \(error\) \{[\s\S]*toastApi\.error\('刷新模型连接失败', cleanErrorMessage\(error\)\)/,
-      'startup / connections:event refreshConnections is fire-and-forget and must catch IPC failures',
+      main,
+      /function connectionsActionErrorMessage\(error: unknown\): string \{[\s\S]*generalizedErrorMessageChinese\(error, '模型连接暂时无法刷新，请稍后重试。'\)/,
+      'connection refresh failures should use generalized fallback copy instead of raw provider/storage details',
     );
+    assert.match(
+      refreshConnections,
+      /try \{[\s\S]*window\.maka\.connections\.list\(\)[\s\S]*window\.maka\.connections\.getDefault\(\)[\s\S]*setConnections\(next\)[\s\S]*setDefaultConnection\(nextDefault\)[\s\S]*\} catch \(error\) \{[\s\S]*toastApi\.error\('刷新模型连接失败', connectionsActionErrorMessage\(error\)\)/,
+      'startup / connections:event refreshConnections is fire-and-forget and must catch IPC failures without exposing raw provider/storage details',
+    );
+    assert.doesNotMatch(refreshConnections, /toastApi\.error\('刷新模型连接失败', cleanErrorMessage\(error\)\)/);
     assert.match(
       refreshPlanReminders,
       /try \{[\s\S]*window\.maka\.plans\.list\(\)[\s\S]*setPlanReminders\(next\)[\s\S]*\} catch \(error\) \{[\s\S]*if \(options\.shouldShowError\?\.\(\) \?\? true\) \{[\s\S]*toastApi\.error\('刷新计划失败', planActionErrorMessage\(error, '刷新计划提醒失败，请稍后重试。'\)\);[\s\S]*\}/,

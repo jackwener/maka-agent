@@ -146,6 +146,10 @@ function shellSettingsActionErrorMessage(error: unknown): string {
   return generalizedErrorMessageChinese(error, '外观设置暂时无法载入，请稍后重试。');
 }
 
+function connectionsActionErrorMessage(error: unknown): string {
+  return generalizedErrorMessageChinese(error, '模型连接暂时无法刷新，请稍后重试。');
+}
+
 function commandPaletteConnectionTestFailureMessage(result: ConnectionTestResult): string {
   const fallback = commandPaletteConnectionTestFailureFallback(result);
   if (!result.errorMessage) return fallback;
@@ -1503,7 +1507,7 @@ function AppShell() {
       setConnections(next);
       setDefaultConnection(nextDefault);
     } catch (error) {
-      toastApi.error('刷新模型连接失败', cleanErrorMessage(error));
+      toastApi.error('刷新模型连接失败', connectionsActionErrorMessage(error));
     }
   }
 
