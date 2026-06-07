@@ -64,7 +64,7 @@ describe('renderer startup fail-soft contract', () => {
     );
     assert.match(
       refreshSkills,
-      /try \{[\s\S]*window\.maka\.skills\.list\(\)[\s\S]*setSkills\(next\)[\s\S]*\} catch \(error\) \{[\s\S]*if \(options\.shouldShowError\?\.\(\) \?\? true\) toastApi\.error\('刷新技能失败', cleanErrorMessage\(error\)\)/,
+      /try \{[\s\S]*window\.maka\.skills\.list\(\)[\s\S]*setSkills\(next\)[\s\S]*\} catch \(error\) \{[\s\S]*if \(options\.shouldShowError\?\.\(\) \?\? true\) \{[\s\S]*toastApi\.error\('刷新技能失败', skillsActionErrorMessage\(error, '刷新技能失败，请稍后重试。'\)\);[\s\S]*\}/,
       'skills refresh failures must be visible and must preserve the existing list',
     );
     assert.doesNotMatch(
