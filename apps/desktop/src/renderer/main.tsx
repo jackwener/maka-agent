@@ -138,6 +138,10 @@ function openPathActionErrorMessage(error: unknown, key: 'workspace' | 'project'
   return generalizedErrorMessageChinese(error, `无法打开${openPathActionLabel(key)}，请稍后重试。`);
 }
 
+function appInfoActionErrorMessage(error: unknown): string {
+  return generalizedErrorMessageChinese(error, '项目路径暂时无法读取，请稍后重试。');
+}
+
 function commandPaletteConnectionTestFailureMessage(result: ConnectionTestResult): string {
   const fallback = commandPaletteConnectionTestFailureFallback(result);
   if (!result.errorMessage) return fallback;
@@ -1504,7 +1508,7 @@ function AppShell() {
       const next = await window.maka.app.info();
       setAppInfo({ projectPath: next.projectPath, projectGit: next.projectGit });
     } catch (error) {
-      toastApi.error('读取项目路径失败', cleanErrorMessage(error));
+      toastApi.error('读取项目路径失败', appInfoActionErrorMessage(error));
     }
   }
 

@@ -16,10 +16,16 @@ describe('renderer startup fail-soft contract', () => {
 
     assert.match(mountEffect, /void refreshAppInfo\(\)/);
     assert.match(
+      main,
+      /function appInfoActionErrorMessage\(error: unknown\): string \{[\s\S]*generalizedErrorMessageChinese\(error, '项目路径暂时无法读取，请稍后重试。'\)/,
+      'app-info refresh failures should use generalized fallback copy instead of raw path/system details',
+    );
+    assert.match(
       refreshAppInfo,
-      /try \{[\s\S]*window\.maka\.app\.info\(\)[\s\S]*setAppInfo\(\{ projectPath: next\.projectPath, projectGit: next\.projectGit \}\)[\s\S]*\} catch \(error\) \{[\s\S]*toastApi\.error\('读取项目路径失败', cleanErrorMessage\(error\)\)/,
+      /try \{[\s\S]*window\.maka\.app\.info\(\)[\s\S]*setAppInfo\(\{ projectPath: next\.projectPath, projectGit: next\.projectGit \}\)[\s\S]*\} catch \(error\) \{[\s\S]*toastApi\.error\('读取项目路径失败', appInfoActionErrorMessage\(error\)\)/,
       'app-info refresh failures must be visible and preserve the last known project badge',
     );
+    assert.doesNotMatch(refreshAppInfo, /toastApi\.error\('读取项目路径失败', cleanErrorMessage\(error\)\)/);
     assert.doesNotMatch(
       refreshAppInfo,
       /setAppInfo\(null\)/,
