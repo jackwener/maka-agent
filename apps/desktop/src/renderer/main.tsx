@@ -2317,7 +2317,7 @@ function AppShell() {
         return false;
       }
     } catch (error) {
-      toastApi.error('开始对话失败', cleanErrorMessage(error));
+      toastApi.error('开始对话失败', quickChatActionErrorMessage(error));
       return false;
     } finally {
       quickChatPendingRef.current = false;
@@ -2330,7 +2330,7 @@ function AppShell() {
       await window.maka.onboarding.setMilestone(FIRST_RUN_TASK_SUGGESTION_MILESTONES[id], 'skipped');
       onboarding.refresh();
     } catch (error) {
-      toastApi.error('隐藏建议失败', cleanErrorMessage(error));
+      toastApi.error('隐藏建议失败', firstRunSuggestionActionErrorMessage(error, '任务建议暂时无法隐藏，请稍后重试。'));
     }
   }
 
@@ -2341,7 +2341,7 @@ function AppShell() {
       }
       onboarding.refresh();
     } catch (error) {
-      toastApi.error('恢复建议失败', cleanErrorMessage(error));
+      toastApi.error('恢复建议失败', firstRunSuggestionActionErrorMessage(error, '任务建议暂时无法恢复，请稍后重试。'));
     }
   }
 
@@ -3324,6 +3324,14 @@ function sendActionErrorMessage(error: unknown): string {
 
 function composerImportActionErrorMessage(error: unknown): string {
   return generalizedErrorMessageChinese(error, '导入文件内容失败，请稍后重试。');
+}
+
+function quickChatActionErrorMessage(error: unknown): string {
+  return generalizedErrorMessageChinese(error, '对话暂时无法开始，请稍后重试。');
+}
+
+function firstRunSuggestionActionErrorMessage(error: unknown, fallback: string): string {
+  return generalizedErrorMessageChinese(error, fallback);
 }
 
 function skillsActionErrorMessage(error: unknown, fallback: string): string {

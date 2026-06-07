@@ -345,6 +345,11 @@ describe('permission response IPC boundary', () => {
     assert.ok(quickChatHandler, 'handleQuickChatSubmit() must exist');
     assert.match(
       renderer,
+      /function quickChatActionErrorMessage\(error: unknown\): string \{[\s\S]*generalizedErrorMessageChinese\(error, '对话暂时无法开始，请稍后重试。'\)/,
+      'quick chat thrown failures should use a generalized fallback instead of raw backend/path details',
+    );
+    assert.match(
+      renderer,
       /const quickChatPendingRef = useRef\(false\)/,
       'quick chat must use a ref-backed pending gate so same-frame double submit cannot start two sessions',
     );
@@ -385,6 +390,8 @@ describe('permission response IPC boundary', () => {
       /toastApi\.error\('开始对话失败', result\.message\);[\s\S]*?return false;/,
       'send failures must return false so the first-run composer keeps the user draft',
     );
+    assert.match(quickChatHandler[0], /toastApi\.error\('开始对话失败', quickChatActionErrorMessage\(error\)\);[\s\S]*?return false;/);
+    assert.doesNotMatch(quickChatHandler[0], /toastApi\.error\('开始对话失败', cleanErrorMessage\(error\)\)/);
     assert.match(
       quickChatHandler[0],
       /quickChatPendingRef\.current = false;[\s\S]*?setQuickChatPending\(false\)/,
