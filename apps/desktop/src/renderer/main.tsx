@@ -1636,7 +1636,9 @@ function AppShell() {
       const next = await window.maka.skills.list();
       setSkills(next);
     } catch (error) {
-      if (options.shouldShowError?.() ?? true) toastApi.error('刷新技能失败', cleanErrorMessage(error));
+      if (options.shouldShowError?.() ?? true) {
+        toastApi.error('刷新技能失败', skillsActionErrorMessage(error, '刷新技能失败，请稍后重试。'));
+      }
     }
   }
 
@@ -1664,7 +1666,9 @@ function AppShell() {
         if (isSkillsSurfaceActive()) toastApi.error('无法打开示例技能', openSkillFailureCopy(openResult.reason));
       }
     } catch (error) {
-      if (isSkillsSurfaceActive()) toastApi.error('无法创建示例技能', cleanErrorMessage(error));
+      if (isSkillsSurfaceActive()) {
+        toastApi.error('无法创建示例技能', skillsActionErrorMessage(error, '无法创建示例技能，请稍后重试。'));
+      }
     }
   }
 
@@ -1686,7 +1690,9 @@ function AppShell() {
         if (isSkillsSurfaceActive()) toastApi.error('无法打开 Skill', openSkillFailureCopy(result.reason));
       }
     } catch (error) {
-      if (isSkillsSurfaceActive()) toastApi.error('无法打开 Skill', cleanErrorMessage(error));
+      if (isSkillsSurfaceActive()) {
+        toastApi.error('无法打开 Skill', skillsActionErrorMessage(error, '无法打开 Skill，请稍后重试。'));
+      }
     }
   }
 
@@ -3298,6 +3304,10 @@ function sessionControlActionErrorMessage(error: unknown): string {
 
 function sendActionErrorMessage(error: unknown): string {
   return generalizedErrorMessageChinese(error, '消息暂时无法发送，请稍后重试。');
+}
+
+function skillsActionErrorMessage(error: unknown, fallback: string): string {
+  return generalizedErrorMessageChinese(error, fallback);
 }
 
 function cleanErrorMessage(error: unknown): string {
