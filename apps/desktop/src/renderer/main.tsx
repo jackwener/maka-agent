@@ -2174,7 +2174,8 @@ function AppShell() {
         setPermissionBySession((current) => ({ ...current, [sessionId]: undefined }));
         if (activeIdRef.current === sessionId) {
           if (isNoRealConnectionEvent(event)) {
-            showModelSetupToast(cleanEventMessage(event.message), noRealConnectionReasonFromEvent(event));
+            const reason = noRealConnectionReasonFromEvent(event);
+            showModelSetupToast(noRealConnectionSetupDescription(reason), reason);
           } else {
             toastApi.error('对话出错', sessionEventErrorMessage(event));
           }
