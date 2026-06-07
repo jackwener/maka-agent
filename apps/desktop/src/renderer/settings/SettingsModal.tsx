@@ -3799,7 +3799,7 @@ function MemorySettingsPage(props: {
         </div>
       )}
 
-      <div className="settingsActionRow">
+      <div className="settingsActionRow" role="group" aria-label="MEMORY.md 文件操作">
         <button type="button" className="maka-button" disabled={memoryControlsDisabled || !effective.enabled || !memoryDraftDirty} onClick={() => void save()}>
           {pendingMemoryWriteAction === 'save' ? '保存中…' : memoryDraftDirty ? '保存' : '已保存'}
         </button>
