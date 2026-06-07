@@ -51,6 +51,32 @@ describe('voice capture smoke Settings contract', () => {
     assert.match(voicePage!, /data-pending=\{isBusy \? 'true' : undefined\}/, 'voice capture button must expose a stable pending hook');
   });
 
+  it('connects the voice capture action to its live status copy', async () => {
+    const src = await readFile(SETTINGS_MODAL, 'utf8');
+    const voicePage = src.match(/function VoiceModelsSettingsPage\([\s\S]*?async function readBrowserMicrophonePermission/)?.[0];
+    assert.ok(voicePage, 'voice settings page source must be discoverable');
+    assert.match(
+      src,
+      /import \{ useEffect, useId, useMemo, useRef, useState,/,
+      'voice capture status needs a stable React id rather than a hard-coded duplicate id',
+    );
+    assert.match(
+      voicePage!,
+      /const smokeStatusId = useId\(\);/,
+      'voice capture status should have a stable id for the action description relationship',
+    );
+    assert.match(
+      voicePage!,
+      /aria-describedby=\{smokeStatusId\}/,
+      'voice capture button must reference the current status message',
+    );
+    assert.match(
+      voicePage!,
+      /<div id=\{smokeStatusId\} className="settingsNotice"[\s\S]*role="status">/,
+      'voice capture status must expose both the referenced id and live status role',
+    );
+  });
+
   it('drops late voice capture UI writes after Settings is closed', async () => {
     const src = await readFile(SETTINGS_MODAL, 'utf8');
     const voicePage = src.match(/function VoiceModelsSettingsPage\([\s\S]*?async function readBrowserMicrophonePermission/)?.[0];

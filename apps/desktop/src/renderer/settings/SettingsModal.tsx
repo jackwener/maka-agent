@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ComponentType, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type ComponentType, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
 import {
   Activity,
   BarChart3,
@@ -1368,6 +1368,7 @@ function VoiceModelsSettingsPage() {
   const voicePageMountedRef = useRef(false);
   const toast = useToast();
   const caps = defaultVoiceCaptureCaps();
+  const smokeStatusId = useId();
 
   useEffect(() => {
     voicePageMountedRef.current = true;
@@ -1518,13 +1519,14 @@ function VoiceModelsSettingsPage() {
           onClick={() => void runCaptureSmoke()}
           disabled={isBusy}
           aria-busy={isBusy}
+          aria-describedby={smokeStatusId}
           data-pending={isBusy ? 'true' : undefined}
         >
           {isBusy ? '自检中…' : '运行录音自检'}
         </button>
       </div>
 
-      <div className="settingsNotice" data-tone={smoke.status === 'error' ? undefined : 'passive'} role="status">
+      <div id={smokeStatusId} className="settingsNotice" data-tone={smoke.status === 'error' ? undefined : 'passive'} role="status">
         {smoke.message}
       </div>
 
