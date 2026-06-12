@@ -1504,6 +1504,114 @@ button:active {
   gap: 16px;
 }
 
+.maka-onboarding-setup-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.maka-onboarding-setup-steps > li {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) max-content;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--foreground-3, oklch(from var(--foreground) l c h / 0.03));
+}
+
+.maka-onboarding-setup-steps > li[data-state="active"] {
+  border-color: oklch(from var(--accent) l c h / 0.34);
+  background: oklch(from var(--accent) l c h / 0.06);
+}
+
+.maka-onboarding-setup-steps > li[data-state="warning"] {
+  border-color: oklch(from var(--destructive-text) l c h / 0.30);
+  background: oklch(from var(--destructive-text) l c h / 0.06);
+}
+
+.maka-onboarding-setup-steps > li[data-state="done"] {
+  border-color: oklch(from var(--success, var(--accent)) l c h / 0.28);
+}
+
+.maka-onboarding-setup-step-marker {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--background-elevated);
+  color: var(--foreground-70);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.maka-onboarding-setup-steps > li[data-state="active"] .maka-onboarding-setup-step-marker {
+  background: var(--accent);
+  color: var(--accent-contrast, var(--background));
+}
+
+.maka-onboarding-setup-steps > li[data-state="warning"] .maka-onboarding-setup-step-marker {
+  background: var(--destructive-text);
+  color: var(--background);
+}
+
+.maka-onboarding-setup-step-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.maka-onboarding-setup-step-copy strong {
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.maka-onboarding-setup-step-copy small {
+  color: var(--foreground-60);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.maka-onboarding-setup-step-state {
+  justify-self: end;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--background-elevated);
+  color: var(--foreground-60);
+  font-size: 11px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.maka-onboarding-setup-steps > li[data-state="active"] .maka-onboarding-setup-step-state {
+  background: oklch(from var(--accent) l c h / 0.12);
+  color: var(--accent);
+}
+
+.maka-onboarding-setup-steps > li[data-state="warning"] .maka-onboarding-setup-step-state {
+  background: oklch(from var(--destructive-text) l c h / 0.12);
+  color: var(--destructive-text);
+}
+
+@media (max-width: 620px) {
+  .maka-onboarding-setup-steps > li {
+    grid-template-columns: 24px minmax(0, 1fr);
+  }
+
+  .maka-onboarding-setup-step-state {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
 .maka-onboarding-skip {
   border: 0;
   background: transparent;

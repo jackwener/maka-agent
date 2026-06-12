@@ -53,6 +53,14 @@ export interface OnboardingHeroCopy {
   showQuickChat?: boolean;
 }
 
+export type OnboardingSetupStepState = 'done' | 'active' | 'pending' | 'warning';
+
+export interface OnboardingSetupStep {
+  label: string;
+  detail: string;
+  state: OnboardingSetupStepState;
+}
+
 export function getOnboardingHeroCopy(state: OnboardingState): OnboardingHeroCopy | null {
   switch (state.kind) {
     case 'needs_connection':
@@ -120,6 +128,46 @@ export function getOnboardingHeroCopy(state: OnboardingState): OnboardingHeroCop
       // The renderer caller decides which surface to mount; this
       // helper returning `null` is the explicit "do not render"
       // signal. The existing chat / session list takes over.
+      return null;
+    default:
+      return assertNever(state);
+  }
+}
+
+export function getOnboardingSetupSteps(state: OnboardingState): readonly OnboardingSetupStep[] | null {
+  switch (state.kind) {
+    case 'needs_connection':
+      return [
+        { label: '选择 AI 接入', detail: '从 Claude、OpenAI、GLM、本地 Ollama 等连接开始。', state: 'active' },
+        { label: '补齐认证', detail: '使用 API key 或已接入的 OAuth 登录，不写入聊天记录。', state: 'pending' },
+        { label: '测试并设默认', detail: '拉取模型、通过测试，再回到这里开始第一条对话。', state: 'pending' },
+      ];
+    case 'needs_default_connection':
+      return [
+        { label: '已有可用连接', detail: '至少一个真实模型连接已经通过基础检查。', state: 'done' },
+        { label: '设为默认', detail: '选择新会话默认使用的连接，避免发送时猜测。', state: 'active' },
+        { label: '开始对话', detail: '默认连接生效后，首屏会切换到快速输入。', state: 'pending' },
+      ];
+    case 'needs_connection_credentials':
+      return [
+        { label: '连接已选定', detail: '默认连接已定位，接下来只处理认证。', state: 'done' },
+        { label: '补齐认证', detail: '填写 API key 或完成对应账号登录。', state: 'active' },
+        { label: '测试并设默认模型', detail: '测试通过后再选择可用于聊天的模型。', state: 'pending' },
+      ];
+    case 'needs_default_model':
+      return [
+        { label: '认证已就绪', detail: '连接已经能访问供应商，下一步是模型选择。', state: 'done' },
+        { label: '选择聊天模型', detail: '从实时模型列表里选一个可发送对话的模型。', state: 'active' },
+        { label: '刷新检测', detail: '保存后回到这里刷新，Maka 会切到快速输入。', state: 'pending' },
+      ];
+    case 'blocked':
+      return [
+        { label: '连接测试失败', detail: '现有真实连接都还不能稳定发送。', state: 'warning' },
+        { label: '修复认证或网络', detail: '重新登录、更新 key，或检查代理 / 供应商状态。', state: 'active' },
+        { label: '重新测试', detail: '测试通过后再继续首条对话。', state: 'pending' },
+      ];
+    case 'ready_empty':
+    case 'ready_with_history':
       return null;
     default:
       return assertNever(state);

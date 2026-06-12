@@ -16,7 +16,7 @@ import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
 import { readFile } from 'node:fs/promises';
 import type { OnboardingState } from '@maka/core';
-import { getOnboardingHeroCopy } from '../../renderer/onboarding-hero-copy.js';
+import { getOnboardingHeroCopy, getOnboardingSetupSteps } from '../../renderer/onboarding-hero-copy.js';
 
 // Every OnboardingState.kind string. Any rendered field MUST NOT
 // contain one of these as a substring — Chinese-only copy.
@@ -217,6 +217,93 @@ describe('getOnboardingHeroCopy — invariants', () => {
         assert.equal(copy.tone, undefined, `${variant.kind} must not have warning tone`);
       }
     }
+  });
+});
+
+describe('getOnboardingSetupSteps — Craft-style AI setup guide', () => {
+  it('guides completely new users through AI setup before first chat', () => {
+    const steps = getOnboardingSetupSteps({ kind: 'needs_connection' } as OnboardingState);
+    assert.ok(steps);
+    assert.deepEqual(
+      steps.map((step) => step.state),
+      ['active', 'pending', 'pending'],
+    );
+    assert.match(steps.map((step) => step.label).join('\n'), /选择 AI 接入/);
+    assert.match(steps.map((step) => step.detail).join('\n'), /API key|OAuth/);
+    assert.match(steps.map((step) => step.detail).join('\n'), /测试并设默认|开始第一条对话/);
+  });
+
+  it('moves the active setup step to the exact missing AI configuration', () => {
+    const cases: Array<[OnboardingState, string]> = [
+      [{ kind: 'needs_default_connection' } as OnboardingState, '设为默认'],
+      [
+        {
+          kind: 'needs_connection_credentials',
+          connectionSlug: 'anthropic-live',
+        } as OnboardingState,
+        '补齐认证',
+      ],
+      [
+        {
+          kind: 'needs_default_model',
+          connectionSlug: 'openai-live',
+        } as OnboardingState,
+        '选择聊天模型',
+      ],
+      [
+        {
+          kind: 'blocked',
+          reason: 'all_connections_unhealthy',
+        } as OnboardingState,
+        '修复认证或网络',
+      ],
+    ];
+
+    for (const [state, expectedActiveLabel] of cases) {
+      const steps = getOnboardingSetupSteps(state);
+      assert.ok(steps, `${state.kind} should expose setup steps`);
+      assert.equal(steps.length, 3);
+      const activeSteps = steps.filter((step) => step.state === 'active');
+      assert.equal(activeSteps.length, 1, `${state.kind} should have exactly one active setup step`);
+      assert.equal(activeSteps[0]?.label, expectedActiveLabel);
+    }
+  });
+
+  it('does not render setup steps once Quick Chat or history takes over', () => {
+    assert.equal(
+      getOnboardingSetupSteps({
+        kind: 'ready_empty',
+        defaultConnectionSlug: 'a',
+        defaultModel: 'm',
+      } as OnboardingState),
+      null,
+    );
+    assert.equal(
+      getOnboardingSetupSteps({
+        kind: 'ready_with_history',
+        defaultConnectionSlug: 'a',
+        defaultModel: 'm',
+      } as OnboardingState),
+      null,
+    );
+  });
+
+  it('renderer uses the setup helper rather than a disconnected static checklist', async () => {
+    const hero = await readFile(new URL('../../../src/renderer/OnboardingHero.tsx', import.meta.url), 'utf8');
+    const styles = await readFile(new URL('../../../src/renderer/styles.css', import.meta.url), 'utf8');
+
+    assert.match(hero, /import \{ getOnboardingSetupSteps, type OnboardingSetupStep \} from '\.\/onboarding-hero-copy'/);
+    assert.match(hero, /function SetupProgress\(props: \{ steps: readonly OnboardingSetupStep\[\] \}\)/);
+    assert.match(hero, /aria-label="配置 AI 进度"/);
+    assert.match(hero, /SETUP_STEP_STATUS_LABELS/);
+    assert.match(hero, /getOnboardingSetupSteps\(\{ kind: 'needs_connection' \}\)/);
+    assert.match(hero, /setupSteps=\{getOnboardingSetupSteps\(\{ kind: 'needs_default_connection' \}\)\}/);
+    assert.match(hero, /setupSteps=\{getOnboardingSetupSteps\(\{[\s\S]*kind: 'needs_connection_credentials'/);
+    assert.match(hero, /setupSteps=\{getOnboardingSetupSteps\(\{[\s\S]*kind: 'needs_default_model'/);
+    assert.match(hero, /setupSteps=\{getOnboardingSetupSteps\(\{[\s\S]*kind: 'blocked'/);
+    assert.match(styles, /\.maka-onboarding-setup-steps\s*\{/);
+    assert.match(styles, /\.maka-onboarding-setup-steps > li\[data-state="active"\]/);
+    assert.match(styles, /@media \(max-width: 620px\)[\s\S]*\.maka-onboarding-setup-step-state/);
   });
 });
 

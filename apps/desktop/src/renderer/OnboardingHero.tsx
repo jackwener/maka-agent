@@ -29,6 +29,7 @@ import {
   FIRST_RUN_TASK_SUGGESTION_MILESTONES,
   type FirstRunTaskSuggestionId,
 } from './first-run-task-suggestions';
+import { getOnboardingSetupSteps, type OnboardingSetupStep } from './onboarding-hero-copy';
 
 /**
  * PR-UI-15 (@yuejing 2026-05-22): unify OnboardingHero quickChat
@@ -238,6 +239,7 @@ function NeedsConnectionHero(props: {
   onRefreshConnections?: () => void;
   refreshConnectionsPending?: boolean;
 }) {
+  const setupSteps = getOnboardingSetupSteps({ kind: 'needs_connection' });
   return (
     <section className="maka-onboarding" aria-label="欢迎使用 Maka">
       <header>
@@ -260,6 +262,8 @@ function NeedsConnectionHero(props: {
           点任意一张卡进入 <strong>设置 · 模型</strong> 添加它的 key。
         </p>
       </header>
+
+      {setupSteps && <SetupProgress steps={setupSteps} />}
 
       <ul className="maka-onboarding-grid" role="list">
         {FEATURED.map((entry) => {
@@ -321,6 +325,7 @@ function NeedsDefaultConnectionHero(props: { onOpenSettings: (section?: Settings
           挑一个作为默认连接，再开始对话。
         </>
       }
+      setupSteps={getOnboardingSetupSteps({ kind: 'needs_default_connection' })}
       primaryCta={{ label: '打开设置 · 模型', onClick: () => props.onOpenSettings('models') }}
     />
   );
@@ -351,6 +356,10 @@ function NeedsConnectionCredentialsHero(props: {
           <strong> 设置 · 模型</strong> 打开该连接，把 API key 补上再开始对话。
         </>
       }
+      setupSteps={getOnboardingSetupSteps({
+        kind: 'needs_connection_credentials',
+        connectionSlug: props.connectionSlug,
+      })}
       primaryCta={{ label: '打开设置 · 模型', onClick: () => props.onOpenSettings('models') }}
       secondaryCta={
         props.onRefreshConnections
@@ -391,6 +400,10 @@ function NeedsDefaultModelHero(props: {
           {' '}给它选一个模型，再回来开始对话。
         </>
       }
+      setupSteps={getOnboardingSetupSteps({
+        kind: 'needs_default_model',
+        connectionSlug: props.connectionSlug,
+      })}
       primaryCta={{ label: '打开设置 · 模型', onClick: () => props.onOpenSettings('models') }}
       secondaryCta={
         props.onRefreshConnections
@@ -426,6 +439,10 @@ function BlockedHero(props: {
           排查后回来刷新即可继续对话。
         </>
       }
+      setupSteps={getOnboardingSetupSteps({
+        kind: 'blocked',
+        reason: props.reason,
+      })}
       primaryCta={{ label: '打开设置 · 模型', onClick: () => props.onOpenSettings('models') }}
       secondaryCta={
         props.onRefreshConnections
@@ -802,6 +819,7 @@ interface SetupHeroProps {
   eyebrow: string;
   title: string;
   body: React.ReactNode;
+  setupSteps?: readonly OnboardingSetupStep[] | null;
   primaryCta: { label: string; onClick: () => void };
   /**
    * PR-ONBOARDING-EARLY-COPY-0: optional ghost-style secondary action
@@ -838,6 +856,7 @@ function SetupHero(props: SetupHeroProps) {
         <h1>{props.title}</h1>
         <p>{props.body}</p>
       </header>
+      {props.setupSteps && <SetupProgress steps={props.setupSteps} />}
       <footer className="maka-onboarding-footer">
         <button
           type="button"
@@ -860,6 +879,34 @@ function SetupHero(props: SetupHeroProps) {
         )}
       </footer>
     </section>
+  );
+}
+
+const SETUP_STEP_STATUS_LABELS: Record<OnboardingSetupStep['state'], string> = {
+  done: '已完成',
+  active: '当前步骤',
+  pending: '待完成',
+  warning: '需要处理',
+};
+
+function SetupProgress(props: { steps: readonly OnboardingSetupStep[] }) {
+  return (
+    <ol className="maka-onboarding-setup-steps" aria-label="配置 AI 进度">
+      {props.steps.map((step, index) => (
+        <li key={`${step.label}-${index}`} data-state={step.state}>
+          <span className="maka-onboarding-setup-step-marker" aria-hidden="true">
+            {index + 1}
+          </span>
+          <span className="maka-onboarding-setup-step-copy">
+            <strong>{step.label}</strong>
+            <small>{step.detail}</small>
+          </span>
+          <span className="maka-onboarding-setup-step-state">
+            {SETUP_STEP_STATUS_LABELS[step.state]}
+          </span>
+        </li>
+      ))}
+    </ol>
   );
 }
 
