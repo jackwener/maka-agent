@@ -187,6 +187,29 @@ export interface ContextBudgetDiagnostic {
   historyAroundRetrievedEvents?: number;
   historyAroundEstimatedTokens?: number;
   historyAroundSkippedEvents?: number;
+  synthesisCacheEnabled?: boolean;
+  synthesisCacheMode?: 'off' | 'lookup' | 'insert' | 'fallback_archive_retrieval';
+  synthesisCacheBlocksAvailable?: number;
+  synthesisCacheBlocksSelected?: number;
+  synthesisCacheBlockIds?: string[];
+  synthesisCacheEstimatedTokens?: number;
+  synthesisCacheSkipped?: number;
+  synthesisCacheSkippedReasonCounts?: Record<string, number>;
+  synthesisCacheInvalidated?: number;
+  synthesisCacheInvalidationReasonCounts?: Record<string, number>;
+  highWaterName?: string;
+  highWaterSeq?: number;
+  highWaterReason?:
+    | 'archive_prune'
+    | 'history_search_gated_retrieval'
+    | 'synthesis_cache_write'
+    | 'synthesis_cache_select'
+    | 'manual_reset'
+    | 'system_change'
+    | 'tools_change'
+    | 'log_rewrite';
+  highWaterRequestShapeHashBefore?: string;
+  highWaterRequestShapeHashAfter?: string;
   historyRewriteVersion?: string;
   historyRewriteResetReason?: string;
   historyRewriteGate?: string;
