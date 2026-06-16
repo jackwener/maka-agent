@@ -1811,6 +1811,7 @@
   .maka-reason-text[data-reason="git_destructive"]  { color: var(--destructive-text); font-weight: 500; }
   .maka-reason-text[data-reason="privileged"]       { color: var(--destructive-text); font-weight: 500; }
   .maka-reason-text[data-reason="network"]          { color: var(--info-text); }
+  .maka-reason-text[data-reason="browser"]          { color: var(--info-text); }
   .maka-reason-text[data-reason="custom"]           { color: var(--foreground-70); }
 
   /* ---- Code blocks (used in args preview inside permission dialog) --- */
