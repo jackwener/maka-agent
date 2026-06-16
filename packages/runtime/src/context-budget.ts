@@ -26,6 +26,8 @@ export interface ContextBudgetPolicy {
   archiveRetrieval?: ArchiveRetrievalPolicy;
   /** Optional deterministic prior-history search used to re-add bounded around-context. Defaults off. */
   historySearch?: RuntimeEventHistorySearchPolicy;
+  /** Optional replay-only source-bearing synthesis cache over older RuntimeEvent history. Defaults off. */
+  synthesisCache?: SynthesisCachePolicy;
   /** Named rewrite/compaction gate for diagnostics and explicit cache-shape resets. */
   historyRewrite?: HistoryRewriteGatePolicy;
 }
@@ -64,6 +66,107 @@ export interface RuntimeEventHistorySearchPolicy {
   maxResults?: number;
   around?: number;
   maxEstimatedTokens?: number;
+}
+
+export interface SynthesisCachePolicy {
+  enabled: boolean;
+  /** Source-bearing blocks available for the current replay projection. */
+  blocks?: readonly SynthesisCacheBlock[];
+  /** Defaults to `lookup`; creation/persistence is owned by the harness or caller. */
+  mode?: 'lookup';
+  /** Defaults to 1 to keep replay bounded and deterministic. */
+  maxBlocks?: number;
+  /**
+   * When true (default), a newer matching tool result invalidates older synthesis
+   * for the same tool/query key.
+   */
+  invalidateOnNewToolResult?: boolean;
+}
+
+export interface SynthesisCacheBlock {
+  kind: 'maka.synthesis_cache_block';
+  version: 1;
+  blockId: string;
+  sessionId: string;
+  createdAt: number;
+  highWaterName: string;
+  highWaterSeq: number;
+  sourceRef?: {
+    sourceRef?: string;
+    repoRoot?: string;
+    gitCommit?: string;
+    harnessRunId?: string;
+  };
+  coverage: SynthesisCacheCoverage;
+  summary: string;
+  limitations: string[];
+  sourceRefs: readonly SynthesisSourceRef[];
+  createdFrom:
+    | 'gated_archive_retrieval'
+    | 'eager_archive_retrieval'
+    | 'full_context'
+    | 'live_tool_result'
+    | 'host_deterministic';
+  requestShapeHashBefore?: string;
+  requestShapeHashAfter?: string;
+}
+
+export interface SynthesisCacheCoverage {
+  queryKeys: string[];
+  turnIds: string[];
+  runtimeEventIds: string[];
+  toolNames: string[];
+  toolCallIds: string[];
+  artifactIds: string[];
+  bodySha256: string[];
+}
+
+export type SynthesisSourceRef =
+  | {
+      kind: 'archived_tool_result';
+      sessionId: string;
+      turnId: string;
+      runtimeEventId: string;
+      toolCallId: string;
+      toolName: string;
+      artifactId: string;
+      bodySha256: string;
+      originalEstimatedTokens: number;
+      originalBytes: number;
+      placeholderReason: ArchivedToolResultReason;
+    }
+  | {
+      kind: 'runtime_event';
+      sessionId: string;
+      turnId: string;
+      runtimeEventId: string;
+      role: 'user' | 'model' | 'tool' | 'system';
+      contentKind: string;
+    }
+  | {
+      kind: 'history_search_hit';
+      sessionId: string;
+      turnId: string;
+      runtimeEventId: string;
+      score: number;
+      matchedTerms: string[];
+    }
+  | {
+      kind: 'live_tool_result';
+      sessionId: string;
+      turnId: string;
+      runtimeEventId: string;
+      toolCallId: string;
+      toolName: string;
+      argsSha256: string;
+      resultSha256: string;
+      artifactId?: string;
+    };
+
+export interface SynthesisCacheReplayResult {
+  events: RuntimeEvent[];
+  selectedBlocks: SynthesisCacheBlock[];
+  diagnosticPatch: Partial<ContextBudgetDiagnostic>;
 }
 
 export interface HistoryRewriteGatePolicy {
@@ -183,6 +286,7 @@ export function applyRuntimeEventContextBudget(
   const pruneEnabled = prunePolicy?.enabled === true;
   const archiveRetrievalEnabled = policy?.archiveRetrieval?.enabled === true;
   const historySearchEnabled = policy?.historySearch?.enabled === true;
+  const synthesisCacheEnabled = policy?.synthesisCache?.enabled === true;
   const historyRewriteEnabled = policy?.historyRewrite?.enabled === true;
   const enabled = Boolean(
     policy?.maxHistoryEstimatedTokens ||
@@ -190,6 +294,7 @@ export function applyRuntimeEventContextBudget(
     pruneEnabled ||
     archiveRetrievalEnabled ||
     historySearchEnabled ||
+    synthesisCacheEnabled ||
     historyRewriteEnabled
   );
   if (!enabled) return undefined;
@@ -439,6 +544,123 @@ export function retrieveRuntimeEventHistoryAround(
       ...(skipped > 0 ? { historyAroundSkippedEvents: skipped } : {}),
     },
   };
+}
+
+export function selectSynthesisCacheForReplay(
+  events: readonly RuntimeEvent[],
+  query: string,
+  policy: SynthesisCachePolicy | undefined,
+  options: { sessionId: string; charsPerToken?: number } = { sessionId: '' },
+): SynthesisCacheReplayResult {
+  if (policy?.enabled !== true) {
+    return { events: [...events], selectedBlocks: [], diagnosticPatch: {} };
+  }
+
+  const charsPerToken = options.charsPerToken ?? 4;
+  const blocks = policy.blocks ?? [];
+  const maxBlocks = finitePositive(policy.maxBlocks) ?? 1;
+  const selectedBlocks: SynthesisCacheBlock[] = [];
+  const skippedReasonCounts: Record<string, number> = {};
+  const invalidationReasonCounts: Record<string, number> = {};
+  const rawEvidenceReason = rawEvidenceRequestReason(query);
+  const sourceIndex = buildSynthesisSourceIndex(events);
+
+  for (const block of blocks) {
+    if (selectedBlocks.length >= maxBlocks) break;
+    const validationReason = validateSynthesisCacheBlock(block, sourceIndex, options.sessionId);
+    if (validationReason) {
+      increment(invalidationReasonCounts, validationReason);
+      continue;
+    }
+    if (!synthesisBlockCoversQuery(block, query)) {
+      increment(skippedReasonCounts, 'coverage_miss');
+      continue;
+    }
+    if (rawEvidenceReason) {
+      increment(skippedReasonCounts, rawEvidenceReason);
+      continue;
+    }
+    const newerReason = policy.invalidateOnNewToolResult === false
+      ? undefined
+      : newerRelevantToolResultReason(block, events, query);
+    if (newerReason) {
+      increment(invalidationReasonCounts, newerReason);
+      continue;
+    }
+    selectedBlocks.push(block);
+  }
+
+  const selectedTokenEstimate = selectedBlocks.reduce(
+    (total, block) => total + estimateTokens(renderSynthesisCacheBlock(block).length, charsPerToken),
+    0,
+  );
+  const skipped = Object.values(skippedReasonCounts).reduce((total, count) => total + count, 0);
+  const invalidated = Object.values(invalidationReasonCounts).reduce((total, count) => total + count, 0);
+  const diagnosticPatch: Partial<ContextBudgetDiagnostic> = {
+    synthesisCacheEnabled: true,
+    synthesisCacheMode: selectedBlocks.length > 0 ? 'lookup' : 'fallback_archive_retrieval',
+    synthesisCacheBlocksAvailable: blocks.length,
+    synthesisCacheBlocksSelected: selectedBlocks.length,
+    ...(selectedBlocks.length > 0
+      ? {
+          synthesisCacheBlockIds: selectedBlocks.map((block) => block.blockId),
+          synthesisCacheEstimatedTokens: selectedTokenEstimate,
+          highWaterName: selectedBlocks[0]!.highWaterName,
+          highWaterSeq: selectedBlocks[0]!.highWaterSeq,
+          highWaterReason: 'synthesis_cache_select',
+        }
+      : {}),
+    ...(skipped > 0
+      ? {
+          synthesisCacheSkipped: skipped,
+          synthesisCacheSkippedReasonCounts: skippedReasonCounts,
+        }
+      : {}),
+    ...(invalidated > 0
+      ? {
+          synthesisCacheInvalidated: invalidated,
+          synthesisCacheInvalidationReasonCounts: invalidationReasonCounts,
+        }
+      : {}),
+  };
+
+  if (selectedBlocks.length === 0) {
+    return { events: [...events], selectedBlocks, diagnosticPatch };
+  }
+
+  const coveredTurns = new Set<string>();
+  const coveredEventIds = new Set<string>();
+  for (const block of selectedBlocks) {
+    for (const turnId of block.coverage.turnIds) coveredTurns.add(turnId);
+    for (const eventId of block.coverage.runtimeEventIds) coveredEventIds.add(eventId);
+    for (const ref of block.sourceRefs) {
+      if ('turnId' in ref) coveredTurns.add(ref.turnId);
+      if ('runtimeEventId' in ref) coveredEventIds.add(ref.runtimeEventId);
+    }
+  }
+  const retained = events.filter((event) =>
+    !coveredEventIds.has(event.id) && !coveredTurns.has(turnKey(event))
+  );
+  return {
+    events: [
+      ...retained,
+      ...selectedBlocks.map((block) => synthesisBlockRuntimeEvent(block, options.sessionId)),
+    ],
+    selectedBlocks,
+    diagnosticPatch,
+  };
+}
+
+export function renderSynthesisCacheBlock(block: SynthesisCacheBlock): string {
+  const sourceText = block.sourceRefs.map((ref) => renderSynthesisSourceRef(ref)).join('; ');
+  return [
+    `<maka_synthesis_cache_block id="${escapeAttribute(block.blockId)}" high_water="${escapeAttribute(block.highWaterName)}" seq="${block.highWaterSeq}">`,
+    `summary: ${block.summary}`,
+    `coverage: queryKeys=[${block.coverage.queryKeys.join(', ')}], turnIds=[${block.coverage.turnIds.join(', ')}], runtimeEventIds=[${block.coverage.runtimeEventIds.join(', ')}], artifactIds=[${block.coverage.artifactIds.join(', ')}]`,
+    `limitations: ${block.limitations.join('; ')}`,
+    `sources: ${sourceText}`,
+    '</maka_synthesis_cache_block>',
+  ].join('\n');
 }
 
 export function buildPromptSegmentEstimates(input: PromptSegmentInput): PromptSegmentEstimate[] {
@@ -858,6 +1080,190 @@ function runtimeEventSearchText(event: RuntimeEvent): string {
     case 'error':
       return `${content.message} ${content.reason ?? ''} ${content.code ?? ''}`;
   }
+}
+
+function buildSynthesisSourceIndex(events: readonly RuntimeEvent[]): Map<string, RuntimeEvent> {
+  return new Map(events.map((event) => [event.id, event]));
+}
+
+function validateSynthesisCacheBlock(
+  block: SynthesisCacheBlock,
+  sourceIndex: ReadonlyMap<string, RuntimeEvent>,
+  sessionId: string,
+): string | undefined {
+  if (
+    block.kind !== 'maka.synthesis_cache_block' ||
+    block.version !== 1 ||
+    !nonEmpty(block.blockId) ||
+    !nonEmpty(block.sessionId) ||
+    (sessionId.length > 0 && block.sessionId !== sessionId) ||
+    !Number.isFinite(block.createdAt) ||
+    !nonEmpty(block.highWaterName) ||
+    !Number.isFinite(block.highWaterSeq) ||
+    !nonEmpty(block.summary) ||
+    !Array.isArray(block.limitations) ||
+    block.sourceRefs.length === 0
+  ) {
+    return 'unsupported_policy';
+  }
+  if (
+    block.coverage.queryKeys.length === 0 ||
+    block.coverage.turnIds.length === 0 ||
+    block.coverage.runtimeEventIds.length === 0 ||
+    block.coverage.artifactIds.length === 0 ||
+    block.coverage.bodySha256.length === 0 ||
+    !allNonEmpty(block.coverage.queryKeys) ||
+    !allNonEmpty(block.coverage.turnIds) ||
+    !allNonEmpty(block.coverage.runtimeEventIds) ||
+    !allNonEmpty(block.coverage.toolNames) ||
+    !allNonEmpty(block.coverage.toolCallIds) ||
+    !allNonEmpty(block.coverage.artifactIds) ||
+    !allNonEmpty(block.coverage.bodySha256)
+  ) {
+    return 'unsupported_policy';
+  }
+
+  for (const ref of block.sourceRefs) {
+    const event = sourceIndex.get(ref.runtimeEventId);
+    if (!event) return ref.kind === 'archived_tool_result' ? 'archive_missing' : 'coverage_miss';
+    if (ref.sessionId !== block.sessionId || (sessionId.length > 0 && ref.sessionId !== sessionId)) {
+      return 'source_hash_mismatch';
+    }
+    if (event.turnId !== ref.turnId) return 'source_hash_mismatch';
+    if (ref.kind === 'archived_tool_result') {
+      if (
+        !nonEmpty(ref.artifactId) ||
+        !nonEmpty(ref.bodySha256) ||
+        !nonEmpty(ref.toolCallId) ||
+        !nonEmpty(ref.toolName) ||
+        ref.originalEstimatedTokens <= 0 ||
+        ref.originalBytes <= 0 ||
+        ref.placeholderReason !== 'stale_tool_result_pruned_before_compact'
+      ) {
+        return 'unsupported_policy';
+      }
+      if (event.content?.kind !== 'function_response') return 'source_hash_mismatch';
+      if (!isArchivedToolResultPlaceholder(event.content.result)) return 'source_hash_mismatch';
+      const placeholder = event.content.result;
+      if (
+        placeholder.artifactId !== ref.artifactId ||
+        placeholder.bodySha256 !== ref.bodySha256 ||
+        placeholder.toolCallId !== ref.toolCallId ||
+        placeholder.toolName !== ref.toolName ||
+        placeholder.originalEstimatedTokens !== ref.originalEstimatedTokens ||
+        placeholder.originalBytes !== ref.originalBytes ||
+        placeholder.reason !== ref.placeholderReason
+      ) {
+        return 'source_hash_mismatch';
+      }
+    }
+  }
+  return undefined;
+}
+
+function synthesisBlockCoversQuery(block: SynthesisCacheBlock, query: string): boolean {
+  return block.coverage.queryKeys.some((key) => queryContainsCoveredKey(query, key));
+}
+
+function queryContainsCoveredKey(query: string, key: string): boolean {
+  const normalizedQuery = query.toLowerCase();
+  const normalizedKey = key.toLowerCase().trim();
+  if (normalizedKey.length === 0) return false;
+  let index = normalizedQuery.indexOf(normalizedKey);
+  while (index >= 0) {
+    const before = index === 0 ? '' : normalizedQuery[index - 1]!;
+    const after = normalizedQuery[index + normalizedKey.length] ?? '';
+    if (!isQueryKeyContinuation(before) && !isQueryKeyContinuation(after)) {
+      return true;
+    }
+    index = normalizedQuery.indexOf(normalizedKey, index + normalizedKey.length);
+  }
+  return false;
+}
+
+function isQueryKeyContinuation(char: string): boolean {
+  return /^[a-z0-9_-]$/.test(char);
+}
+
+function rawEvidenceRequestReason(query: string): 'raw_evidence_requested' | 'exact_output_requested' | undefined {
+  const normalized = query.toLowerCase();
+  if (/\b(exact|verbatim|original wording|word-for-word|full output)\b/.test(normalized)) {
+    return 'exact_output_requested';
+  }
+  if (/\b(raw|evidence|proof|show how|debug|source|archive|tool output|original tool)\b/.test(normalized)) {
+    return 'raw_evidence_requested';
+  }
+  return undefined;
+}
+
+function newerRelevantToolResultReason(
+  block: SynthesisCacheBlock,
+  events: readonly RuntimeEvent[],
+  query: string,
+): 'new_relevant_tool_result' | undefined {
+  const sourceEventIds = new Set(block.coverage.runtimeEventIds);
+  const toolNames = new Set(block.coverage.toolNames);
+  const sourceTimes = events
+    .filter((event) => sourceEventIds.has(event.id))
+    .map((event) => event.ts);
+  const newestSourceTs = sourceTimes.length > 0 ? Math.max(...sourceTimes) : block.createdAt;
+  const keys = block.coverage.queryKeys.map((key) => key.toLowerCase());
+  const queryText = query.toLowerCase();
+  for (const event of events) {
+    if (event.ts <= newestSourceTs || event.content?.kind !== 'function_response') continue;
+    if (sourceEventIds.has(event.id) || !toolNames.has(event.content.name)) continue;
+    const eventText = runtimeEventSearchText(event).toLowerCase();
+    if (keys.some((key) => eventText.includes(key) || queryText.includes(key))) {
+      return 'new_relevant_tool_result';
+    }
+  }
+  return undefined;
+}
+
+function synthesisBlockRuntimeEvent(block: SynthesisCacheBlock, sessionId: string): RuntimeEvent {
+  return {
+    id: `synthesis-cache:${block.blockId}`,
+    sessionId,
+    runId: `synthesis-cache:${block.blockId}`,
+    turnId: `synthesis-cache:${block.highWaterSeq}`,
+    invocationId: `synthesis-cache:${block.blockId}`,
+    ts: block.createdAt,
+    partial: false,
+    role: 'model',
+    author: 'system',
+    content: {
+      kind: 'text',
+      text: renderSynthesisCacheBlock(block),
+    },
+    refs: {
+      artifactId: block.coverage.artifactIds[0],
+    },
+  };
+}
+
+function renderSynthesisSourceRef(ref: SynthesisSourceRef): string {
+  switch (ref.kind) {
+    case 'archived_tool_result':
+      return `archived_tool_result(runtimeEventId=${ref.runtimeEventId}, turnId=${ref.turnId}, artifactId=${ref.artifactId}, bodySha256=${ref.bodySha256}, toolName=${ref.toolName})`;
+    case 'runtime_event':
+      return `runtime_event(runtimeEventId=${ref.runtimeEventId}, turnId=${ref.turnId}, role=${ref.role}, contentKind=${ref.contentKind})`;
+    case 'history_search_hit':
+      return `history_search_hit(runtimeEventId=${ref.runtimeEventId}, turnId=${ref.turnId}, score=${ref.score}, matchedTerms=${ref.matchedTerms.join('|')})`;
+    case 'live_tool_result':
+      return `live_tool_result(runtimeEventId=${ref.runtimeEventId}, turnId=${ref.turnId}, toolName=${ref.toolName}, resultSha256=${ref.resultSha256})`;
+  }
+}
+
+function escapeAttribute(value: string): string {
+  return value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;');
+}
+
+function nonEmpty(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0;
+}
+
+function allNonEmpty(values: readonly unknown[]): boolean {
+  return values.every(nonEmpty);
 }
 
 function tokenizeSearchQuery(query: string): string[] {

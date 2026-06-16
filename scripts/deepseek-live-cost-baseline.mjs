@@ -56,6 +56,19 @@ if (process.env.MAKA_COST_BASELINE_PHASE7_TOOL_MATRIX === 'on') {
   process.exit(exitCode);
 }
 
+if (process.env.MAKA_COST_BASELINE_PHASE8_SYNTHESIS_MATRIX === 'on') {
+  const exitCode = await runPhase8SynthesisMatrix({
+    apiKey,
+    model,
+    repoRoot,
+    outputRoot,
+    runId,
+    seed,
+    cwd,
+  });
+  process.exit(exitCode);
+}
+
 const sessionStore = createSessionStore(workspaceRoot);
 const runStore = createAgentRunStore(workspaceRoot);
 const runtimeEventStore = createRuntimeEventStore(workspaceRoot);
@@ -615,6 +628,356 @@ async function runPhase7ToolScenario(input) {
   };
 }
 
+async function runPhase8SynthesisMatrix(input) {
+  const matrixOutputRoot = join(input.outputRoot, input.runId, 'phase8-synthesis-matrix');
+  await mkdir(matrixOutputRoot, { recursive: true });
+  const sentinel = process.env.MAKA_COST_BASELINE_PHASE7_SENTINEL
+    ?? `PHASE7_SENTINEL_${sha256(`${input.seed}:phase7`).slice(0, 16)}`;
+  const lookupKey = process.env.MAKA_COST_BASELINE_PHASE7_LOOKUP_KEY ?? 'phase7-live-key';
+  const resultLines = parsePositiveInt(process.env.MAKA_COST_BASELINE_PHASE7_RESULT_LINES, 220);
+  const noisyArchiveCount = parsePositiveInt(process.env.MAKA_COST_BASELINE_PHASE7_NOISY_ARCHIVES, 8);
+  const cases = [];
+  for (const matrixCase of [
+    { name: 'single_archive_recovery', noiseArchiveCount: 0 },
+    { name: 'multi_archive_selectivity', noiseArchiveCount: noisyArchiveCount },
+  ]) {
+    const scenarios = [];
+    for (const mode of ['full', 'gated', 'synthesis_gated']) {
+      scenarios.push(await runPhase8SynthesisScenario({
+        ...input,
+        matrixOutputRoot: join(matrixOutputRoot, matrixCase.name),
+        matrixCase: matrixCase.name,
+        mode,
+        sentinel,
+        lookupKey,
+        resultLines,
+        noiseArchiveCount: matrixCase.noiseArchiveCount,
+      }));
+    }
+    cases.push({
+      name: matrixCase.name,
+      noiseArchiveCount: matrixCase.noiseArchiveCount,
+      archiveCount: matrixCase.noiseArchiveCount + 1,
+      scenarios,
+    });
+  }
+  const invariantFailures = validatePhase8SynthesisMatrix(cases, sentinel);
+  const scenarios = cases[0]?.scenarios ?? [];
+  const report = {
+    sourceRef: process.env.MAKA_COST_BASELINE_SOURCE_REF ?? 'local-build',
+    scenario: {
+      name: 'phase8_synthesis_cache_high_water_matrix',
+      cases: cases.map((matrixCase) => matrixCase.name),
+      modes: scenarios.map((scenario) => scenario.mode),
+    },
+    passed: invariantFailures.length === 0,
+    invariantFailures,
+    repoRoot: input.repoRoot,
+    outputRoot: matrixOutputRoot,
+    model: input.model,
+    seed: input.seed,
+    lookupKey,
+    sentinelSha256: sha256(sentinel),
+    resultLines,
+    noisyArchiveCount,
+    cases,
+    scenarios,
+  };
+  const jsonPath = resolve(
+    process.env.MAKA_COST_BASELINE_PHASE8_MATRIX_JSON
+      ?? join(matrixOutputRoot, 'phase8-synthesis-live-matrix.json'),
+  );
+  await mkdir(resolve(jsonPath, '..'), { recursive: true });
+  await writeFile(jsonPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
+  console.log(JSON.stringify({
+    jsonPath,
+    model: input.model,
+    scenario: report.scenario.name,
+    cases: cases.map((matrixCase) => ({
+      name: matrixCase.name,
+      modes: matrixCase.scenarios.map((scenario) => ({
+        mode: scenario.mode,
+        recoveryArchivedToolResultsRead: scenario.recoveryArchivedToolResultsRead,
+        repeatedAnswerExactlySentinel: scenario.repeatedAnswerExactlySentinel,
+        repeatedArchivedToolResultsRead: scenario.repeatedArchivedToolResultsRead,
+        rawEvidenceArchivedToolResultsRead: scenario.rawEvidenceArchivedToolResultsRead,
+        noiseCoverageArchivedToolResultsRead: scenario.noiseCoverageArchivedToolResultsRead,
+        selectedSynthesisBlockIds: scenario.repeatedContextBudget?.synthesisCacheBlockIds ?? [],
+        noiseSynthesisSelected: scenario.noiseCoverageContextBudget?.synthesisCacheBlocksSelected ?? 0,
+        recoveryUsage: scenario.recoveryUsage,
+        repeatedUsage: scenario.repeatedUsage,
+        scenarioUsageTotals: scenario.scenarioUsageTotals,
+      })),
+    })),
+    invariantFailures,
+  }, null, 2));
+  if (invariantFailures.length > 0) {
+    console.error([
+      'Phase 8 synthesis matrix invariant failures:',
+      ...invariantFailures.map((failure) => `- ${failure}`),
+    ].join('\n'));
+    return 1;
+  }
+  return 0;
+}
+
+async function runPhase8SynthesisScenario(input) {
+  const workspaceRoot = join(input.matrixOutputRoot, input.mode, 'workspace');
+  await mkdir(workspaceRoot, { recursive: true });
+  const sessionStore = createSessionStore(workspaceRoot);
+  const runStore = createAgentRunStore(workspaceRoot);
+  const runtimeEventStore = createRuntimeEventStore(workspaceRoot);
+  const artifactStore = createArtifactStore(workspaceRoot);
+  const permissionEngine = new PermissionEngine(createDefaultPermissionEngineDeps());
+  const backends = new BackendRegistry();
+  const llmRecords = [];
+  const runTraceEvents = [];
+  const archiveReads = [];
+  const archiveRefsByRuntimeEventId = new Map();
+  const synthesisBlocks = [];
+  let activeTurnId;
+  const tools = [buildPhase7LookupTool(input)];
+  const connection = {
+    slug: `deepseek-live-phase8-${input.mode}`,
+    name: `DeepSeek live Phase 8 ${input.mode}`,
+    providerType: 'deepseek',
+    baseUrl: 'https://api.deepseek.com',
+    defaultModel: input.model,
+    enabled: true,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+  const contextBudget = buildPhase8ContextBudgetPolicy(input.mode, synthesisBlocks);
+  const systemPrompt = [
+    'You are a Maka Phase 8 live harness assistant.',
+    `Lookup key: ${input.lookupKey}`,
+    'When asked to store the Phase 8 lookup, call Phase7Lookup exactly once with the lookup key.',
+    'After the tool result is available, answer exactly STORED.',
+    'Do not include the sentinel value in the storage acknowledgement.',
+    'When later asked to recover the sentinel, answer only the sentinel value found in prior tool results or a source-bearing synthesis cache block.',
+    'Do not call Phase7Lookup during sentinel recovery; recovery must use prior context only.',
+  ].join('\n');
+
+  backends.register('ai-sdk', async (ctx) =>
+    new AiSdkBackend({
+      sessionId: ctx.sessionId,
+      header: { ...ctx.header, model: input.model },
+      appendMessage: (message) => ctx.store.appendMessage(ctx.sessionId, message),
+      connection,
+      apiKey: input.apiKey,
+      modelId: input.model,
+      permissionEngine,
+      modelFactory: getAIModel,
+      tools,
+      providerOptions: buildProviderOptions(connection, input.model),
+      contextBudget,
+      systemPrompt,
+      turnTailPrompt: phase7TurnTailPrompt(input.cwd),
+      recordLlmCall: (record) => llmRecords.push(record),
+      recordRunTrace: (event) => runTraceEvents.push(event),
+      archiveToolResult: async (event) => {
+        const cached = archiveRefsByRuntimeEventId.get(event.runtimeEventId);
+        if (
+          cached &&
+          cached.bodySha256 === event.bodySha256 &&
+          cached.originalBytes === event.originalBytes &&
+          cached.originalEstimatedTokens === event.originalEstimatedTokens
+        ) {
+          return { artifactId: cached.artifactId };
+        }
+        const artifact = await artifactStore.create({
+          sessionId: event.sessionId,
+          turnId: event.turnId,
+          name: `phase8-tool-result-${event.runtimeEventId}.json`,
+          kind: 'file',
+          content: event.serializedResult,
+          mimeType: 'application/json',
+          source: 'tool_result_archive',
+          summary: `Archived ${event.toolName} Phase 8 tool result for ${input.mode}`,
+        });
+        archiveRefsByRuntimeEventId.set(event.runtimeEventId, {
+          sessionId: event.sessionId,
+          turnId: event.turnId,
+          runtimeEventId: event.runtimeEventId,
+          toolCallId: event.toolCallId,
+          toolName: event.toolName,
+          artifactId: artifact.id,
+          bodySha256: event.bodySha256,
+          originalEstimatedTokens: event.originalEstimatedTokens,
+          originalBytes: event.originalBytes,
+          placeholderReason: event.reason,
+        });
+        return { artifactId: artifact.id };
+      },
+      readToolResultArchive: async (event) => {
+        archiveReads.push({
+          requestTurnId: activeTurnId,
+          runtimeEventId: event.runtimeEventId,
+          turnId: event.turnId,
+          artifactId: event.artifactId,
+        });
+        const record = await artifactStore.get(event.artifactId);
+        if (!record) return { ok: false, reason: 'not_found' };
+        if (record.status === 'deleted') return { ok: false, reason: 'deleted' };
+        if (record.source !== 'tool_result_archive') return { ok: false, reason: 'source_mismatch' };
+        if (record.sessionId !== event.sessionId) return { ok: false, reason: 'session_mismatch' };
+        if (record.sizeBytes !== event.originalBytes) return { ok: false, reason: 'size_mismatch' };
+        const read = await artifactStore.readText(event.artifactId, {
+          maxBytes: event.maxBytes ?? event.originalBytes,
+        });
+        if (!read.ok) return read;
+        if (sha256(read.text) !== event.bodySha256) return { ok: false, reason: 'corrupt' };
+        return { ok: true, serializedResult: read.text };
+      },
+      newId: randomUUID,
+      now: Date.now,
+      maxSteps: 4,
+      streamConnectTimeoutMs: 30_000,
+      streamIdleTimeoutMs: 120_000,
+    }),
+  );
+
+  const manager = new SessionManager({
+    store: sessionStore,
+    runStore,
+    runtimeEventStore,
+    backends,
+    newId: randomUUID,
+    now: Date.now,
+  });
+  const session = await manager.createSession({
+    cwd: input.cwd,
+    backend: 'ai-sdk',
+    llmConnectionSlug: connection.slug,
+    model: input.model,
+    permissionMode: 'explore',
+    name: `DeepSeek Phase 8 ${input.mode}`,
+  });
+
+  const storeSpecs = buildPhase7StoreSpecs(input);
+  const storeTurns = [];
+  for (const storeSpec of storeSpecs) {
+    storeTurns.push({
+      ...storeSpec,
+      ...(await sendPhase7ScenarioTurn(
+        manager,
+        session.id,
+        storeSpec.turnId,
+        [
+          `Store the Phase 8 lookup for key ${storeSpec.key}.`,
+          'Call Phase7Lookup, then acknowledge with exactly STORED.',
+          'Do not repeat any sentinel value.',
+        ].join('\n'),
+        (turnId) => { activeTurnId = turnId; },
+      )),
+    });
+  }
+  await sendPhase7ScenarioTurn(
+    manager,
+    session.id,
+    'phase8-filler',
+    'Answer exactly OK. This turn exists so the old tool result becomes stale for pruning.',
+    (turnId) => { activeTurnId = turnId; },
+  );
+  if (input.mode === 'synthesis_gated') {
+    const targetTurnId = storeSpecs.find((spec) => spec.target)?.turnId;
+    const source = [...archiveRefsByRuntimeEventId.values()].find((ref) => ref.turnId === targetTurnId);
+    if (source) {
+      synthesisBlocks.push(buildPhase8SynthesisBlock({
+        sessionId: session.id,
+        lookupKey: input.lookupKey,
+        sentinel: input.sentinel,
+        source,
+        sourceRef: process.env.MAKA_COST_BASELINE_SOURCE_REF ?? 'local-build',
+        repoRoot: input.repoRoot,
+        createdFrom: 'host_deterministic',
+      }));
+    }
+  }
+
+  const coveredTurn = await sendPhase7ScenarioTurn(
+    manager,
+    session.id,
+    'phase8-covered-recovery',
+    `Recover the sentinel for lookup key ${input.lookupKey} from prior Phase 8 context. Do not call tools. Answer only the sentinel.`,
+    (turnId) => { activeTurnId = turnId; },
+  );
+  const noiseKey = `${input.lookupKey}-noise-01`;
+  const noiseCoverageTurn = input.mode === 'synthesis_gated' && input.noiseArchiveCount > 0
+    ? await sendPhase7ScenarioTurn(
+        manager,
+        session.id,
+        'phase8-noise-coverage-miss',
+        `Recover the noise sentinel for lookup key ${noiseKey} from prior Phase 8 context. Do not call tools. Answer only the sentinel.`,
+        (turnId) => { activeTurnId = turnId; },
+      )
+    : undefined;
+  const rawEvidenceTurn = input.mode === 'synthesis_gated'
+    ? await sendPhase7ScenarioTurn(
+        manager,
+        session.id,
+        'phase8-raw-evidence',
+        `Show the raw tool output evidence for lookup key ${input.lookupKey}. Do not call tools.`,
+        (turnId) => { activeTurnId = turnId; },
+      )
+    : undefined;
+  activeTurnId = undefined;
+
+  const coveredUsageEvent = coveredTurn.events.find((event) => event.type === 'token_usage');
+  const noiseCoverageUsageEvent = noiseCoverageTurn?.events.find((event) => event.type === 'token_usage');
+  const rawEvidenceUsageEvent = rawEvidenceTurn?.events.find((event) => event.type === 'token_usage');
+  const pricingId = `${connection.providerType}:${input.model}`;
+  const coveredRecordOffset = rawEvidenceTurn ? (noiseCoverageTurn ? -3 : -2) : (noiseCoverageTurn ? -2 : -1);
+  const noiseRecordOffset = rawEvidenceTurn ? -2 : -1;
+  return {
+    matrixCase: input.matrixCase,
+    mode: input.mode,
+    contextBudget,
+    sessionId: session.id,
+    synthesisBlocksCreated: synthesisBlocks,
+    storeTurns: storeTurns.map((turn) => ({
+      turnId: turn.turnId,
+      key: turn.key,
+      target: turn.target,
+      assistantText: turn.assistantText,
+    })),
+    recoveryAnswer: coveredTurn.assistantText,
+    recoveryArchivedToolResultsRead: archiveReads.filter((read) => read.requestTurnId === 'phase8-covered-recovery').length,
+    recoveryContextBudget: coveredUsageEvent?.contextBudget,
+    repeatedAnswer: coveredTurn.assistantText,
+    repeatedRecoveredSentinel: coveredTurn.assistantText.includes(input.sentinel),
+    repeatedAnswerExactlySentinel: coveredTurn.assistantText.trim() === input.sentinel,
+    archiveReads,
+    repeatedArchivedToolResultsRead: archiveReads.filter((read) => read.requestTurnId === 'phase8-covered-recovery').length,
+    noiseCoverageAnswer: noiseCoverageTurn?.assistantText,
+    noiseCoverageArchivedToolResultsRead: archiveReads.filter((read) => read.requestTurnId === 'phase8-noise-coverage-miss').length,
+    noiseCoverageContextBudget: noiseCoverageUsageEvent?.contextBudget,
+    rawEvidenceArchivedToolResultsRead: archiveReads.filter((read) => read.requestTurnId === 'phase8-raw-evidence').length,
+    repeatedContextBudget: coveredUsageEvent?.contextBudget,
+    rawEvidenceContextBudget: rawEvidenceUsageEvent?.contextBudget,
+    recoveryUsage: usageSummary(coveredUsageEvent, llmRecords.at(coveredRecordOffset), pricingId),
+    repeatedUsage: usageSummary(coveredUsageEvent, llmRecords.at(coveredRecordOffset), pricingId),
+    noiseCoverageUsage: noiseCoverageTurn
+      ? usageSummary(noiseCoverageUsageEvent, llmRecords.at(noiseRecordOffset), pricingId)
+      : undefined,
+    rawEvidenceUsage: rawEvidenceTurn ? usageSummary(rawEvidenceUsageEvent, llmRecords.at(-1), pricingId) : undefined,
+    scenarioUsageTotals: usageTotals(llmRecords, pricingId),
+    requestShapeTrace: runTraceEvents
+      .filter((event) =>
+        event.data?.requestShapeHash ||
+        event.data?.requestShapeChangeReason ||
+        event.data?.contextBudget
+      )
+      .map((event) => ({
+        phase: event.phase,
+        type: event.type,
+        requestShapeHash: event.data?.requestShapeHash,
+        requestShapeChangeReason: event.data?.requestShapeChangeReason,
+        contextBudget: event.data?.contextBudget,
+      })),
+  };
+}
+
 function buildPhase7LookupTool(input) {
   return {
     name: 'Phase7Lookup',
@@ -697,6 +1060,66 @@ function buildPhase7ContextBudgetPolicy(mode) {
   return {
     ...base,
     archiveRetrieval,
+  };
+}
+
+function buildPhase8ContextBudgetPolicy(mode, synthesisBlocks) {
+  if (mode === 'full') return undefined;
+  const gated = buildPhase7ContextBudgetPolicy('gated');
+  if (mode !== 'synthesis_gated') return gated;
+  return {
+    ...gated,
+    name: 'phase8-synthesis-gated',
+    synthesisCache: {
+      enabled: true,
+      blocks: synthesisBlocks,
+      maxBlocks: 1,
+    },
+  };
+}
+
+function buildPhase8SynthesisBlock(input) {
+  return {
+    kind: 'maka.synthesis_cache_block',
+    version: 1,
+    blockId: `phase8-synth-${sha256(`${input.sessionId}:${input.lookupKey}`).slice(0, 16)}`,
+    sessionId: input.sessionId,
+    createdAt: Date.now(),
+    highWaterName: `phase8-after-gated-${input.lookupKey}`,
+    highWaterSeq: 1,
+    sourceRef: {
+      sourceRef: input.sourceRef,
+      repoRoot: input.repoRoot,
+      harnessRunId: process.env.MAKA_COST_BASELINE_RUN_ID,
+    },
+    coverage: {
+      queryKeys: [input.lookupKey],
+      turnIds: [input.source.turnId],
+      runtimeEventIds: [input.source.runtimeEventId],
+      toolNames: [input.source.toolName],
+      toolCallIds: [input.source.toolCallId],
+      artifactIds: [input.source.artifactId],
+      bodySha256: [input.source.bodySha256],
+    },
+    summary: `For lookup key ${input.lookupKey}, the recoverable sentinel is ${input.sentinel}.`,
+    limitations: [
+      'Does not include raw tool output.',
+      'Does not cover noise lookup keys or changed archive bodies.',
+    ],
+    sourceRefs: [{
+      kind: 'archived_tool_result',
+      sessionId: input.sessionId,
+      turnId: input.source.turnId,
+      runtimeEventId: input.source.runtimeEventId,
+      toolCallId: input.source.toolCallId,
+      toolName: input.source.toolName,
+      artifactId: input.source.artifactId,
+      bodySha256: input.source.bodySha256,
+      originalEstimatedTokens: input.source.originalEstimatedTokens,
+      originalBytes: input.source.originalBytes,
+      placeholderReason: input.source.placeholderReason,
+    }],
+    createdFrom: input.createdFrom ?? 'gated_archive_retrieval',
   };
 }
 
@@ -859,6 +1282,88 @@ function validatePhase7ToolMatrix(cases, sentinel) {
       }
       if ((eager?.finalContextBudget?.retrievedArchiveEstimatedTokens ?? 0) <= (gated?.finalContextBudget?.retrievedArchiveEstimatedTokens ?? 0)) {
         failures.push(`${matrixCase.name}: eager scenario did not report higher retrieved archive token volume than gated`);
+      }
+    }
+  }
+  return failures;
+}
+
+function validatePhase8SynthesisMatrix(cases, sentinel) {
+  const failures = [];
+  for (const matrixCase of cases) {
+    const byMode = new Map(matrixCase.scenarios.map((scenario) => [scenario.mode, scenario]));
+    for (const mode of ['full', 'gated', 'synthesis_gated']) {
+      const scenario = byMode.get(mode);
+      if (!scenario) {
+        failures.push(`${matrixCase.name}: missing ${mode} scenario`);
+        continue;
+      }
+      if (!scenario.repeatedRecoveredSentinel || !scenario.repeatedAnswerExactlySentinel) {
+        failures.push(`${matrixCase.name}: ${mode} repeated turn did not recover exactly ${sentinel}`);
+      }
+      if ((scenario.repeatedUsage?.cacheMissInput ?? 0) < 0) {
+        failures.push(`${matrixCase.name}: ${mode} repeated cacheMissInput was not measurable`);
+      }
+      if (typeof scenario.repeatedUsage?.estimatedCostUsd !== 'number') {
+        failures.push(`${matrixCase.name}: ${mode} repeated estimatedCostUsd was not measurable`);
+      }
+    }
+    const gated = byMode.get('gated');
+    const synthesis = byMode.get('synthesis_gated');
+    if (gated && (gated.recoveryArchivedToolResultsRead ?? 0) < 1) {
+      failures.push(`${matrixCase.name}: gated covered turn did not read the target archive`);
+    }
+    if (gated && (gated.recoveryContextBudget?.retrievedArchiveToolResults ?? 0) < 1) {
+      failures.push(`${matrixCase.name}: gated covered turn did not report archive retrieval`);
+    }
+    if (gated && (gated.repeatedArchivedToolResultsRead ?? 0) < 1) {
+      failures.push(`${matrixCase.name}: gated comparison turn did not read the target archive`);
+    }
+    if (synthesis) {
+      if ((synthesis.synthesisBlocksCreated?.length ?? 0) !== 1) {
+        failures.push(`${matrixCase.name}: synthesis_gated did not create one synthesis block`);
+      }
+      if ((synthesis.repeatedArchivedToolResultsRead ?? 0) !== 0) {
+        failures.push(`${matrixCase.name}: synthesis_gated repeated turn read archives`);
+      }
+      if ((synthesis.repeatedContextBudget?.synthesisCacheBlocksSelected ?? 0) !== 1) {
+        failures.push(`${matrixCase.name}: synthesis_gated repeated turn did not select synthesis`);
+      }
+      if (
+        gated &&
+        typeof gated.repeatedUsage?.input === 'number' &&
+        typeof synthesis.repeatedUsage?.input === 'number' &&
+        synthesis.repeatedUsage.input >= gated.repeatedUsage.input
+      ) {
+        failures.push(`${matrixCase.name}: synthesis_gated comparison input was not below gated`);
+      }
+      if (
+        gated &&
+        typeof gated.repeatedUsage?.estimatedCostUsd === 'number' &&
+        typeof synthesis.repeatedUsage?.estimatedCostUsd === 'number' &&
+        synthesis.repeatedUsage.estimatedCostUsd >= gated.repeatedUsage.estimatedCostUsd
+      ) {
+        failures.push(`${matrixCase.name}: synthesis_gated comparison cost was not below gated`);
+      }
+      if ((synthesis.rawEvidenceArchivedToolResultsRead ?? 0) < 1) {
+        failures.push(`${matrixCase.name}: synthesis_gated raw evidence turn did not fall back to archive retrieval`);
+      }
+      if ((synthesis.rawEvidenceContextBudget?.retrievedArchiveToolResults ?? 0) < 1) {
+        failures.push(`${matrixCase.name}: synthesis_gated raw evidence turn did not report archive retrieval`);
+      }
+      if (matrixCase.name === 'multi_archive_selectivity') {
+        if ((synthesis.repeatedContextBudget?.synthesisCacheBlocksSelected ?? 0) !== 1) {
+          failures.push(`${matrixCase.name}: synthesis_gated selected more or fewer than one block`);
+        }
+        if ((synthesis.repeatedContextBudget?.archiveRetrievalSkipped ?? 0) > 0) {
+          failures.push(`${matrixCase.name}: synthesis_gated repeated turn should skip archive retrieval entirely`);
+        }
+        if ((synthesis.noiseCoverageContextBudget?.synthesisCacheBlocksSelected ?? 0) !== 0) {
+          failures.push(`${matrixCase.name}: synthesis_gated noise query selected target synthesis`);
+        }
+        if ((synthesis.noiseCoverageContextBudget?.synthesisCacheSkippedReasonCounts?.coverage_miss ?? 0) < 1) {
+          failures.push(`${matrixCase.name}: synthesis_gated noise query did not report coverage miss`);
+        }
       }
     }
   }
