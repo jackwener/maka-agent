@@ -108,6 +108,7 @@ import {
   estimateRuntimeEventsTokens,
   retrieveArchivedToolResultsForReplay,
   retrieveRuntimeEventHistoryAround,
+  selectSynthesisCacheForReplay,
   type ContextBudgetPolicy,
   type StaleToolResultArchiveCandidate,
   type ToolResultArchiveReader,
@@ -418,6 +419,10 @@ export class AiSdkBackend implements AgentBackend {
           activeTools,
           priorMessages: priorReplay.messages,
         }, this.priorRequestShape);
+        if (priorReplay.contextBudget?.highWaterReason) {
+          priorReplay.contextBudget.highWaterRequestShapeHashBefore = this.priorRequestShape?.requestShapeHash;
+          priorReplay.contextBudget.highWaterRequestShapeHashAfter = requestShape.requestShapeHash;
+        }
         requestShapeForTelemetry = requestShape;
         this.priorRequestShape = requestShape;
         trace.modelStreamStarted(activeTools, {
@@ -762,22 +767,41 @@ export class AiSdkBackend implements AgentBackend {
       );
     }
 
-    const retrieval = await retrieveArchivedToolResultsForReplay(
+    const synthesis = selectSynthesisCacheForReplay(
       runtimeContext,
-      contextBudget?.archiveRetrieval,
-      this.input.readToolResultArchive,
+      input.text,
+      contextBudget?.synthesisCache,
       {
         sessionId: this.sessionId,
         charsPerToken: contextBudget?.charsPerToken,
-        allowedTurnIds: archiveRetrievalAllowedTurnIds,
       },
     );
-    runtimeContext = retrieval.events;
-    if (contextBudget?.archiveRetrieval?.enabled === true) {
+    runtimeContext = synthesis.events;
+    if (contextBudget?.synthesisCache?.enabled === true) {
       contextBudgetDiagnostic = mergeContextBudgetDiagnostic(
         contextBudgetDiagnostic ?? buildContextBudgetDiagnosticShell(priorRuntimeContext, runtimeContext, contextBudget),
-        retrieval.diagnosticPatch,
+        synthesis.diagnosticPatch,
       );
+    }
+
+    if (synthesis.selectedBlocks.length === 0) {
+      const retrieval = await retrieveArchivedToolResultsForReplay(
+        runtimeContext,
+        contextBudget?.archiveRetrieval,
+        this.input.readToolResultArchive,
+        {
+          sessionId: this.sessionId,
+          charsPerToken: contextBudget?.charsPerToken,
+          allowedTurnIds: archiveRetrievalAllowedTurnIds,
+        },
+      );
+      runtimeContext = retrieval.events;
+      if (contextBudget?.archiveRetrieval?.enabled === true) {
+        contextBudgetDiagnostic = mergeContextBudgetDiagnostic(
+          contextBudgetDiagnostic ?? buildContextBudgetDiagnosticShell(priorRuntimeContext, runtimeContext, contextBudget),
+          retrieval.diagnosticPatch,
+        );
+      }
     }
 
     const plan = buildRuntimeEventModelReplayPlan(
@@ -1132,6 +1156,14 @@ function mergeContextBudgetDiagnostic(
     archiveRetrievalSkippedReasonCounts: mergeCountRecords(
       base.archiveRetrievalSkippedReasonCounts,
       patch.archiveRetrievalSkippedReasonCounts,
+    ),
+    synthesisCacheSkippedReasonCounts: mergeCountRecords(
+      base.synthesisCacheSkippedReasonCounts,
+      patch.synthesisCacheSkippedReasonCounts,
+    ),
+    synthesisCacheInvalidationReasonCounts: mergeCountRecords(
+      base.synthesisCacheInvalidationReasonCounts,
+      patch.synthesisCacheInvalidationReasonCounts,
     ),
   };
 }
