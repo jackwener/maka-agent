@@ -32,6 +32,7 @@ export type ToolCategory =
   | 'git_destructive' //   git reset --hard, push --force, branch -D, ...
   | 'network_send' //      POST / PUT / DELETE
   | 'privileged' //        sudo, chmod, chown, kill, systemctl
+  | 'browser' //           embedded-browser observe→act on the user's logged-in sessions
   | 'custom_tool' //       our own session-scoped tools without a stricter category hint
   | 'subagent'; //         read-only delegated exploration tools
 
@@ -45,6 +46,7 @@ export const TOOL_CATEGORIES: readonly ToolCategory[] = [
   'git_destructive',
   'network_send',
   'privileged',
+  'browser',
   'custom_tool',
   'subagent',
 ];
@@ -74,6 +76,9 @@ export const PERMISSION_POLICY: Record<PermissionMode, Record<ToolCategory, Poli
     git_destructive: 'block',
     network_send: 'block',
     privileged: 'block',
+    // Driving the user's logged-in browser is an out-of-process effect; explore
+    // mode is read-only-local, so block it like other network/write effects.
+    browser: 'block',
     custom_tool: 'prompt',
     subagent: 'allow',
   },
@@ -87,6 +92,7 @@ export const PERMISSION_POLICY: Record<PermissionMode, Record<ToolCategory, Poli
     git_destructive: 'prompt',
     network_send: 'prompt',
     privileged: 'prompt',
+    browser: 'prompt',
     custom_tool: 'allow',
     subagent: 'prompt',
   },
@@ -103,6 +109,11 @@ export const PERMISSION_POLICY: Record<PermissionMode, Record<ToolCategory, Poli
     fs_destructive: 'prompt',
     git_destructive: 'prompt',
     privileged: 'prompt',
+    // Browser act/observe drives the user's logged-in sessions — effectively
+    // irreversible (it can post, send, buy). Prompt even in execute so the
+    // visible view stays a confirmed safety net, not a default-allow. The
+    // user's "allow for this turn" then carries the observe→act loop.
+    browser: 'prompt',
   },
 };
 
@@ -297,6 +308,13 @@ export function preToolUse(input: PreToolUseInput): PreToolUseResult {
 }
 
 export function permissionScopeKey(toolName: string, args: unknown, category: ToolCategory): string {
+  // Browser actions share ONE turn-scope across every browser_* tool and its
+  // args: "allow for this turn" on the first prompt then carries the whole
+  // observe→act loop (snapshot → click → type → navigate …), as the policy
+  // comment promises. The visible-conversation lease — not per-call prompts —
+  // is the safety net for which page is driven. Other categories stay scoped
+  // to the specific tool + args below.
+  if (category === 'browser') return 'browser';
   switch (toolName) {
     case 'Write':
     case 'Edit':
@@ -356,6 +374,8 @@ function categoryToReason(c: ToolCategory): PermissionRequest['reason'] {
       return 'git_destructive';
     case 'privileged':
       return 'privileged';
+    case 'browser':
+      return 'browser';
     default:
       return 'custom';
   }
@@ -377,6 +397,7 @@ export interface PermissionRequest {
     | 'network'
     | 'git_destructive'
     | 'privileged'
+    | 'browser'
     | 'custom';
   args: unknown;
   hint?: string;

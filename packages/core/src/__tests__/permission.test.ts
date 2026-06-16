@@ -274,6 +274,33 @@ describe('preToolUse — turnRemembered', () => {
   });
 });
 
+describe('preToolUse — browser permission contract', () => {
+  test('a browser prompt carries the browser-specific reason (not custom)', () => {
+    const r = evaluate('browser_click', { ref: '[12]' }, 'ask', [], 'browser');
+    expect(r.needsPrompt).toBe(true);
+    expect(r.category).toBe('browser');
+    expect(r.partialRequest?.reason).toBe('browser');
+  });
+
+  test('browser scope is one turn-wide key, shared across every browser_* tool + args', () => {
+    // The whole observe→act loop collapses to a single scope key — unlike
+    // file_write above, which scopes per path.
+    expect(permissionScopeKey('browser_click', { ref: '[12]' }, 'browser')).toBe('browser');
+    expect(permissionScopeKey('browser_type', { ref: '[3]', text: 'hi' }, 'browser')).toBe('browser');
+    expect(permissionScopeKey('browser_navigate', { url: 'https://x.com' }, 'browser')).toBe('browser');
+  });
+
+  test('"allow for this turn" on one browser action carries the rest of the loop', () => {
+    const remembered = [permissionScopeKey('browser_navigate', { url: 'https://x.com' }, 'browser')];
+    // A different browser tool, different args → allowed without re-prompting.
+    const click = evaluate('browser_click', { ref: '[99]' }, 'execute', remembered, 'browser');
+    expect(click.proceed).toBe(true);
+    expect(click.needsPrompt).toBe(false);
+    const type = evaluate('browser_type', { ref: '[2]', text: 'x' }, 'ask', remembered, 'browser');
+    expect(type.proceed).toBe(true);
+  });
+});
+
 describe('PERMISSION_POLICY matrix invariants', () => {
   const categories: ToolCategory[] = [
     'read',
@@ -285,6 +312,7 @@ describe('PERMISSION_POLICY matrix invariants', () => {
     'git_destructive',
     'network_send',
     'privileged',
+    'browser',
     'custom_tool',
     'subagent',
   ];
@@ -308,6 +336,13 @@ describe('PERMISSION_POLICY matrix invariants', () => {
 
   test('execute mode never blocks privileged — always prompts', () => {
     expect(PERMISSION_POLICY.execute.privileged).toBe('prompt');
+  });
+
+  test('browser is prompt-on-effect: blocked in explore, prompts in ask AND execute (never auto-allowed)', () => {
+    expect(PERMISSION_POLICY.explore.browser).toBe('block');
+    expect(PERMISSION_POLICY.ask.browser).toBe('prompt');
+    // The key contrast with network_send: not silently allowed in execute.
+    expect(PERMISSION_POLICY.execute.browser).toBe('prompt');
   });
 
   test('explore mode allows local reads + safe shell (web_read prompts post PR-AGENT-WEB-SEARCH-TOOL-0)', () => {

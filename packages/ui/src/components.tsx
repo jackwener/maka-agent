@@ -20,6 +20,7 @@ import {
   FolderOpen,
   GitBranch,
   GitMerge,
+  Globe,
   HelpCircle,
   Hourglass,
   Loader2,
@@ -6086,6 +6087,7 @@ const REASON_PRESETS: Record<ReasonKind, ReasonPreset> = {
   git_destructive: { label: '不可恢复的 Git 操作', Icon: GitMerge, tone: 'destructive' },
   network: { label: '对外网络请求', Icon: Wifi, tone: 'info' },
   privileged: { label: '特权操作 (sudo / su)', Icon: ShieldAlert, tone: 'destructive' },
+  browser: { label: '读取和操作你登录的浏览器会话 · 请确认', Icon: Globe, tone: 'caution' },
   custom: { label: '自定义请求', Icon: HelpCircle, tone: 'info' },
 };
 
@@ -6206,6 +6208,11 @@ export function PermissionDialog(props: {
             />
             本轮对话内记住选择（同类型工具不再询问，关闭/切换对话后失效）
           </label>
+          {props.request.reason === 'browser' && rememberForTurn && (
+            <p className="maka-permission-hint" role="note">
+              勾选后，本轮接下来的浏览、读取页面、导航、点击、输入都不再逐次询问。你会全程看到它操作的页面，随时可以停止；本轮结束后授权失效。
+            </p>
+          )}
           {isDestructive && (
             <p className="maka-permission-danger-note" role="note">
               这类操作不可恢复，确认前请再读一遍上面的参数。
@@ -6235,6 +6242,33 @@ export function PermissionDialog(props: {
 }
 
 /**
+ * One-line summary for a browser_* action. Names the concrete action (open /
+ * read / click / type) so the prompt reads as a real browser step, not an opaque
+ * tool call — reinforcing that a browser grant spans reads AND acts. The typed
+ * text and full args stay in the raw `<details>` block below.
+ */
+function renderBrowserSummary(toolName: string, args: Record<string, unknown>): ReactNode {
+  const ref = typeof args.ref === 'string' ? args.ref : '';
+  const url = typeof args.url === 'string' ? args.url : '';
+  const selector = typeof args.selector === 'string' ? args.selector : '';
+  const line =
+    toolName === 'browser_navigate'
+      ? `即将在浏览器中打开 ${url || '一个网址'}`
+      : toolName === 'browser_click'
+        ? `即将在当前页面点击元素 ${ref}`.trim()
+        : toolName === 'browser_type'
+          ? `即将在当前页面输入文本${ref ? ` 到元素 ${ref}` : ''}`
+          : toolName === 'browser_snapshot'
+            ? '即将读取当前页面的可交互元素列表'
+            : toolName === 'browser_extract'
+              ? `即将读取当前页面内容${selector ? `（${selector}）` : ''}`
+              : toolName === 'browser_wait'
+                ? '即将等待当前页面满足某个条件'
+                : '即将操作当前浏览器页面';
+  return <p className="maka-permission-line">{line}</p>;
+}
+
+/**
  * Per-tool human-readable summary of what the request will do, used at the
  * top of the permission dialog body. Falls back to undefined if we can't
  * recognize the tool — the raw args `<details>` block is always available.
@@ -6242,6 +6276,13 @@ export function PermissionDialog(props: {
 function renderPermissionSummary(request: PermissionRequestEvent): ReactNode | undefined {
   const args = (request.args ?? {}) as Record<string, unknown>;
   switch (request.toolName) {
+    case 'browser_navigate':
+    case 'browser_snapshot':
+    case 'browser_click':
+    case 'browser_type':
+    case 'browser_wait':
+    case 'browser_extract':
+      return renderBrowserSummary(request.toolName, args);
     case 'Bash': {
       const command = typeof args.command === 'string' ? args.command : undefined;
       if (!command) return undefined;

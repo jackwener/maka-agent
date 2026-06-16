@@ -282,6 +282,7 @@ export interface PermissionRequestEvent extends BaseEvent {
     | 'network'
     | 'git_destructive'
     | 'privileged'
+    | 'browser'
     | 'custom';
   args: unknown;
   hint?: string;
