@@ -101,6 +101,23 @@ describe('AiSdkBackend deferred tool loading', () => {
       'the real browser_click impl must never run when it was used before activation',
     );
   });
+
+  test('repair: a mis-cased deferred call after a mid-turn load repairs to the canonical name (Codex [P2])', async () => {
+    const captured: string[][] = [];
+    const implCalls: string[] = [];
+    await drain(backend(loadThenMiscasedClickModel(captured), implCalls).send({
+      turnId: 'turn-1',
+      text: 'load browser then click',
+      context: [],
+    }));
+    // Step 0 loads browser; step 1 emits the mis-cased BROWSER_CLICK. Because the
+    // repair list follows the current step's active snapshot (not the frozen
+    // step-0 set), the call repairs to canonical browser_click and runs — rather
+    // than routing to `invalid`, which would leave implCalls empty.
+    assert.ok(captured.length >= 2, 'expected at least the load step and the click step');
+    assert.ok(captured[1].includes('browser_click'), 'browser_click is advertised at step 1 after the load');
+    assert.deepEqual(implCalls, ['browser_click'], 'the mis-cased call repaired to browser_click and ran');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -136,6 +153,38 @@ function parallelLoadUseModel(captured: string[][]): MockLanguageModelV3 {
             { type: 'stream-start', warnings: [] },
             { type: 'finish', finishReason: { unified: 'stop', raw: 'stop' }, usage: ZERO_USAGE },
           ];
+      return { stream: convertArrayToReadableStream(parts) };
+    },
+  });
+}
+
+/**
+ * Step 0 loads the browser namespace; step 1 emits a mis-cased `BROWSER_CLICK`
+ * (a provider that case-drifts a tool that only became active this step). The
+ * AI SDK can't match the upper-cased name, so it calls the repair callback.
+ */
+function loadThenMiscasedClickModel(captured: string[][]): MockLanguageModelV3 {
+  return new MockLanguageModelV3({
+    doStream: async ({ tools: stepTools }) => {
+      captured.push((stepTools ?? []).map((t) => t.name));
+      const step = captured.length;
+      const parts: LanguageModelV3StreamPart[] =
+        step === 1
+          ? [
+              { type: 'stream-start', warnings: [] },
+              { type: 'tool-call', toolCallId: 'tc-load', toolName: 'load_tool', input: JSON.stringify({ namespace: 'browser' }) },
+              { type: 'finish', finishReason: { unified: 'tool-calls', raw: 'tool_calls' }, usage: ZERO_USAGE },
+            ]
+          : step === 2
+            ? [
+                { type: 'stream-start', warnings: [] },
+                { type: 'tool-call', toolCallId: 'tc-click', toolName: 'BROWSER_CLICK', input: JSON.stringify({}) },
+                { type: 'finish', finishReason: { unified: 'tool-calls', raw: 'tool_calls' }, usage: ZERO_USAGE },
+              ]
+            : [
+                { type: 'stream-start', warnings: [] },
+                { type: 'finish', finishReason: { unified: 'stop', raw: 'stop' }, usage: ZERO_USAGE },
+              ];
       return { stream: convertArrayToReadableStream(parts) };
     },
   });

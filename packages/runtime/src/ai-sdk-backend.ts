@@ -458,9 +458,15 @@ export class AiSdkBackend implements AgentBackend {
     // recomputes it before every step; the guard rejects a deferred tool absent
     // from the current step's snapshot (handles same-step parallel load+use).
     let prepareStep: ReturnType<typeof buildDeferredPrepareStep> | undefined;
+    // Tool names the repair path matches a mis-cased call against. Without a
+    // deferred catalog this is the static active set; with one it must follow the
+    // current step's snapshot so a deferred family loaded mid-turn (e.g. browser_*)
+    // is repairable on the step it becomes active, not routed to `invalid`.
+    let currentRepairToolNames: () => string[] = () => canonicalTools.activeTools;
     if (deferredCatalog) {
       const turnActivation = { currentStepActive: new Set<string>(canonicalTools.activeTools) };
       this.toolRuntime.setStepActivation(() => turnActivation.currentStepActive);
+      currentRepairToolNames = () => [...turnActivation.currentStepActive];
       prepareStep = buildDeferredPrepareStep({
         tools: baseTools,
         invalidTool,
@@ -573,7 +579,7 @@ export class AiSdkBackend implements AgentBackend {
           ) => {
             return repairMakaToolCall({
               toolCall,
-              availableToolNames: activeTools,
+              availableToolNames: currentRepairToolNames(),
               error,
             });
           },
