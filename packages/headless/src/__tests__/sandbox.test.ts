@@ -6,7 +6,7 @@ import { describe, test } from 'node:test';
 import { prepareWorkspace, restoreProtectedPaths } from '../sandbox.js';
 
 async function withFixture<T>(fn: (fixtureDir: string) => Promise<T>): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'maka-lab-fixture-'));
+  const dir = await mkdtemp(join(tmpdir(), 'maka-headless-fixture-'));
   try {
     return await fn(dir);
   } finally {

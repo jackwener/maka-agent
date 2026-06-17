@@ -88,8 +88,8 @@ async function fileExistsRecursive(root: string, name: string): Promise<boolean>
 }
 
 async function withDirs<T>(fn: (fixtureDir: string, storageRoot: string) => Promise<T>): Promise<T> {
-  const fixtureDir = await mkdtemp(join(tmpdir(), 'maka-lab-fx-'));
-  const storageRoot = await mkdtemp(join(tmpdir(), 'maka-lab-store-'));
+  const fixtureDir = await mkdtemp(join(tmpdir(), 'maka-headless-fx-'));
+  const storageRoot = await mkdtemp(join(tmpdir(), 'maka-headless-store-'));
   try {
     return await fn(fixtureDir, storageRoot);
   } finally {

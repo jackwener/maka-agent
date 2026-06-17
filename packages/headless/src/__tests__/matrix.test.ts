@@ -17,8 +17,8 @@ const config = (id: string): Config => ({ id, backend: 'fake', llmConnectionSlug
 
 describe('runMatrix', () => {
   test('runs the full Config × Task cross product and scores each cell', async () => {
-    const fixtureDir = await mkdtemp(join(tmpdir(), 'maka-lab-mx-fx-'));
-    const storageRoot = await mkdtemp(join(tmpdir(), 'maka-lab-mx-store-'));
+    const fixtureDir = await mkdtemp(join(tmpdir(), 'maka-headless-mx-fx-'));
+    const storageRoot = await mkdtemp(join(tmpdir(), 'maka-headless-mx-store-'));
     try {
       await writeFile(join(fixtureDir, 'marker.txt'), 'x', 'utf8');
       const passTask: Task = {
@@ -53,7 +53,7 @@ describe('runMatrix', () => {
   });
 
   test('records a thrown run as a failed cell instead of aborting the matrix', async () => {
-    const storageRoot = await mkdtemp(join(tmpdir(), 'maka-lab-mx-err-'));
+    const storageRoot = await mkdtemp(join(tmpdir(), 'maka-headless-mx-err-'));
     try {
       // workspaceDir does not exist → prepareWorkspace throws → failed cell.
       const badTask: Task = {

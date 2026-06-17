@@ -1,4 +1,4 @@
-# @maka/lab
+# @maka/headless
 
 A headless lab for measuring an agent configuration: run a **Config × Task**
 grid in isolated sandboxes, capture each trajectory, score it with the
@@ -13,14 +13,14 @@ Config × Task  →  throwaway workspace  →  headless agent run  →  trajecto
 ## CLI
 
 ```sh
-maka-lab run <spec.json> [--out <dir>]   # run the grid → results.jsonl + comparison.md
-maka-lab compare <results.jsonl>         # print the comparison table
+maka-headless run <spec.json> [--out <dir>]   # run the grid → results.jsonl + comparison.md
+maka-headless compare <results.jsonl>         # print the comparison table
 ```
 
 Try it with the bundled fake-backend demo (no API key needed):
 
 ```sh
-maka-lab run examples/demo.spec.json --out /tmp/maka-lab-demo
+maka-headless run examples/demo.spec.json --out /tmp/maka-headless-demo
 ```
 
 ## Spec
@@ -68,7 +68,7 @@ relative to the spec file, so a spec travels with its fixtures.
   `allowDangerousTools` is meant for inside such a sandbox.
 
   ```sh
-  DEEPSEEK_API_KEY=… maka-lab run examples/fix-add.spec.json --out /tmp/out
+  DEEPSEEK_API_KEY=… maka-headless run examples/fix-add.spec.json --out /tmp/out
   ```
 
 ## Grading

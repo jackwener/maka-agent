@@ -54,10 +54,10 @@ export function registerAiSdkBackend(registry: BackendRegistry, connections: Lab
   registry.register('ai-sdk', (ctx) => {
     const slug = ctx.header.llmConnectionSlug;
     const labConn = bySlug.get(slug);
-    if (!labConn) throw new Error(`@maka/lab: no connection registered for slug="${slug}"`);
+    if (!labConn) throw new Error(`@maka/headless: no connection registered for slug="${slug}"`);
     const apiKey = process.env[labConn.apiKeyEnv];
     if (!apiKey) {
-      throw new Error(`@maka/lab: env var ${labConn.apiKeyEnv} is empty (needed for slug="${slug}")`);
+      throw new Error(`@maka/headless: env var ${labConn.apiKeyEnv} is empty (needed for slug="${slug}")`);
     }
     const modelId = ctx.header.model || labConn.defaultModel;
 

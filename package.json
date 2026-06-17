@@ -7,7 +7,7 @@
     "packages/core",
     "packages/storage",
     "packages/runtime",
-    "packages/lab",
+    "packages/headless",
     "packages/ui",
     "apps/desktop"
   ],

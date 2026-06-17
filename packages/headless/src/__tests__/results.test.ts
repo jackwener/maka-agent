@@ -25,7 +25,7 @@ function record(taskId: string, configId: string, passed: boolean, extra: Partia
 
 describe('results JSONL', () => {
   test('round-trips records through JSONL', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'maka-lab-res-'));
+    const dir = await mkdtemp(join(tmpdir(), 'maka-headless-res-'));
     try {
       const path = join(dir, 'nested', 'results.jsonl');
       const records = [record('t1', 'a', true), record('t1', 'b', false)];

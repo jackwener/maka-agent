@@ -17,12 +17,12 @@ async function runCommand(args: string[]): Promise<number> {
   try {
     ({ positional, flags } = parseArgs(args, ['out']));
   } catch (error) {
-    console.error(`${(error as Error).message}\nusage: maka-lab run <spec.json> [--out <dir>]`);
+    console.error(`${(error as Error).message}\nusage: maka-headless run <spec.json> [--out <dir>]`);
     return 1;
   }
   const specPath = positional[0];
   if (!specPath) {
-    console.error('usage: maka-lab run <spec.json> [--out <dir>]');
+    console.error('usage: maka-headless run <spec.json> [--out <dir>]');
     return 1;
   }
   const specDir = dirname(resolve(specPath));
@@ -33,7 +33,7 @@ async function runCommand(args: string[]): Promise<number> {
     ...task,
     workspaceDir: isAbsolute(task.workspaceDir) ? task.workspaceDir : resolve(specDir, task.workspaceDir),
   }));
-  const outDir = resolve(flags.out ?? 'maka-lab-out');
+  const outDir = resolve(flags.out ?? 'maka-headless-out');
 
   console.log(`running ${spec.configs.length} config(s) × ${tasks.length} task(s)…`);
   const records = await runMatrix(
@@ -60,7 +60,7 @@ async function runCommand(args: string[]): Promise<number> {
 async function compareCommand(args: string[]): Promise<number> {
   const path = args[0];
   if (!path) {
-    console.error('usage: maka-lab compare <results.jsonl>');
+    console.error('usage: maka-headless compare <results.jsonl>');
     return 1;
   }
   process.stdout.write(toComparisonTable(await readResults(path)));
@@ -92,9 +92,9 @@ function parseArgs(args: string[], knownFlags: string[]): { positional: string[]
 }
 
 function printUsage(): void {
-  console.error('maka-lab — headless agent experiment lab\n');
-  console.error('  maka-lab run <spec.json> [--out <dir>]   run configs × tasks, write results + table');
-  console.error('  maka-lab compare <results.jsonl>         print the comparison table');
+  console.error('maka-headless — headless agent experiment lab\n');
+  console.error('  maka-headless run <spec.json> [--out <dir>]   run configs × tasks, write results + table');
+  console.error('  maka-headless compare <results.jsonl>         print the comparison table');
 }
 
 async function main(argv: string[]): Promise<number> {

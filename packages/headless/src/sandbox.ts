@@ -16,7 +16,7 @@ export interface PreparedWorkspace {
 }
 
 export async function prepareWorkspace(fixtureDir: string): Promise<PreparedWorkspace> {
-  const dir = await mkdtemp(join(tmpdir(), 'maka-lab-ws-'));
+  const dir = await mkdtemp(join(tmpdir(), 'maka-headless-ws-'));
   try {
     const source = await realpath(fixtureDir);
     // Copy the fixture into the throwaway dir, rejecting symlinks: a

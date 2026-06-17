@@ -6,7 +6,7 @@ import { describe, test } from 'node:test';
 import { runVerification } from '../evaluator.js';
 
 async function withTempDir<T>(fn: (dir: string) => Promise<T>): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'maka-lab-eval-'));
+  const dir = await mkdtemp(join(tmpdir(), 'maka-headless-eval-'));
   try {
     return await fn(dir);
   } finally {
@@ -36,7 +36,7 @@ describe('runVerification', () => {
     await withTempDir(async (dir) => {
       const result = await runVerification('pwd', dir);
       assert.equal(result.passed, true);
-      assert.match(result.stdout, /maka-lab-eval-/);
+      assert.match(result.stdout, /maka-headless-eval-/);
     });
   });
 

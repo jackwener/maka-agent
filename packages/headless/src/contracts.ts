@@ -1,5 +1,5 @@
 /**
- * @maka/lab contracts — the walking-skeleton surface (issue #31).
+ * @maka/headless contracts — the walking-skeleton surface (issue #31).
  *
  * The lab treats an agent configuration as something testable: run a
  * `Config` against a `Task`, record what happened, score it. Keeping

@@ -20,9 +20,9 @@ function runCli(args: string[]): Promise<{ code: number | null; stdout: string; 
   });
 }
 
-describe('maka-lab CLI', () => {
+describe('maka-headless CLI', () => {
   test('run executes a fake spec end-to-end and writes results + table', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'maka-lab-cli-'));
+    const dir = await mkdtemp(join(tmpdir(), 'maka-headless-cli-'));
     try {
       await mkdir(join(dir, 'fixture'), { recursive: true });
       await writeFile(join(dir, 'fixture', 'marker.txt'), 'ok', 'utf8');
