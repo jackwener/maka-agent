@@ -26,8 +26,11 @@ describe('renderer utility surfaces use shared UI primitives', () => {
   it('keeps artifact pane controls on shared Button primitives', async () => {
     const source = await readFile(join(process.cwd(), 'src/renderer/artifact-pane.tsx'), 'utf8');
 
-    assert.match(source, /import \{ Button, useToast \} from '@maka\/ui';/);
+    assert.match(source, /import \{ Button, Toolbar, ToolbarGroup, ToolbarSeparator, useToast \} from '@maka\/ui';/);
     assert.doesNotMatch(source, /<button\b/, 'ArtifactPane controls must use shared Button');
+    assert.doesNotMatch(source, /role="toolbar"/, 'ArtifactPane toolbar semantics must come from COSS Toolbar');
+    assert.match(source, /<Toolbar className="maka-artifact-toolbar" aria-label="生成文件操作">/);
+    assert.match(source, /<ToolbarSeparator className="maka-artifact-toolbar-separator" orientation="vertical" \/>/);
     for (const className of [
       'maka-artifact-pane-collapse',
       'maka-artifact-error-retry',

@@ -9465,10 +9465,30 @@ button:active {
 .maka-artifact-toolbar {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
   padding: 8px 10px;
+  border: 0;
   border-top: 1px solid var(--border);
+  border-radius: 0;
   background: var(--background);
+  box-shadow: none;
+}
+
+.maka-artifact-toolbar-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.maka-artifact-toolbar-danger-group {
+  margin-left: auto;
+}
+
+.maka-artifact-toolbar-separator {
+  min-height: 22px;
+  background: var(--border);
 }
 
 .maka-artifact-toolbar-button {
@@ -9502,7 +9522,6 @@ button:active {
 }
 
 .maka-artifact-toolbar-destructive {
-  margin-left: auto;
   color: var(--destructive-text);
   border-color: oklch(from var(--destructive) l c h / 0.32);
 }

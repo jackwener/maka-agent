@@ -145,7 +145,7 @@ describe('ArtifactPane async lifecycle contract', () => {
     const src = await readFile(ARTIFACT_PANE_SOURCE, 'utf8');
     const css = await readFile(join(process.cwd(), 'src', 'renderer', 'styles.css'), 'utf8');
     const gateBlock = src.match(/async function runArtifactAction[\s\S]*?async function openInFinder/)?.[0] ?? '';
-    const toolbarBlock = src.match(/<div className="maka-artifact-toolbar"[\s\S]*?\n            <\/div>/)?.[0] ?? '';
+    const toolbarBlock = src.match(/<Toolbar className="maka-artifact-toolbar"[\s\S]*?\n            <\/Toolbar>/)?.[0] ?? '';
 
     assert.match(src, /const \[pendingArtifactAction, setPendingArtifactAction\] = useState<string \| null>\(null\)/);
     assert.match(src, /const pendingArtifactActionRef = useRef<string \| null>\(null\)/);
@@ -160,6 +160,12 @@ describe('ArtifactPane async lifecycle contract', () => {
       src,
       /onShowInFolder=\{\(\) => void runArtifactAction\(`\$\{selected\.id\}:open`, \(\) => openInFinder\(selected\.id\)\)\}/,
       'Unsupported-preview Finder action must share the same pending gate as the toolbar button',
+    );
+    assert.match(src, /import \{ Button, Toolbar, ToolbarGroup, ToolbarSeparator, useToast \} from '@maka\/ui';/);
+    assert.match(
+      toolbarBlock,
+      /<Toolbar className="maka-artifact-toolbar" aria-label="生成文件操作">[\s\S]*<ToolbarGroup className="maka-artifact-toolbar-group">[\s\S]*<ToolbarSeparator className="maka-artifact-toolbar-separator" orientation="vertical" \/>[\s\S]*<ToolbarGroup className="maka-artifact-toolbar-group maka-artifact-toolbar-danger-group">/,
+      'Artifact toolbar must use the COSS Toolbar shell while keeping actions grouped',
     );
     for (const action of ['open', 'save', 'copy', 'delete']) {
       assert.ok(

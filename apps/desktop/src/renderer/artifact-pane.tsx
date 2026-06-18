@@ -53,7 +53,7 @@ import {
   generalizedErrorMessageChinese,
   redactSecrets,
 } from '@maka/core';
-import { Button, useToast } from '@maka/ui';
+import { Button, Toolbar, ToolbarGroup, ToolbarSeparator, useToast } from '@maka/ui';
 import { ArtifactPreview } from './artifact-preview';
 import { nextArtifactListAction } from './artifact-list-keyboard';
 import { openPathFailureCopy } from './open-path';
@@ -468,62 +468,67 @@ export function ArtifactPane(props: { sessionId: string | undefined }) {
             )}
           </div>
           {selected && (
-            <div className="maka-artifact-toolbar" role="toolbar" aria-label="生成文件操作">
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                className="maka-artifact-toolbar-button"
-                onClick={() => void runArtifactAction(`${selected.id}:open`, () => openInFinder(selected.id))}
-                disabled={artifactActionBusy}
-                data-pending={pendingArtifactAction === `${selected.id}:open` ? 'true' : undefined}
-                aria-busy={pendingArtifactAction === `${selected.id}:open` ? 'true' : undefined}
-              >
-                <FolderOpen size={14} aria-hidden="true" />
-                <span>{pendingArtifactAction === `${selected.id}:open` ? '打开中…' : '在 Finder 中打开'}</span>
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                className="maka-artifact-toolbar-button"
-                onClick={() => void runArtifactAction(`${selected.id}:save`, () => saveAs(selected.id))}
-                disabled={artifactActionBusy}
-                data-pending={pendingArtifactAction === `${selected.id}:save` ? 'true' : undefined}
-                aria-busy={pendingArtifactAction === `${selected.id}:save` ? 'true' : undefined}
-              >
-                <Save size={14} aria-hidden="true" />
-                <span>{pendingArtifactAction === `${selected.id}:save` ? '另存中…' : '另存为'}</span>
-              </Button>
-              {isTextKind(selected.kind) && (
+            <Toolbar className="maka-artifact-toolbar" aria-label="生成文件操作">
+              <ToolbarGroup className="maka-artifact-toolbar-group">
                 <Button
                   type="button"
                   variant="secondary"
                   size="sm"
                   className="maka-artifact-toolbar-button"
-                  onClick={() => void runArtifactAction(`${selected.id}:copy`, () => copyText(selected.id))}
+                  onClick={() => void runArtifactAction(`${selected.id}:open`, () => openInFinder(selected.id))}
                   disabled={artifactActionBusy}
-                  data-pending={pendingArtifactAction === `${selected.id}:copy` ? 'true' : undefined}
-                  aria-busy={pendingArtifactAction === `${selected.id}:copy` ? 'true' : undefined}
+                  data-pending={pendingArtifactAction === `${selected.id}:open` ? 'true' : undefined}
+                  aria-busy={pendingArtifactAction === `${selected.id}:open` ? 'true' : undefined}
                 >
-                  <Copy size={14} aria-hidden="true" />
-                  <span>{pendingArtifactAction === `${selected.id}:copy` ? '复制中…' : '复制文本'}</span>
+                  <FolderOpen size={14} aria-hidden="true" />
+                  <span>{pendingArtifactAction === `${selected.id}:open` ? '打开中…' : '在 Finder 中打开'}</span>
                 </Button>
-              )}
-              <Button
-                type="button"
-                variant="destructive"
-                size="sm"
-                className="maka-artifact-toolbar-button maka-artifact-toolbar-destructive"
-                onClick={() => void runArtifactAction(`${selected.id}:delete`, () => deleteArtifact(selected.id))}
-                disabled={artifactActionBusy}
-                data-pending={pendingArtifactAction === `${selected.id}:delete` ? 'true' : undefined}
-                aria-busy={pendingArtifactAction === `${selected.id}:delete` ? 'true' : undefined}
-              >
-                <Trash2 size={14} aria-hidden="true" />
-                <span>{pendingArtifactAction === `${selected.id}:delete` ? '删除中…' : '删除'}</span>
-              </Button>
-            </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="maka-artifact-toolbar-button"
+                  onClick={() => void runArtifactAction(`${selected.id}:save`, () => saveAs(selected.id))}
+                  disabled={artifactActionBusy}
+                  data-pending={pendingArtifactAction === `${selected.id}:save` ? 'true' : undefined}
+                  aria-busy={pendingArtifactAction === `${selected.id}:save` ? 'true' : undefined}
+                >
+                  <Save size={14} aria-hidden="true" />
+                  <span>{pendingArtifactAction === `${selected.id}:save` ? '另存中…' : '另存为'}</span>
+                </Button>
+                {isTextKind(selected.kind) && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="maka-artifact-toolbar-button"
+                    onClick={() => void runArtifactAction(`${selected.id}:copy`, () => copyText(selected.id))}
+                    disabled={artifactActionBusy}
+                    data-pending={pendingArtifactAction === `${selected.id}:copy` ? 'true' : undefined}
+                    aria-busy={pendingArtifactAction === `${selected.id}:copy` ? 'true' : undefined}
+                  >
+                    <Copy size={14} aria-hidden="true" />
+                    <span>{pendingArtifactAction === `${selected.id}:copy` ? '复制中…' : '复制文本'}</span>
+                  </Button>
+                )}
+              </ToolbarGroup>
+              <ToolbarSeparator className="maka-artifact-toolbar-separator" orientation="vertical" />
+              <ToolbarGroup className="maka-artifact-toolbar-group maka-artifact-toolbar-danger-group">
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  className="maka-artifact-toolbar-button maka-artifact-toolbar-destructive"
+                  onClick={() => void runArtifactAction(`${selected.id}:delete`, () => deleteArtifact(selected.id))}
+                  disabled={artifactActionBusy}
+                  data-pending={pendingArtifactAction === `${selected.id}:delete` ? 'true' : undefined}
+                  aria-busy={pendingArtifactAction === `${selected.id}:delete` ? 'true' : undefined}
+                >
+                  <Trash2 size={14} aria-hidden="true" />
+                  <span>{pendingArtifactAction === `${selected.id}:delete` ? '删除中…' : '删除'}</span>
+                </Button>
+              </ToolbarGroup>
+            </Toolbar>
           )}
         </>
       )}
