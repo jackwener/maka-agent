@@ -1426,6 +1426,7 @@ button:active {
 
 .maka-onboarding-card {
   width: 100%;
+  height: auto;
   display: grid;
   grid-template-columns: 32px minmax(0, 1fr) 14px;
   align-items: center;
@@ -1776,7 +1777,8 @@ button:active {
   font-size: 0.78rem;
   line-height: 1;
 }
-.maka-onboarding-quickchat .maka-button {
+.maka-onboarding-quickchat-action,
+.maka-onboarding-quickchat-submit {
   min-width: 120px;
 }
 
@@ -1788,7 +1790,8 @@ button:active {
   gap: 8px;
 }
 
-.maka-onboarding-quickchat-actions .maka-button {
+.maka-onboarding-quickchat-action,
+.maka-onboarding-quickchat-submit {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -1814,19 +1817,15 @@ button:active {
 }
 
 .maka-first-run-task-suggestions-restore {
-  appearance: none;
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  border: 0;
-  background: transparent;
   color: var(--foreground-55);
+  height: auto;
   min-height: 24px;
   padding: 2px 4px;
-  font: inherit;
   font-size: 12px;
   line-height: 1.2;
-  cursor: pointer;
 }
 
 .maka-first-run-task-suggestions-restore:hover {
@@ -1852,17 +1851,15 @@ button:active {
 }
 
 .maka-first-run-task-suggestion {
-  appearance: none;
   border: 1px solid var(--foreground-10);
   border-radius: 8px 0 0 8px;
   background: var(--foreground-3);
   color: var(--foreground-80);
+  height: auto;
   min-height: 32px;
   padding: 6px 10px;
-  font: inherit;
   font-size: 12px;
   line-height: 1.35;
-  cursor: pointer;
 }
 
 .maka-first-run-task-suggestion:hover {
@@ -1882,17 +1879,16 @@ button:active {
 }
 
 .maka-first-run-task-suggestion-dismiss {
-  appearance: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  height: auto;
   width: 28px;
   border: 1px solid var(--foreground-10);
   border-left: 0;
   border-radius: 0 8px 8px 0;
   background: var(--foreground-3);
   color: var(--foreground-45);
-  cursor: pointer;
 }
 
 .maka-first-run-task-suggestion-dismiss:hover {
@@ -11171,6 +11167,7 @@ button:active {
   align-items: center;
   flex: 0 0 auto;
   gap: 4px;
+  height: auto;
   min-height: 24px;
   padding: 0 8px;
   border: 1px solid oklch(from var(--warning, var(--info)) l c h / 0.28);
@@ -11178,7 +11175,6 @@ button:active {
   background: var(--background);
   color: var(--warning-text, var(--info-text));
   font-size: 12px;
-  cursor: pointer;
 }
 
 .maka-first-run-checklist-error-action:hover {
@@ -11203,7 +11199,7 @@ button:active {
 }
 
 .maka-first-run-checklist-row > button {
-  appearance: none;
+  height: auto;
   background: transparent;
   border: 1px solid transparent;
   border-radius: 8px;

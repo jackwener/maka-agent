@@ -22,7 +22,7 @@
 import { ArrowRight, RotateCcw, Sparkles, KeyRound, Settings as SettingsIcon, Cpu, AlertCircle, FolderOpen, Paperclip, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from 'react';
 import type { LlmConnection, OnboardingMilestone, OnboardingState, ProviderType, QuickChatMode, SettingsSection } from '@maka/core';
-import { appendPromptContextDraft, detectUiLocale, type UiLocale } from '@maka/ui';
+import { Button, Textarea, appendPromptContextDraft, detectUiLocale, type UiLocale } from '@maka/ui';
 import { ProviderLogo, providerDisplay } from './settings/ProvidersPanel';
 import {
   FIRST_RUN_TASK_SUGGESTIONS,
@@ -270,8 +270,9 @@ function NeedsConnectionHero(props: {
           const display = providerDisplay(entry.type);
           return (
             <li key={entry.type}>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
                 className="maka-onboarding-card"
                 onClick={() => props.onOpenSettings('models')}
               >
@@ -281,31 +282,29 @@ function NeedsConnectionHero(props: {
                   <small>{display.description}</small>
                 </div>
                 <ArrowRight size={14} strokeWidth={1.75} aria-hidden="true" />
-              </button>
+              </Button>
             </li>
           );
         })}
       </ul>
 
       <footer className="maka-onboarding-footer">
-        <button
+        <Button
           type="button"
-          className="maka-button"
-          data-variant="primary"
           onClick={() => props.onOpenSettings('models')}
         >
           打开设置 · 模型
-        </button>
+        </Button>
         {props.onRefreshConnections && (
-          <button
+          <Button
             type="button"
-            className="maka-button maka-button-ghost"
+            variant="ghost"
             onClick={props.onRefreshConnections}
             disabled={props.refreshConnectionsPending === true}
             aria-busy={props.refreshConnectionsPending === true ? 'true' : undefined}
           >
             {props.refreshConnectionsPending === true ? '刷新中…' : '已经配好了？刷新检测'}
-          </button>
+          </Button>
         )}
       </footer>
     </section>
@@ -693,7 +692,7 @@ function ReadyEmptyHero(props: {
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        <textarea
+        <Textarea
           ref={inputRef}
           className="maka-onboarding-quickchat-input"
           placeholder={copy.quickChatPlaceholder}
@@ -718,9 +717,10 @@ function ReadyEmptyHero(props: {
         )}
         <div className="maka-onboarding-quickchat-actions">
           {props.onImportTextFile && (
-            <button
+            <Button
               type="button"
-              className="maka-button maka-button-ghost"
+              variant="ghost"
+              className="maka-onboarding-quickchat-action"
               onClick={() => void importTextFile()}
               disabled={quickChatBusy || importActionBusy}
               data-pending={pendingImportAction === 'file' ? 'true' : undefined}
@@ -728,12 +728,13 @@ function ReadyEmptyHero(props: {
             >
               <Paperclip size={14} strokeWidth={1.75} aria-hidden="true" />
               <span>{pendingImportAction === 'file' ? '导入中…' : '导入文件内容'}</span>
-            </button>
+            </Button>
           )}
           {props.onImportFolderOutline && (
-            <button
+            <Button
               type="button"
-              className="maka-button maka-button-ghost"
+              variant="ghost"
+              className="maka-onboarding-quickchat-action"
               onClick={() => void importFolderOutline()}
               disabled={quickChatBusy || importActionBusy}
               data-pending={pendingImportAction === 'folder' ? 'true' : undefined}
@@ -741,18 +742,17 @@ function ReadyEmptyHero(props: {
             >
               <FolderOpen size={14} strokeWidth={1.75} aria-hidden="true" />
               <span>{pendingImportAction === 'folder' ? '导入中…' : '导入文件夹目录'}</span>
-            </button>
+            </Button>
           )}
-          <button
+          <Button
             type="button"
-            className="maka-button"
-            data-variant="primary"
+            className="maka-onboarding-quickchat-submit"
             onClick={submit}
             disabled={quickChatBusy}
             aria-busy={quickChatBusy ? 'true' : undefined}
           >
             {quickChatBusy ? copy.submitPendingLabel : copy.submitIdleLabel}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -761,8 +761,10 @@ function ReadyEmptyHero(props: {
           <div className="maka-first-run-task-suggestions-header">
             <strong>试试这些任务</strong>
             {hiddenSuggestions.length > 0 && (
-              <button
+              <Button
                 type="button"
+                variant="quiet"
+                size="sm"
                 className="maka-first-run-task-suggestions-restore"
                 onClick={() => void runSuggestionAction(
                   'restore',
@@ -773,24 +775,28 @@ function ReadyEmptyHero(props: {
               >
                 <RotateCcw size={12} strokeWidth={1.75} aria-hidden="true" />
                 <span>{pendingSuggestionAction === 'restore' ? '恢复中…' : `恢复 ${hiddenSuggestions.length} 项`}</span>
-              </button>
+              </Button>
             )}
           </div>
           {visibleSuggestions.length > 0 && (
             <div className="maka-first-run-task-suggestion-list">
               {visibleSuggestions.map((suggestion) => (
                 <span key={suggestion.id} className="maka-first-run-task-suggestion-chip">
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     className="maka-first-run-task-suggestion"
                     onClick={() => prefillSuggestion(suggestion.prompt, suggestion.mode)}
                     disabled={quickChatBusy || suggestionActionBusy}
                   >
                     {suggestion.label}
-                  </button>
+                  </Button>
                   {props.onDismissTaskSuggestion && (
-                    <button
+                    <Button
                       type="button"
+                      variant="quiet"
+                      size="icon-sm"
                       className="maka-first-run-task-suggestion-dismiss"
                       onClick={() => void runSuggestionAction(
                         `dismiss:${suggestion.id}`,
@@ -802,7 +808,7 @@ function ReadyEmptyHero(props: {
                       title="隐藏"
                     >
                       <X size={12} strokeWidth={1.75} aria-hidden="true" />
-                    </button>
+                    </Button>
                   )}
                 </span>
               ))}
@@ -858,24 +864,22 @@ function SetupHero(props: SetupHeroProps) {
       </header>
       {props.setupSteps && <SetupProgress steps={props.setupSteps} />}
       <footer className="maka-onboarding-footer">
-        <button
+        <Button
           type="button"
-          className="maka-button"
-          data-variant="primary"
           onClick={props.primaryCta.onClick}
         >
           {props.primaryCta.label}
-        </button>
+        </Button>
         {props.secondaryCta && (
-          <button
+          <Button
             type="button"
-            className="maka-button maka-button-ghost"
+            variant="ghost"
             onClick={props.secondaryCta.onClick}
             disabled={props.secondaryCta.disabled === true}
             aria-busy={props.secondaryCta.busy === true ? 'true' : undefined}
           >
             {props.secondaryCta.label}
-          </button>
+          </Button>
         )}
       </footer>
     </section>

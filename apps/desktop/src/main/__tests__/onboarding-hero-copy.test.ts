@@ -308,6 +308,18 @@ describe('getOnboardingSetupSteps — first-run AI setup guide', () => {
 });
 
 describe('OnboardingHero Quick Chat draft lifecycle', () => {
+  it('keeps first-run form controls on shared UI primitives', async () => {
+    const hero = await readFile(new URL('../../../src/renderer/OnboardingHero.tsx', import.meta.url), 'utf8');
+    const checklist = await readFile(new URL('../../../src/renderer/FirstRunChecklist.tsx', import.meta.url), 'utf8');
+
+    assert.match(hero, /import \{ Button, Textarea, appendPromptContextDraft,/);
+    assert.match(checklist, /import \{ Button, useToast \} from '@maka\/ui';/);
+    assert.doesNotMatch(hero, /<button\b/, 'OnboardingHero actions must use the shared Button primitive');
+    assert.doesNotMatch(hero, /<textarea\b/, 'OnboardingHero quick chat must use the shared Textarea primitive');
+    assert.doesNotMatch(hero, /className="maka-button/, 'OnboardingHero must not keep legacy maka-button styling on migrated actions');
+    assert.doesNotMatch(checklist, /<button\b/, 'FirstRunChecklist actions must use the shared Button primitive');
+  });
+
   it('keeps the first prompt when quick chat submission fails', async () => {
     const source = await readFile(new URL('../../../src/renderer/OnboardingHero.tsx', import.meta.url), 'utf8');
     const propsBlock = source.match(/export interface OnboardingHeroProps \{[\s\S]*?\n\}/)?.[0] ?? '';
