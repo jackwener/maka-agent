@@ -1,35 +1,42 @@
-import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
-import { fileURLToPath } from 'node:url';
-
-const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../../../..');
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { OverlayHost } from '@maka/ui';
 
 describe('subagent UI contract', () => {
-  it('renders agent_spawn as a dedicated subagent card instead of raw JSON', async () => {
-    const [events, tools, components, styles] = await Promise.all([
-      readFile(join(REPO_ROOT, 'packages/core/src/events.ts'), 'utf8'),
-      readFile(join(REPO_ROOT, 'packages/runtime/src/subagent-tools.ts'), 'utf8'),
-      readFile(join(REPO_ROOT, 'packages/ui/src/components.tsx'), 'utf8'),
-      readFile(join(REPO_ROOT, 'apps/desktop/src/renderer/styles.css'), 'utf8'),
-    ]);
+  it('renders a compact subagent card without exposing internal ids', () => {
+    const markup = renderToStaticMarkup(createElement(OverlayHost, {
+      content: {
+        kind: 'subagent',
+        agentName: 'Research Agent',
+        turnId: 'turn-secret-123',
+        runId: 'run-secret-456',
+        status: 'completed',
+        permissionMode: 'explore',
+        summary: 'Mapped the runtime path.',
+        artifactIds: ['artifact-secret-1', 'artifact-secret-2'],
+        durationMs: 14_500,
+        eventCount: 42,
+      },
+      onClose: () => {},
+    }));
 
-    assert.match(events, /kind: 'subagent'/);
-    assert.match(events, /permissionMode: 'explore'/);
-    assert.match(events, /artifactIds: readonly string\[\]/);
-    assert.match(tools, /kind: 'subagent'/);
-    assert.match(components, /content\.kind === 'subagent'/);
-    assert.match(components, /function SubagentPreview/);
-    assert.match(styles, /\.maka-subagent-preview/);
+    assert.match(markup, /data-kind="subagent"/);
+    assert.match(markup, /Research Agent/);
+    assert.match(markup, /已完成/);
+    assert.match(markup, /耗时/);
+    assert.match(markup, /Mapped the runtime path\./);
+    assert.match(markup, /产物/);
+    assert.match(markup, /2 个/);
 
-    const previewBlock = components.match(/function SubagentPreview[\s\S]*?function ExploreAgentPreview/)?.[0] ?? '';
-    assert.match(previewBlock, /data-kind="subagent"/);
-    assert.match(previewBlock, /result\.agentName/);
-    assert.match(previewBlock, /result\.status/);
-    assert.match(previewBlock, /result\.permissionMode/);
-    assert.match(previewBlock, /formatDuration\(result\.durationMs\)/);
-    assert.match(previewBlock, /result\.summary/);
-    assert.match(previewBlock, /result\.artifactIds/);
+    assert.doesNotMatch(markup, /turn-secret-123/);
+    assert.doesNotMatch(markup, /run-secret-456/);
+    assert.doesNotMatch(markup, /artifact-secret-1/);
+    assert.doesNotMatch(markup, /artifact-secret-2/);
+    assert.doesNotMatch(markup, /权限/);
+    assert.doesNotMatch(markup, />explore</);
+    assert.doesNotMatch(markup, /事件/);
+    assert.doesNotMatch(markup, /42 个事件/);
   });
 });

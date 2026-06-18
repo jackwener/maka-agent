@@ -1,5 +1,11 @@
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, test } from 'node:test';
+import type { LlmConnection, SessionHeader } from '@maka/core';
+import type { SessionEvent } from '@maka/core/events';
 import { buildBuiltinTools } from '../builtin-tools.js';
+import { PermissionEngine } from '../permission-engine.js';
 import {
   AGENT_LIST_TOOL_NAME,
   AGENT_OUTPUT_TOOL_NAME,
@@ -9,6 +15,7 @@ import {
   buildSubagentOutputTool,
   buildSubagentSpawnTool,
 } from '../subagent-tools.js';
+import { ToolRuntime, type MakaTool } from '../tool-runtime.js';
 import { expect } from '../test-helpers.js';
 
 describe('subagent tools', () => {
@@ -32,6 +39,32 @@ describe('subagent tools', () => {
     ]);
 
     expect(tools.map((tool) => tool.name)).toEqual(['Bash', 'Read', 'Glob', 'Grep']);
+  });
+
+  test('child agent toolset enforces explore-mode read-only behavior without prompting', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'maka-child-tools-'));
+    try {
+      await writeFile(join(cwd, 'notes.txt'), 'SUBAGENT_CHILD_TOOL_MARKER\n', 'utf8');
+      const events: SessionEvent[] = [];
+      const runtime = makeChildToolRuntime(cwd);
+      const tools = new Map(buildChildAgentTools(buildBuiltinTools()).map((tool) => [tool.name, tool]));
+
+      await runTool(runtime, tools, 'Read', { path: 'notes.txt' }, events);
+      await runTool(runtime, tools, 'Glob', { pattern: '*.txt' }, events);
+      await runTool(runtime, tools, 'Grep', { pattern: 'SUBAGENT_CHILD_TOOL_MARKER' }, events);
+      await runTool(runtime, tools, 'Bash', { command: 'pwd' }, events);
+      const unsafe = await runTool(runtime, tools, 'Bash', { command: 'node -e "console.log(1)"' }, events);
+
+      expect(events.some((event) => event.type === 'permission_request')).toBe(false);
+      expect((unsafe as { error?: string }).error).toBeDefined();
+      expect(events.some((event) =>
+        event.type === 'tool_result' &&
+        event.toolUseId === 'tool-Bash-node -e "console.log(1)"' &&
+        event.isError
+      )).toBe(true);
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
   });
 
   test('agent_spawn delegates through the narrow tool context capability', async () => {
@@ -125,3 +158,76 @@ describe('subagent tools', () => {
     expect(schema.safeParse({ run_id: 'child-run', turn_id: 'child-turn' }).success).toBe(false);
   });
 });
+
+function makeChildToolRuntime(cwd: string): ToolRuntime {
+  const permissionEngine = new PermissionEngine({ newId: nextId(), now: () => 1 });
+  permissionEngine.beginTurn('child-turn');
+  return new ToolRuntime({
+    sessionId: 'session-1',
+    header: childHeader(cwd),
+    connection: testConnection(),
+    modelId: 'mock-model',
+    appendMessage: async () => {},
+    permissionEngine,
+    newId: nextId(),
+    now: () => 1,
+    getPermissionPauseTarget: () => null,
+  });
+}
+
+async function runTool(
+  runtime: ToolRuntime,
+  tools: Map<string, MakaTool>,
+  name: string,
+  args: unknown,
+  events: SessionEvent[],
+): Promise<unknown> {
+  const tool = tools.get(name);
+  if (!tool) throw new Error(`Missing child tool ${name}`);
+  return await runtime.wrapToolExecute(tool, 'child-turn', {
+    push: (event) => events.push(event),
+  })(args, {
+    toolCallId: `tool-${name}-${typeof args === 'object' && args && 'command' in args ? (args as { command: string }).command : 'read'}`,
+    abortSignal: new AbortController().signal,
+  });
+}
+
+function childHeader(cwd: string): SessionHeader {
+  return {
+    id: 'session-1',
+    workspaceRoot: cwd,
+    cwd,
+    createdAt: 1,
+    lastUsedAt: 1,
+    name: 'Test',
+    isFlagged: false,
+    labels: [],
+    isArchived: false,
+    status: 'active',
+    statusUpdatedAt: 1,
+    hasUnread: false,
+    backend: 'ai-sdk',
+    llmConnectionSlug: 'anthropic-main',
+    connectionLocked: true,
+    model: 'mock-model',
+    permissionMode: 'explore',
+    schemaVersion: 1,
+  };
+}
+
+function testConnection(): LlmConnection {
+  return {
+    slug: 'anthropic-main',
+    name: 'Anthropic',
+    providerType: 'anthropic',
+    defaultModel: 'mock-model',
+    enabled: true,
+    createdAt: 1,
+    updatedAt: 1,
+  };
+}
+
+function nextId(): () => string {
+  let id = 0;
+  return () => `id-${++id}`;
+}
