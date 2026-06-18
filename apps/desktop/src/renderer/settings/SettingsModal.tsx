@@ -76,7 +76,25 @@ import {
 } from '@maka/core';
 import { BOT_PROVIDERS, MAX_ALLOWED_USER_IDS, createDefaultSettings, parseAllowedUserIdsFromText } from '@maka/core/settings';
 import { PROVIDER_DEFAULTS } from '@maka/core/llm-connections';
-import { Button, DialogContent, DialogRoot, RelativeTime, redactSecrets, useModalA11y, useToast } from '@maka/ui';
+import {
+  Button,
+  DialogContent,
+  DialogRoot,
+  Input,
+  OverlayScrollArea,
+  RelativeTime,
+  SelectItem,
+  SelectPopup,
+  SelectPortal,
+  SelectPositioner,
+  SelectRoot,
+  SelectTrigger,
+  SelectValue,
+  Textarea,
+  redactSecrets,
+  useModalA11y,
+  useToast,
+} from '@maka/ui';
 import { normalizeSearchUrl } from '@maka/core';
 import { ProvidersPanel } from './ProvidersPanel';
 import { PasswordInput } from './password-input';
@@ -137,6 +155,40 @@ function onSettingsRadioGroupKeyDown<T extends string>(
 function radioTabIndex<T extends string>(value: T, current: T, values: readonly T[]): 0 | -1 {
   if (value === current) return 0;
   return !values.includes(current) && values[0] === value ? 0 : -1;
+}
+
+function SettingsSelect<T extends string>(props: {
+  value: T;
+  options: ReadonlyArray<readonly [T, string]>;
+  onChange(value: T): void;
+  ariaLabel: string;
+  disabled?: boolean;
+}) {
+  return (
+    <SelectRoot
+      value={props.value}
+      items={props.options.map(([value, label]) => ({ value, label }))}
+      disabled={props.disabled}
+      onValueChange={(value) => {
+        if (value !== null) props.onChange(value);
+      }}
+    >
+      <SelectTrigger className="settingsBaseSelectTrigger w-full" aria-label={props.ariaLabel}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectPortal>
+        <SelectPositioner alignItemWithTrigger={false} sideOffset={6}>
+          <SelectPopup className="settingsBaseSelectPopup">
+            {props.options.map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectPopup>
+        </SelectPositioner>
+      </SelectPortal>
+    </SelectRoot>
+  );
 }
 
 // `SettingsNavGroup` + `NAV_GROUP_ORDER` moved to `nav-group-summary.ts`
@@ -354,19 +406,21 @@ function BotWeChatFields(props: {
         />
       </label>
       <div className="settingsBotAdvanced">
-        <button
+        <Button
           type="button"
+          variant="quiet"
+          size="sm"
           className="settingsBotAdvancedToggle"
           aria-expanded={advancedOpen}
           onClick={() => setAdvancedOpen((current) => !current)}
         >
           {advancedOpen ? '收起高级设置' : '高级设置（公众号 / 本机 bridge 地址）'}
-        </button>
+        </Button>
         {advancedOpen && (
           <div className="settingsBotAdvancedBody">
             <label className="settingsField">
               <span>本机 bridge 地址</span>
-              <input
+              <Input
                 value={channel.webhookUrl ?? ''}
                 onChange={(event) => updateChannel({ webhookUrl: event.currentTarget.value })}
                 placeholder="http://127.0.0.1:18400"
@@ -375,7 +429,7 @@ function BotWeChatFields(props: {
             </label>
             <label className="settingsField">
               <span>公众号 App ID</span>
-              <input
+              <Input
                 value={channel.appId ?? ''}
                 onChange={(event) => updateChannel({ appId: event.currentTarget.value })}
                 placeholder="微信公众号 App ID"
@@ -517,9 +571,16 @@ function WeChatScanLoginModal(props: {
       >
         <header className="settingsBotScanLoginHeader">
           <h3>微信扫码登录</h3>
-          <button type="button" className="settingsCloseButton" aria-label="关闭" onClick={props.onClose}>
+          <Button
+            type="button"
+            variant="quiet"
+            size="icon-sm"
+            className="settingsCloseButton"
+            aria-label="关闭"
+            onClick={props.onClose}
+          >
             <X strokeWidth={1.75} aria-hidden="true" />
-          </button>
+          </Button>
         </header>
         <div className="settingsBotScanLoginBody">
           {qr?.qrcodeUrl && (status === 'waiting' || status === 'confirmed') ? (
@@ -540,13 +601,13 @@ function WeChatScanLoginModal(props: {
         </div>
         <div className="settingsBotScanLoginActions" role="group" aria-label="微信扫码登录操作">
           {(status === 'expired' || status === 'error') && (
-            <button className="settingsBotAction" type="button" onClick={() => void fetchQr()}>
+            <Button className="settingsBotAction" type="button" variant="secondary" onClick={() => void fetchQr()}>
               刷新二维码
-            </button>
+            </Button>
           )}
-          <button className="settingsBotAction" type="button" onClick={props.onClose}>
+          <Button className="settingsBotAction" type="button" variant="secondary" onClick={props.onClose}>
             {status === 'confirmed' ? '关闭' : '取消'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -637,14 +698,16 @@ function WechatQrLoginModal(props: {
             <h3 id="settingsWechatQrTitle">微信扫码登录</h3>
             <p>使用手机微信扫描二维码，并在手机上确认登录本机 wechat-bridge。</p>
           </div>
-          <button
+          <Button
             type="button"
+            variant="quiet"
+            size="icon-sm"
             className="settingsWechatQrClose"
             aria-label="关闭微信扫码登录"
             onClick={props.onClose}
           >
             <X size={17} aria-hidden="true" />
-          </button>
+          </Button>
         </div>
 
         <div className="settingsWechatQrBody">
@@ -659,9 +722,9 @@ function WechatQrLoginModal(props: {
           ) : expired ? (
             <div className="settingsWechatQrState" data-tone="warning">
               二维码已过期
-              <button type="button" className="settingsWechatQrSecondary" disabled={loading} onClick={reloadQrCode}>
+              <Button type="button" variant="secondary" className="settingsWechatQrSecondary" disabled={loading} onClick={reloadQrCode}>
                 {loading ? '刷新中…' : '刷新二维码'}
-              </button>
+              </Button>
             </div>
           ) : qrDataUrl ? (
             <>
@@ -674,16 +737,16 @@ function WechatQrLoginModal(props: {
             <div className="settingsWechatQrState" data-tone="error" role="alert">
               <strong>{error.error}</strong>
               <span>{error.hint}</span>
-              <button type="button" className="settingsWechatQrSecondary" disabled={loading} onClick={reloadQrCode}>
+              <Button type="button" variant="secondary" className="settingsWechatQrSecondary" disabled={loading} onClick={reloadQrCode}>
                 {loading ? '重试中…' : '重试'}
-              </button>
+              </Button>
             </div>
           ) : (
             <div className="settingsWechatQrState" data-tone="loading">
               bridge 正在生成二维码
-              <button type="button" className="settingsWechatQrSecondary" disabled={loading} onClick={reloadQrCode}>
+              <Button type="button" variant="secondary" className="settingsWechatQrSecondary" disabled={loading} onClick={reloadQrCode}>
                 {loading ? '获取中…' : '重新获取'}
-              </button>
+              </Button>
             </div>
           )}
         </div>
@@ -729,44 +792,42 @@ export function SettingsModal(props: {
    */
   onOpenSession?(sessionId: string): void;
 }) {
-  const dialogRef = useRef<HTMLDivElement>(null);
+  const pageRef = useRef<HTMLDivElement>(null);
   const activeNavRef = useRef<HTMLButtonElement>(null);
-  // Escape closes the modal, Tab/Shift+Tab cycles inside the dialog,
-  // focus restored to the trigger on close.
-  useModalA11y(dialogRef, props.onClose, activeNavRef);
+  useEffect(() => {
+    function onKey(event: globalThis.KeyboardEvent) {
+      if (event.key === 'Escape') props.onClose();
+    }
+    window.addEventListener('keydown', onKey);
+    activeNavRef.current?.focus();
+    return () => window.removeEventListener('keydown', onKey);
+  }, [props.onClose]);
 
   return (
-    <DialogRoot
-      open
-      onOpenChange={(open) => {
-        if (!open) props.onClose();
-      }}
+    <div
+      ref={pageRef}
+      role="region"
+      aria-label="设置"
+      className="settingsModal settingsPage"
     >
-      <DialogContent
-        ref={dialogRef}
-        className="settingsModal w-[min(96vw,1120px)] p-0"
-        aria-label="设置"
-        showClose={false}
-      >
-        <SettingsSurface
-          connections={props.connections}
-          defaultSlug={props.defaultSlug}
-          onRefresh={props.onRefresh}
-          onClose={props.onClose}
-          themePref={props.themePref}
-          onThemeChange={props.onThemeChange}
-          density={props.density}
-          onDensityChange={props.onDensityChange}
-          themePalette={props.themePalette}
-          onThemePaletteChange={props.onThemePaletteChange}
-          onUserLabelChange={props.onUserLabelChange}
-          requestedSection={props.requestedSection}
-          initialFocusRef={activeNavRef}
-          onOpenDailyReview={props.onOpenDailyReview}
-          onOpenSession={props.onOpenSession}
-        />
-      </DialogContent>
-    </DialogRoot>
+      <SettingsSurface
+        connections={props.connections}
+        defaultSlug={props.defaultSlug}
+        onRefresh={props.onRefresh}
+        onClose={props.onClose}
+        themePref={props.themePref}
+        onThemeChange={props.onThemeChange}
+        density={props.density}
+        onDensityChange={props.onDensityChange}
+        themePalette={props.themePalette}
+        onThemePaletteChange={props.onThemePaletteChange}
+        onUserLabelChange={props.onUserLabelChange}
+        requestedSection={props.requestedSection}
+        initialFocusRef={activeNavRef}
+        onOpenDailyReview={props.onOpenDailyReview}
+        onOpenSession={props.onOpenSession}
+      />
+    </div>
   );
 }
 
@@ -927,7 +988,7 @@ function SettingsSurface(props: {
                   </div>
                 )}
                 {items.map((item) => (
-                  <button
+                  <Button
                     key={item.id}
                     className="settingsNavItem"
                     data-active={section === item.id}
@@ -941,7 +1002,7 @@ function SettingsSurface(props: {
                       <item.Icon size={16} strokeWidth={1.5} />
                     </span>
                     <strong>{item.label}</strong>
-                  </button>
+                  </Button>
                 ))}
               </div>
             );
@@ -957,7 +1018,11 @@ function SettingsSurface(props: {
           </Button>
         </header>
 
-        <div className="settingsPageContent">
+        <OverlayScrollArea
+          className="settingsPageContent"
+          viewportClassName="settingsPageContentViewport"
+          contentClassName="settingsPageContentInner"
+        >
           {loading ? (
             <SettingsSkeleton />
           ) : (
@@ -981,7 +1046,7 @@ function SettingsSurface(props: {
               onOpenSession={props.onOpenSession}
             />
           )}
-        </div>
+        </OverlayScrollArea>
       </section>
     </main>
   );
@@ -1276,7 +1341,7 @@ function AboutSettingsPage() {
       </SettingsRows>
 
       <div className="settingsActionRow">
-        <Button type="button" className="maka-button" disabled={copyingEnvSummary} aria-describedby={envSummaryHelpId} onClick={() => void copyEnvSummary()}>
+        <Button type="button" disabled={copyingEnvSummary} aria-describedby={envSummaryHelpId} onClick={() => void copyEnvSummary()}>
           {copyingEnvSummary ? '复制中…' : '复制环境信息'}
         </Button>
       </div>
@@ -1333,7 +1398,6 @@ function DailyReviewSettingsPage(props: { onOpenDailyReview?: () => void }) {
           {props.onOpenDailyReview && (
             <Button
               type="button"
-              className="maka-button"
               onClick={props.onOpenDailyReview}
               style={{ marginTop: 8 }}
             >
@@ -1531,7 +1595,6 @@ function VoiceModelsSettingsPage() {
 
       <div className="settingsActionRow">
         <Button
-          className="maka-button"
           type="button"
           onClick={() => void runCaptureSmoke()}
           disabled={isBusy}
@@ -1919,16 +1982,16 @@ function AccountAuthActionView(props: {
 }) {
   if (props.action.executable && props.action.action === 'test_credentials') {
     return (
-      <button
+      <Button
         type="button"
-        className="maka-button"
         data-size="sm"
+        size="sm"
         disabled={props.disabled}
         onClick={props.onTest}
         title={props.action.detail}
       >
         {props.testing ? '测试中…' : props.action.label}
-      </button>
+      </Button>
     );
   }
   return (
@@ -2038,23 +2101,21 @@ function DataSettingsPage() {
         />
       </SettingsRows>
       <div className="settingsActionRow" role="group" aria-label="工作区数据操作">
-        <button
+        <Button
           type="button"
-          className="maka-button"
-          data-variant="primary"
           onClick={() => void openWorkspace()}
           disabled={!info || dataActionDisabled}
         >
           {isDataActionPending('workspace:open') ? '打开中…' : '打开工作区文件夹'}
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
-          className="maka-button"
+          variant="secondary"
           onClick={() => void copyPath()}
           disabled={!info || dataActionDisabled}
         >
           {isDataActionPending('workspace:path:copy') ? '复制中…' : '复制路径'}
-        </button>
+        </Button>
       </div>
       <div className="settingsNotice">
         本机数据保存在工作区。需要备份时先退出 Maka，再复制整个目录；恢复时替换同一路径后重启。
@@ -2154,7 +2215,7 @@ function PersonalizationSettingsPage(props: {
     <div className="settingsStructuredPage">
       <label className="settingsField">
         <span>显示名称</span>
-        <input
+        <Input
           type="text"
           value={displayName}
           onChange={(event) => setDisplayName(event.currentTarget.value)}
@@ -2192,7 +2253,7 @@ function PersonalizationSettingsPage(props: {
 
       <label className="settingsField">
         <span>助手语气偏好</span>
-        <textarea
+        <Textarea
           value={assistantTone}
           onChange={(event) => setAssistantTone(event.currentTarget.value)}
           placeholder="一句话告诉助手期望的语气，比如：技术严谨 / 偏简洁 / 不要 emoji / 多反问。"
@@ -2201,7 +2262,7 @@ function PersonalizationSettingsPage(props: {
           spellCheck={false}
           disabled={saving}
           aria-label="助手语气偏好"
-          style={{ minHeight: 84, resize: 'vertical', borderRadius: 12 }}
+          className="min-h-[84px]"
         />
         <small>
           以低优先级用户偏好拼到 system prompt，500 字符内。Runtime 仍按权限策略和工具规则
@@ -2210,10 +2271,8 @@ function PersonalizationSettingsPage(props: {
       </label>
 
       <div className="settingsActionRow">
-        <button
+        <Button
           type="button"
-          className="maka-button"
-          data-variant="primary"
           disabled={saving}
           aria-busy={saving}
           aria-describedby={personalizationSaveHelpId}
@@ -2221,7 +2280,7 @@ function PersonalizationSettingsPage(props: {
           onClick={() => void save()}
         >
           {saving ? '保存中…' : '保存'}
-        </button>
+        </Button>
         <p id={personalizationSaveHelpId} className="settingsHelpText">保存后立即生效，下一次发送对话时模型会拿到新偏好。</p>
       </div>
     </div>
@@ -2406,6 +2465,11 @@ function ThemeSettingsPage(props: {
         )}
       >
         {THEME_OPTIONS.map((option) => (
+          // Native <button> on purpose: .settingsThemeOption is a vertically
+          // stacked radio card (preview tile on top, label below). The shared
+          // <Button> primitive bakes in `h-9 inline-flex bg-primary text-white`
+          // utilities that collapse the card to 36px and paint it black —
+          // exactly what WAWQAQ msg 5f75daf6 called out as "稀奇古怪稀巴烂".
           <button
             key={option.value}
             type="button"
@@ -2447,6 +2511,9 @@ function ThemeSettingsPage(props: {
             )}
           >
             {group.palettes.map((palette) => (
+              // Native <button>: same reason as the mode picker above —
+              // the swatch+label is a custom grid layout that the shared
+              // <Button> primitive fights with its Tailwind utilities.
               <button
                 key={palette}
                 type="button"
@@ -2483,6 +2550,7 @@ function ThemeSettingsPage(props: {
         )}
       >
         {DENSITY_OPTIONS.map((option) => (
+          // Native <button>: same reason as the theme/palette pickers above.
           <button
             key={option.value}
             type="button"
@@ -2760,31 +2828,30 @@ function WebSearchSettingsPage(props: {
       </div>
 
       <div className="settingsFormRow" style={{ gap: 8, flexWrap: 'wrap' }}>
-        <button
+        <Button
           type="button"
-          className="maka-button"
           disabled={credentialActionBusy || usingEnvKey || draftKey.length === 0}
           onClick={() => void saveDraftKey()}
         >
           {pendingCredentialAction === 'save' ? '保存中…' : '保存密钥'}
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
-          className="maka-button maka-button-ghost"
+          variant="ghost"
           disabled={credentialActionBusy || (draftKey.length === 0 && !hasUsableKey)}
           onClick={() => void runTest()}
         >
           {testing ? '测试中…' : '测试凭据'}
-        </button>
+        </Button>
         {hasStoredKey && (
-          <button
+          <Button
             type="button"
-            className="maka-button maka-button-ghost"
+            variant="ghost"
             disabled={credentialActionBusy}
             onClick={() => void clearKey()}
           >
             {pendingCredentialAction === 'clear' ? '清空中…' : '清空密钥'}
-          </button>
+          </Button>
         )}
       </div>
 
@@ -2797,7 +2864,7 @@ function WebSearchSettingsPage(props: {
       <div className="settingsFormGrid">
         <label>
           <span>查询</span>
-          <input
+          <Input
             value={liveQuery}
             onChange={(event) => setLiveQuery(event.currentTarget.value)}
             placeholder="例如：本周 AI 产品发布动态"
@@ -2812,14 +2879,13 @@ function WebSearchSettingsPage(props: {
         </label>
       </div>
       <div>
-        <button
+        <Button
           type="button"
-          className="maka-button"
           disabled={liveQueryRunning || queryDisabledReason !== null}
           onClick={() => void runLiveQuery()}
         >
           {liveQueryRunning ? '搜索中…' : '搜索'}
-        </button>
+        </Button>
         {!liveQueryRunning && queryDisabledReason && (
           <small style={{ marginLeft: 12, color: 'var(--foreground-50)' }}>
             {queryDisabledReason}
@@ -3549,26 +3615,30 @@ function MemorySettingsPage(props: {
               <span key={file.file} className="settingsInlineFileState">
                 <span>{file.file} · {workspaceInstructionStatusLabel(file.status, file.chars, file.truncated)}</span>
                 {(file.status === 'available' || file.status === 'empty') && (
-                  <button
+                  <Button
                     type="button"
+                    variant="quiet"
+                    size="sm"
                     className="settingsInlineTextButton"
                     aria-label={`打开项目指令文件 ${file.file}`}
                     disabled={memoryControlsDisabled || isMemoryActionPending(`instruction:${file.file}:open`)}
                     onClick={() => void openWorkspaceInstructionFile(file.file)}
                   >
                     {isMemoryActionPending(`instruction:${file.file}:open`) ? '打开中…' : '打开'}
-                  </button>
+                  </Button>
                 )}
                 {file.status === 'missing' && (
-                  <button
+                  <Button
                     type="button"
+                    variant="quiet"
+                    size="sm"
                     className="settingsInlineTextButton"
                     aria-label={`创建项目指令文件 ${file.file}`}
                     disabled={memoryControlsDisabled || isMemoryActionPending(`instruction:${file.file}:create`)}
                     onClick={() => void createWorkspaceInstructionFile(file.file)}
                   >
                     {isMemoryActionPending(`instruction:${file.file}:create`) ? '创建中…' : '创建'}
-                  </button>
+                  </Button>
                 )}
               </span>
             ))}
@@ -3609,33 +3679,39 @@ function MemorySettingsPage(props: {
               return (
                 <span key={`${backup.kind}:${backup.path}`} className="settingsMemoryBackupCandidate" role="listitem">
                   <span>{backupCandidateLabel} · <RelativeTime ts={backup.updatedAt} /></span>
-                  <button
+                  <Button
                     type="button"
+                    variant="quiet"
+                    size="sm"
                     className="settingsInlineTextButton"
                     aria-label={`打开备份候选 ${backupCandidateLabel}`}
                     disabled={memoryControlsDisabled || !effective.enabled || isMemoryActionPending(`backup:${backup.kind}:open`)}
                     onClick={() => void openBackupCandidate(backup)}
                   >
                     {isMemoryActionPending(`backup:${backup.kind}:open`) ? '打开中…' : '打开'}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    variant="quiet"
+                    size="sm"
                     className="settingsInlineTextButton"
                     aria-label={`恢复备份候选 ${backupCandidateLabel}`}
                     disabled={memoryControlsDisabled || !effective.enabled || isMemoryActionPending(`backup:${backup.kind}:restore`)}
                     onClick={() => void restoreBackupCandidate(backup)}
                   >
                     {isMemoryActionPending(`backup:${backup.kind}:restore`) ? '恢复中…' : '恢复'}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    variant="quiet"
+                    size="sm"
                     className="settingsInlineTextButton"
                     aria-label={`复制备份候选引用 ${backupCandidateLabel}`}
                     disabled={isMemoryActionPending(`backup:${backup.kind}:copy`)}
                     onClick={() => void copyBackupReference(backup)}
                   >
                     {isMemoryActionPending(`backup:${backup.kind}:copy`) ? '复制中…' : '复制引用'}
-                  </button>
+                  </Button>
                 </span>
               );
             })}
@@ -3666,14 +3742,16 @@ function MemorySettingsPage(props: {
           <strong>模型上下文预览</strong>
           <div>
             <span>{promptPreviewWillInject ? '发送时会注入' : '当前不会注入'}</span>
-            <button
+            <Button
               type="button"
+              variant="quiet"
+              size="sm"
               className="settingsInlineTextButton"
               disabled={!localMemoryPromptPreview || isMemoryActionPending('memory:prompt-preview:copy')}
               onClick={() => void copyLocalMemoryPromptPreview()}
             >
               {isMemoryActionPending('memory:prompt-preview:copy') ? '复制中…' : '复制上下文'}
-            </button>
+            </Button>
           </div>
         </div>
         <small>只展示生效记忆会进入 prompt 的内容；已归档条目不会注入，疑似密钥会遮蔽。</small>
@@ -3691,7 +3769,7 @@ function MemorySettingsPage(props: {
       {visibleMemoryEntries.entries.length > 0 && (
         <>
           <div className="settingsMemoryFilter">
-            <input
+            <Input
               type="search"
               value={memoryEntryQuery}
               onChange={(event) => setMemoryEntryQuery(event.currentTarget.value)}
@@ -3699,9 +3777,15 @@ function MemorySettingsPage(props: {
               placeholder="筛选标题、内容、ID 或标签"
             />
             {normalizedMemoryEntryQuery ? (
-              <button type="button" className="settingsInlineTextButton" onClick={() => setMemoryEntryQuery('')}>
+              <Button
+                type="button"
+                variant="quiet"
+                size="sm"
+                className="settingsInlineTextButton"
+                onClick={() => setMemoryEntryQuery('')}
+              >
                 清除
-              </button>
+              </Button>
             ) : null}
             <small>
               {normalizedMemoryEntryQuery
@@ -3759,7 +3843,7 @@ function MemorySettingsPage(props: {
           <small>只追加到下方草稿；保存前仍可检查和修改 Markdown。</small>
         </div>
         <div className="settingsMemoryManualAddGrid">
-          <input
+          <Input
             type="text"
             value={newMemoryTitle}
             onChange={(event) => setNewMemoryTitle(event.currentTarget.value)}
@@ -3767,7 +3851,7 @@ function MemorySettingsPage(props: {
             placeholder="标题"
             disabled={memoryControlsDisabled || effective.status === 'incognito_blocked' || !effective.enabled}
           />
-          <input
+          <Input
             type="text"
             value={newMemoryTags}
             onChange={(event) => setNewMemoryTags(event.currentTarget.value)}
@@ -3775,7 +3859,7 @@ function MemorySettingsPage(props: {
             placeholder="标签（逗号分隔，可选）"
             disabled={memoryControlsDisabled || effective.status === 'incognito_blocked' || !effective.enabled}
           />
-          <textarea
+          <Textarea
             value={newMemoryContent}
             onChange={(event) => setNewMemoryContent(event.currentTarget.value)}
             aria-label="记忆内容"
@@ -3784,14 +3868,14 @@ function MemorySettingsPage(props: {
             disabled={memoryControlsDisabled || effective.status === 'incognito_blocked' || !effective.enabled}
           />
         </div>
-        <button
+        <Button
           type="button"
-          className="maka-button maka-button-ghost"
+          variant="ghost"
           disabled={memoryControlsDisabled || effective.status === 'incognito_blocked' || !effective.enabled}
           onClick={addManualMemoryDraftEntry}
         >
           添加到草稿
-        </button>
+        </Button>
       </div>
 
       {memoryDraftHasSensitiveFields && (
@@ -3803,7 +3887,7 @@ function MemorySettingsPage(props: {
 
       <label className="settingsMemoryEditor">
         <span>文件内容</span>
-        <textarea
+        <Textarea
           ref={editorRef}
           value={draft}
           onChange={(event) => setDraft(event.currentTarget.value)}
@@ -3821,33 +3905,33 @@ function MemorySettingsPage(props: {
       )}
 
       <div className="settingsActionRow" role="group" aria-label="MEMORY.md 文件操作">
-        <button type="button" className="maka-button" disabled={memoryControlsDisabled || !effective.enabled || !memoryDraftDirty} onClick={() => void save()}>
+        <Button type="button" disabled={memoryControlsDisabled || !effective.enabled || !memoryDraftDirty} onClick={() => void save()}>
           {pendingMemoryWriteAction === 'save' ? '保存中…' : memoryDraftDirty ? '保存' : '已保存'}
-        </button>
-        <button type="button" className="maka-button maka-button-ghost" disabled={memoryControlsDisabled || !effective.enabled || isMemoryActionPending('memory:file:open')} onClick={() => void openFile()}>
+        </Button>
+        <Button type="button" variant="ghost" disabled={memoryControlsDisabled || !effective.enabled || isMemoryActionPending('memory:file:open')} onClick={() => void openFile()}>
           {isMemoryActionPending('memory:file:open') ? '打开中…' : '打开 MEMORY.md'}
-        </button>
-        <button type="button" className="maka-button maka-button-ghost" disabled={memoryControlsDisabled || !effective.enabled || isMemoryActionPending('memory:folder:open')} onClick={() => void openFolder()}>
+        </Button>
+        <Button type="button" variant="ghost" disabled={memoryControlsDisabled || !effective.enabled || isMemoryActionPending('memory:folder:open')} onClick={() => void openFolder()}>
           {isMemoryActionPending('memory:folder:open') ? '打开中…' : '打开所在目录'}
-        </button>
-        <button type="button" className="maka-button maka-button-ghost" disabled={memoryControlsDisabled || !effective.enabled} onClick={() => void reloadDraftFromDisk()}>
+        </Button>
+        <Button type="button" variant="ghost" disabled={memoryControlsDisabled || !effective.enabled} onClick={() => void reloadDraftFromDisk()}>
           {pendingMemoryWriteAction === 'reload' ? '载入中…' : '重新载入'}
-        </button>
-        <button type="button" className="maka-button maka-button-ghost" disabled={memoryControlsDisabled || !effective.enabled || !effective.latestBackup || isMemoryActionPending('backup:latest:open')} onClick={() => void openLatestBackup()}>
+        </Button>
+        <Button type="button" variant="ghost" disabled={memoryControlsDisabled || !effective.enabled || !effective.latestBackup || isMemoryActionPending('backup:latest:open')} onClick={() => void openLatestBackup()}>
           {isMemoryActionPending('backup:latest:open') ? '打开中…' : '打开上一版'}
-        </button>
-        <button type="button" className="maka-button maka-button-ghost" disabled={!effective.path || isMemoryActionPending('memory:path:copy')} onClick={() => void copyPath()}>
+        </Button>
+        <Button type="button" variant="ghost" disabled={!effective.path || isMemoryActionPending('memory:path:copy')} onClick={() => void copyPath()}>
           {isMemoryActionPending('memory:path:copy') ? '复制中…' : '复制路径'}
-        </button>
-        <button type="button" className="maka-button maka-button-ghost" disabled={!effective.latestBackup || (effective.latestBackup ? isMemoryActionPending(`backup:${effective.latestBackup.kind}:copy`) : false)} onClick={() => void copyLatestBackupReference()}>
+        </Button>
+        <Button type="button" variant="ghost" disabled={!effective.latestBackup || (effective.latestBackup ? isMemoryActionPending(`backup:${effective.latestBackup.kind}:copy`) : false)} onClick={() => void copyLatestBackupReference()}>
           {effective.latestBackup && isMemoryActionPending(`backup:${effective.latestBackup.kind}:copy`) ? '复制中…' : '复制上一版引用'}
-        </button>
-        <button type="button" className="maka-button maka-button-ghost" disabled={memoryControlsDisabled || !effective.enabled} onClick={() => void reset()}>
+        </Button>
+        <Button type="button" variant="ghost" disabled={memoryControlsDisabled || !effective.enabled} onClick={() => void reset()}>
           {pendingMemoryWriteAction === 'reset' ? '重置中…' : '重置并备份'}
-        </button>
-        <button type="button" className="maka-button maka-button-ghost" disabled={memoryControlsDisabled || !effective.enabled || !effective.latestBackup || isMemoryActionPending('backup:latest:restore')} onClick={() => void restoreLatestBackup()}>
+        </Button>
+        <Button type="button" variant="ghost" disabled={memoryControlsDisabled || !effective.enabled || !effective.latestBackup || isMemoryActionPending('backup:latest:restore')} onClick={() => void restoreLatestBackup()}>
           {isMemoryActionPending('backup:latest:restore') ? '恢复中…' : '恢复上一版'}
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -3919,34 +4003,40 @@ function MemoryEntryList(props: {
                 {(props.onCopyReference || props.onFocusDraft || props.onStatusChange) && (
                   <div className="settingsMemoryEntryActions" role="group" aria-label={`${entry.title}记忆操作`}>
                     {props.onCopyReference && (
-                      <button
+                      <Button
                         type="button"
+                        variant="quiet"
+                        size="sm"
                         className="settingsInlineTextButton"
                         disabled={copyPending}
                         onClick={() => void props.onCopyReference?.(entry)}
                       >
                         {copyPending ? '复制中…' : '复制引用'}
-                      </button>
+                      </Button>
                     )}
                     {props.onFocusDraft && (
-                      <button
+                      <Button
                         type="button"
+                        variant="quiet"
+                        size="sm"
                         className="settingsInlineTextButton"
                         onClick={() => void props.onFocusDraft?.(entry)}
                       >
                         定位草稿
-                      </button>
+                      </Button>
                     )}
                     {props.onStatusChange && (
-                      <button
+                      <Button
                         type="button"
+                        variant="quiet"
+                        size="sm"
                         className="settingsInlineTextButton"
                         aria-label={statusActionAriaLabel}
                         disabled={props.busy}
                         onClick={() => void props.onStatusChange?.(entry, props.archived ? 'active' : 'archived')}
                       >
                         {statusActionLabel}
-                      </button>
+                      </Button>
                     )}
                   </div>
                 )}
@@ -4177,23 +4267,24 @@ function NetworkSettingsPage(props: {
           <div className="settingsFormGrid settingsFormGridProxy">
             <label>
               <span>代理协议</span>
-              <select
+              <SettingsSelect
                 value={proxyDraft.protocol}
-                onChange={(event) => void updateProxy({ protocol: event.currentTarget.value as NetworkProxySettings['protocol'] })}
-                aria-label="代理协议"
-              >
-                <option value="http">HTTP/HTTPS</option>
-                <option value="https">HTTPS</option>
-                <option value="socks5">SOCKS5</option>
-              </select>
+                ariaLabel="代理协议"
+                options={[
+                  ['http', 'HTTP/HTTPS'],
+                  ['https', 'HTTPS'],
+                  ['socks5', 'SOCKS5'],
+                ] satisfies Array<readonly [NetworkProxySettings['protocol'], string]>}
+                onChange={(protocol) => void updateProxy({ protocol })}
+              />
             </label>
             <label>
               <span>服务器地址</span>
-              <input value={proxyDraft.host} onChange={(event) => void updateProxy({ host: event.currentTarget.value })} placeholder="127.0.0.1" aria-label="代理服务器地址" />
+              <Input value={proxyDraft.host} onChange={(event) => void updateProxy({ host: event.currentTarget.value })} placeholder="127.0.0.1" aria-label="代理服务器地址" />
             </label>
             <label>
               <span>端口</span>
-              <input value={String(proxyDraft.port || '')} onChange={(event) => void updateProxy({ port: Number(event.currentTarget.value) || 0 })} placeholder="7890" aria-label="代理端口" />
+              <Input value={String(proxyDraft.port || '')} onChange={(event) => void updateProxy({ port: Number(event.currentTarget.value) || 0 })} placeholder="7890" aria-label="代理端口" />
             </label>
           </div>
 
@@ -4213,7 +4304,7 @@ function NetworkSettingsPage(props: {
             <div className="settingsFormGrid">
               <label>
                 <span>用户名</span>
-                <input value={proxyDraft.username} onChange={(event) => void updateProxy({ username: event.currentTarget.value })} aria-label="代理用户名" />
+                <Input value={proxyDraft.username} onChange={(event) => void updateProxy({ username: event.currentTarget.value })} aria-label="代理用户名" />
               </label>
               <label>
                 <span>密码</span>
@@ -4224,7 +4315,7 @@ function NetworkSettingsPage(props: {
 
           <label className="settingsField">
             <span>代理白名单</span>
-            <input
+            <Input
               value={proxyDraft.bypassList.join(', ')}
               onChange={(event) => void updateProxy({ bypassList: csvList(event.currentTarget.value) })}
               placeholder="metaso.cn, baidu.com"
@@ -4238,8 +4329,7 @@ function NetworkSettingsPage(props: {
           </div>
 
           <div className="settingsActionRow">
-            <button
-              className="maka-button"
+            <Button
               type="button"
               disabled={testing}
               aria-busy={testing}
@@ -4247,7 +4337,7 @@ function NetworkSettingsPage(props: {
               onClick={() => void testProxy()}
             >
               {testing ? '测试中…' : '测试当前配置'}
-            </button>
+            </Button>
           </div>
         </>
       )}
@@ -4469,18 +4559,19 @@ function OpenGatewaySettingsPage(props: {
       <div className="settingsFormGrid settingsFormGridProxy">
         <label>
           <span>监听地址</span>
-          <select
+          <SettingsSelect
             value={gatewayDraft.host}
-            onChange={(event) => void updateGateway({ host: event.currentTarget.value as AppSettings['openGateway']['host'] })}
-            aria-label="开放网关监听地址"
-          >
-            <option value="127.0.0.1">127.0.0.1</option>
-            <option value="0.0.0.0">0.0.0.0</option>
-          </select>
+            ariaLabel="开放网关监听地址"
+            options={[
+              ['127.0.0.1', '127.0.0.1'],
+              ['0.0.0.0', '0.0.0.0'],
+            ] satisfies Array<readonly [AppSettings['openGateway']['host'], string]>}
+            onChange={(host) => void updateGateway({ host })}
+          />
         </label>
         <label>
           <span>端口</span>
-          <input
+          <Input
             value={String(gatewayDraft.port)}
             inputMode="numeric"
             onChange={(event) => void updateGateway({ port: Number(event.currentTarget.value) || 3939 })}
@@ -4502,7 +4593,7 @@ function OpenGatewaySettingsPage(props: {
         </label>
         <label>
           <span>会话 sessionId</span>
-          <input
+          <Input
             value={eventSessionId}
             disabled={saving}
             placeholder="留空则复制 <SESSION_ID> 模板"
@@ -4524,33 +4615,33 @@ function OpenGatewaySettingsPage(props: {
       )}
 
       <div className="settingsActionRow" role="group" aria-label="开放网关操作">
-        <button className="maka-button" type="button" disabled={saving} onClick={() => void generateToken()}>
+        <Button type="button" disabled={saving} onClick={() => void generateToken()}>
           生成 token
-        </button>
-        <button className="maka-button secondary" type="button" disabled={!gatewayDraft.token || saving} onClick={() => void saveToken('')}>
+        </Button>
+        <Button variant="secondary" type="button" disabled={!gatewayDraft.token || saving} onClick={() => void saveToken('')}>
           清空 token
-        </button>
-        <button className="maka-button secondary" type="button" disabled={gatewayCopyDisabled} onClick={() => void copyBaseUrl()}>
+        </Button>
+        <Button variant="secondary" type="button" disabled={gatewayCopyDisabled} onClick={() => void copyBaseUrl()}>
           {isCopyingGatewayAction('base-url') ? '复制中…' : '复制地址'}
-        </button>
-        <button className="maka-button secondary" type="button" disabled={!gatewayDraft.token || gatewayCopyDisabled} onClick={() => void copyOverviewCurl()}>
+        </Button>
+        <Button variant="secondary" type="button" disabled={!gatewayDraft.token || gatewayCopyDisabled} onClick={() => void copyOverviewCurl()}>
           {isCopyingGatewayAction('overview-curl') ? '复制中…' : '复制总览 curl'}
-        </button>
-        <button className="maka-button secondary" type="button" disabled={!gatewayDraft.token || gatewayCopyDisabled} onClick={() => void copyOpenApiCurl()}>
+        </Button>
+        <Button variant="secondary" type="button" disabled={!gatewayDraft.token || gatewayCopyDisabled} onClick={() => void copyOpenApiCurl()}>
           {isCopyingGatewayAction('openapi-curl') ? '复制中…' : '复制接口说明 curl'}
-        </button>
-        <button className="maka-button secondary" type="button" disabled={!gatewayDraft.token || gatewayCopyDisabled} onClick={() => void copySessionStateCurl()}>
+        </Button>
+        <Button variant="secondary" type="button" disabled={!gatewayDraft.token || gatewayCopyDisabled} onClick={() => void copySessionStateCurl()}>
           {isCopyingGatewayAction('session-state-curl') ? '复制中…' : '复制单会话状态 curl'}
-        </button>
-        <button className="maka-button secondary" type="button" disabled={!gatewayDraft.token || gatewayCopyDisabled} onClick={() => void copyEventStreamCurl()}>
+        </Button>
+        <Button variant="secondary" type="button" disabled={!gatewayDraft.token || gatewayCopyDisabled} onClick={() => void copyEventStreamCurl()}>
           {isCopyingGatewayAction('event-stream-curl') ? '复制中…' : '复制事件流 curl'}
-        </button>
-        <button className="maka-button secondary" type="button" disabled={!gatewayDraft.token || gatewayCopyDisabled} onClick={() => void copyRecentEventsCurl()}>
+        </Button>
+        <Button variant="secondary" type="button" disabled={!gatewayDraft.token || gatewayCopyDisabled} onClick={() => void copyRecentEventsCurl()}>
           {isCopyingGatewayAction('recent-events-curl') ? '复制中…' : '复制最近事件 curl'}
-        </button>
-        <button className="maka-button secondary" type="button" disabled={!gatewayDraft.token || gatewayCopyDisabled} onClick={() => void copyRecentRequestsCurl()}>
+        </Button>
+        <Button variant="secondary" type="button" disabled={!gatewayDraft.token || gatewayCopyDisabled} onClick={() => void copyRecentRequestsCurl()}>
           {isCopyingGatewayAction('recent-requests-curl') ? '复制中…' : '复制最近请求 curl'}
-        </button>
+        </Button>
       </div>
 
       <SettingsRows>
@@ -4918,7 +5009,7 @@ function BotChatSettingsPage(props: {
             ? providerChannel.readiness
             : status?.readiness ?? providerChannel.readiness;
           return (
-            <button
+            <Button
               key={provider}
               type="button"
               data-active={selected === provider}
@@ -4932,7 +5023,7 @@ function BotChatSettingsPage(props: {
               <BotBrandLogo provider={provider} readiness={providerReadiness} support={providerSupport} />
               <span>{BOT_LABELS[provider].label}</span>
               <em data-tone={providerCopy.tone}>{providerCopy.label}</em>
-            </button>
+            </Button>
           );
         })}
       </nav>
@@ -4995,7 +5086,7 @@ function BotChatSettingsPage(props: {
             </label>
             <label className="settingsField">
               <span>代理地址 <em className="settingsFieldHint">(国内网络必填)</em></span>
-              <input value={channel.proxyUrl} onChange={(event) => updateChannel({ proxyUrl: event.currentTarget.value })} placeholder="http://127.0.0.1:7890" aria-label="Telegram 代理地址" />
+              <Input value={channel.proxyUrl} onChange={(event) => updateChannel({ proxyUrl: event.currentTarget.value })} placeholder="http://127.0.0.1:7890" aria-label="Telegram 代理地址" />
             </label>
             <BotAllowedUserIdsField
               value={channel.allowedUserIds}
@@ -5012,7 +5103,7 @@ function BotChatSettingsPage(props: {
           <>
             <label className="settingsField">
               <span>App ID</span>
-              <input aria-label="飞书凭据 ID" value={channel.appId ?? ''} onChange={(event) => updateChannel({ appId: event.currentTarget.value })} placeholder="cli_xxxx" />
+              <Input aria-label="飞书凭据 ID" value={channel.appId ?? ''} onChange={(event) => updateChannel({ appId: event.currentTarget.value })} placeholder="cli_xxxx" />
             </label>
             <label className="settingsField">
               <span>App Secret</span>
@@ -5020,15 +5111,15 @@ function BotChatSettingsPage(props: {
             </label>
             <label className="settingsField">
               <span>域名</span>
-              <select
-                className="settingsBotDomainSelect"
+              <SettingsSelect
                 value={channel.domain ?? 'feishu.cn'}
-                onChange={(event) => updateChannel({ domain: event.currentTarget.value })}
-                aria-label="飞书域名"
-              >
-                <option value="feishu.cn">飞书 (feishu.cn)</option>
-                <option value="larksuite.com">Lark (larksuite.com)</option>
-              </select>
+                ariaLabel="飞书域名"
+                options={[
+                  ['feishu.cn', '飞书 (feishu.cn)'],
+                  ['larksuite.com', 'Lark (larksuite.com)'],
+                ]}
+                onChange={(domain) => updateChannel({ domain })}
+              />
             </label>
           </>
         )}
@@ -5041,7 +5132,7 @@ function BotChatSettingsPage(props: {
             </label>
             <label className="settingsField">
               <span>代理地址 <em className="settingsFieldHint">(仅用于 Bot 鉴权)</em></span>
-              <input value={channel.proxyUrl} onChange={(event) => updateChannel({ proxyUrl: event.currentTarget.value })} placeholder="http://127.0.0.1:7890" aria-label="Discord 代理地址" />
+              <Input value={channel.proxyUrl} onChange={(event) => updateChannel({ proxyUrl: event.currentTarget.value })} placeholder="http://127.0.0.1:7890" aria-label="Discord 代理地址" />
             </label>
             <div className="settingsBotInfoNotice">
               <span className="settingsBotInfoNoticeIcon" aria-hidden="true">ⓘ</span>
@@ -5054,7 +5145,7 @@ function BotChatSettingsPage(props: {
           <>
             <label className="settingsField">
               <span>Client ID (AppKey)</span>
-              <input aria-label="钉钉应用密钥" value={channel.appId ?? ''} onChange={(event) => updateChannel({ appId: event.currentTarget.value })} placeholder="dingxxxxxxxx" />
+              <Input aria-label="钉钉应用密钥" value={channel.appId ?? ''} onChange={(event) => updateChannel({ appId: event.currentTarget.value })} placeholder="dingxxxxxxxx" />
             </label>
             <label className="settingsField">
               <span>Client Secret (AppSecret)</span>
@@ -5067,7 +5158,7 @@ function BotChatSettingsPage(props: {
           <>
             <label className="settingsField">
               <span>Bot ID</span>
-              <input value={channel.appId ?? ''} onChange={(event) => updateChannel({ appId: event.currentTarget.value })} placeholder="企业微信 AI 应用 Bot ID" aria-label="企业微信 Bot ID" />
+              <Input value={channel.appId ?? ''} onChange={(event) => updateChannel({ appId: event.currentTarget.value })} placeholder="企业微信 AI 应用 Bot ID" aria-label="企业微信 Bot ID" />
             </label>
             <label className="settingsField">
               <span>Secret</span>
@@ -5091,7 +5182,7 @@ function BotChatSettingsPage(props: {
           <>
             <label className="settingsField">
               <span>AppID</span>
-              <input aria-label="QQ 应用编号" value={channel.appId ?? ''} onChange={(event) => updateChannel({ appId: event.currentTarget.value })} placeholder="102xxxxxx" />
+              <Input aria-label="QQ 应用编号" value={channel.appId ?? ''} onChange={(event) => updateChannel({ appId: event.currentTarget.value })} placeholder="102xxxxxx" />
             </label>
             <label className="settingsField">
               <span>AppSecret</span>
@@ -5187,54 +5278,65 @@ function BotChatSettingsPage(props: {
         <div className="settingsBotActionStack" role="group" aria-label={`${BOT_LABELS[selected].label}机器人操作`}>
           {selected === 'wechat' ? (
             <>
-              <button
+              <Button
                 className="settingsBotAction"
                 type="button"
+                variant="secondary"
                 disabled={botActionBusy}
                 onClick={() => setScanLoginOpen(true)}
               >
                 扫码登录
-              </button>
+              </Button>
               {(channel.token || selectedStatus?.identity) && (
-                <button
+                <Button
                   className="settingsBotAction"
                   type="button"
+                  variant="secondary"
                   disabled={botActionBusy}
                   onClick={() => void disconnectWechatLogin()}
                 >
                   {selectedBotActionPending === 'disconnect' ? '断开中…' : '断开微信登录'}
-                </button>
+                </Button>
               )}
-              <button
+              <Button
                 className="settingsBotAction"
                 type="button"
+                variant="secondary"
                 disabled={botActionBusy}
                 onClick={() => setWechatQrOpen(true)}
               >
                 本机桥接二维码
-              </button>
-              <button
+              </Button>
+              <Button
                 className="settingsBotAction"
                 type="button"
+                variant="secondary"
                 disabled={botActionBusy}
                 onClick={testChannel}
               >
                 {selectedBotActionPending === 'test' ? '测试中…' : '测试连接'}
-              </button>
+              </Button>
             </>
           ) : support === 'runtime' && !selectedStatus?.running ? (
-            <button
+            <Button
               className="settingsBotAction"
               type="button"
+              variant="secondary"
               disabled={botActionBusy}
               onClick={testAndConnect}
             >
               {selectedBotActionPending === 'connect' ? '连接中…' : '测试并连接'}
-            </button>
+            </Button>
           ) : (
-            <button className="settingsBotAction" type="button" disabled={botActionBusy || support === 'planned'} onClick={testChannel}>
+            <Button
+              className="settingsBotAction"
+              type="button"
+              variant="secondary"
+              disabled={botActionBusy || support === 'planned'}
+              onClick={testChannel}
+            >
               {selectedBotActionPending === 'test' ? '测试中…' : support === 'runtime' ? '测试连接' : '测试并连接'}
-            </button>
+            </Button>
           )}
           {/* PR-BOT-RESTART-RACE-0: keep the restart button mounted
               while a restart is in-flight, even if the bridge's
@@ -5244,9 +5346,15 @@ function BotChatSettingsPage(props: {
               button unmounts mid-click and the user sees no
               resolution feedback. */}
           {support === 'runtime' && (selectedStatus?.running || restarting) && selected !== 'wechat' && (
-            <button className="settingsBotAction" type="button" disabled={botActionBusy} onClick={restartChannel}>
+            <Button
+              className="settingsBotAction"
+              type="button"
+              variant="secondary"
+              disabled={botActionBusy}
+              onClick={restartChannel}
+            >
               {restarting ? '重启中…' : '重启监听'}
-            </button>
+            </Button>
           )}
         </div>
         {wechatQrOpen && (
@@ -5314,7 +5422,7 @@ function BotAllowedUserIdsField(props: {
   return (
     <label className="settingsField">
       <span>允许的用户 ID（{parsed.length} / {MAX_ALLOWED_USER_IDS}）</span>
-      <textarea
+      <Textarea
         value={buffer}
         onChange={(event) => setBuffer(event.currentTarget.value)}
         onBlur={commit}
@@ -5479,8 +5587,7 @@ function UsageSettingsPage(props: {
           ]}
           onChange={(value) => void setRange(value as UsageRange)}
         />
-        <button
-          className="maka-button"
+        <Button
           type="button"
           disabled={refreshing}
           aria-busy={refreshing}
@@ -5488,7 +5595,7 @@ function UsageSettingsPage(props: {
           onClick={() => void refresh()}
         >
           {refreshing ? '刷新中…' : '刷新'}
-        </button>
+        </Button>
       </div>
 
       <div className="settingsUsageSummary" role="group" aria-label="使用统计汇总指标">
@@ -5515,12 +5622,17 @@ function UsageSettingsPage(props: {
         <div className="settingsUsageFilters" role="group" aria-label="请求记录筛选">
           {usageDraft.showDetails && (
             <>
-              <input value={usageDraft.modelFilter} onChange={(event) => void updateUsage({ modelFilter: event.currentTarget.value })} placeholder="按模型或工具筛选…" aria-label="按模型或工具筛选请求记录" />
-              <select value={usageDraft.status} onChange={(event) => void updateUsage({ status: event.currentTarget.value as typeof usageDraft.status })} aria-label="请求状态筛选">
-                <option value="all">全部状态</option>
-                <option value="success">成功</option>
-                <option value="error">错误</option>
-              </select>
+              <Input value={usageDraft.modelFilter} onChange={(event) => void updateUsage({ modelFilter: event.currentTarget.value })} placeholder="按模型或工具筛选…" aria-label="按模型或工具筛选请求记录" />
+              <SettingsSelect
+                value={usageDraft.status}
+                ariaLabel="请求状态筛选"
+                options={[
+                  ['all', '全部状态'],
+                  ['success', '成功'],
+                  ['error', '错误'],
+                ] satisfies Array<readonly [typeof usageDraft.status, string]>}
+                onChange={(status) => void updateUsage({ status })}
+              />
             </>
           )}
           <label>
@@ -5533,9 +5645,9 @@ function UsageSettingsPage(props: {
           </label>
           {usageDraft.showDetails && <small>共 {filteredLogs.length} 条记录</small>}
           {usageDraft.showDetails && hasRequestFilters && (
-            <button type="button" className="maka-button maka-button-ghost" data-size="sm" onClick={clearRequestFilters}>
+            <Button type="button" variant="ghost" size="sm" onClick={clearRequestFilters}>
               清除筛选
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -5544,9 +5656,9 @@ function UsageSettingsPage(props: {
         <div className="settingsNotice">
           当前仅显示汇总指标。打开详情记录后，可以查看逐条模型请求和工具调用，按模型、工具或状态筛选，并用于排查费用与失败请求。
           <div className="settingsActionRow" style={{ marginTop: 8 }}>
-            <button type="button" className="maka-button maka-button-ghost" data-size="sm" onClick={() => void updateUsage({ showDetails: true })}>
+            <Button type="button" variant="ghost" size="sm" onClick={() => void updateUsage({ showDetails: true })}>
               显示明细
-            </button>
+            </Button>
           </div>
         </div>
       ) : (
@@ -5593,9 +5705,9 @@ function usageRequestSessionCell(row: UsageStats['logs'][number], onOpenSession?
   const label = shortUsageSessionId(row.sessionId);
   if (!onOpenSession) return label;
   return (
-    <button type="button" className="maka-button maka-button-ghost" data-size="sm" onClick={() => onOpenSession(row.sessionId)}>
+    <Button type="button" variant="ghost" size="sm" onClick={() => onOpenSession(row.sessionId)}>
       打开 {label}
-    </button>
+    </Button>
   );
 }
 
@@ -5659,7 +5771,7 @@ function Segmented<T extends string>(props: { value: T; options: Array<[T, strin
       }}
     >
       {props.options.map(([value, label]) => (
-        <button
+        <Button
           key={value}
           type="button"
           role="radio"
@@ -5671,7 +5783,7 @@ function Segmented<T extends string>(props: { value: T; options: Array<[T, strin
           onClick={() => props.onChange(value)}
         >
           {label}
-        </button>
+        </Button>
       ))}
     </div>
   );
@@ -5679,7 +5791,7 @@ function Segmented<T extends string>(props: { value: T; options: Array<[T, strin
 
 function Switch(props: { ariaLabel: string; checked: boolean; onChange(checked: boolean): void; disabled?: boolean; ariaDescribedBy?: string }) {
   return (
-    <button
+    <Button
       className="settingsSwitch"
       type="button"
       role="switch"
@@ -5691,7 +5803,7 @@ function Switch(props: { ariaLabel: string; checked: boolean; onChange(checked: 
       onClick={() => props.onChange(!props.checked)}
     >
       <span />
-    </button>
+    </Button>
   );
 }
 
@@ -5786,9 +5898,9 @@ function PermissionCenterPage() {
         <div className="settingsPermissionError" role="alert">
           <strong>无法读取权限快照</strong>
           <small>{error ?? '权限服务未返回数据。'}</small>
-          <button type="button" className="maka-button" onClick={() => setRefreshTick((tick) => tick + 1)}>
+          <Button type="button" onClick={() => setRefreshTick((tick) => tick + 1)}>
             重新读取
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -5811,13 +5923,14 @@ function PermissionCenterPage() {
           <small>
             最近一次读取：<RelativeTime ts={checkedAtMs} className="settingsHelpInlineTime" />
           </small>
-          <button
+          <Button
             type="button"
             className="settingsPermissionRefresh"
+            variant="secondary"
             onClick={() => setRefreshTick((tick) => tick + 1)}
           >
             刷新
-          </button>
+          </Button>
         </div>
       </header>
 
@@ -5964,14 +6077,14 @@ function CapabilityRow(props: { capability: CapabilitySnapshot }) {
             <div className="settingsCapabilityGuidanceActions" role="group" aria-label="Office 文档安装辅助">
               <code>{OFFICECLI_INSTALL_COMMAND}</code>
               <div>
-                <button
+                <Button
                   type="button"
-                  className="maka-button secondary"
+                  variant="secondary"
                   disabled={copyingOfficeCliInstall}
                   onClick={() => void copyOfficeCliInstallCommand()}
                 >
                   {copyingOfficeCliInstall ? '复制中…' : '复制 macOS/Linux 安装命令'}
-                </button>
+                </Button>
                 <a href={OFFICECLI_RELEASES_URL} target="_blank" rel="noreferrer">
                   打开二进制下载页
                 </a>
@@ -6191,9 +6304,9 @@ function HealthCenterPage() {
         <div className="settingsHealthError" role="alert">
           <strong>无法读取健康快照</strong>
           <small>{error ?? '健康服务未返回数据。'}</small>
-          <button type="button" className="maka-button" onClick={() => setRefreshTick((tick) => tick + 1)}>
+          <Button type="button" onClick={() => setRefreshTick((tick) => tick + 1)}>
             重新读取
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -6219,13 +6332,14 @@ function HealthCenterPage() {
           <small>
             最近一次读取：<RelativeTime ts={healthCheckedAtMs} className="settingsHelpInlineTime" />
           </small>
-          <button
+          <Button
             type="button"
             className="settingsHealthRefresh"
+            variant="secondary"
             onClick={() => setRefreshTick((tick) => tick + 1)}
           >
             刷新
-          </button>
+          </Button>
         </div>
       </header>
 

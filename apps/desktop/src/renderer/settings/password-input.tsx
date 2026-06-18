@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { Check, Copy, Eye, EyeOff } from 'lucide-react';
-import { useToast } from '@maka/ui';
+import { Button, Input, useToast } from '@maka/ui';
 
 /**
  * PR-BOT-SETTINGS-PASSWORD-EYE-0 / PR-BOT-SETTINGS-PASSWORD-COPY-0 /
@@ -48,7 +48,7 @@ export function PasswordInput(props: {
   }
   return (
     <div className="settingsPasswordField">
-      <input
+      <Input
         type={visible ? 'text' : 'password'}
         value={props.value}
         onChange={(event) => props.onChange(event.currentTarget.value)}
@@ -61,9 +61,11 @@ export function PasswordInput(props: {
       />
       <div className="settingsPasswordActions">
         {props.value && !props.disabled && (
-          <button
+          <Button
             type="button"
             className="settingsPasswordToggle"
+            variant="quiet"
+            size="icon-sm"
             disabled={copying}
             onClick={() => void copyValue()}
             aria-label={copying ? '复制中' : justCopied ? '已复制' : '复制'}
@@ -71,18 +73,20 @@ export function PasswordInput(props: {
             {justCopied
               ? <Check size={16} strokeWidth={1.75} aria-hidden="true" />
               : <Copy size={16} strokeWidth={1.75} aria-hidden="true" />}
-          </button>
+          </Button>
         )}
-        <button
+        <Button
           type="button"
           className="settingsPasswordToggle"
+          variant="quiet"
+          size="icon-sm"
           onClick={() => setVisible((current) => !current)}
           disabled={props.disabled}
           aria-label={visible ? '隐藏' : '显示'}
           aria-pressed={visible}
         >
           {visible ? <EyeOff size={16} strokeWidth={1.75} aria-hidden="true" /> : <Eye size={16} strokeWidth={1.75} aria-hidden="true" />}
-        </button>
+        </Button>
       </div>
     </div>
   );
