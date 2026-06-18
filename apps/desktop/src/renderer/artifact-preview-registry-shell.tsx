@@ -26,6 +26,7 @@
 
 import { useEffect, useState } from 'react';
 import type { ArtifactRecord } from '@maka/core';
+import { Button } from '@maka/ui';
 import {
   type ArtifactPreviewInput,
   type PreviewResolution,
@@ -140,13 +141,14 @@ export function UnsupportedArtifactPreview(props: {
           is available "eventually", which is misleading for surfaces
           that have no path-open IPC. */}
       {props.onShowInFolder && (
-        <button
+        <Button
           type="button"
-          className="maka-button maka-button-secondary maka-artifact-preview-unsupported-cta"
+          variant="secondary"
+          className="maka-artifact-preview-unsupported-cta"
           onClick={props.onShowInFolder}
         >
           在 Finder 中打开
-        </button>
+        </Button>
       )}
     </div>
   );

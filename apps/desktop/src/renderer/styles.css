@@ -8631,7 +8631,6 @@ button:active {
   color: var(--text);
   font-size: 15px;
   line-height: 1;
-  cursor: pointer;
 }
 
 .maka-browser-navbtn:hover:not(:disabled) {
