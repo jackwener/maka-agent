@@ -1769,7 +1769,21 @@ button:active {
    main composer but lives inside the hero card so the first-run
    surface stays self-contained. */
 .maka-onboarding-ready header h1 {
-  font-size: 24px;
+  /* Heavier display weight to balance the 56px brand mark above
+     and match QoderWork's "不止聊天，搞定一切" hero scale. clamp
+     keeps it from blowing out on narrow windows where the hero
+     competes with the composer below for vertical space. */
+  font-size: clamp(28px, 2.6vw, 34px);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.16;
+}
+.maka-onboarding-ready header p {
+  /* Slightly larger subtitle so it carries the meaning without
+     reading like fine print under the now-heavier h1. */
+  font-size: 15px;
+  line-height: 1.6;
+  max-width: 56ch;
 }
 .maka-onboarding-quickchat {
   /* QoderWork-style unified composer card: textarea + action row
