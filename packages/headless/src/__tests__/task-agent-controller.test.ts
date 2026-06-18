@@ -7,7 +7,9 @@ import { BackendRegistry, FakeBackend, SessionManager, type AgentBackend, type S
 import type { BackendKind, SessionEvent, SessionHeader } from '@maka/core';
 import type { BackendSendInput, PermissionDecision } from '@maka/core/backend-types';
 import type { Config, Task } from '../contracts.js';
+import { commandResourceScope, hashNormalizedArgs } from '../permission-grants.js';
 import { runTaskOnce } from '../task-agent-controller.js';
+import type { TaskPermissionGrant } from '../task-contracts.js';
 
 const fakeConfig: Config = {
   id: 'fake-cfg',
@@ -191,7 +193,7 @@ class PermissionRequestBackend implements AgentBackend {
   readonly kind: BackendKind = 'fake';
   readonly sessionId: string;
 
-  constructor(sessionId: string, private readonly onRespond: () => void) {
+  constructor(sessionId: string, private readonly onRespond: () => void, private readonly command: string) {
     this.sessionId = sessionId;
   }
 
@@ -207,7 +209,7 @@ class PermissionRequestBackend implements AgentBackend {
       toolName: 'Bash',
       category: 'shell_unsafe',
       reason: 'shell_dangerous',
-      args: { command: 'rm -rf /tmp/example' },
+      args: { command: this.command },
     };
     yield { type: 'complete', id: 'permission-complete', turnId: input.turnId, ts, stopReason: 'permission_handoff' };
   }
@@ -220,8 +222,8 @@ class PermissionRequestBackend implements AgentBackend {
   async dispose(): Promise<void> {}
 }
 
-const registerPermissionRequestBackend = (onRespond: () => void) => (registry: BackendRegistry): void => {
-  registry.register('fake', (ctx) => new PermissionRequestBackend(ctx.sessionId, onRespond));
+const registerPermissionRequestBackend = (onRespond: () => void, command = 'rm -rf /tmp/example') => (registry: BackendRegistry): void => {
+  registry.register('fake', (ctx) => new PermissionRequestBackend(ctx.sessionId, onRespond, command));
 };
 
 async function withDirs<T>(fn: (fixtureDir: string, storageRoot: string) => Promise<T>): Promise<T> {
@@ -265,6 +267,9 @@ describe('runTaskOnce', () => {
           [
             'task_run_created',
             'task_run_queued',
+            'isolation_policy_recorded',
+            'workspace_lease_recorded',
+            'tool_executor_identity_recorded',
             'task_run_started',
             'task_attempt_started',
             'feedback_observed',
@@ -275,6 +280,9 @@ describe('runTaskOnce', () => {
             'task_run_completed',
           ],
         );
+        assert.equal(result.projection.isolation?.mode, 'inert_fake_backend');
+        assert.equal(result.projection.workspaceLease?.taskRunId, result.taskRunId);
+        assert.equal(result.projection.toolExecutors[0]?.isolationMode, 'inert_fake_backend');
       } finally {
         SessionManager.prototype.sendMessage = original;
       }
@@ -428,6 +436,134 @@ describe('runTaskOnce', () => {
         result.projection.events.some((event) => event.type === 'task_run_policy_denied'),
         'expected a policy-denied terminal task event',
       );
+      assert.equal(result.projection.permissionRequests.length, 1);
+      assert.equal(result.projection.permissionRequests[0]?.toolName, 'Bash');
+      assert.equal(result.projection.permissionRequests[0]?.resourceScope.kind, 'command');
+      assert.equal(result.projection.inboxItems[0]?.kind, 'approval_request');
+      assert.equal(result.projection.inboxItems[0]?.status, 'resolved');
+      assert.ok(
+        result.projection.events.some((event) => event.type === 'permission_decision_recorded' && event.decision === 'deny'),
+        'expected a fail-closed permission denial event',
+      );
+    });
+  });
+
+  test('does not treat post-hoc matching permission grants as runtime authorization', async () => {
+    await withDirs(async (_fixtureDir, storageRoot) => {
+      let respondCalls = 0;
+      const taskRunId = 'grant-run';
+      const command = 'rm -rf /tmp/example';
+      const grant: TaskPermissionGrant = {
+        schemaVersion: 1,
+        grantId: 'grant-posthoc',
+        requestId: 'permission-request-1',
+        taskRunId,
+        attemptId: `${taskRunId}-attempt-1`,
+        toolCallId: 'tool-1',
+        toolName: 'Bash',
+        normalizedArgsHash: hashNormalizedArgs({ command }),
+        resourceScope: commandResourceScope(command),
+        decision: 'allow',
+        actor: { kind: 'test', id: 'unit' },
+        source: 'test_fixture',
+        decidedAt: 10,
+        expiresAt: Number.MAX_SAFE_INTEGER,
+      };
+      const task: Task = {
+        id: 'permission-grant-posthoc',
+        instruction: 'run a dangerous command',
+        workspaceDir: _fixtureDir,
+        verification: { command: 'true', protectedPaths: [] },
+      };
+
+      const result = await runTaskOnce(fakeConfig, task, {
+        storageRoot,
+        taskRunId,
+        registerBackends: registerPermissionRequestBackend(() => {
+          respondCalls += 1;
+        }, command),
+        permissionGrants: [grant],
+      });
+
+      assert.equal(respondCalls, 0);
+      assert.equal(result.resultRecord.status, 'failed');
+      assert.equal(result.resultRecord.errorClass, 'policy_denied');
+      assert.equal(result.projection.status, 'policy_denied');
+      assert.equal(result.projection.permissionGrants.length, 1);
+      assert.equal(result.projection.permissionGrants[0]?.grantId, 'grant-posthoc');
+      assert.equal(
+        result.projection.events.some((event) => event.type === 'permission_decision_recorded' && event.decision === 'allow'),
+        false,
+      );
+      const denyDecision = result.projection.events.find((event) => event.type === 'permission_decision_recorded');
+      assert.ok(denyDecision);
+      if (denyDecision.type !== 'permission_decision_recorded') {
+        throw new Error('expected permission_decision_recorded event');
+      }
+      assert.equal(denyDecision.decision, 'deny');
+      assert.match(denyDecision.reason ?? '', /post-hoc permission requests/);
+    });
+  });
+
+  test('redacts bash permission scopes and inbox previews while preserving args hash', async () => {
+    await withDirs(async (_fixtureDir, storageRoot) => {
+      const secret = 'SECRET_TOKEN_123456';
+      const command = `printf ${secret} > /tmp/secret-output`;
+      const task: Task = {
+        id: 'permission-redaction',
+        instruction: 'request permission',
+        workspaceDir: _fixtureDir,
+        verification: { command: 'true', protectedPaths: [] },
+      };
+
+      const result = await runTaskOnce(fakeConfig, task, {
+        storageRoot,
+        registerBackends: registerPermissionRequestBackend(() => {}, command),
+      });
+
+      const request = result.projection.permissionRequests[0];
+      assert.ok(request);
+      assert.equal(request.normalizedArgsHash, hashNormalizedArgs({ command }));
+      assert.deepEqual(request.resourceScope, commandResourceScope(command));
+      const serializedPermissionFacts = JSON.stringify({
+        permissionRequests: result.projection.permissionRequests,
+        inboxItems: result.projection.inboxItems,
+        permissionEvents: result.projection.events.filter((event) =>
+          event.type === 'permission_request_recorded' ||
+          event.type === 'task_inbox_item_recorded' ||
+          event.type === 'task_inbox_item_resolved',
+        ),
+      });
+      assert.equal(serializedPermissionFacts.includes(secret), false);
+      assert.equal(serializedPermissionFacts.includes(command), false);
+      assert.match(serializedPermissionFacts, new RegExp(request.normalizedArgsHash));
+    });
+  });
+
+  test('parks permission requests in desktop intervention mode without verifying', async () => {
+    await withDirs(async (_fixtureDir, storageRoot) => {
+      const task: Task = {
+        id: 'permission-park',
+        instruction: 'run a dangerous command',
+        workspaceDir: _fixtureDir,
+        verification: { command: 'false', protectedPaths: [] },
+      };
+
+      const result = await runTaskOnce(fakeConfig, task, {
+        storageRoot,
+        registerBackends: registerPermissionRequestBackend(() => {}),
+        interventionPolicy: { mode: 'park' },
+      });
+
+      assert.equal(result.resultRecord.status, 'failed');
+      assert.equal(result.resultRecord.errorClass, 'needs_approval');
+      assert.equal(result.projection.status, 'needs_approval');
+      assert.equal(result.projection.parked?.reason, 'approval');
+      assert.equal(result.projection.latestVerifierResult, undefined);
+      assert.equal(result.projection.latestScoreResult, undefined);
+      assert.equal(result.projection.attempts[0]?.status, 'needs_approval');
+      assert.equal(result.projection.inboxItems[0]?.kind, 'approval_request');
+      assert.equal(result.projection.inboxItems[0]?.status, 'open');
     });
   });
 
