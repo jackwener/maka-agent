@@ -97,6 +97,10 @@ describe('Plan reminder MVP contract', () => {
     assert.match(ui, /planReminderDisplayRows/, 'all-reminders view must group rows by status');
     assert.match(ui, /maka-plan-group-header/, 'plan reminder groups must have visible headers');
     assert.match(ui, /planReminderStatusGroupLabel/, 'group labels must come from a centralized status mapper');
+    assert.match(ui, /import \{ Alert, AlertDescription, AlertTitle \} from '\.\/coss\/alert\.js'/, 'PlanReminderPanel must consume the vendored COSS Alert primitive');
+    assert.match(ui, /<Alert variant="info" className="maka-plan-system-alert">[\s\S]*计划提醒会在本机唤醒时运行/, 'PlanReminderPanel must render the QoderWork-style info banner through COSS Alert');
+    assert.match(ui, /import \{ Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle \} from '\.\/coss\/empty\.js'/, 'shared EmptyState must be backed by the vendored COSS Empty primitive');
+    assert.match(ui, /function EmptyState[\s\S]*<Empty className=\{className\}[\s\S]*<EmptyMedia variant="icon"/, 'shared EmptyState must compose COSS Empty instead of a one-off Card layout');
     assert.equal(
       (ui.match(/className="maka-plan-card-note"/g) ?? []).length,
       1,
@@ -105,14 +109,17 @@ describe('Plan reminder MVP contract', () => {
   });
 
   it('keeps reminder drafts until async create or save succeeds', async () => {
-    const [ui, renderer] = await Promise.all([
+    const [ui, renderer, css] = await Promise.all([
       readRepo('packages/ui/src/components.tsx'),
       readRepo('apps/desktop/src/renderer/main.tsx'),
+      readRepo('apps/desktop/src/renderer/styles.css'),
     ]);
 
     const panelBlock = ui.match(/function PlanReminderPanel[\s\S]*?function comparePlanReminderForDisplay/)?.[0] ?? '';
     assert.match(ui, /Input,[\s\S]*Textarea as UiTextarea,[\s\S]*cn,/, 'plan reminder text controls must use shared Input/Textarea imports');
     assert.match(ui, /SelectItem,[\s\S]*SelectPopup,[\s\S]*SelectPortal,[\s\S]*SelectPositioner,[\s\S]*SelectRoot,[\s\S]*SelectTrigger,[\s\S]*SelectValue,/, 'plan reminder selects must use shared Base UI Select imports');
+    assert.match(css, /--color-info:\s*var\(--info\);[\s\S]*--color-warning-foreground:\s*var\(--warning-text\);/, 'COSS status color tokens must be mapped into Tailwind v4 theme variables');
+    assert.match(css, /\.maka-plan-system-alert/, 'PlanReminderPanel COSS Alert must have a local product surface style hook');
     assert.match(ui, /function PlanReminderSelect[\s\S]*<SelectPositioner alignItemWithTrigger=\{false\} sideOffset=\{6\}>/, 'PlanReminder Select popups must opt out of item-trigger alignment');
     assert.doesNotMatch(panelBlock, /<input\b/, 'PlanReminderPanel text fields must use shared Input');
     assert.doesNotMatch(panelBlock, /<textarea\b/, 'PlanReminderPanel notes must use shared Textarea');

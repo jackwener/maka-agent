@@ -72,6 +72,8 @@
   --success-text: color-mix(in oklab, var(--success) 50%, var(--foreground));
   --destructive-text: color-mix(in oklab, var(--destructive) 50%, var(--foreground));
   --info-text: color-mix(in oklab, var(--info) 50%, var(--foreground));
+  --warning: var(--info);
+  --warning-text: var(--info-text);
 
   /* === foreground solid mix scale ===
      foreground-N = N% of foreground interpolated INTO background.

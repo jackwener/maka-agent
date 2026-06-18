@@ -30,6 +30,12 @@
   --color-accent-foreground: oklch(0.985 0.003 250);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: oklch(0.985 0.003 250);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-text);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-text);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-text);
   --color-border: var(--border);
   --color-input: var(--border-strong);
   --color-ring: var(--ring);
@@ -2193,6 +2199,11 @@ button:active {
   padding: 0;
 }
 
+.maka-empty-state-media .maka-empty-state-icon {
+  width: 24px;
+  height: 24px;
+}
+
 .maka-empty-state-title {
   color: var(--foreground);
   font-size: 15px;
@@ -2241,6 +2252,16 @@ button:active {
   max-width: 980px;
   width: 100%;
   gap: 14px;
+}
+
+.maka-plan-system-alert {
+  border-color: oklch(from var(--info) l c h / 0.24);
+  background: oklch(from var(--info) l c h / 0.08);
+  color: var(--info-text);
+}
+
+.maka-plan-system-alert [class*="lucide"] {
+  color: var(--info-text);
 }
 
 .maka-plan-form,

@@ -117,6 +117,8 @@ import {
   Textarea as UiTextarea,
   cn,
 } from './ui.js';
+import { Alert, AlertDescription, AlertTitle } from './coss/alert.js';
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from './coss/empty.js';
 
 /**
  * PR-SIDEBAR-IA-0 Phase 2 + fixup (xuan msg `47e204f2`, `91401163`;
@@ -724,16 +726,20 @@ export interface EmptyStateProps {
 
 export function EmptyState(props: EmptyStateProps) {
   const className = cn(
-    'maka-empty-state grid place-items-center gap-3 rounded-xl border border-border bg-card/70 p-8 text-center text-card-foreground shadow-maka-panel',
+    'maka-empty-state rounded-xl border-border bg-card/70 p-8 text-card-foreground shadow-maka-panel',
     props.extraClassName,
   );
   return (
-    <Card className={className} data-empty-view={props.dataEmptyView}>
-      <props.Icon className="maka-empty-state-icon size-10 text-muted-foreground" strokeWidth={1.5} />
-      <div className="maka-empty-state-title text-base font-semibold text-foreground">{props.title}</div>
-      <div className="maka-empty-state-body max-w-[48ch] text-sm leading-6 text-muted-foreground">{props.body}</div>
+    <Empty className={className} data-empty-view={props.dataEmptyView}>
+      <EmptyHeader>
+        <EmptyMedia variant="icon" className="maka-empty-state-media">
+          <props.Icon className="maka-empty-state-icon size-6 text-muted-foreground" strokeWidth={1.5} />
+        </EmptyMedia>
+        <EmptyTitle className="maka-empty-state-title">{props.title}</EmptyTitle>
+        <EmptyDescription className="maka-empty-state-body">{props.body}</EmptyDescription>
+      </EmptyHeader>
       {(props.cta || props.secondaryCta) && (
-        <div className="maka-empty-state-actions mt-2 flex flex-wrap items-center justify-center gap-2">
+        <EmptyContent className="maka-empty-state-actions mt-0">
           {props.cta && (
             <UiButton
               className="maka-button maka-empty-state-cta"
@@ -755,9 +761,9 @@ export function EmptyState(props: EmptyStateProps) {
               {props.secondaryCta.label}
             </UiButton>
           )}
-        </div>
+        </EmptyContent>
       )}
-    </Card>
+    </Empty>
   );
 }
 
@@ -1547,6 +1553,13 @@ function PlanReminderPanel(props: {
 
   return (
     <div className="maka-plan-panel">
+      <Alert variant="info" className="maka-plan-system-alert">
+        <Clock strokeWidth={1.75} aria-hidden="true" />
+        <AlertTitle>计划提醒会在本机唤醒时运行</AlertTitle>
+        <AlertDescription>
+          Maka 会保留执行记录；重复提醒、机器人投递和手动触发都走同一套计划队列。
+        </AlertDescription>
+      </Alert>
       <form className="maka-plan-form" onSubmit={submit} aria-busy={submitPending ? 'true' : undefined}>
         <div className="maka-plan-form-title">{isEditing ? '编辑提醒' : '新建提醒'}</div>
         <label className="maka-plan-field">
