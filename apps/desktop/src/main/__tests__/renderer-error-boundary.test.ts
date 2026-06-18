@@ -7,7 +7,7 @@ test('renderer error boundary exposes a redacted copyable diagnostic report', as
   const source = await readFile(join(process.cwd(), 'src/renderer/error-boundary.tsx'), 'utf8');
   const css = await readFile(join(process.cwd(), 'src/renderer/styles.css'), 'utf8');
 
-  assert.match(source, /import\s+\{\s*redactSecrets\s*\}\s+from\s+'@maka\/ui'/);
+  assert.match(source, /import\s+\{[^}]*\bredactSecrets\b[^}]*\}\s+from\s+'@maka\/ui'/);
   assert.match(source, /export function formatRendererErrorReport/);
   assert.match(source, /return redactSecrets\(lines\.join\('\\n'\)\)/);
   assert.match(source, /const safeStack = redactSecrets\(/);
