@@ -92,6 +92,8 @@ export interface SpawnChildAgentResult {
   failureClass?: string;
 }
 
+const CHILD_AGENT_SUMMARY_MAX_CHARS = 4_000;
+
 export interface AgentListItem {
   runId: string;
   turnId: string;
@@ -406,7 +408,7 @@ export class SessionManager {
   ): Promise<SpawnChildAgentResult> {
     const turnId = input.turnId ?? this.deps.newId();
     const startedAt = this.deps.now();
-    const events: SessionEvent[] = [];
+    const summary = new ChildAgentSummaryAccumulator();
     let aborted = input.abortSignal?.aborted === true;
     const iterator = this.startChildTurn(sessionId, {
       turnId,
@@ -425,7 +427,7 @@ export class SessionManager {
       while (!aborted) {
         const next = await iterator.next();
         if (next.done) break;
-        events.push(next.value);
+        summary.add(next.value);
       }
     } finally {
       input.abortSignal?.removeEventListener('abort', onAbort);
@@ -441,14 +443,14 @@ export class SessionManager {
       agentName: input.spec.name,
       turnId,
       ...(run?.runId ? { runId: run.runId } : {}),
-      status: run ? agentRunStatusForSpawnResult(run.status) : (aborted ? 'cancelled' : statusFromChildEvents(events)),
+      status: run ? agentRunStatusForSpawnResult(run.status) : summary.status(aborted),
       permissionMode: 'explore',
-      summary: summarizeChildEvents(events),
+      summary: summary.text(),
       artifactIds: artifacts.map((artifact) => artifact.id),
       startedAt,
       completedAt,
       durationMs: Math.max(0, completedAt - startedAt),
-      eventCount: events.length,
+      eventCount: summary.eventCount,
       ...(run?.failureClass ? { failureClass: run.failureClass } : {}),
     };
   }
@@ -908,44 +910,66 @@ function agentRunStatusForSpawnResult(status: AgentRunHeader['status']): SpawnCh
   return 'completed';
 }
 
-function statusFromChildEvents(events: readonly SessionEvent[]): SpawnChildAgentResult['status'] {
-  const terminal = [...events].reverse().find((event) =>
-    event.type === 'complete' || event.type === 'error' || event.type === 'abort'
-  );
-  if (!terminal) return 'running';
-  switch (terminal.type) {
-    case 'error':
-      return 'failed';
-    case 'abort':
-      return 'cancelled';
-    case 'complete':
-      if (terminal.stopReason === 'error') return 'failed';
-      if (terminal.stopReason === 'user_stop') return 'cancelled';
-      return 'completed';
-  }
-  return 'running';
-}
-
-function summarizeChildEvents(events: readonly SessionEvent[]): string {
-  const textComplete = [...events]
-    .reverse()
-    .find((event): event is Extract<SessionEvent, { type: 'text_complete' }> => event.type === 'text_complete');
-  if (textComplete?.text.trim()) return trimSummary(textComplete.text);
-  const chunks = events
-    .filter((event): event is Extract<SessionEvent, { type: 'text_delta' }> => event.type === 'text_delta')
-    .map((event) => event.text)
-    .join('');
-  if (chunks.trim()) return trimSummary(chunks);
-  const error = [...events]
-    .reverse()
-    .find((event): event is Extract<SessionEvent, { type: 'error' }> => event.type === 'error');
-  if (error) return trimSummary(error.message);
-  return '';
-}
-
 function trimSummary(text: string): string {
   const trimmed = text.trim();
-  return trimmed.length <= 4_000 ? trimmed : `${trimmed.slice(0, 3_999)}…`;
+  return trimmed.length <= CHILD_AGENT_SUMMARY_MAX_CHARS
+    ? trimmed
+    : `${trimmed.slice(0, CHILD_AGENT_SUMMARY_MAX_CHARS - 1)}…`;
+}
+
+class ChildAgentSummaryAccumulator {
+  eventCount = 0;
+  private terminalStatus: SpawnChildAgentResult['status'] | undefined;
+  private lastTextComplete = '';
+  private textDeltaTail = '';
+  private textDeltaTruncated = false;
+  private lastError = '';
+
+  add(event: SessionEvent): void {
+    this.eventCount += 1;
+    switch (event.type) {
+      case 'text_complete':
+        this.lastTextComplete = trimSummary(event.text);
+        break;
+      case 'text_delta':
+        this.appendTextDelta(event.text);
+        break;
+      case 'error':
+        this.terminalStatus = 'failed';
+        this.lastError = trimSummary(event.message);
+        break;
+      case 'abort':
+        this.terminalStatus = 'cancelled';
+        break;
+      case 'complete':
+        if (event.stopReason === 'error') this.terminalStatus = 'failed';
+        else if (event.stopReason === 'user_stop') this.terminalStatus = 'cancelled';
+        else this.terminalStatus = 'completed';
+        break;
+    }
+  }
+
+  status(aborted: boolean): SpawnChildAgentResult['status'] {
+    if (aborted) return 'cancelled';
+    return this.terminalStatus ?? 'running';
+  }
+
+  text(): string {
+    if (this.lastTextComplete.trim()) return this.lastTextComplete;
+    if (this.textDeltaTail.trim()) {
+      return this.textDeltaTruncated
+        ? `…${this.textDeltaTail.slice(1)}`
+        : this.textDeltaTail.trim();
+    }
+    return this.lastError;
+  }
+
+  private appendTextDelta(text: string): void {
+    this.textDeltaTail += text;
+    if (this.textDeltaTail.length <= CHILD_AGENT_SUMMARY_MAX_CHARS) return;
+    this.textDeltaTruncated = true;
+    this.textDeltaTail = this.textDeltaTail.slice(-CHILD_AGENT_SUMMARY_MAX_CHARS);
+  }
 }
 
 interface InterruptedTurnRecovery {

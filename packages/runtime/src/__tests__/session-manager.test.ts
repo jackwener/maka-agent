@@ -1213,6 +1213,38 @@ describe('SessionManager permission mode updates', () => {
     expect(result.artifactIds).toEqual(['artifact-1']);
   });
 
+  test('spawnChildAgent summarizes high-volume child output without returning the full stream', async () => {
+    const store = new MemorySessionStore();
+    const runStore = new MemoryAgentRunStore();
+    const backends = new BackendRegistry();
+    backends.register('fake', (ctx) => new HighVolumeDeltaBackend(ctx, 512));
+    const manager = new SessionManager({
+      store,
+      runStore, runtimeEventStore: runStore, backends,
+      newId: nextId(),
+      now: nextNow(6_844),
+      runtimeSource: 'test',
+    });
+    const session = await manager.createSession(makeInput({ permissionMode: 'ask' }));
+    await drain(manager.sendMessage(session.id, { turnId: 'parent-turn', text: 'parent context' }));
+    const [parentRun] = await runStore.listSessionRuns(session.id);
+    if (!parentRun) throw new Error('parent run was not recorded');
+
+    const result = await manager.spawnChildAgent(session.id, {
+      turnId: 'child-turn',
+      parentRunId: parentRun.runId,
+      spec: { name: 'Researcher', systemPrompt: 'read only' },
+      prompt: 'produce a large report',
+    });
+
+    expect(result.status).toBe('completed');
+    expect(result.eventCount).toBe(513);
+    expect(result.summary.length <= 4_000).toBe(true);
+    expect(result.summary.startsWith('…')).toBe(true);
+    expect(result.summary.includes('chunk-000')).toBe(false);
+    expect(result.summary.includes('chunk-511')).toBe(true);
+  });
+
   test('stopSession cancels active child runs and disposes their backend', async () => {
     const store = new MemorySessionStore();
     const runStore = new MemoryAgentRunStore();
@@ -2481,6 +2513,40 @@ class TestBackend implements AgentBackend {
       this.ctx.store.disposeCount += 1;
     }
   }
+}
+
+class HighVolumeDeltaBackend implements AgentBackend {
+  readonly kind = 'fake' as const;
+  readonly sessionId: string;
+
+  constructor(ctx: BackendFactoryContext, private readonly chunkCount: number) {
+    this.sessionId = ctx.sessionId;
+  }
+
+  async *send(input: BackendSendInput): AsyncIterable<SessionEvent> {
+    const messageId = `${input.turnId}-m`;
+    for (let index = 0; index < this.chunkCount; index += 1) {
+      yield {
+        type: 'text_delta',
+        id: `${input.turnId}-delta-${index}`,
+        turnId: input.turnId,
+        ts: index + 1,
+        messageId,
+        text: `chunk-${String(index).padStart(3, '0')}:${'x'.repeat(32)}\n`,
+      };
+    }
+    yield {
+      type: 'complete',
+      id: `${input.turnId}-complete`,
+      turnId: input.turnId,
+      ts: this.chunkCount + 1,
+      stopReason: 'end_turn',
+    };
+  }
+
+  async stop(): Promise<void> {}
+  async respondToPermission(_decision: PermissionDecision): Promise<void> {}
+  async dispose(): Promise<void> {}
 }
 
 class TextCompleteBackend implements AgentBackend {
