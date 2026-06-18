@@ -344,11 +344,35 @@ export const SelectTrigger = forwardRef<HTMLButtonElement, React.ComponentPropsW
 export const SelectValue = BaseSelect.Value;
 export const SelectPortal = BaseSelect.Portal;
 export const SelectPositioner = BaseSelect.Positioner;
+export const SelectList = forwardRef<HTMLDivElement, React.ComponentPropsWithoutRef<typeof BaseSelect.List>>(function SelectList(
+  { className, ...props },
+  ref,
+) {
+  return <BaseSelect.List ref={ref} className={cn('max-h-[var(--available-height)] overflow-y-auto py-1', className)} {...props} />;
+});
 export const SelectPopup = forwardRef<HTMLDivElement, React.ComponentPropsWithoutRef<typeof BaseSelect.Popup>>(function SelectPopup(
   { className, ...props },
   ref,
 ) {
   return <BaseSelect.Popup ref={ref} className={cn('z-50 min-w-40 rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-maka-panel', className)} {...props} />;
+});
+export const SelectGroup = forwardRef<HTMLDivElement, React.ComponentPropsWithoutRef<typeof BaseSelect.Group>>(function SelectGroup(
+  { className, ...props },
+  ref,
+) {
+  return <BaseSelect.Group ref={ref} className={cn('py-1', className)} {...props} />;
+});
+export const SelectGroupLabel = forwardRef<HTMLDivElement, React.ComponentPropsWithoutRef<typeof BaseSelect.GroupLabel>>(function SelectGroupLabel(
+  { className, ...props },
+  ref,
+) {
+  return <BaseSelect.GroupLabel ref={ref} className={cn('px-2 py-1 text-xs font-medium text-muted-foreground', className)} {...props} />;
+});
+export const SelectSeparator = forwardRef<HTMLDivElement, React.ComponentPropsWithoutRef<typeof BaseSelect.Separator>>(function SelectSeparator(
+  { className, ...props },
+  ref,
+) {
+  return <BaseSelect.Separator ref={ref} className={cn('my-1 h-px bg-border', className)} {...props} />;
 });
 
 export const SelectItem = forwardRef<HTMLDivElement, React.ComponentPropsWithoutRef<typeof BaseSelect.Item>>(function SelectItem(
@@ -361,10 +385,14 @@ export const SelectItem = forwardRef<HTMLDivElement, React.ComponentPropsWithout
       className={cn('grid cursor-default grid-cols-[1rem_1fr] items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none data-[highlighted]:bg-muted data-[selected]:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50', className)}
       {...props}
     >
-      <BaseSelect.ItemIndicator>
-        <Check size={13} strokeWidth={2} aria-hidden="true" />
-      </BaseSelect.ItemIndicator>
-      <BaseSelect.ItemText>{children}</BaseSelect.ItemText>
+      <span className="flex h-4 w-4 items-center justify-center" aria-hidden="true">
+        <BaseSelect.ItemIndicator>
+          <Check size={13} strokeWidth={2} aria-hidden="true" />
+        </BaseSelect.ItemIndicator>
+      </span>
+      <span className="min-w-0">
+        <BaseSelect.ItemText>{children}</BaseSelect.ItemText>
+      </span>
     </BaseSelect.Item>
   );
 });

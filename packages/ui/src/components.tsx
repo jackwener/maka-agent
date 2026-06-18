@@ -107,11 +107,15 @@ import {
   DialogContent,
   DialogRoot,
   Input,
+  SelectGroup,
+  SelectGroupLabel,
   SelectItem,
+  SelectList,
   SelectPopup,
   SelectPortal,
   SelectPositioner,
   SelectRoot,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
   Textarea as UiTextarea,
@@ -3739,6 +3743,17 @@ function ChatModelSwitcher(props: {
   const pending = props.pending || localPending;
   const disabled = pending || Boolean(props.disabledReason) || !props.onChange || props.choices.length === 0;
   const grouped = groupModelChoices(props.choices);
+  const currentKnownChoice = props.choices.some((choice) => modelChoiceValue(choice.connectionSlug, choice.model) === currentValue);
+  const modelSelectItems = useMemo(
+    () => [
+      ...(!currentKnownChoice ? [{ value: currentValue, label: currentModel }] : []),
+      ...props.choices.map((choice) => ({
+        value: modelChoiceValue(choice.connectionSlug, choice.model),
+        label: choice.label ?? choice.model,
+      })),
+    ],
+    [currentKnownChoice, currentModel, currentValue, props.choices],
+  );
   const title = pending
     ? '正在切换当前会话模型…'
     : props.disabledReason ?? '切换当前会话使用的模型。设置里的默认模型只影响新建会话；这里会更新当前会话。';
@@ -3762,22 +3777,20 @@ function ChatModelSwitcher(props: {
   }, [props.activeSession.id]);
 
   return (
-    <label
+    <div
       className="maka-model-switcher"
       title={title}
       data-disabled={disabled ? 'true' : undefined}
       data-pending={pending ? 'true' : undefined}
       aria-busy={pending ? 'true' : undefined}
     >
-      <span className="maka-model-switcher-label">{pending ? '切换中' : '模型'}</span>
-      <select
-        className="maka-model-switcher-select"
-        aria-label="切换当前会话模型"
+      <SelectRoot<string>
+        items={modelSelectItems}
         value={currentValue}
         disabled={disabled}
-        onChange={(event) => {
+        onValueChange={(value) => {
           if (pendingRef.current || props.pending) return;
-          const next = parseModelChoiceValue(event.currentTarget.value);
+          const next = typeof value === 'string' ? parseModelChoiceValue(value) : undefined;
           if (!next) return;
           if (
             next.llmConnectionSlug === props.activeSession.llmConnectionSlug &&
@@ -3803,23 +3816,47 @@ function ChatModelSwitcher(props: {
             });
         }}
       >
-        {!props.choices.some((choice) => modelChoiceValue(choice.connectionSlug, choice.model) === currentValue) && (
-          <option value={currentValue}>{currentModel}</option>
-        )}
-        {grouped.map((group) => (
-          <optgroup key={group.connectionSlug} label={group.connectionLabel}>
-            {group.choices.map((choice) => (
-              <option
-                key={modelChoiceValue(choice.connectionSlug, choice.model)}
-                value={modelChoiceValue(choice.connectionSlug, choice.model)}
-              >
-                {choice.label ?? choice.model}
-              </option>
-            ))}
-          </optgroup>
-        ))}
-      </select>
-    </label>
+        <SelectTrigger
+          className="maka-model-switcher-trigger"
+          aria-label="切换当前会话模型"
+          title={title}
+        >
+          <span className="maka-model-switcher-label">{pending ? '切换中' : '模型'}</span>
+          <SelectValue className="maka-model-switcher-value" />
+        </SelectTrigger>
+        <SelectPortal>
+          <SelectPositioner alignItemWithTrigger={false} sideOffset={8} className="maka-model-switcher-positioner">
+            <SelectPopup className="maka-model-switcher-popup">
+              <SelectList>
+                {!currentKnownChoice && (
+                  <>
+                    <SelectItem value={currentValue}>
+                      <span className="maka-model-switcher-item-main">{currentModel}</span>
+                      <span className="maka-model-switcher-item-meta">当前会话</span>
+                    </SelectItem>
+                    {grouped.length > 0 && <SelectSeparator />}
+                  </>
+                )}
+                {grouped.map((group) => (
+                  <SelectGroup key={group.connectionSlug}>
+                    <SelectGroupLabel>{group.connectionLabel}</SelectGroupLabel>
+                    {group.choices.map((choice) => (
+                      <SelectItem
+                        key={modelChoiceValue(choice.connectionSlug, choice.model)}
+                        value={modelChoiceValue(choice.connectionSlug, choice.model)}
+                      >
+                        <span className="maka-model-switcher-item-main">{choice.label ?? choice.model}</span>
+                        <span className="maka-model-switcher-item-meta">{choice.model}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                ))}
+              </SelectList>
+            </SelectPopup>
+          </SelectPositioner>
+        </SelectPortal>
+      </SelectRoot>
+    </div>
   );
 }
 
