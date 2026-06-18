@@ -33,7 +33,7 @@ describe('Settings usage dashboard contract', () => {
     );
     assert.match(
       usagePage![0],
-      /\{usageDraft\.showDetails && \([\s\S]*?<input value=\{usageDraft\.modelFilter\}/,
+      /\{usageDraft\.showDetails && \([\s\S]*?<Input value=\{usageDraft\.modelFilter\}/,
       'model/status request filters must be hidden until detail records are enabled',
     );
     assert.match(usagePage![0], /按模型或工具筛选/);
@@ -174,11 +174,11 @@ describe('Settings usage dashboard contract', () => {
       /async function updateUsage\(patch: Partial<AppSettings\['usage'\]>\): Promise<boolean> \{[\s\S]*const nextDraft = \{ \.\.\.usageDraftRef\.current, \.\.\.patch \};[\s\S]*commitUsageDraft\(nextDraft\);[\s\S]*const result = await props\.onUpdate\(\{ usage: patch \}\);[\s\S]*if \(usagePageMountedRef\.current && ticket === usageSaveTicketRef\.current\) \{[\s\S]*commitUsageDraft\(result\.settings\.usage\);[\s\S]*catch \(error\) \{[\s\S]*if \(usagePageMountedRef\.current && ticket === usageSaveTicketRef\.current\) \{[\s\S]*commitUsageDraft\(persistedUsageRef\.current\);/,
       'Usage settings saves must use latest-response draft sync and roll back on failure',
     );
-    assert.match(usagePage![0], /<input value=\{usageDraft\.modelFilter\}/);
+    assert.match(usagePage![0], /<Input value=\{usageDraft\.modelFilter\}/);
     assert.match(usagePage![0], /<select value=\{usageDraft\.status\}/);
     assert.doesNotMatch(
       usagePage![0],
-      /<input value=\{usage\.modelFilter\}/,
+      /<(?:input|Input) value=\{usage\.modelFilter\}/,
       'Usage model filter must not bind directly to persisted settings while typing',
     );
   });

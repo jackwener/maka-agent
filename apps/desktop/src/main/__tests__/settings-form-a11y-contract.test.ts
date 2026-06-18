@@ -36,6 +36,23 @@ function openingTags(source: string, tagName: 'input' | 'select' | 'textarea'): 
 }
 
 describe('Settings form accessibility labels', () => {
+  it('keeps migrated Settings text fields and action buttons on shared UI primitives', async () => {
+    const settings = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
+    const passwordInput = await readRepo('apps/desktop/src/renderer/settings/password-input.tsx');
+
+    assert.match(settings, /import \{ Button, DialogContent, DialogRoot, Input, RelativeTime, Textarea,/);
+    assert.match(passwordInput, /import \{ Button, Input, useToast \} from '@maka\/ui';/);
+
+    for (const [path, source] of [
+      ['SettingsModal.tsx', settings],
+      ['password-input.tsx', passwordInput],
+    ] as const) {
+      assert.doesNotMatch(source, /<input\b/, `${path} must use the shared Input primitive for Settings text fields`);
+      assert.doesNotMatch(source, /<textarea\b/, `${path} must use the shared Textarea primitive for Settings text areas`);
+      assert.doesNotMatch(source, /className="maka-button/, `${path} must not keep legacy maka-button styling on migrated actions`);
+    }
+  });
+
   it('keeps shared Settings password copy actions guarded and failure-visible', async () => {
     const passwordInput = await readRepo('apps/desktop/src/renderer/settings/password-input.tsx');
 
