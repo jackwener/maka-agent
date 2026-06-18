@@ -1665,7 +1665,7 @@ function PlanReminderPanel(props: {
         {normalizedListQuery && (
           <div className="maka-plan-search-summary" role="status" aria-live="polite">
             <span>找到 {searchMatchedReminders.length} 个匹配提醒</span>
-            <button type="button" onClick={() => setListQuery('')}>清除搜索</button>
+            <UiButton type="button" variant="ghost" size="sm" onClick={() => setListQuery('')}>清除搜索</UiButton>
           </div>
         )}
         <div className="maka-plan-filters" aria-label="计划提醒筛选">
