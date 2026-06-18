@@ -317,7 +317,7 @@ export interface AiSdkBackendInput {
     abortSignal: AbortSignal;
   }) => Promise<unknown>;
   listChildAgents?: () => Promise<unknown>;
-  readChildAgentOutput?: (input: { runId?: string; turnId?: string }) => Promise<unknown>;
+  readChildAgentOutput?: (input: { runId?: string; turnId?: string; maxEvents?: number }) => Promise<unknown>;
   /** Optional diagnostic trace hook for explaining a runtime turn without changing renderer events. */
   recordRunTrace?: RunTraceRecorder;
   /**

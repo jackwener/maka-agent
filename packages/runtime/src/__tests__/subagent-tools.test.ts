@@ -41,7 +41,7 @@ describe('subagent tools', () => {
 
     const result = await tool.impl({
       agent_name: 'Researcher',
-      system_prompt: 'Stay read-only.',
+      instructions: 'Stay read-only.',
       prompt: 'Inspect the runtime tests.',
     }, {
       sessionId: 'session-1',
@@ -113,5 +113,15 @@ describe('subagent tools', () => {
     expect(outputTool.permissionRequired).toBe(false);
     expect(list).toEqual({ agents: [{ runId: 'child-run', turnId: 'child-turn' }] });
     expect(output).toEqual({ requested: { runId: 'child-run' } });
+  });
+
+  test('agent_output requires exactly one run locator', () => {
+    const outputTool = buildSubagentOutputTool();
+    const schema = outputTool.parameters as { safeParse(input: unknown): { success: boolean } };
+
+    expect(schema.safeParse({ run_id: 'child-run' }).success).toBe(true);
+    expect(schema.safeParse({ turn_id: 'child-turn' }).success).toBe(true);
+    expect(schema.safeParse({}).success).toBe(false);
+    expect(schema.safeParse({ run_id: 'child-run', turn_id: 'child-turn' }).success).toBe(false);
   });
 });

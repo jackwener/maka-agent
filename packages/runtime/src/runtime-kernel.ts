@@ -228,9 +228,8 @@ export class RuntimeKernel implements RuntimeKernelLike {
   }
 
   async respondToPermission(sessionId: string, response: PermissionResponse): Promise<void> {
-    const active = this.active.get(sessionId);
-    if (!active) return;
-    await active.backend.respondToPermission(response);
+    const activeSessions = this.activeSessionsFor(sessionId);
+    await Promise.all(activeSessions.map((active) => active.backend.respondToPermission(response)));
   }
 
   hasActiveRuns(sessionId: string): boolean {

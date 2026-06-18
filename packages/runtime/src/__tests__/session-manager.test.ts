@@ -1173,6 +1173,46 @@ describe('SessionManager permission mode updates', () => {
     expect(childMessages).toEqual([]);
   });
 
+  test('spawnChildAgent returns artifacts recorded for the child turn', async () => {
+    const store = new MemorySessionStore();
+    const runStore = new MemoryAgentRunStore();
+    const backends = new BackendRegistry();
+    backends.register('fake', (ctx) => new TestBackend(ctx));
+    const manager = new SessionManager({
+      store,
+      runStore, runtimeEventStore: runStore, backends,
+      listArtifactsForTurn: async (_sessionId, turnId) => turnId === 'child-turn'
+        ? [{
+            id: 'artifact-1',
+            sessionId: 'session-1',
+            turnId,
+            createdAt: 200,
+            name: 'notes.md',
+            kind: 'file',
+            relativePath: 'artifacts/notes.md',
+            sizeBytes: 12,
+            status: 'live',
+          }]
+        : [],
+      newId: nextId(),
+      now: nextNow(6_842),
+      runtimeSource: 'test',
+    });
+    const session = await manager.createSession(makeInput({ permissionMode: 'ask' }));
+    await drain(manager.sendMessage(session.id, { turnId: 'parent-turn', text: 'parent context' }));
+    const [parentRun] = await runStore.listSessionRuns(session.id);
+    if (!parentRun) throw new Error('parent run was not recorded');
+
+    const result = await manager.spawnChildAgent(session.id, {
+      turnId: 'child-turn',
+      parentRunId: parentRun.runId,
+      spec: { name: 'Researcher', systemPrompt: 'read only' },
+      prompt: 'inspect',
+    });
+
+    expect(result.artifactIds).toEqual(['artifact-1']);
+  });
+
   test('stopSession cancels active child runs and disposes their backend', async () => {
     const store = new MemorySessionStore();
     const runStore = new MemoryAgentRunStore();
@@ -1281,6 +1321,96 @@ describe('SessionManager permission mode updates', () => {
     expect(output.header.runId).toBe('child-run');
     expect(output.runtimeEvents.map((event) => event.id)).toEqual(['child-user', 'child-answer', 'child-complete']);
     expect(output.artifacts.map((artifact) => artifact.id)).toEqual(['artifact-1']);
+  });
+
+  test('agent output returns a bounded child inspection instead of full replay internals', async () => {
+    const store = new MemorySessionStore();
+    const runStore = new MemoryAgentRunStore();
+    const backends = new BackendRegistry();
+    backends.register('fake', (ctx) => new TestBackend(ctx));
+    const manager = new SessionManager({
+      store,
+      runStore, runtimeEventStore: runStore, backends,
+      newId: nextId(),
+      now: nextNow(6_849),
+      runtimeSource: 'test',
+    });
+    const session = await manager.createSession(makeInput());
+    const header = makeRunHeader({
+      sessionId: session.id,
+      runId: 'child-run',
+      turnId: 'child-turn',
+      status: 'completed',
+      createdAt: 120,
+      updatedAt: 200,
+      completedAt: 200,
+      parentRunId: 'parent-run',
+      agentName: 'Researcher',
+      permissionMode: 'explore',
+    });
+    await runStore.createRun(header);
+    for (let index = 0; index < 25; index += 1) {
+      await runStore.appendEvent(session.id, 'child-run', makeRunEvent({
+        id: `op-${index}`,
+        sessionId: session.id,
+        runId: 'child-run',
+        turnId: 'child-turn',
+        type: 'model_stream_started',
+        ts: 120 + index,
+      }));
+      await runStore.appendRuntimeEvent(session.id, 'child-run', runtimeEvent({
+        id: `rt-${index}`,
+        sessionId: session.id,
+        runId: 'child-run',
+        turnId: 'child-turn',
+        ts: 120 + index,
+        role: 'model',
+        author: 'agent',
+        content: { kind: 'text', text: `line ${index}` },
+      }));
+    }
+
+    const output = await manager.readChildAgentOutput(session.id, { runId: 'child-run', maxEvents: 5 });
+
+    expect(output.header.runId).toBe('child-run');
+    expect(output.events.map((event) => event.id)).toEqual(['op-20', 'op-21', 'op-22', 'op-23', 'op-24']);
+    expect(output.runtimeEvents.map((event) => event.id)).toEqual(['rt-20', 'rt-21', 'rt-22', 'rt-23', 'rt-24']);
+    expect(output.truncated.events).toBe(true);
+    expect(output.truncated.runtimeEvents).toBe(true);
+    expect('modelReplay' in output).toBe(false);
+    expect('projection' in output).toBe(false);
+  });
+
+  test('agent output rejects ambiguous child run locators', async () => {
+    const store = new MemorySessionStore();
+    const runStore = new MemoryAgentRunStore();
+    const backends = new BackendRegistry();
+    backends.register('fake', (ctx) => new TestBackend(ctx));
+    const manager = new SessionManager({
+      store,
+      runStore, runtimeEventStore: runStore, backends,
+      newId: nextId(),
+      now: nextNow(6_850),
+      runtimeSource: 'test',
+    });
+    const session = await manager.createSession(makeInput());
+    await runStore.createRun(makeRunHeader({
+      sessionId: session.id,
+      runId: 'child-run',
+      turnId: 'child-turn',
+      status: 'completed',
+      createdAt: 120,
+      updatedAt: 130,
+      completedAt: 130,
+      parentRunId: 'parent-run',
+      agentName: 'Researcher',
+      permissionMode: 'explore',
+    }));
+
+    await expectRejects(
+      manager.readChildAgentOutput(session.id, { runId: 'child-run', turnId: 'child-turn' }),
+      /exactly one of runId or turnId/,
+    );
   });
 
   test('next turn still receives RuntimeEvent context when projection cache has extra rows', async () => {
@@ -1747,6 +1877,48 @@ describe('SessionManager permission mode updates', () => {
     expect(run?.failureClass).toBe('app_restarted');
     const events = await runStore.readEvents(session.id, 'run-1');
     expect(events.map((event) => event.type)).toContain('run_failed');
+  });
+
+  test('startup recovery fails stale child runs without writing child turn_state into the parent transcript', async () => {
+    const store = new MemorySessionStore();
+    const runStore = new MemoryAgentRunStore();
+    const backends = new BackendRegistry();
+    backends.register('fake', (ctx) => new TestBackend(ctx));
+    const manager = new SessionManager({ store, runStore, runtimeEventStore: runStore, backends, newId: nextId(), now: nextNow(12_812) });
+    const session = await manager.createSession(makeInput({ status: 'running' }));
+    await seedRunningTurn(store, session.id, 'parent-turn');
+    await seedRun(runStore, makeRunHeader({
+      sessionId: session.id,
+      runId: 'parent-run',
+      turnId: 'parent-turn',
+      status: 'running',
+    }), [
+      makeRunEvent({ sessionId: session.id, runId: 'parent-run', turnId: 'parent-turn', type: 'run_started', ts: 11 }),
+      makeRunEvent({ sessionId: session.id, runId: 'parent-run', turnId: 'parent-turn', type: 'tool_started', ts: 12 }),
+    ]);
+    await seedRun(runStore, makeRunHeader({
+      sessionId: session.id,
+      runId: 'child-run',
+      turnId: 'child-turn',
+      status: 'running',
+      parentRunId: 'parent-run',
+      agentName: 'Researcher',
+      permissionMode: 'explore',
+    }), [
+      makeRunEvent({ sessionId: session.id, runId: 'child-run', turnId: 'child-turn', type: 'run_started', ts: 13 }),
+      makeRunEvent({ sessionId: session.id, runId: 'child-run', turnId: 'child-turn', type: 'model_stream_started', ts: 14 }),
+    ]);
+
+    const recovered = await manager.recoverInterruptedSessions();
+
+    expect(recovered).toEqual([session.id]);
+    const messages = await store.readMessages(session.id);
+    expect(messages.some((message) => message.type === 'turn_state' && message.turnId === 'child-turn')).toBe(false);
+    const childRun = await runStore.readRun(session.id, 'child-run');
+    expect(childRun.status).toBe('failed');
+    expect(childRun.failureClass).toBe('app_restarted');
+    const childEvents = await runStore.readEvents(session.id, 'child-run');
+    expect(childEvents.map((event) => event.type)).toContain('run_failed');
   });
 
   test('startup recovery uses a completed RuntimeEvent terminal fact before incomplete AgentRun events', async () => {

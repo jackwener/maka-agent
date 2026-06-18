@@ -60,7 +60,7 @@ export interface MakaToolContext {
     prompt: string;
   }) => Promise<unknown>;
   listChildAgents?: () => Promise<unknown>;
-  readChildAgentOutput?: (input: { runId?: string; turnId?: string }) => Promise<unknown>;
+  readChildAgentOutput?: (input: { runId?: string; turnId?: string; maxEvents?: number }) => Promise<unknown>;
 }
 
 export type AppendMessageFn = (m: ToolCallMessage | ToolResultMessage | PermissionDecisionMessage) => Promise<void>;
@@ -103,7 +103,7 @@ export interface ToolRuntimeInput {
     abortSignal: AbortSignal;
   }) => Promise<unknown>;
   listChildAgents?: () => Promise<unknown>;
-  readChildAgentOutput?: (input: { runId?: string; turnId?: string }) => Promise<unknown>;
+  readChildAgentOutput?: (input: { runId?: string; turnId?: string; maxEvents?: number }) => Promise<unknown>;
   getRunTrace?: () => RunTraceLike | null;
   permissionTimeoutMs?: number;
   recordToolInvocation?: ToolTelemetryRecorder;
@@ -364,89 +364,97 @@ export class ToolRuntime {
       push: (event) => queue.push(event),
     });
     try {
-      const result = await tool.impl(args as never, {
-        sessionId: this.input.sessionId,
-        turnId,
-        cwd: this.input.header.cwd,
-        toolCallId: toolUseId,
-        abortSignal: ctx.abortSignal,
-        emitOutput: output.emit,
-        ...(this.input.listChildAgents ? { listChildAgents: this.input.listChildAgents } : {}),
-        ...(this.input.readChildAgentOutput ? { readChildAgentOutput: this.input.readChildAgentOutput } : {}),
-        ...(this.buildSpawnChildAgentContext(ctx.abortSignal)),
-      });
-      output.flush();
-      const durationMs = this.input.now() - startedAt;
-
-      const content = coerceResultContent(result);
-      const toolResultStatus = deriveToolResultStatus(content);
-      const resultMsg: ToolResultMessage = {
-        type: 'tool_result',
-        id: this.input.newId(),
-        turnId,
-        ts: this.input.now(),
-        toolUseId,
-        isError: toolResultStatus !== 'success',
-        content,
-        durationMs,
-      };
-      await this.input.appendMessage(resultMsg);
-      queue.push({
-        type: 'tool_result',
-        id: this.input.newId(),
-        turnId,
-        ts: this.input.now(),
-        toolUseId,
-        isError: toolResultStatus !== 'success',
-        content,
-        durationMs,
-      } satisfies ToolResultEvent);
-
-      this.input.recordToolInvocation?.({
-        sessionId: this.input.sessionId,
-        turnId,
-        toolCallId: toolUseId,
-        toolName: tool.name,
-        providerId: this.input.connection.providerType,
-        modelId: this.input.modelId,
-        durationMs,
-        status: toolResultStatus,
-        argsSummary: summarizeArgs(args),
-        bytesIn: byteLength(args),
-        bytesOut: byteLength(result),
-        startedAt,
-      });
-      trace?.emit('tool', 'tool_completed', 'Tool execution completed', {
-        toolUseId,
-        toolName: tool.name,
-        durationMs,
-        status: toolResultStatus,
-      });
-
-      void recordToolArtifactsSafely(
-        {
+      const pauseTarget = tool.categoryHint === 'subagent'
+        ? this.input.getPermissionPauseTarget()
+        : null;
+      pauseTarget?.pause();
+      try {
+        const result = await tool.impl(args as never, {
           sessionId: this.input.sessionId,
           turnId,
+          cwd: this.input.header.cwd,
+          toolCallId: toolUseId,
+          abortSignal: ctx.abortSignal,
+          emitOutput: output.emit,
+          ...(this.input.listChildAgents ? { listChildAgents: this.input.listChildAgents } : {}),
+          ...(this.input.readChildAgentOutput ? { readChildAgentOutput: this.input.readChildAgentOutput } : {}),
+          ...(this.buildSpawnChildAgentContext(ctx.abortSignal)),
+        });
+        output.flush();
+        const durationMs = this.input.now() - startedAt;
+
+        const content = coerceResultContent(result);
+        const toolResultStatus = deriveToolResultStatus(content);
+        const resultMsg: ToolResultMessage = {
+          type: 'tool_result',
+          id: this.input.newId(),
+          turnId,
+          ts: this.input.now(),
+          toolUseId,
+          isError: toolResultStatus !== 'success',
+          content,
+          durationMs,
+        };
+        await this.input.appendMessage(resultMsg);
+        queue.push({
+          type: 'tool_result',
+          id: this.input.newId(),
+          turnId,
+          ts: this.input.now(),
+          toolUseId,
+          isError: toolResultStatus !== 'success',
+          content,
+          durationMs,
+        } satisfies ToolResultEvent);
+
+        this.input.recordToolInvocation?.({
+          sessionId: this.input.sessionId,
+          turnId,
+          toolCallId: toolUseId,
+          toolName: tool.name,
+          providerId: this.input.connection.providerType,
+          modelId: this.input.modelId,
+          durationMs,
+          status: toolResultStatus,
+          argsSummary: summarizeArgs(args),
+          bytesIn: byteLength(args),
+          bytesOut: byteLength(result),
+          startedAt,
+        });
+        trace?.emit('tool', 'tool_completed', 'Tool execution completed', {
           toolUseId,
           toolName: tool.name,
-          cwd: this.input.header.cwd,
-          args,
-          result,
-        },
-        this.input.recordToolArtifacts,
-        (message) => {
-          queue.push({
-            type: 'tool_progress',
-            id: this.input.newId(),
-            turnId,
-            ts: this.input.now(),
-            toolUseId,
-            chunk: message,
-          });
-        },
-      );
+          durationMs,
+          status: toolResultStatus,
+        });
 
-      return result;
+        await recordToolArtifactsSafely(
+          {
+            sessionId: this.input.sessionId,
+            turnId,
+            toolUseId,
+            toolName: tool.name,
+            cwd: this.input.header.cwd,
+            args,
+            result,
+          },
+          this.input.recordToolArtifacts,
+          (message) => {
+            queue.push({
+              type: 'tool_progress',
+              id: this.input.newId(),
+              turnId,
+              ts: this.input.now(),
+              toolUseId,
+              chunk: message,
+            });
+          },
+        );
+
+        return result;
+      } finally {
+        pauseTarget?.resume();
+      }
     } catch (err) {
       output.flush();
       const terminalFailure = coerceTerminalFailure(tool, this.input.header.cwd, args, err);
@@ -671,6 +679,11 @@ function coerceTerminalFailure(
 function deriveToolResultStatus(content: ToolResultContent): ToolInvocationRecord['status'] {
   if (content.kind === 'explore_agent' && content.ok === false) {
     return content.reason === 'aborted' ? 'aborted' : 'error';
+  }
+  if (content.kind === 'subagent') {
+    if (content.status === 'completed') return 'success';
+    if (content.status === 'cancelled') return 'aborted';
+    return 'error';
   }
   if (content.kind === 'rive_workflow' && content.ok === false) return 'error';
   if (content.kind === 'web_search_error') return 'error';

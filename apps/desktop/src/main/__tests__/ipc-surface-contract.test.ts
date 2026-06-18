@@ -65,8 +65,10 @@ describe('IPC surface contract', () => {
     assert.match(main, /new LocalMemoryService\([\s\S]*getPrivacyContext: getWorkspacePrivacyContext/);
     assert.doesNotMatch(main, /defaultWorkspacePrivacyContext/);
 
-    assert.match(main, /const memoryPromptSnapshot = ctx\.systemPrompt === undefined[\s\S]*await buildLocalMemoryPromptFragment\(\)/);
-    assert.match(main, /systemPrompt: ctx\.systemPrompt \?\? \(\(\{ cwd \}\) => buildSystemPrompt\(ctx\.header, cwd, \{ memoryFragment: memoryPromptSnapshot \}\)\)/);
+    assert.match(main, /const memoryPromptSnapshot = await buildLocalMemoryPromptFragment\(\)/);
+    assert.match(main, /systemPrompt: \(\{ cwd \}\) => buildBackendSystemPrompt\(ctx\.header, cwd, \{[\s\S]*childInstruction: ctx\.systemPrompt/);
+    assert.match(main, /function buildBackendSystemPrompt/);
+    assert.match(main, /子代理必须继承当前会话的系统约束/);
     assert.match(main, /consumePendingPromptUpdates\(\)/);
     assert.match(main, /<memory-update>/);
   });

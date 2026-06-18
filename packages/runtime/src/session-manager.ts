@@ -48,7 +48,7 @@ import type {
 import type { PermissionResponse } from '@maka/core/permission';
 import type { PermissionMode } from '@maka/core/permission';
 import { DEEP_RESEARCH_SESSION_LABEL, isDeepResearchSession } from '@maka/core';
-import type { AgentRunHeader, AgentRunStore, ArtifactRecord, RuntimeEvent, RuntimeEventStore } from '@maka/core';
+import type { AgentRunEvent, AgentRunHeader, AgentRunStore, ArtifactRecord, RuntimeEvent, RuntimeEventStore } from '@maka/core';
 import {
   type RuntimeEventTerminalFact,
 } from './runtime-event-read-model.js';
@@ -113,10 +113,21 @@ export interface AgentListResult {
 export interface AgentOutputInput {
   runId?: string;
   turnId?: string;
+  maxEvents?: number;
 }
 
-export interface AgentOutputResult extends AgentRunInspectModel {
+export interface AgentOutputResult {
+  header: AgentRunHeader;
+  events: AgentRunEvent[];
+  runtimeEvents: RuntimeEvent[];
+  sourceHealth: AgentRunInspectModel['sourceHealth'];
+  diagnostics: AgentRunInspectModel['diagnostics'];
   artifacts: ArtifactRecord[];
+  truncated: {
+    events: boolean;
+    runtimeEvents: boolean;
+    diagnostics: boolean;
+  };
 }
 
 // ============================================================================
@@ -423,6 +434,9 @@ export class SessionManager {
 
     const completedAt = this.deps.now();
     const run = await this.findRunByTurnId(sessionId, turnId);
+    const artifacts = this.deps.listArtifactsForTurn
+      ? await this.deps.listArtifactsForTurn(sessionId, turnId)
+      : [];
     return {
       agentName: input.spec.name,
       turnId,
@@ -430,7 +444,7 @@ export class SessionManager {
       status: run ? agentRunStatusForSpawnResult(run.status) : (aborted ? 'cancelled' : statusFromChildEvents(events)),
       permissionMode: 'explore',
       summary: summarizeChildEvents(events),
-      artifactIds: [],
+      artifactIds: artifacts.map((artifact) => artifact.id),
       startedAt,
       completedAt,
       durationMs: Math.max(0, completedAt - startedAt),
@@ -477,7 +491,20 @@ export class SessionManager {
     const artifacts = this.deps.listArtifactsForTurn
       ? await this.deps.listArtifactsForTurn(sessionId, header.turnId)
       : [];
-    return { ...inspected, artifacts };
+    const maxEvents = normalizeAgentOutputMaxEvents(input.maxEvents);
+    return {
+      header: inspected.header,
+      events: tail(inspected.events, maxEvents),
+      runtimeEvents: tail(inspected.runtimeEvents, maxEvents),
+      sourceHealth: inspected.sourceHealth,
+      diagnostics: tail(inspected.diagnostics, maxEvents),
+      artifacts,
+      truncated: {
+        events: inspected.events.length > maxEvents,
+        runtimeEvents: inspected.runtimeEvents.length > maxEvents,
+        diagnostics: inspected.diagnostics.length > maxEvents,
+      },
+    };
   }
 
   async stopSession(sessionId: string, input: StopSessionInput = {}): Promise<void> {
@@ -571,6 +598,9 @@ export class SessionManager {
     sessionId: string,
     input: AgentOutputInput,
   ): Promise<AgentRunHeader> {
+    if (Number(!!input.runId) + Number(!!input.turnId) !== 1) {
+      throw new Error('agent_output requires exactly one of runId or turnId');
+    }
     const runs = await this.deps.runStore?.listSessionRuns(sessionId);
     const header = runs?.find((run) =>
       input.runId ? run.runId === input.runId : input.turnId ? run.turnId === input.turnId : false
@@ -818,6 +848,7 @@ export class SessionManager {
     status: TurnRecord['status'],
     options: { ts: number; errorClass?: string; abortSource?: string },
   ): Promise<void> {
+    if (decision.lineage.parentRunId) return;
     const messages = await this.deps.store.readMessages(sessionId).catch(() => []);
     const latest = latestTurnState(messages, decision.turnId);
     if (latest && isTerminalTurnStatus(latest.status) && latest.status === status) return;
@@ -882,11 +913,17 @@ function statusFromChildEvents(events: readonly SessionEvent[]): SpawnChildAgent
     event.type === 'complete' || event.type === 'error' || event.type === 'abort'
   );
   if (!terminal) return 'running';
-  if (terminal.type === 'error') return 'failed';
-  if (terminal.type === 'abort') return 'cancelled';
-  return terminal.stopReason === 'user_stop' || terminal.stopReason === 'error'
-    ? (terminal.stopReason === 'error' ? 'failed' : 'cancelled')
-    : 'completed';
+  switch (terminal.type) {
+    case 'error':
+      return 'failed';
+    case 'abort':
+      return 'cancelled';
+    case 'complete':
+      if (terminal.stopReason === 'error') return 'failed';
+      if (terminal.stopReason === 'user_stop') return 'cancelled';
+      return 'completed';
+  }
+  return 'running';
 }
 
 function summarizeChildEvents(events: readonly SessionEvent[]): string {
@@ -1052,6 +1089,7 @@ function runtimeTerminalFactToRecoveryDecision(
       runtimeEventStatus: fact.terminalEvent.status,
     },
     lineage: {
+      ...(header.parentRunId ? { parentRunId: header.parentRunId } : {}),
       ...(header.parentTurnId ? { parentTurnId: header.parentTurnId } : {}),
       ...(header.retriedFromTurnId ? { retriedFromTurnId: header.retriedFromTurnId } : {}),
       ...(header.regeneratedFromTurnId ? { regeneratedFromTurnId: header.regeneratedFromTurnId } : {}),
@@ -1059,6 +1097,16 @@ function runtimeTerminalFactToRecoveryDecision(
       ...(header.parentSessionId ? { parentSessionId: header.parentSessionId } : {}),
     },
   };
+}
+
+function normalizeAgentOutputMaxEvents(value: number | undefined): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 20;
+  return Math.min(100, Math.max(1, Math.floor(value)));
+}
+
+function tail<T>(items: readonly T[], max: number): T[] {
+  if (items.length <= max) return [...items];
+  return items.slice(items.length - max);
 }
 
 // Re-export the suppressed-unused types so this file is the canonical home
