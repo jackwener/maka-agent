@@ -499,7 +499,8 @@ describe('localized main shell contract', () => {
     const collapsedTopbar = extractCssRule(styles, '.maka-collapsed-drag-strip');
     assert.ok(collapsedTopbar, '.maka-collapsed-drag-strip rule must exist');
     assert.match(collapsedTopbar, /min-height:\s*38px/);
-    assert.match(collapsedTopbar, /padding:\s*8px 12px 0/);
+    assert.match(styles, /--maka-titlebar-control-safe-left:\s*94px/);
+    assert.match(collapsedTopbar, /padding:\s*8px 12px 0 var\(--maka-titlebar-control-safe-left\)/);
     assert.match(collapsedTopbar, /-webkit-app-region:\s*drag/);
     const collapsedTopbarButton = extractCssRule(styles, '.maka-collapsed-topbar-button');
     assert.ok(collapsedTopbarButton, '.maka-collapsed-topbar-button rule must exist');
@@ -507,6 +508,8 @@ describe('localized main shell contract', () => {
     const sidebarTopBar = extractCssRule(styles, '.maka-sidebar-drag-strip');
     assert.ok(sidebarTopBar, '.maka-sidebar-drag-strip rule must exist');
     assert.match(sidebarTopBar, /justify-content:\s*space-between/);
+    assert.match(sidebarTopBar, /box-sizing:\s*border-box/);
+    assert.match(sidebarTopBar, /padding-left:\s*calc\(var\(--maka-titlebar-control-safe-left\) - 10px\)/);
     assert.match(styles, /\.maka-sidebar-search-button,\n\.maka-sidebar-toggle \{/);
     const detailWithArtifacts = extractCssRule(styles, '.maka-detail-with-artifacts');
     assert.ok(detailWithArtifacts, '.maka-detail-with-artifacts rule must exist');

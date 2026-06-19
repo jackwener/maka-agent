@@ -12,6 +12,10 @@
 @import "./maka-tokens.css";
 @import "./qoderwork-shell.css";
 
+:root {
+  --maka-titlebar-control-safe-left: 94px;
+}
+
 @theme inline {
   --font-sans: "Geist Variable", "Geist", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono Variable", "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -250,7 +254,7 @@ button:active {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 12px 0;
+  padding: 8px 12px 0 var(--maka-titlebar-control-safe-left);
   -webkit-app-region: drag;
 }
 
@@ -650,6 +654,8 @@ button:active {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  box-sizing: border-box;
+  padding-left: calc(var(--maka-titlebar-control-safe-left) - 10px);
   -webkit-app-region: drag;
 }
 
