@@ -138,24 +138,6 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from './coss/input-group
 import { Kbd } from './coss/kbd.js';
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from './coss/menu.js';
 
-/**
- * PR-SIDEBAR-IA-0 Phase 2 + fixup (xuan msg `47e204f2`, `91401163`;
- * WAWQAQ `b86b47d1`, `4259bf8c`; kenji `9f683ea8`, `6465cf22`).
- *
- * Left sidebar's second part is a 5-button module nav. Four of those
- * buttons select a content section (`sessions`, `automations`,
- * `skills`, `daily-review`); the fifth (`搜索`) is a **transient
- * modal trigger** and does NOT have a `NavSelection` section variant.
- * Clicking `搜索` opens a Search modal overlay; the underlying
- * `NavSelection` stays on whatever section was active.
- *
- * Module labels are Chinese-first per xuan `47e204f2` #5:
- *   - sessions     → 会话
- *   - search       → 搜索   (modal trigger; NOT a section)
- *   - automations  → 计划   (local reminder MVP; no arbitrary automation execution)
- *   - skills       → 技能   (reuses the existing skills view)
- *   - daily-review → 每日回顾  (PR-DAILY-REVIEW-MVP-0: real panel reading local telemetry + sessions)
- */
 export type NavSelection =
   | { section: 'sessions'; filter: SessionFilter }
   | { section: 'automations' }
@@ -163,29 +145,6 @@ export type NavSelection =
   | { section: 'daily-review' };
 
 export type SessionFilter = 'chats' | 'flagged' | 'archived';
-
-/**
- * Identifier set for the sidebar module nav. Includes `search` even
- * though it is not a `NavSelection.section` — `search` is a modal
- * trigger and needs a label/icon but no underlying section.
- */
-type ModuleNavId = NavSelection['section'] | 'search';
-
-/**
- * Top-level module nav labels. Chinese-first per xuan `47e204f2` #5;
- * English keywords stay accessible via the command-palette `keywords`
- * field but are not surfaced in the sidebar UI itself.
- *
- * Keyed by `ModuleNavId` so the `search` modal trigger gets a label
- * even though it is not a `NavSelection.section`.
- */
-const MODULE_NAV_LABEL: Record<ModuleNavId, string> = {
-  sessions: '会话',
-  search: '搜索',
-  automations: '计划',
-  skills: '技能',
-  'daily-review': '每日回顾',
-};
 
 /**
  * Hook for accessible modal dialogs.
@@ -409,15 +368,10 @@ export function SessionListPanel(props: {
   sidebarCollapsed?: boolean;
   onToggleSidebar?(): void;
 }) {
-  // PR-SIDEBAR-IA-0 Phase 2 fixup (WAWQAQ `49309559` + kenji
-  // `9f683ea8` + xuan `71687cc7`): the title is the Chinese module
-  // label only. The previous Chats/Pinned/Archived switcher was
-  // removed from the sidebar entirely — no visible filter tabs, no
-  // hidden ArrowLeft/Right cycle, no "查看已归档对话" link. Future
-  // Pinned/Archived access (if/when needed) will be a deliberate,
-  // visible, lightweight control in a separate PR. `NavSelection.filter`
-  // stays in the type for storage continuity but is internal-only.
-  const title = MODULE_NAV_LABEL[props.selection.section];
+  // The left rail is a conversation directory, not a module launcher.
+  // Keep its lower content pure session history even when the right
+  // content pane is showing Skills, Plan Reminders, or Daily Review.
+  const title = '会话';
   const accountLabel = props.userLabel?.trim() || 'jakevin';
   const accountInitial = Array.from(accountLabel)[0]?.toUpperCase() ?? 'J';
   // PR-UX-POLISH-1 commit 4 (WAWQAQ msg `e0dbad11` + kenji msg
@@ -482,41 +436,6 @@ export function SessionListPanel(props: {
     focusables[nextIndex]?.scrollIntoView({ block: 'nearest' });
   }
 
-  // PR-SIDEBAR-IA-0 Phase 2 module nav order is FIXED per WAWQAQ
-  // `b86b47d1` + xuan `47e204f2`. Sessions first (most-used), then
-  // Search (modal trigger), then Automations / Skills / Daily
-  // Review. Order is part of the contract — do not reorder without
-  // an explicit IA review.
-  //
-  // PR-SIDEBAR-IA-0 Phase 2 fixup (WAWQAQ `4259bf8c` + `49309559`,
-  // xuan `91401163`, kenji `6465cf22`): the `搜索` nav button is a
-  // transient modal trigger, NOT a section. It calls
-  // `onOpenSearchModal()` and does NOT touch `selection`. Selected
-  // state never sticks to `搜索`.
-  const isModuleActive = (id: ModuleNavId) => {
-    if (id === 'search') return false; // transient — never "active"
-    return props.selection.section === id;
-  };
-  const activePlanReminderCount = (props.planReminders ?? [])
-    .filter((reminder) => reminder.status !== 'completed')
-    .length;
-  const [extensionsExpanded, setExtensionsExpanded] = useState(true);
-  function selectModule(id: ModuleNavId) {
-    if (id === 'search') {
-      // Opens the dedicated Search modal hosted by main.tsx. If no
-      // handler is wired (older callers / tests), the click is inert.
-      props.onOpenSearchModal?.();
-      return;
-    }
-    if (id === 'sessions') {
-      props.onSelect({ section: 'sessions', filter: 'chats' });
-      return;
-    }
-    if (id === 'automations') props.onSelect({ section: 'automations' });
-    else if (id === 'skills') props.onSelect({ section: 'skills' });
-    else if (id === 'daily-review') props.onSelect({ section: 'daily-review' });
-  }
-
   return (
     <aside
       className="maka-session-panel agents-sidebar"
@@ -529,6 +448,7 @@ export function SessionListPanel(props: {
             <button
               className="maka-sidebar-search-button"
               type="button"
+              data-maka-search-trigger="true"
               onClick={props.onOpenSearchModal}
               aria-label="搜索对话"
               title="搜索对话"
@@ -558,98 +478,6 @@ export function SessionListPanel(props: {
       </header>
 
       {/*
-        PR-SIDEBAR-IA-0 Phase 2 (xuan msg `47e204f2`): top-level module
-        nav. Chinese-first labels; lightweight visual hierarchy reusing
-        `.maka-nav-row` (transparent bg, accent on selected). Pinned /
-        Archived / Recent are NOT here — they live as filter chips
-        inside the Sessions module content below.
-      */}
-      <nav className="maka-sidebar-modules" aria-label="主导航">
-        <button
-          className="maka-nav-row"
-          data-active={isModuleActive('sessions')}
-          aria-current={isModuleActive('sessions') ? 'page' : undefined}
-          aria-label={MODULE_NAV_LABEL.sessions}
-          type="button"
-          onClick={() => selectModule('sessions')}
-        >
-          <MessageSquare className="maka-nav-icon" strokeWidth={1.5} aria-hidden="true" />
-          <span>{MODULE_NAV_LABEL.sessions}</span>
-        </button>
-        <button
-          className="maka-nav-row"
-          type="button"
-          data-maka-search-trigger="true"
-          onClick={() => selectModule('search')}
-          aria-haspopup="dialog"
-          aria-label={MODULE_NAV_LABEL.search}
-        >
-          <Search className="maka-nav-icon" strokeWidth={1.5} aria-hidden="true" />
-          <span>{MODULE_NAV_LABEL.search}</span>
-        </button>
-        <button
-          className="maka-nav-row maka-nav-row-parent"
-          type="button"
-          aria-expanded={extensionsExpanded}
-          aria-controls="maka-sidebar-extension-tree"
-          onClick={() => setExtensionsExpanded((value) => !value)}
-        >
-          <Sparkles className="maka-nav-icon" strokeWidth={1.5} aria-hidden="true" />
-          <span>扩展</span>
-          <ChevronRight className="maka-nav-disclosure" strokeWidth={1.75} aria-hidden="true" />
-        </button>
-        {extensionsExpanded && (
-          <div id="maka-sidebar-extension-tree" className="maka-nav-tree maka-sidebar-extension-tree">
-            <button
-              className="maka-nav-row maka-nav-row-sub"
-              data-active={isModuleActive('daily-review')}
-              aria-current={isModuleActive('daily-review') ? 'page' : undefined}
-              aria-label="专家套件"
-              type="button"
-              onClick={() => selectModule('daily-review')}
-            >
-              <BookOpen className="maka-nav-icon" strokeWidth={1.5} aria-hidden="true" />
-              <span>专家套件</span>
-            </button>
-            <button
-              className="maka-nav-row maka-nav-row-sub"
-              data-active={isModuleActive('skills')}
-              aria-current={isModuleActive('skills') ? 'page' : undefined}
-              aria-label={MODULE_NAV_LABEL.skills}
-              type="button"
-              onClick={() => selectModule('skills')}
-            >
-              <Sparkles className="maka-nav-icon" strokeWidth={1.5} aria-hidden="true" />
-              <span>{MODULE_NAV_LABEL.skills}</span>
-            </button>
-            <button
-              className="maka-nav-row maka-nav-row-sub"
-              type="button"
-              aria-label="连接器"
-              onClick={props.onOpenSettings}
-            >
-              <Globe className="maka-nav-icon" strokeWidth={1.5} aria-hidden="true" />
-              <span>连接器</span>
-            </button>
-          </div>
-        )}
-        <button
-          className="maka-nav-row"
-          data-active={isModuleActive('automations')}
-          aria-current={isModuleActive('automations') ? 'page' : undefined}
-          type="button"
-          onClick={() => selectModule('automations')}
-          aria-label={activePlanReminderCount > 0 ? `计划，${activePlanReminderCount} 个未完成提醒` : MODULE_NAV_LABEL.automations}
-        >
-          <Clock className="maka-nav-icon" strokeWidth={1.5} aria-hidden="true" />
-          <span>{MODULE_NAV_LABEL.automations}</span>
-          {activePlanReminderCount > 0 && (
-            <small className="maka-nav-count" aria-hidden="true">{activePlanReminderCount}</small>
-          )}
-        </button>
-      </nav>
-
-      {/*
         PR-UX-POLISH-1 commit 4 (WAWQAQ msg `e0dbad11` + kenji msg
         `2844f64f` blocker #2): the in-list `筛选会话` filter input
         is REMOVED entirely. Search capability lives only in the
@@ -670,67 +498,45 @@ export function SessionListPanel(props: {
 
       <section className="maka-session-list" aria-label={title}>
         <div className="maka-session-list-title" aria-hidden="true">{title}</div>
-        {props.selection.section === 'skills' ? (
-          <SidebarModuleHint
-            Icon={Sparkles}
-            title="技能库"
-            body="已在右侧内容栏打开。"
-          />
-        ) : props.selection.section === 'automations' ? (
-          <SidebarModuleHint
-            Icon={Clock}
-            title="计划"
-            body="已在右侧内容栏打开。"
-          />
-        ) : props.selection.section === 'sessions' ? (
-          props.sessions.length === 0 ? (
-            <EmptyState
-              Icon={MessageSquare}
-              title="等待开始对话"
-              body="和 Maka 的对话会出现在这里。点下面开始第一条。"
-              cta={{ label: '新建对话', onClick: props.onNew }}
-            />
-          ) : (
-            <OverlayScrollArea
-              className="maka-list-stack"
-              viewportClassName="maka-list-stackViewport"
-              contentClassName="maka-list-stackContent"
-              onKeyDown={handleListKeyDown}
-            >
-              <SessionListGroups
-                groups={
-                  props.statusGroups && props.selection.section === 'sessions' && props.selection.filter === 'chats'
-                    ? props.statusGroups.map((g) => ({
-                        key: g.id,
-                        label: g.label,
-                        sessions: g.sessions,
-                        collapsible: g.collapsible,
-                        defaultExpanded: g.defaultExpanded,
-                      }))
-                    : groupSessionsForFilter(filteredSessions, props.selection).map((g) => ({
-                        key: g.label,
-                        label: g.label,
-                        sessions: g.sessions,
-                        collapsible: false,
-                        defaultExpanded: true,
-                      }))
-                }
-                activeId={props.activeId}
-                streamingSessionIds={props.streamingSessionIds}
-                staleSessionIds={props.staleSessionIds}
-                onSelectSession={props.onSelectSession}
-                rowActions={props.rowActions}
-              />
-            </OverlayScrollArea>
-          )
-        ) : props.selection.section === 'daily-review' ? (
-          <SidebarModuleHint
-            Icon={CalendarDays}
-            title="每日回顾"
-            body="已在右侧内容栏打开。"
+        {props.sessions.length === 0 ? (
+          <EmptyState
+            Icon={MessageSquare}
+            title="等待开始对话"
+            body="和 Maka 的对话会出现在这里。点下面开始第一条。"
+            cta={{ label: '新建对话', onClick: props.onNew }}
           />
         ) : (
-          null
+          <OverlayScrollArea
+            className="maka-list-stack"
+            viewportClassName="maka-list-stackViewport"
+            contentClassName="maka-list-stackContent"
+            onKeyDown={handleListKeyDown}
+          >
+            <SessionListGroups
+              groups={
+                props.statusGroups
+                  ? props.statusGroups.map((g) => ({
+                      key: g.id,
+                      label: g.label,
+                      sessions: g.sessions,
+                      collapsible: g.collapsible,
+                      defaultExpanded: g.defaultExpanded,
+                    }))
+                  : groupSessionsForFilter(filteredSessions, { section: 'sessions', filter: 'chats' }).map((g) => ({
+                      key: g.label,
+                      label: g.label,
+                      sessions: g.sessions,
+                      collapsible: false,
+                      defaultExpanded: true,
+                    }))
+              }
+              activeId={props.activeId}
+              streamingSessionIds={props.streamingSessionIds}
+              staleSessionIds={props.staleSessionIds}
+              onSelectSession={props.onSelectSession}
+              rowActions={props.rowActions}
+            />
+          </OverlayScrollArea>
         )}
       </section>
 
@@ -837,16 +643,6 @@ export function EmptyState(props: EmptyStateProps) {
         </EmptyContent>
       )}
     </Empty>
-  );
-}
-
-function SidebarModuleHint(props: { Icon: EmptyStateProps['Icon']; title: string; body: string }) {
-  return (
-    <div className="maka-sidebar-module-hint">
-      <props.Icon className="maka-sidebar-module-hint-icon" strokeWidth={1.5} />
-      <strong>{props.title}</strong>
-      <span>{props.body}</span>
-    </div>
   );
 }
 

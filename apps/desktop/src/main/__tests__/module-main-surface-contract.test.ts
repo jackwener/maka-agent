@@ -20,7 +20,9 @@ describe('module main surface contract', () => {
     assert.match(dailyReviewModeBlock, /className="maka-main detailPane maka-module-main agents-chat-panel" aria-label="每日回顾"/);
     assert.match(dailyReviewModeBlock, /<DailyReviewPanel/);
     assert.doesNotMatch(sidebarListBlock, /<DailyReviewPanel/);
-    assert.match(sidebarListBlock, /title="每日回顾"[\s\S]*body="已在右侧内容栏打开。"/);
+    assert.doesNotMatch(sidebarListBlock, /title="每日回顾"[\s\S]*body="已在右侧内容栏打开。"/);
+    assert.match(sidebarListBlock, /const title = '会话'|aria-label=\{title\}/);
+    assert.match(sidebarListBlock, /<SessionListGroups/);
   });
 
   it('uses range-aware Daily Review empty copy instead of day-only copy for week/month ranges', async () => {
@@ -98,7 +100,8 @@ describe('module main surface contract', () => {
     assert.match(skillsModuleMain, /className="maka-main detailPane maka-module-main agents-chat-panel" aria-label="技能"/);
     assert.match(skillsModuleMain, /<SkillLibraryPanel/);
     assert.doesNotMatch(sidebarListBlock, /<SkillLibraryPanel/);
-    assert.match(sidebarListBlock, /title="技能库"[\s\S]*body="已在右侧内容栏打开。"/);
+    assert.doesNotMatch(sidebarListBlock, /title="技能库"[\s\S]*body="已在右侧内容栏打开。"/);
+    assert.match(sidebarListBlock, /<SessionListGroups/);
   });
 
   it('renders Plan reminders in the main content pane, not as a left-bottom form', async () => {
@@ -109,7 +112,8 @@ describe('module main surface contract', () => {
     assert.match(automationsModeBlock, /className="maka-main detailPane maka-module-main agents-chat-panel" aria-label="计划"/);
     assert.match(automationsModeBlock, /<PlanReminderPanel/);
     assert.doesNotMatch(sidebarListBlock, /<PlanReminderPanel/);
-    assert.match(sidebarListBlock, /title="计划"[\s\S]*body="已在右侧内容栏打开。"/);
+    assert.doesNotMatch(sidebarListBlock, /title="计划"[\s\S]*body="已在右侧内容栏打开。"/);
+    assert.match(sidebarListBlock, /<SessionListGroups/);
   });
 
   it('names Daily Review lists for assistive technology', async () => {

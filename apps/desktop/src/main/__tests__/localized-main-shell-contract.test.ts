@@ -98,13 +98,11 @@ describe('localized main shell contract', () => {
     const components = await readFile(resolve(process.cwd(), '..', '..', 'packages', 'ui', 'src', 'components.tsx'), 'utf8');
     const settings = await readFile(join(process.cwd(), 'src', 'renderer', 'settings', 'SettingsModal.tsx'), 'utf8');
 
-    for (const icon of ['MessageSquare', 'Search', 'Clock', 'Sparkles', 'BookOpen', 'Globe', 'Settings']) {
-      assert.match(
-        components,
-        new RegExp(`<${icon} className="maka-nav-icon" strokeWidth=\\{1\\.5\\} aria-hidden="true" />`),
-        `${icon} sidebar icon is decorative; the adjacent label/aria-current provides the accessible name`,
-      );
-    }
+    assert.match(
+      components,
+      /<Settings className="maka-nav-icon" strokeWidth=\{1\.5\} aria-hidden="true" \/>/,
+      'sidebar footer settings icon is decorative; the adjacent button aria-label provides the accessible name',
+    );
     assert.match(
       components,
       /<UiButton className="maka-chat-tab-plus"[\s\S]*?<Plus strokeWidth=\{1\.5\} aria-hidden="true" \/>/,
@@ -216,28 +214,28 @@ describe('localized main shell contract', () => {
     assert.match(settingsNavButton, /aria-current=\{section === item\.id \? 'page' : undefined\}/, 'Settings nav must expose the current page to accessibility APIs');
   });
 
-  it('exposes the active main sidebar section to assistive technology', async () => {
+  it('keeps the main sidebar directory scoped to sessions', async () => {
     const components = await readFile(resolve(process.cwd(), '..', '..', 'packages', 'ui', 'src', 'components.tsx'), 'utf8');
 
     assert.match(
       components,
-      /data-active=\{isModuleActive\('sessions'\)\}[\s\S]{0,160}aria-current=\{isModuleActive\('sessions'\) \? 'page' : undefined\}/,
-      'the active Sessions nav row must expose aria-current, not only data-active styling',
+      /data-maka-search-trigger="true"/,
+      'global search must remain reachable from the sidebar header after removing the module nav',
     );
     assert.match(
       components,
-      /data-active=\{isModuleActive\('automations'\)\}[\s\S]{0,160}aria-current=\{isModuleActive\('automations'\) \? 'page' : undefined\}/,
-      'the active Plans nav row must expose aria-current, not only data-active styling',
+      /const title = '会话';/,
+      'the sidebar directory title should stay fixed to the session list',
     );
     assert.match(
       components,
-      /data-active=\{isModuleActive\('skills'\)\}[\s\S]{0,160}aria-current=\{isModuleActive\('skills'\) \? 'page' : undefined\}/,
-      'the active Skills nav row must expose aria-current, not only data-active styling',
+      /<section className="maka-session-list" aria-label=\{title\}>/,
+      'the sidebar directory region should remain labelled as the session list',
     );
-    assert.match(
+    assert.doesNotMatch(
       components,
-      /data-active=\{isModuleActive\('daily-review'\)\}[\s\S]{0,160}aria-current=\{isModuleActive\('daily-review'\) \? 'page' : undefined\}/,
-      'the active Daily Review nav row must expose aria-current, not only data-active styling',
+      /isModuleActive|MODULE_NAV_LABEL|className="maka-sidebar-modules"|className="maka-nav-row"|aria-current=\{isModuleActive/,
+      'module navigation state must not be mixed into the session directory sidebar',
     );
   });
 
@@ -432,9 +430,10 @@ describe('localized main shell contract', () => {
     assert.match(components, /data-collapsed=\{props\.sidebarCollapsed \? 'true' : undefined\}/);
     assert.match(components, /className="maka-sidebar-search-button"[\s\S]*aria-label="搜索对话"[\s\S]*<Search size=\{16\}/);
     assert.match(components, /className="maka-sidebar-toggle"[\s\S]*aria-label=\{props\.sidebarCollapsed \? '展开侧边栏' : '收起侧边栏'\}[\s\S]*aria-expanded=\{!props\.sidebarCollapsed\}/);
-    assert.match(components, /aria-label=\{MODULE_NAV_LABEL\.sessions\}/);
-    assert.match(components, /aria-label=\{MODULE_NAV_LABEL\.search\}/);
-    assert.match(components, /aria-label=\{MODULE_NAV_LABEL\.skills\}/);
+    assert.doesNotMatch(components, /className="maka-sidebar-modules"/);
+    assert.doesNotMatch(components, /MODULE_NAV_LABEL/);
+    assert.doesNotMatch(components, /SidebarModuleHint/);
+    assert.doesNotMatch(components, /props\.selection\.section === 'automations'[\s\S]*maka-session-list/);
 
     assert.match(main, /const \[sessionListCollapsed, setSessionListCollapsed\] = useState\(\(\) => readSessionListCollapsed\(\)\);/);
     assert.match(main, /localStorage\.setItem\('maka-chat-list-collapsed-v1', sessionListCollapsed \? 'true' : 'false'\)/);
@@ -518,16 +517,10 @@ describe('localized main shell contract', () => {
     assert.match(sidebarTopBar, /box-sizing:\s*border-box/);
     assert.match(sidebarTopBar, /padding-left:\s*calc\(var\(--maka-titlebar-control-safe-left\) - 10px\)/);
     assert.match(styles, /(?:^|\n)\.maka-nav-icon\s*\{[\s\S]*?width:\s*18px[\s\S]*?height:\s*18px/);
-    assert.match(components, /const \[extensionsExpanded,\s*setExtensionsExpanded\] = useState\(true\);/);
-    assert.match(components, /aria-expanded=\{extensionsExpanded\}[\s\S]*<span>扩展<\/span>[\s\S]*className="maka-nav-disclosure"/);
-    assert.match(components, /id="maka-sidebar-extension-tree" className="maka-nav-tree maka-sidebar-extension-tree"/);
-    assert.match(components, /aria-label="专家套件"[\s\S]*onClick=\{\(\) => selectModule\('daily-review'\)\}/);
-    assert.match(components, /aria-label=\{MODULE_NAV_LABEL\.skills\}[\s\S]*onClick=\{\(\) => selectModule\('skills'\)\}/);
-    assert.match(components, /aria-label="连接器"[\s\S]*onClick=\{props\.onOpenSettings\}/);
-    assert.match(styles, /(?:^|\n)\.maka-sidebar-extension-tree\s*\{[\s\S]*?margin:\s*0 0 2px 16px[\s\S]*?padding-left:\s*12px/);
-    assert.match(styles, /(?:^|\n)\.maka-nav-row\[data-active="true"\]\s*\{[\s\S]*?background:\s*var\(--foreground-4\)[\s\S]*?color:\s*var\(--foreground\)[\s\S]*?font-weight:\s*600[\s\S]*?box-shadow:\s*none/);
-    assert.match(styles, /(?:^|\n)\.maka-nav-row\[data-active="true"\] \.maka-nav-icon\s*\{[\s\S]*?color:\s*var\(--foreground\)/);
-    assert.doesNotMatch(styles, /\.maka-nav-row\[data-active="true"\]::before/);
+    assert.doesNotMatch(styles, /\.maka-sidebar-modules\b/);
+    assert.doesNotMatch(styles, /\.maka-sidebar-module-hint\b/);
+    assert.doesNotMatch(styles, /\.maka-sidebar-extension-tree\b/);
+    assert.doesNotMatch(styles, /\.maka-nav-row\b/);
     assert.match(styles, /\.maka-sidebar-search-button,\n\.maka-sidebar-toggle \{/);
     const detailWithArtifacts = extractCssRule(styles, '.maka-detail-with-artifacts');
     assert.ok(detailWithArtifacts, '.maka-detail-with-artifacts rule must exist');

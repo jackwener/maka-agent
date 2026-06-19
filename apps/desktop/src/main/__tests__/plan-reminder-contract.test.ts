@@ -43,7 +43,8 @@ describe('Plan reminder MVP contract', () => {
   it('renders the automations module with PlanReminderPanel in the main content pane', async () => {
     const ui = await readRepo('packages/ui/src/components.tsx');
     assert.match(ui, /if \(props\.mode === 'automations'\)[\s\S]*<PlanReminderPanel/, '计划 module must render PlanReminderPanel in ChatView main content');
-    assert.match(ui, /props\.selection\.section === 'automations'[\s\S]*<SidebarModuleHint/, 'sidebar Plan section must stay a navigation hint, not the detail form');
+    assert.doesNotMatch(ui, /props\.selection\.section === 'automations'[\s\S]*<SidebarModuleHint/, 'sidebar must stay a pure conversation directory, not a Plan navigation surface');
+    assert.doesNotMatch(ui, /aria-label=\{activePlanReminderCount > 0 \? `计划/, 'sidebar must not surface Plan as a nav row');
     assert.doesNotMatch(ui, /title:\s*'计划任务即将推出'/, '计划 must not be the old coming-soon placeholder');
     assert.match(ui, /创建提醒/, '计划 UI must include reminder creation');
     assert.match(ui, /编辑提醒/, '计划 UI must include reminder editing');
@@ -77,9 +78,8 @@ describe('Plan reminder MVP contract', () => {
     assert.doesNotMatch(ui, /function openPlanReminderTemplate[\s\S]*?props\.onCreate[\s\S]*?function closeReminderDialog/, 'template examples must not silently persist real reminders');
     assert.match(ui, /当前筛选没有提醒/, '计划 UI must distinguish empty filters from an empty reminder store');
     assert.match(ui, /filterCounts/, 'status picker must show counts per reminder status');
-    assert.match(ui, /activePlanReminderCount/, 'sidebar Plan nav must derive an active reminder count');
-    assert.match(ui, /maka-nav-count/, 'sidebar Plan nav must surface the active reminder count');
-    assert.match(ui, /status !== 'completed'/, 'sidebar Plan nav count must exclude completed history rows');
+    assert.doesNotMatch(ui, /activePlanReminderCount/, 'sidebar must not derive a Plan nav count');
+    assert.doesNotMatch(ui, /maka-nav-count/, 'sidebar must not surface a Plan nav count');
     assert.match(ui, /快速设置提醒时间/, 'create/edit form must expose quick time presets');
     assert.match(ui, /10 分钟后/, 'quick presets must include near-term reminder creation');
     assert.match(ui, /下周一 9 点/, 'quick presets must include weekly planning');

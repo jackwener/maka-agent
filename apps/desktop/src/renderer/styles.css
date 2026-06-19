@@ -390,26 +390,20 @@ button:active {
 }
 
 .maka-session-panel {
-  /* PR-UX-POLISH-1 commit 4 (WAWQAQ msg `e0dbad11` + kenji msg
-   * `2844f64f`): grid is now 4 rows (was 5). The in-list
-   * `筛选会话` filter input row was removed — all search lives in
-   * the top-level `搜索` modal. Row order top-to-bottom:
-   *   1. .maka-session-panel-header   — new chat button (auto)
-   *   2. .maka-sidebar-modules        — top-level module nav (auto)
-   *   3. .maka-session-list           — scroll container (1fr, Phase 1 fix)
-   *   4. .maka-session-panel-footer   — 版本信息 + 设置 (auto)
+  /* Sidebar is a conversation directory: header, pure session list,
+   * footer. Module launchers live in the content surface, not here.
    */
   min-width: 0;
   min-height: 0;
   height: 100%;
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   overflow: hidden;
   background: transparent;
 }
 
 .maka-session-panel[data-collapsed="true"] {
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
 }
 
 /* Search modal: input + local thread-search results, backed by
@@ -625,16 +619,6 @@ button:active {
   padding: 0 2px;
 }
 
-.maka-sidebar-modules {
-  /* Top-level module nav. Lightweight visual hierarchy per xuan
-   * `47e204f2` #4 + #6: transparent bg, light dividers, no card
-   * stacking. Reuses `.maka-nav-row` styling so module entries
-   * match the existing nav language (accent-tinted selected state). */
-  display: grid;
-  gap: 2px;
-  padding: 4px 8px;
-}
-
 /* PR-SIDEBAR-IA-0 Phase 2 fixup (xuan `71687cc7`): the
  * `.maka-session-archive-link` style block was removed alongside
  * the archive link button. Archived/Pinned access will be a
@@ -697,7 +681,6 @@ button:active {
   gap: 4px;
 }
 
-.maka-session-panel[data-collapsed="true"] .maka-sidebar-modules,
 .maka-session-panel[data-collapsed="true"] .maka-session-panel-footer {
   justify-items: center;
   padding-inline: 8px;
@@ -709,7 +692,6 @@ button:active {
 
 .maka-session-panel[data-collapsed="true"] .maka-session-list-title,
 .maka-session-panel[data-collapsed="true"] .maka-list-stack,
-.maka-session-panel[data-collapsed="true"] .maka-sidebar-module-hint,
 .maka-session-panel[data-collapsed="true"] .maka-empty-state {
   display: none !important;
 }
@@ -760,30 +742,6 @@ button:active {
   font-weight: 500;
   letter-spacing: 0;
   text-transform: none;
-}
-
-.maka-sidebar-module-hint {
-  align-self: start;
-  margin: 14px;
-  display: grid;
-  gap: 5px;
-  padding: 12px;
-  border: 1px solid var(--foreground-10);
-  border-radius: 8px;
-  background: var(--foreground-3);
-  color: var(--foreground-60);
-  font-size: 12px;
-}
-
-.maka-sidebar-module-hint-icon {
-  width: 16px;
-  height: 16px;
-  color: var(--accent);
-}
-
-.maka-sidebar-module-hint strong {
-  color: var(--foreground);
-  font-size: 13px;
 }
 
 .maka-session-panel-footer {
@@ -938,8 +896,7 @@ button:active {
   flex: 0 0 auto;
 }
 
-.maka-session-panel[data-collapsed="true"] .maka-nav-primary,
-.maka-session-panel[data-collapsed="true"] .maka-nav-row {
+.maka-session-panel[data-collapsed="true"] .maka-nav-primary {
   width: 34px;
   min-width: 34px;
   height: 34px;
@@ -953,182 +910,12 @@ button:active {
   border-radius: 9px;
 }
 
-.maka-session-panel[data-collapsed="true"] .maka-nav-primary span,
-.maka-session-panel[data-collapsed="true"] .maka-nav-row span:nth-child(2),
-.maka-session-panel[data-collapsed="true"] .maka-nav-row small,
-.maka-session-panel[data-collapsed="true"] .maka-nav-disclosure,
-.maka-session-panel[data-collapsed="true"] .maka-sidebar-extension-tree {
+.maka-session-panel[data-collapsed="true"] .maka-nav-primary span {
   display: none;
 }
 
 .maka-session-panel[data-collapsed="true"] .maka-nav-primary {
   background: var(--foreground-4);
-}
-
-.maka-session-panel[data-collapsed="true"] .maka-nav-row[data-active="true"] {
-  background: var(--foreground-4);
-  box-shadow: none;
-  color: var(--foreground);
-}
-
-.maka-session-panel[data-collapsed="true"] .maka-nav-row[data-active="true"] .maka-nav-icon {
-  color: var(--foreground);
-}
-
-.maka-nav-section {
-  display: grid;
-  gap: 2px;
-  margin-bottom: 14px;
-}
-
-.maka-nav-section-title {
-  margin: 0 8px 4px;
-  color: var(--foreground-40);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.maka-nav-tree {
-  position: relative;
-  display: grid;
-  gap: 2px;
-  margin: 3px 0 0 10px;
-  padding-left: 4px;
-}
-
-.maka-nav-tree::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 2px;
-  bottom: 2px;
-  width: 1px;
-  background: var(--foreground-10);
-}
-
-.maka-nav-row {
-  width: 100%;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--foreground-80);
-  cursor: pointer;
-  -webkit-app-region: no-drag;
-  padding: 5px 8px;
-  text-align: left;
-  font-size: 13px;
-  line-height: 1.45;
-  /* PR-CHAT-SIDEBAR-POLISH-1: cheap transition so hover and active
-     state changes feel intentional rather than instant snaps. */
-  transition:
-    background 140ms var(--ease-out, ease-out),
-    color 140ms var(--ease-out, ease-out),
-    box-shadow 140ms var(--ease-out, ease-out);
-}
-
-.maka-nav-row-parent {
-  color: var(--foreground);
-  font-weight: 600;
-}
-
-.maka-nav-disclosure {
-  width: 12px;
-  height: 12px;
-  justify-self: end;
-  color: var(--foreground-45);
-  transition: transform 140ms var(--ease-out-strong);
-}
-
-.maka-nav-row[aria-expanded="true"] .maka-nav-disclosure {
-  transform: rotate(90deg);
-}
-
-.maka-nav-row:hover {
-  /* Slightly stronger hover tint so the affordance is visible at a
-     glance — the previous 0.03 was visible only in a perfectly lit
-     monitor at 100% brightness. */
-  background: var(--foreground-3);
-  color: var(--foreground);
-}
-
-.maka-nav-row[data-active="true"] {
-  background: var(--foreground-4);
-  color: var(--foreground);
-  font-weight: 600;
-  box-shadow: none;
-}
-.maka-nav-row[data-active="true"] .maka-nav-icon {
-  color: var(--foreground);
-}
-
-/* PR-SIDEBAR-IA-0 Phase 2: aria-disabled nav rows render dimmed and
- * skip hover for genuinely unavailable navigation rows. */
-.maka-nav-row[aria-disabled="true"],
-.maka-nav-row[data-disabled="true"] {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-.maka-nav-row[aria-disabled="true"]:hover,
-.maka-nav-row[data-disabled="true"]:hover {
-  background: transparent;
-}
-
-.maka-nav-row span:nth-child(2) {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.maka-nav-row small {
-  color: var(--foreground-40);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-}
-
-.maka-nav-count {
-  min-width: 18px;
-  height: 18px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  background: oklch(from var(--foreground) l c h / 0.06);
-  padding: 0 5px;
-}
-
-.maka-nav-row[data-active="true"] .maka-nav-count {
-  background: var(--foreground-8);
-  color: var(--foreground);
-}
-
-.maka-nav-row-sub {
-  min-height: 0;
-  padding-left: 8px;
-  color: var(--foreground-65);
-}
-
-.maka-sidebar-extension-tree {
-  margin: 0 0 2px 16px;
-  padding-left: 12px;
-}
-
-.maka-sidebar-extension-tree::before {
-  left: 0;
-  top: 0;
-  bottom: 2px;
-  background: var(--foreground-12);
-}
-
-.maka-sidebar-extension-tree .maka-nav-row {
-  padding-block: 6px;
 }
 
 .maka-nav-icon {

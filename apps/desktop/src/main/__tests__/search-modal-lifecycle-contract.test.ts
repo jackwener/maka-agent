@@ -118,13 +118,13 @@ describe('SearchModal lifecycle contract (PR-SIDEBAR-IA-0 Phase 3 P0 fixup)', ()
   it('returns focus to the sidebar Search trigger when the modal closes', async () => {
     const components = await readFile(COMPONENTS_PATH, 'utf8');
     const main = await readFile(MAIN_TSX_PATH, 'utf8');
-    const sidebarModules = components.match(/<nav className="maka-sidebar-modules"[\s\S]*?<\/nav>/)?.[0] ?? '';
+    const sidebarSearchButton = components.match(/className="maka-sidebar-search-button"[\s\S]*?<\/button>/)?.[0] ?? '';
     const closeSearchModal = main.match(/function closeSearchModal\(options\?: \{ restoreFocus\?: boolean \}\) \{[\s\S]*?\n  \}/)?.[0] ?? '';
 
     assert.match(
-      sidebarModules,
-      /data-maka-search-trigger="true"[\s\S]*aria-haspopup="dialog"/,
-      'Sidebar Search trigger must be queryable for focus restoration after modal close',
+      sidebarSearchButton,
+      /data-maka-search-trigger="true"[\s\S]*aria-label="搜索对话"/,
+      'Sidebar top Search trigger must be queryable for focus restoration after modal close',
     );
     assert.match(
       closeSearchModal,

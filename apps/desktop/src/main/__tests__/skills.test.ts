@@ -324,7 +324,7 @@ name: Writer
     const chatView = ui.match(/export function ChatView\([\s\S]*?if \(props\.mode === 'automations'\)/)?.[0] ?? '';
     const skillsModuleMain = ui.match(/function SkillsModuleMain\([\s\S]*?function DailyReviewPanel/)?.[0] ?? '';
     const skillPanel = ui.match(/function SkillLibraryPanel[\s\S]*?function formatSkillLibraryDescription/)?.[0] ?? '';
-    const emptyState = ui.match(/export interface EmptyStateProps[\s\S]*?function SidebarModuleHint/)?.[0] ?? '';
+    const emptyState = ui.match(/export interface EmptyStateProps[\s\S]*?function SkillLibraryPanel/)?.[0] ?? '';
 
     assert.match(chatView, /if \(props\.mode === 'skills'\) \{[\s\S]*<SkillsModuleMain/, 'Skills mode must mount its own main surface component');
     assert.match(skillsModuleMain, /const \[pendingSkillAction, setPendingSkillAction\] = useState<string \| null>\(null\)/);
