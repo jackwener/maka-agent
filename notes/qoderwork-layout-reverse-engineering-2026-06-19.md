@@ -502,6 +502,85 @@ kenji 现在 Maka 实装 32px（`39a338a`），按 spec 可加大到 40px。
 
 ---
 
+## 12.7 ⚠️ 右侧主区是 "workspace surface" —— 之前漏抄（2026-06-19 19:40 修正）
+
+WAWQAQ msg `95c33e0b` 指出我们 Maka 现在右侧主区是 flat 一片，没有"卡片感"，
+但 QoderWork 右侧主区其实是 **圆角 surface 卡片**。
+
+### 12.7.1 QoderWork 的真实 class
+
+asar 解包确认 QoderWork 给主内容容器起的名字是 **`.agents-parchment-paper-surface`**
+（字面意思「**羊皮纸表面**」），外层是 `.agents-content-area`。
+
+### 12.7.2 实测 CSS
+
+```css
+/* 外层 content area（提供 inset margin 和 radius）*/
+.agents-content-area {
+  background: var(--agents-content-area-bg);
+  margin: var(--agents-content-area-gap)
+          var(--agents-content-area-gap)
+          var(--agents-content-area-gap)
+          0;  /* 上 / 右 / 下 留空，左贴 sidebar */
+  border-radius: var(--agents-content-area-radius);
+  transition: margin-left .15s ease-out;
+}
+
+/* 卡片表面本身（WAWQAQ 看到的"卡片"）*/
+.agents-parchment-paper-surface {
+  border: 1px solid var(--color-border-tertiary);
+  background-color: var(--agents-content-area-bg);
+  background-image: radial-gradient(circle, #3a2a1c0b .95px, transparent 1.05px);
+  background-repeat: repeat;
+  background-size: 12px 12px;
+  box-shadow: none;
+}
+```
+
+### 12.7.3 关键 takeaways
+
+1. **专业术语**：这种 page-level 圆角容器叫 **Surface**（Material Design）或
+   **Paper**（Material UI 的 `<Paper>` 组件），不是 "card"。card 通常指
+   inner content card（一组独立信息块）。
+2. **它跟 window 之间有 inset margin** —— `--agents-content-area-gap` 让
+   surface 跟 window 边缘留一圈空白，这就是 WAWQAQ 看到的"独立卡片感"来源
+3. **border-radius 用 token** —— `--agents-content-area-radius`（推测 8–12px）
+4. **radial-gradient dotted 纹理** —— 12×12px 间距的极淡棕黑点，`#3a2a1c0b`
+   这种"羊皮纸"质感是 QoderWork 自己的品牌识别 → **我们不抄这个纹理**
+5. **1px hairline border + 无 shadow** —— flat surface 风格
+
+### 12.7.4 我们之前错在哪里
+
+WAWQAQ msg `c2eaf5fd` 说不要"双卡片式"（左 sidebar + 右主区都看起来像卡片），
+我们直接把右侧也压平成 flat。但 QoderWork 实际是：
+- ❌ 左 sidebar：**不是** card，纯透明嵌入 window
+- ✅ 右主区：**是** surface card —— inset margin + rounded + bordered + texture
+
+所以"不要双卡片" = sidebar 不卡片，**右侧主区还是要保留 surface**。
+
+### 12.7.5 给 kenji #71 的修复 checklist
+
+按 §12.7.2 实测：
+1. **加 inset margin** —— 主区容器 `margin: 8px 8px 8px 0`（跟 window 留间距，左贴 sidebar）
+2. **加 border-radius** —— `border-radius: 12px`（match Maka 体系；QoderWork 用 token，推测 8–12px）
+3. **加 1px hairline border** —— `border: 1px solid var(--border)`（用 Maka 自己的 token，不抄 QoderWork 的）
+4. **保持 flat background** —— `background: var(--background)`，**不抄** parchment 纹理（品牌识别度太高）
+5. **`box-shadow: none`** —— 不加阴影
+6. **关键**：sidebar 保持透明 flat（不要回到 -0.015 lightness 灰底）
+
+### 12.7.6 sidebar 跟 surface 的关系（重要 — 防止再误改）
+
+| 区域 | 行为 | CSS |
+|---|---|---|
+| 左 sidebar | 透明 / 跟 window 同 bg | `background: var(--background)` 无 border 无 shadow |
+| 中间 resize gutter | 透明 | `background: transparent`（xuan `8d91fc5` 已落地）|
+| 右主区 surface | **卡片感** | inset margin + rounded + hairline border |
+
+→ 视觉感受：左半边是"展开的目录"，右半边是"被框起来的工作区" —— 视觉重心
+   全在右侧 surface 内。这就是 QoderWork 的 app shell 哲学。
+
+---
+
 ## 12.6 给 kenji 的 micro-tuning checklist（基于真实 spec）
 
 按差距从大到小：
