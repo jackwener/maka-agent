@@ -98,7 +98,7 @@ describe('localized main shell contract', () => {
     const components = await readFile(resolve(process.cwd(), '..', '..', 'packages', 'ui', 'src', 'components.tsx'), 'utf8');
     const settings = await readFile(join(process.cwd(), 'src', 'renderer', 'settings', 'SettingsModal.tsx'), 'utf8');
 
-    for (const icon of ['MessageSquare', 'Search', 'Clock', 'Sparkles', 'CalendarDays', 'Settings']) {
+    for (const icon of ['MessageSquare', 'Search', 'Clock', 'Sparkles', 'BookOpen', 'Globe', 'Settings']) {
       assert.match(
         components,
         new RegExp(`<${icon} className="maka-nav-icon" strokeWidth=\\{1\\.5\\} aria-hidden="true" />`),
@@ -324,7 +324,7 @@ describe('localized main shell contract', () => {
     );
     assert.match(
       mainProcess,
-      /const MAIN_WINDOW_TRAFFIC_LIGHT_POSITION = \{ x: 24, y: 24 \} as const;[\s\S]*?const HIDDEN_TRAFFIC_LIGHT_POSITION = \{ x: -100, y: -100 \} as const;/,
+      /const MAIN_WINDOW_TRAFFIC_LIGHT_POSITION = \{ x: 14, y: 14 \} as const;[\s\S]*?const HIDDEN_TRAFFIC_LIGHT_POSITION = \{ x: -100, y: -100 \} as const;/,
       'main must keep named visible/hidden traffic-light positions instead of scattering magic coordinates',
     );
     assert.match(
@@ -518,8 +518,15 @@ describe('localized main shell contract', () => {
     assert.match(sidebarTopBar, /box-sizing:\s*border-box/);
     assert.match(sidebarTopBar, /padding-left:\s*calc\(var\(--maka-titlebar-control-safe-left\) - 10px\)/);
     assert.match(styles, /(?:^|\n)\.maka-nav-icon\s*\{[\s\S]*?width:\s*18px[\s\S]*?height:\s*18px/);
-    assert.match(styles, /(?:^|\n)\.maka-nav-row\[data-active="true"\]\s*\{[\s\S]*?background:\s*oklch\(from var\(--accent\) l c h \/ 0\.10\)[\s\S]*?color:\s*var\(--accent\)[\s\S]*?font-weight:\s*600[\s\S]*?box-shadow:\s*none/);
-    assert.match(styles, /(?:^|\n)\.maka-nav-row\[data-active="true"\] \.maka-nav-icon\s*\{[\s\S]*?color:\s*var\(--accent\)/);
+    assert.match(components, /const \[extensionsExpanded,\s*setExtensionsExpanded\] = useState\(true\);/);
+    assert.match(components, /aria-expanded=\{extensionsExpanded\}[\s\S]*<span>扩展<\/span>[\s\S]*className="maka-nav-disclosure"/);
+    assert.match(components, /id="maka-sidebar-extension-tree" className="maka-nav-tree maka-sidebar-extension-tree"/);
+    assert.match(components, /aria-label="专家套件"[\s\S]*onClick=\{\(\) => selectModule\('daily-review'\)\}/);
+    assert.match(components, /aria-label=\{MODULE_NAV_LABEL\.skills\}[\s\S]*onClick=\{\(\) => selectModule\('skills'\)\}/);
+    assert.match(components, /aria-label="连接器"[\s\S]*onClick=\{props\.onOpenSettings\}/);
+    assert.match(styles, /(?:^|\n)\.maka-sidebar-extension-tree\s*\{[\s\S]*?margin:\s*0 0 2px 16px[\s\S]*?padding-left:\s*12px/);
+    assert.match(styles, /(?:^|\n)\.maka-nav-row\[data-active="true"\]\s*\{[\s\S]*?background:\s*var\(--foreground-4\)[\s\S]*?color:\s*var\(--foreground\)[\s\S]*?font-weight:\s*600[\s\S]*?box-shadow:\s*none/);
+    assert.match(styles, /(?:^|\n)\.maka-nav-row\[data-active="true"\] \.maka-nav-icon\s*\{[\s\S]*?color:\s*var\(--foreground\)/);
     assert.doesNotMatch(styles, /\.maka-nav-row\[data-active="true"\]::before/);
     assert.match(styles, /\.maka-sidebar-search-button,\n\.maka-sidebar-toggle \{/);
     const detailWithArtifacts = extractCssRule(styles, '.maka-detail-with-artifacts');

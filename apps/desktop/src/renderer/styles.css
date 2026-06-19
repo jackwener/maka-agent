@@ -751,15 +751,15 @@ button:active {
 }
 
 .maka-session-list-title {
-  height: 34px;
+  height: 24px;
   display: flex;
   align-items: center;
-  padding: 0 14px;
-  color: var(--foreground-50);
+  padding: 0 12px;
+  color: var(--foreground-35);
   font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .maka-sidebar-module-hint {
@@ -912,7 +912,7 @@ button:active {
   border-radius: 8px;
   background: transparent;
   box-shadow: none;
-  color: var(--accent);
+  color: var(--foreground-75);
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
@@ -955,22 +955,24 @@ button:active {
 
 .maka-session-panel[data-collapsed="true"] .maka-nav-primary span,
 .maka-session-panel[data-collapsed="true"] .maka-nav-row span:nth-child(2),
-.maka-session-panel[data-collapsed="true"] .maka-nav-row small {
+.maka-session-panel[data-collapsed="true"] .maka-nav-row small,
+.maka-session-panel[data-collapsed="true"] .maka-nav-disclosure,
+.maka-session-panel[data-collapsed="true"] .maka-sidebar-extension-tree {
   display: none;
 }
 
 .maka-session-panel[data-collapsed="true"] .maka-nav-primary {
-  background: oklch(from var(--accent) l c h / 0.10);
+  background: var(--foreground-4);
 }
 
 .maka-session-panel[data-collapsed="true"] .maka-nav-row[data-active="true"] {
-  background: oklch(from var(--accent) l c h / 0.10);
+  background: var(--foreground-4);
   box-shadow: none;
-  color: var(--accent);
+  color: var(--foreground);
 }
 
 .maka-session-panel[data-collapsed="true"] .maka-nav-row[data-active="true"] .maka-nav-icon {
-  color: var(--accent);
+  color: var(--foreground);
 }
 
 .maka-nav-section {
@@ -1031,6 +1033,23 @@ button:active {
     box-shadow 140ms var(--ease-out, ease-out);
 }
 
+.maka-nav-row-parent {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.maka-nav-disclosure {
+  width: 12px;
+  height: 12px;
+  justify-self: end;
+  color: var(--foreground-45);
+  transition: transform 140ms var(--ease-out-strong);
+}
+
+.maka-nav-row[aria-expanded="true"] .maka-nav-disclosure {
+  transform: rotate(90deg);
+}
+
 .maka-nav-row:hover {
   /* Slightly stronger hover tint so the affordance is visible at a
      glance — the previous 0.03 was visible only in a perfectly lit
@@ -1040,15 +1059,13 @@ button:active {
 }
 
 .maka-nav-row[data-active="true"] {
-  /* QoderWork active nav rows use a light accent fill with stronger
-     label color, but no raised card chrome or left accent rail. */
-  background: oklch(from var(--accent) l c h / 0.10);
-  color: var(--accent);
+  background: var(--foreground-4);
+  color: var(--foreground);
   font-weight: 600;
   box-shadow: none;
 }
 .maka-nav-row[data-active="true"] .maka-nav-icon {
-  color: var(--accent);
+  color: var(--foreground);
 }
 
 /* PR-SIDEBAR-IA-0 Phase 2: aria-disabled nav rows render dimmed and
@@ -1088,13 +1105,30 @@ button:active {
 }
 
 .maka-nav-row[data-active="true"] .maka-nav-count {
-  background: oklch(from var(--accent) l c h / 0.12);
-  color: var(--accent);
+  background: var(--foreground-8);
+  color: var(--foreground);
 }
 
 .maka-nav-row-sub {
   min-height: 0;
   padding-left: 8px;
+  color: var(--foreground-65);
+}
+
+.maka-sidebar-extension-tree {
+  margin: 0 0 2px 16px;
+  padding-left: 12px;
+}
+
+.maka-sidebar-extension-tree::before {
+  left: 0;
+  top: 0;
+  bottom: 2px;
+  background: var(--foreground-12);
+}
+
+.maka-sidebar-extension-tree .maka-nav-row {
+  padding-block: 6px;
 }
 
 .maka-nav-icon {
@@ -1168,43 +1202,28 @@ button:active {
 .maka-list-stackContent {
   align-content: start;
   display: grid;
-  /* PR-SIDEBAR-IA-0 Phase 3: with card chrome removed from rows, the
-   * inter-row gap shrinks 4 → 2 so the list reads as a continuous
-   * list (Slack/Linear) rather than gappy chunks. Padding also drops
-   * 10 → 6 to give content more horizontal room when window is
-   * narrow. */
-  gap: 2px;
-  padding: 6px;
+  gap: 1px;
+  padding: 2px 6px 6px;
 }
 
 .maka-list-group {
   display: grid;
-  /* Phase 3: tighter inter-row gap inside a group (was 6 to give
-   * cards breathing room; flat rows want a tighter rhythm). */
-  gap: 1px;
+  gap: 0;
 }
 
 .maka-list-group + .maka-list-group {
-  /* Phase 3: between-group gap also tightens 14 → 10 — groups still
-   * have a visible break via the label, no need for extra air. */
-  margin-top: 10px;
+  margin-top: 6px;
 }
 
 .maka-list-group-label {
-  /* PR-UX-POLISH-1 commit 3 (kenji `66123c95`): natural Chinese
-   * count notation is `会话（65）` with full-width parens — the
-   * full-width `（）` glyph already provides visual separation,
-   * so no middle-dot separator span is needed. `gap: 2px` keeps
-   * the count tight against the label like proper Chinese
-   * typography. */
   display: flex;
   align-items: baseline;
   gap: 2px;
-  padding: 0 4px 2px;
-  color: var(--foreground-50);
+  padding: 1px 6px 3px;
+  color: var(--foreground-42);
   font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  font-weight: 500;
+  letter-spacing: 0;
 }
 
 /* PR-SIDEBAR-IA-0 Phase 3 (WAWQAQ msgs `14ed98b5`, `761141c5` —
@@ -1217,24 +1236,23 @@ button:active {
  * a sidebar of 60 sessions.
  *
  * After Phase 3:
- *   - 32px min-height, single line: status indicator + name + time.
+ *   - 30px min-height, single line: status indicator + name + time.
  *   - Flat list (no border, no radius, no shadow); the surrounding
  *     `.maka-list-stackContent` provides the row stack, so rows just need
  *     to read as a list, not a stack of cards.
  *   - Snippet drops out of the default DOM (lives only in a native
  *     `title=` tooltip on hover) — see SessionRow render path.
  *   - Row actions still slide in on hover (current behavior preserved).
- *   - Active row gets a 3px left rail + light accent tint (no heavy
- *     full-bg pill).
+ *   - Active row uses a neutral flat fill instead of the old accent rail.
  */
 .maka-list-row {
   position: relative;
   width: 100%;
-  min-height: 32px;
+  min-height: 30px;
   display: flex;
   align-items: stretch;
   border: 0;
-  border-radius: 6px;
+  border-radius: 5px;
   background: transparent;
   color: var(--foreground);
   overflow: hidden;
@@ -1243,30 +1261,16 @@ button:active {
 }
 
 .maka-list-row:hover {
-  background: var(--foreground-3);
+  background: var(--foreground-2);
 }
 
 .maka-list-row[data-active="true"] {
-  background: oklch(from var(--accent) l c h / 0.06);
-}
-
-/* Subtle left accent bar on the active row — matches Slack / Linear /
-   Telegram sidebar conventions. Positioned via the wrapper's `::before`
-   so it doesn't interfere with the row's grid. Top/bottom inset shrinks
-   to match the 32px row height (was 12px for a 56px card). */
-.maka-list-row[data-active="true"]::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 6px;
-  bottom: 6px;
-  width: 3px;
-  border-radius: 0 3px 3px 0;
-  background: var(--accent);
+  background: var(--foreground-4);
 }
 
 .maka-list-row[data-active="true"] .maka-list-row-name {
-  color: var(--accent);
+  color: var(--foreground);
+  font-weight: 600;
 }
 
 .maka-list-row-main {
@@ -1279,14 +1283,12 @@ button:active {
    * the button). */
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   border: 0;
   background: transparent;
   color: inherit;
   cursor: pointer;
-  /* Tighter vertical padding — 4px top/bottom keeps the 32px target
-   * even with a 14px name line + 14px line-height. */
-  padding: 4px 10px 4px 12px;
+  padding: 3px 8px 3px 10px;
   text-align: left;
 }
 
@@ -1359,8 +1361,8 @@ button:active {
   background: linear-gradient(
     to right,
     transparent 0%,
-    oklch(from var(--accent) l c h / 0.10) 24%,
-    oklch(from var(--accent) l c h / 0.10) 100%
+    var(--foreground-4) 24%,
+    var(--foreground-4) 100%
   );
 }
 
@@ -2449,15 +2451,10 @@ button:active {
   border-radius: 4px;
 }
 .maka-list-group-count {
-  /* PR-UX-POLISH-1 commit 2 (kenji `93ee9df0` #1): dropped
-   * `margin-left: auto` so the count sits IMMEDIATELY after the
-   * middle-dot separator, reading as one phrase `会话 · 65`. The
-   * previous right-aligned position made the count look like row
-   * meta (e.g. a timestamp), which violated the "this is part of
-   * the label" semantic. */
   font-variant-numeric: tabular-nums;
-  color: var(--foreground-50);
-  font-size: 11px;
+  color: var(--foreground-35);
+  font-size: 10.5px;
+  font-weight: 500;
 }
 
 .maka-list-row-stale-pill {
@@ -2478,8 +2475,6 @@ button:active {
   line-height: 1.4;
 }
 
-/* Soft hover state on the primary row body — a tiny scale + background
-   shift gives the row a sense of being "alive" without being noisy. */
 .maka-list-row:hover .maka-list-row-name {
   color: var(--foreground);
 }
@@ -2489,7 +2484,7 @@ button:active {
 }
 
 .maka-list-row:hover .maka-list-row-main {
-  transform: translateX(1px);
+  transform: none;
 }
 
 .maka-list-row[data-active="true"] .maka-list-row-main {

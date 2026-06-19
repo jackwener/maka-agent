@@ -500,6 +500,7 @@ export function SessionListPanel(props: {
   const activePlanReminderCount = (props.planReminders ?? [])
     .filter((reminder) => reminder.status !== 'completed')
     .length;
+  const [extensionsExpanded, setExtensionsExpanded] = useState(true);
   function selectModule(id: ModuleNavId) {
     if (id === 'search') {
       // Opens the dedicated Search modal hosted by main.tsx. If no
@@ -587,6 +588,52 @@ export function SessionListPanel(props: {
           <span>{MODULE_NAV_LABEL.search}</span>
         </button>
         <button
+          className="maka-nav-row maka-nav-row-parent"
+          type="button"
+          aria-expanded={extensionsExpanded}
+          aria-controls="maka-sidebar-extension-tree"
+          onClick={() => setExtensionsExpanded((value) => !value)}
+        >
+          <Sparkles className="maka-nav-icon" strokeWidth={1.5} aria-hidden="true" />
+          <span>扩展</span>
+          <ChevronRight className="maka-nav-disclosure" strokeWidth={1.75} aria-hidden="true" />
+        </button>
+        {extensionsExpanded && (
+          <div id="maka-sidebar-extension-tree" className="maka-nav-tree maka-sidebar-extension-tree">
+            <button
+              className="maka-nav-row maka-nav-row-sub"
+              data-active={isModuleActive('daily-review')}
+              aria-current={isModuleActive('daily-review') ? 'page' : undefined}
+              aria-label="专家套件"
+              type="button"
+              onClick={() => selectModule('daily-review')}
+            >
+              <BookOpen className="maka-nav-icon" strokeWidth={1.5} aria-hidden="true" />
+              <span>专家套件</span>
+            </button>
+            <button
+              className="maka-nav-row maka-nav-row-sub"
+              data-active={isModuleActive('skills')}
+              aria-current={isModuleActive('skills') ? 'page' : undefined}
+              aria-label={MODULE_NAV_LABEL.skills}
+              type="button"
+              onClick={() => selectModule('skills')}
+            >
+              <Sparkles className="maka-nav-icon" strokeWidth={1.5} aria-hidden="true" />
+              <span>{MODULE_NAV_LABEL.skills}</span>
+            </button>
+            <button
+              className="maka-nav-row maka-nav-row-sub"
+              type="button"
+              aria-label="连接器"
+              onClick={props.onOpenSettings}
+            >
+              <Globe className="maka-nav-icon" strokeWidth={1.5} aria-hidden="true" />
+              <span>连接器</span>
+            </button>
+          </div>
+        )}
+        <button
           className="maka-nav-row"
           data-active={isModuleActive('automations')}
           aria-current={isModuleActive('automations') ? 'page' : undefined}
@@ -599,28 +646,6 @@ export function SessionListPanel(props: {
           {activePlanReminderCount > 0 && (
             <small className="maka-nav-count" aria-hidden="true">{activePlanReminderCount}</small>
           )}
-        </button>
-        <button
-          className="maka-nav-row"
-          data-active={isModuleActive('skills')}
-          aria-current={isModuleActive('skills') ? 'page' : undefined}
-          aria-label={MODULE_NAV_LABEL.skills}
-          type="button"
-          onClick={() => selectModule('skills')}
-        >
-          <Sparkles className="maka-nav-icon" strokeWidth={1.5} aria-hidden="true" />
-          <span>{MODULE_NAV_LABEL.skills}</span>
-        </button>
-        <button
-          className="maka-nav-row"
-          data-active={isModuleActive('daily-review')}
-          aria-current={isModuleActive('daily-review') ? 'page' : undefined}
-          aria-label={MODULE_NAV_LABEL['daily-review']}
-          type="button"
-          onClick={() => selectModule('daily-review')}
-        >
-          <CalendarDays className="maka-nav-icon" strokeWidth={1.5} aria-hidden="true" />
-          <span>{MODULE_NAV_LABEL['daily-review']}</span>
         </button>
       </nav>
 
@@ -2963,20 +2988,14 @@ function SessionListGroups(props: {
                   }}
                 />
                 <span>{group.label}</span>
-                {/* PR-UX-POLISH-1 commit 3 (kenji `66123c95`): use
-                  full-width Chinese parens `（N）` instead of middle-
-                  dot separator. Reads as natural Chinese count
-                  notation (`会话（65）`) rather than label+meta
-                  pair (`会话 · 65`). The count is part of the
-                  group label's semantic, not separate metadata. */}
+                {/* Collapsed history buckets keep a subdued count so users
+                  can tell whether expanding the group is worth it. Open
+                  groups intentionally omit counts to keep the rail flat. */}
                 <span className="maka-list-group-count">（{group.sessions.length}）</span>
               </button>
             ) : (
               <div className="maka-list-group-label">
                 <span>{group.label}</span>
-                {group.sessions.length > 1 && (
-                  <span className="maka-list-group-count">（{group.sessions.length}）</span>
-                )}
               </div>
             )}
             {expanded && (

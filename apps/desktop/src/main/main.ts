@@ -1279,7 +1279,7 @@ const onboardingService = createOnboardingService(
 );
 
 let mainWindow: BrowserWindow | null = null;
-const MAIN_WINDOW_TRAFFIC_LIGHT_POSITION = { x: 24, y: 24 } as const;
+const MAIN_WINDOW_TRAFFIC_LIGHT_POSITION = { x: 14, y: 14 } as const;
 const HIDDEN_TRAFFIC_LIGHT_POSITION = { x: -100, y: -100 } as const;
 const planReminderTimers = new Map<string, NodeJS.Timeout>();
 const PLAN_REMINDER_DEFAULT_SNOOZE_MS = 10 * 60 * 1000;
