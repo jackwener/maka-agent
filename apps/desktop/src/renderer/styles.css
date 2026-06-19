@@ -10,6 +10,7 @@
 @import "overlayscrollbars/overlayscrollbars.css";
 
 @import "./maka-tokens.css";
+@import "./qoderwork-shell.css";
 
 @theme inline {
   --font-sans: "Geist Variable", "Geist", ui-sans-serif, system-ui, sans-serif;
@@ -721,9 +722,81 @@ button:active {
 
 .maka-session-panel-footer {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) 32px;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px 12px;
+  border-top: 0;
+}
+
+.maka-sidebar-account {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--foreground);
+  cursor: pointer;
+  padding: 4px 0;
+  text-align: left;
+}
+
+.maka-sidebar-account:hover,
+.maka-sidebar-account-settings:hover {
+  background: var(--foreground-3);
+}
+
+.maka-sidebar-account-avatar {
+  width: 32px;
+  height: 32px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid oklch(from var(--accent) l c h / 0.14);
+  border-radius: 999px;
+  background: oklch(0.92 0.06 340);
+  color: oklch(0.58 0.19 340);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.maka-sidebar-account-copy {
+  min-width: 0;
+  display: grid;
   gap: 2px;
-  padding: 8px 10px 10px;
-  border-top: 1px solid var(--border);
+}
+
+.maka-sidebar-account-copy strong,
+.maka-sidebar-account-copy small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.maka-sidebar-account-copy strong {
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.maka-sidebar-account-copy small {
+  color: var(--foreground-45);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.maka-sidebar-account-settings {
+  width: 32px;
+  height: 32px;
+  display: inline-grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--foreground-55);
+  cursor: pointer;
 }
 
 /* PR-UX-POLISH-1 commit 4 (WAWQAQ `e0dbad11` + kenji `2844f64f`):
@@ -2439,8 +2512,8 @@ button:active {
   width: min(100%, 1080px);
   margin: 0 auto;
   display: grid;
-  gap: 14px;
-  padding: clamp(14px, 2.2vw, 28px) 0 22px;
+  gap: 22px;
+  padding: clamp(42px, 6vh, 72px) 0 32px;
 }
 
 .maka-plan-hero {
@@ -2467,8 +2540,8 @@ button:active {
 .maka-plan-heading h2 {
   margin: 0;
   color: var(--foreground);
-  font-size: 30px;
-  font-weight: 680;
+  font-size: 28px;
+  font-weight: 650;
   letter-spacing: 0;
   line-height: 1.15;
 }
@@ -2488,20 +2561,28 @@ button:active {
   flex-wrap: wrap;
 }
 
+.maka-plan-create-through {
+  gap: 6px;
+  background: var(--foreground-3);
+  color: var(--foreground);
+  border-color: transparent;
+}
+
 .maka-plan-refresh-button {
   color: var(--foreground-60);
 }
 
 .maka-plan-system-alert {
   display: flex;
-  min-height: 54px;
+  min-height: 56px;
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  border-color: oklch(0.86 0.055 245);
+  border-color: oklch(0.90 0.04 240);
   border-radius: 8px;
-  background: oklch(0.975 0.018 245);
-  color: oklch(0.40 0.085 245);
+  background: oklch(0.965 0.035 235);
+  color: oklch(0.50 0.13 245);
+  padding: 12px 18px;
 }
 
 .maka-plan-system-alert [class*="lucide"] {
@@ -2514,6 +2595,16 @@ button:active {
   min-width: 0;
   align-items: center;
   gap: 10px;
+}
+
+.maka-plan-system-alert-main div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.maka-plan-system-alert-main [data-slot="alert-description"] {
+  display: none;
 }
 
 .maka-plan-system-alert-main > [class*="lucide"] {
@@ -2546,20 +2637,46 @@ button:active {
 
 .maka-plan-tabs-bar {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 16px;
 }
 
 .maka-plan-tabs-list {
-  border-radius: 8px;
-  background: var(--foreground-4);
-  padding: 2px;
+  gap: 24px;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
 }
 
 .maka-plan-tab {
+  position: relative;
   gap: 8px;
-  min-width: 128px;
+  min-width: 0;
+  height: 36px;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--foreground-45);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.maka-plan-tab[data-state="active"] {
+  color: var(--foreground);
+  background: transparent;
+  box-shadow: none;
+}
+
+.maka-plan-tab[data-state="active"]::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--accent);
 }
 
 .maka-plan-tab span {
@@ -2588,7 +2705,7 @@ button:active {
 .maka-plan-card-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: 16px;
 }
 
 .maka-plan-form,
@@ -2603,7 +2720,7 @@ button:active {
 }
 
 .maka-plan-card {
-  min-height: 214px;
+  min-height: 164px;
   align-content: start;
   transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
 }
@@ -2847,10 +2964,16 @@ button:active {
   margin: 0;
   min-width: 0;
   color: var(--foreground);
-  font-size: 16px;
-  font-weight: 680;
+  font-size: 14px;
+  font-weight: 650;
   line-height: 1.35;
   overflow-wrap: anywhere;
+}
+
+.maka-plan-card-status {
+  color: var(--foreground-35);
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .maka-plan-card-run {
@@ -2886,6 +3009,10 @@ button:active {
   padding: 5px 8px;
 }
 
+.maka-plan-card-recurrence {
+  display: none;
+}
+
 /* PR-PLAN-NEXT-RUN-COUNTDOWN-0: small accent pill next to the
    absolute next-run time so user sees both wall-clock and
    distance-from-now in one glance. */
@@ -2902,15 +3029,18 @@ button:active {
 }
 
 .maka-plan-card-note {
-  min-height: 52px;
+  min-height: 44px;
   border-radius: 8px;
   color: var(--foreground-60);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
   margin: 0;
   padding: 0;
-  white-space: pre-wrap;
+  display: -webkit-box;
+  overflow: hidden;
   overflow-wrap: anywhere;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .maka-plan-run-list {
@@ -5044,7 +5174,8 @@ button:active {
 }
 
 .maka-composer-role-chip,
-.maka-composer-mode-chip {
+.maka-composer-mode-chip,
+.maka-composer-model-chip {
   height: 32px;
   display: inline-flex;
   align-items: center;
@@ -5060,9 +5191,29 @@ button:active {
 }
 
 .maka-composer-role-chip:hover,
-.maka-composer-mode-chip:hover {
+.maka-composer-mode-chip:hover,
+.maka-composer-model-chip:hover {
   background: var(--foreground-3);
   color: var(--foreground);
+}
+
+.maka-composer-model-chip {
+  max-width: min(190px, 30vw);
+}
+
+.maka-composer-model-chip-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.maka-composer-model-status {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--destructive);
+  flex: 0 0 auto;
 }
 
 .maka-composer-tool-button {

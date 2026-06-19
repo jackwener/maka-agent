@@ -17,7 +17,7 @@ describe('module main surface contract', () => {
     const sidebarListBlock = ui.match(/<section className="maka-session-list"[\s\S]*?<footer className="maka-session-panel-footer">/)?.[0] ?? '';
     const dailyReviewModeBlock = ui.match(/if \(props\.mode === 'daily-review'\) \{[\s\S]*?^\s*\}/m)?.[0] ?? '';
 
-    assert.match(dailyReviewModeBlock, /className="maka-main detailPane maka-module-main" aria-label="每日回顾"/);
+    assert.match(dailyReviewModeBlock, /className="maka-main detailPane maka-module-main agents-chat-panel" aria-label="每日回顾"/);
     assert.match(dailyReviewModeBlock, /<DailyReviewPanel/);
     assert.doesNotMatch(sidebarListBlock, /<DailyReviewPanel/);
     assert.match(sidebarListBlock, /title="每日回顾"[\s\S]*body="已在右侧内容栏打开。"/);
@@ -95,7 +95,7 @@ describe('module main surface contract', () => {
     const skillsModuleMain = ui.match(/function SkillsModuleMain\([\s\S]*?function DailyReviewPanel/)?.[0] ?? '';
 
     assert.match(skillsModeBlock, /<SkillsModuleMain/);
-    assert.match(skillsModuleMain, /className="maka-main detailPane maka-module-main" aria-label="技能"/);
+    assert.match(skillsModuleMain, /className="maka-main detailPane maka-module-main agents-chat-panel" aria-label="技能"/);
     assert.match(skillsModuleMain, /<SkillLibraryPanel/);
     assert.doesNotMatch(sidebarListBlock, /<SkillLibraryPanel/);
     assert.match(sidebarListBlock, /title="技能库"[\s\S]*body="已在右侧内容栏打开。"/);
@@ -106,7 +106,7 @@ describe('module main surface contract', () => {
     const sidebarListBlock = ui.match(/<section className="maka-session-list"[\s\S]*?<footer className="maka-session-panel-footer">/)?.[0] ?? '';
     const automationsModeBlock = ui.match(/if \(props\.mode === 'automations'\) \{[\s\S]*?^\s*\}/m)?.[0] ?? '';
 
-    assert.match(automationsModeBlock, /className="maka-main detailPane maka-module-main" aria-label="计划"/);
+    assert.match(automationsModeBlock, /className="maka-main detailPane maka-module-main agents-chat-panel" aria-label="计划"/);
     assert.match(automationsModeBlock, /<PlanReminderPanel/);
     assert.doesNotMatch(sidebarListBlock, /<PlanReminderPanel/);
     assert.match(sidebarListBlock, /title="计划"[\s\S]*body="已在右侧内容栏打开。"/);

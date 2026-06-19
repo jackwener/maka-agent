@@ -449,6 +449,9 @@ function AppShell() {
   const activeConnection = activeSession
     ? connections.find((connection) => connection.slug === activeSession.llmConnectionSlug)
     : undefined;
+  const defaultConnectionEntry = defaultConnection
+    ? connections.find((connection) => connection.slug === defaultConnection)
+    : undefined;
   const chatModelChoices = useMemo<ChatModelChoice[]>(
     () => buildChatModelChoices(connections),
     [connections],
@@ -2661,9 +2664,9 @@ function AppShell() {
   }, [hasModalOpen]);
 
   return (
-    <div className="appFrame">
+    <div className="appFrame agents-layout-root">
       <div
-        className="app maka-shell-2col"
+        className="app maka-shell-2col agents-layout-body"
         aria-hidden={hasModalOpen ? 'true' : undefined}
         inert={hasModalOpen ? true : undefined}
         data-modal-background-hidden={hasModalOpen ? 'true' : undefined}
@@ -2697,6 +2700,7 @@ function AppShell() {
               setSearchScrollTarget(null);
             }}
             onOpenSettings={openSettings}
+            userLabel={userLabel}
             onOpenUpdate={() => openSettingsSection('about')}
             onNew={createSession}
             onOpenSearchModal={() => setSearchModalOpen(true)}
@@ -2749,7 +2753,19 @@ function AppShell() {
           onPointerDown={startColumnResize}
           onKeyDown={onResizeHandleKeyDown}
         />
-        <div className="maka-panel maka-panel-detail maka-floating-panel" data-sidebar-state={sessionListCollapsed ? 'collapsed' : 'expanded'}>
+        <div
+          className="maka-panel maka-panel-detail maka-floating-panel agents-content-area agents-parchment-paper-surface"
+          data-sidebar-state={sessionListCollapsed ? 'collapsed' : 'expanded'}
+          data-agents-view={
+            navSelection.section === 'automations'
+              ? 'cron'
+              : navSelection.section === 'skills'
+                ? 'skills'
+                : navSelection.section === 'sessions'
+                  ? 'im_hub'
+                  : navSelection.section
+          }
+        >
           {sessionListCollapsed && (
             <div className="maka-collapsed-drag-strip" aria-label="侧边栏已收起">
               <UiButton
@@ -2935,6 +2951,14 @@ function AppShell() {
                 onImportTextFile={importTextFileIntoComposer}
                 onImportDroppedTextFiles={importDroppedTextFilesIntoComposer}
                 onImportFolderOutline={importFolderOutlineIntoComposer}
+                modelLabel={
+                  activeModelLabel
+                  ?? activeConnection?.defaultModel
+                  ?? activeConnection?.models?.[0]?.id
+                  ?? defaultConnectionEntry?.defaultModel
+                  ?? defaultConnectionEntry?.models?.[0]?.id
+                  ?? undefined
+                }
                 workspacePicker={{
                   label: appInfo ? basenameFromPath(appInfo.projectPath) : undefined,
                   branch: appInfo?.projectGit.branch,

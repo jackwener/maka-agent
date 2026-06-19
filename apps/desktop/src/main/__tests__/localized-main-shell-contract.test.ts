@@ -98,7 +98,7 @@ describe('localized main shell contract', () => {
     const components = await readFile(resolve(process.cwd(), '..', '..', 'packages', 'ui', 'src', 'components.tsx'), 'utf8');
     const settings = await readFile(join(process.cwd(), 'src', 'renderer', 'settings', 'SettingsModal.tsx'), 'utf8');
 
-    for (const icon of ['MessageSquare', 'Search', 'Clock', 'Sparkles', 'CalendarDays', 'DownloadCloud', 'Settings']) {
+    for (const icon of ['MessageSquare', 'Search', 'Clock', 'Sparkles', 'CalendarDays', 'Settings']) {
       assert.match(
         components,
         new RegExp(`<${icon} className="maka-nav-icon" strokeWidth=\\{1\\.5\\} aria-hidden="true" />`),
@@ -278,7 +278,7 @@ describe('localized main shell contract', () => {
     const preload = await readFile(join(process.cwd(), 'src', 'preload', 'preload.ts'), 'utf8');
     const mainProcess = await readFile(join(process.cwd(), 'src', 'main', 'main.ts'), 'utf8');
     const globalTypes = await readFile(join(process.cwd(), 'src', 'global.d.ts'), 'utf8');
-    const appShell = main.match(/const hasModalOpen[\s\S]*?<div\s+className="app maka-shell-2col"[\s\S]*?style=\{\{/)?.[0] ?? '';
+    const appShell = main.match(/const hasModalOpen[\s\S]*?<div\s+className="app maka-shell-2col agents-layout-body"[\s\S]*?style=\{\{/)?.[0] ?? '';
     const titlebarControlsEffect = main.match(/const hasModalOpen[\s\S]*?useEffect\(\(\) => \{[\s\S]*?\}, \[hasModalOpen\]\);/)?.[0] ?? '';
     const modalMounts = main.match(/<\/div>\s*\{activePermission && \([\s\S]*?\{settingsOpen && \(/)?.[0] ?? '';
 
@@ -369,6 +369,7 @@ describe('localized main shell contract', () => {
   it('keeps Settings close affordance singular and avoids a duplicate bottom CTA', async () => {
     const settings = await readFile(join(process.cwd(), 'src', 'renderer', 'settings', 'SettingsModal.tsx'), 'utf8');
     const styles = await readFile(join(process.cwd(), 'src', 'renderer', 'styles.css'), 'utf8');
+    const qoderworkShell = await readFile(join(process.cwd(), 'src', 'renderer', 'qoderwork-shell.css'), 'utf8');
     const surfaceBlock = settings.match(/function SettingsSurface[\s\S]*?function SettingsPage/)?.[0] ?? '';
 
     assert.match(
@@ -424,6 +425,7 @@ describe('localized main shell contract', () => {
     const components = await readFile(resolve(process.cwd(), '..', '..', 'packages', 'ui', 'src', 'components.tsx'), 'utf8');
     const main = await readFile(join(process.cwd(), 'src', 'renderer', 'main.tsx'), 'utf8');
     const styles = await readFile(join(process.cwd(), 'src', 'renderer', 'styles.css'), 'utf8');
+    const qoderworkShell = await readFile(join(process.cwd(), 'src', 'renderer', 'qoderwork-shell.css'), 'utf8');
 
     assert.match(components, /sidebarCollapsed\?: boolean;/);
     assert.match(components, /onToggleSidebar\?\(\): void;/);
@@ -441,7 +443,8 @@ describe('localized main shell contract', () => {
     assert.match(main, /'--maka-session-list-width': `\$\{sessionListCollapsed \? SESSION_LIST_COLLAPSED_WIDTH : sessionListWidth\}px`/);
     assert.match(main, /'--maka-resize-handle-width': sessionListCollapsed \? '0px' : '8px'/);
     assert.match(main, /className="maka-panel maka-panel-list maka-floating-panel"[\s\S]*aria-hidden=\{sessionListCollapsed \? 'true' : undefined\}[\s\S]*inert=\{sessionListCollapsed \? true : undefined\}/);
-    assert.match(main, /className="maka-panel maka-panel-detail maka-floating-panel" data-sidebar-state=\{sessionListCollapsed \? 'collapsed' : 'expanded'\}/);
+    assert.match(main, /className="maka-panel maka-panel-detail maka-floating-panel agents-content-area agents-parchment-paper-surface"[\s\S]*data-sidebar-state=\{sessionListCollapsed \? 'collapsed' : 'expanded'\}/);
+    assert.match(main, /data-agents-view=\{[\s\S]*navSelection\.section === 'automations'[\s\S]*\? 'cron'/);
     const collapsedTopbarMarkup = main.match(/className="maka-collapsed-drag-strip" aria-label="侧边栏已收起"[\s\S]*?<MakaUriContext\.Provider/)?.[0] ?? '';
     assert.match(collapsedTopbarMarkup, /aria-label="展开侧边栏"[\s\S]*<PanelLeftOpen size=\{16\}/);
     assert.match(collapsedTopbarMarkup, /onClick=\{\(\) => setSearchModalOpen\(true\)\}[\s\S]*aria-label="搜索对话"[\s\S]*<Search size=\{16\}/);
@@ -475,6 +478,11 @@ describe('localized main shell contract', () => {
     assert.match(detailPanel, /display:\s*flex/);
     assert.match(detailPanel, /flex-direction:\s*column/);
     assert.doesNotMatch(detailPanel, /background-image:\s*radial-gradient/);
+    assert.match(qoderworkShell, /\.agents-layout-root\s*\{[\s\S]*?height:\s*100dvh/);
+    assert.match(qoderworkShell, /\.agents-sidebar\s*\{[\s\S]*?contain:\s*layout paint style/);
+    assert.match(qoderworkShell, /\.maka-panel-detail\.maka-floating-panel\.agents-content-area\s*\{[\s\S]*?border:\s*1px solid var\(--color-border-tertiary\)/);
+    assert.match(qoderworkShell, /\.agents-parchment-paper-surface\s*\{[\s\S]*?border:\s*1px solid var\(--color-border-tertiary\)/);
+    assert.doesNotMatch(qoderworkShell, /radial-gradient\(circle,\s*#3a2a1c0b/);
     const collapsedTopbar = extractCssRule(styles, '.maka-collapsed-drag-strip');
     assert.ok(collapsedTopbar, '.maka-collapsed-drag-strip rule must exist');
     assert.match(collapsedTopbar, /min-height:\s*38px/);
@@ -497,6 +505,7 @@ describe('localized main shell contract', () => {
   it('keeps the chat composer as the only main card with a QoderWork-like frame', async () => {
     const components = await readFile(resolve(process.cwd(), '..', '..', 'packages', 'ui', 'src', 'components.tsx'), 'utf8');
     const styles = await readFile(join(process.cwd(), 'src', 'renderer', 'styles.css'), 'utf8');
+    const qoderworkShell = await readFile(join(process.cwd(), 'src', 'renderer', 'qoderwork-shell.css'), 'utf8');
     const emptyHero = components.match(/function EmptyChatHero[\s\S]*?function DeepResearchEmptyHero/)?.[0] ?? '';
     const composerCard = extractCssRule(styles, '.composer .maka-composer-inner');
     const composerFocus = extractCssRule(styles, '.composer .maka-composer-inner:focus-within');
@@ -519,10 +528,12 @@ describe('localized main shell contract', () => {
       /PermissionModeSwitcher|新建对话后再切换模式/,
       'new-chat empty home should not waste top-bar space on an unavailable mode switcher',
     );
+    assert.match(activeSessionBlock, /const isEmptyHome = chat\.length === 0 && !props\.streamingText && !props\.messageLoadError && !deepResearchActive/);
+    assert.match(activeSessionBlock, /\{!isEmptyHome && \(\s*<header className="maka-chat-header">/);
     assert.match(
       activeSessionBlock,
       /<PermissionModeSwitcher[\s\S]*mode=\{props\.activeSession\.permissionMode\}/,
-      'active sessions must keep the permission mode switcher available in the chat header',
+      'non-empty active sessions must keep the permission mode switcher available in the chat header',
     );
     assert.doesNotMatch(emptyHero, /maka-prompt-suggestions/);
     assert.doesNotMatch(emptyHero, /maka-prompt-chip/);
@@ -547,6 +558,8 @@ describe('localized main shell contract', () => {
     assert.match(composerCard, /border-radius:\s*8px/);
     assert.match(composerCard, /padding:\s*16px/);
     assert.match(composerCard, /0 0 0 1px oklch\(from var\(--foreground\) l c h \/ 0\.065\)/);
+    assert.match(components, /className="maka-composer-inner composerInner agents-parchment-paper-surface"/);
+    assert.match(qoderworkShell, /\.composer \.maka-composer-inner\.agents-parchment-paper-surface\s*\{[\s\S]*?border:\s*1px solid var\(--color-border-tertiary\)/);
     assert.doesNotMatch(composerCard, /0 2px 8px/);
     assert.doesNotMatch(composerCard, /var\(--shadow-medium\)/);
     assert.ok(composerFocus, '.composer .maka-composer-inner:focus-within rule must exist');
@@ -562,10 +575,12 @@ describe('localized main shell contract', () => {
     assert.ok(composerTextarea, '.composer textarea rule must exist');
     assert.match(composerTextarea, /min-height:\s*var\(--h-composer-min,\s*84px\)/);
     assert.match(styles, /\.maka-composer-left-controls,\n\.maka-composer-right-controls \{[\s\S]*?gap:\s*6px/);
-    assert.match(styles, /\.maka-composer-role-chip,\n\.maka-composer-mode-chip \{[\s\S]*?height:\s*32px[\s\S]*?border-radius:\s*8px/);
+    assert.match(styles, /\.maka-composer-role-chip,\n\.maka-composer-mode-chip,\n\.maka-composer-model-chip \{[\s\S]*?height:\s*32px[\s\S]*?border-radius:\s*8px/);
     assert.match(components, /className="maka-composer-tool-button maka-composer-context-plus"[\s\S]*aria-label=\{pendingImportAction === 'file' \? '正在添加上下文' : '添加上下文'\}[\s\S]*<Plus size=\{15\}/);
     assert.match(components, /className="maka-composer-role-chip"[\s\S]*aria-label="通用助手"[\s\S]*通用[\s\S]*<ChevronDown size=\{12\}/);
-    assert.match(components, /className="maka-composer-mode-chip"[\s\S]*aria-label="标准模式"[\s\S]*标准[\s\S]*<ChevronDown size=\{12\}/);
+    assert.match(components, /modelLabel\?: string;/);
+    assert.match(components, /const modelChipLabel = props\.modelLabel\?\.trim\(\) \|\| '选择模型'/);
+    assert.match(components, /className="maka-composer-model-chip"[\s\S]*aria-label=\{`当前模型：\$\{modelChipLabel\}`\}[\s\S]*<span className="maka-composer-model-chip-text">\{modelChipLabel\}<\/span>/);
     assert.match(components, /aria-label="语音输入暂未启用"[\s\S]*<Mic size=\{14\}/);
     assert.doesNotMatch(components, /aria-label=\{pendingImportAction === 'file' \? '正在导入文件内容' : '导入文件内容'\}/);
     assert.doesNotMatch(components, /aria-label=\{pendingImportAction === 'folder' \? '正在导入文件夹目录' : '导入文件夹目录'\}/);

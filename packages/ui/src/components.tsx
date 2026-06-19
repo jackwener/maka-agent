@@ -15,7 +15,6 @@ import {
   CircleCheckBig,
   Clock,
   Copy,
-  DownloadCloud,
   Eye,
   FileEdit,
   Flag,
@@ -375,6 +374,7 @@ export function SessionListPanel(props: {
   onSelectSession(sessionId: string): void;
   onSelect(selection: NavSelection): void;
   onOpenSettings(): void;
+  userLabel?: string;
   onNew(): void;
   onOpenSkill?(skillId: string): void;
   /** Opens the local version/build information surface. */
@@ -418,6 +418,8 @@ export function SessionListPanel(props: {
   // visible, lightweight control in a separate PR. `NavSelection.filter`
   // stays in the type for storage continuity but is internal-only.
   const title = MODULE_NAV_LABEL[props.selection.section];
+  const accountLabel = props.userLabel?.trim() || 'jakevin';
+  const accountInitial = Array.from(accountLabel)[0]?.toUpperCase() ?? 'J';
   // PR-UX-POLISH-1 commit 4 (WAWQAQ msg `e0dbad11` + kenji msg
   // `2844f64f`): in-list `筛选会话` filter input removed. All search
   // capability lives in the top-level `搜索` modal (PR-SEARCH-MODAL-
@@ -516,7 +518,7 @@ export function SessionListPanel(props: {
 
   return (
     <aside
-      className="maka-session-panel"
+      className="maka-session-panel agents-sidebar"
       aria-label="对话列表"
       data-collapsed={props.sidebarCollapsed ? 'true' : undefined}
     >
@@ -709,22 +711,26 @@ export function SessionListPanel(props: {
 
       <footer className="maka-session-panel-footer">
         <button
-          className="maka-nav-row"
+          className="maka-sidebar-account"
           type="button"
           onClick={props.onOpenUpdate}
-          aria-label="版本信息"
+          aria-label={`账号与版本信息：${accountLabel}`}
+          title="打开账号与版本信息"
         >
-          <DownloadCloud className="maka-nav-icon" strokeWidth={1.5} aria-hidden="true" />
-          <span>版本信息</span>
+          <span className="maka-sidebar-account-avatar" aria-hidden="true">{accountInitial}</span>
+          <span className="maka-sidebar-account-copy">
+            <strong>{accountLabel}</strong>
+            <small>Free Plan</small>
+          </span>
         </button>
         <button
-          className="maka-nav-row"
+          className="maka-sidebar-account-settings"
           type="button"
           onClick={props.onOpenSettings}
           aria-label="设置"
+          title="设置"
         >
           <Settings className="maka-nav-icon" strokeWidth={1.5} aria-hidden="true" />
-          <span>设置</span>
         </button>
         {/*
           PR-UX-POLISH-1 commit 4 (WAWQAQ msg `e0dbad11` + kenji
@@ -961,7 +967,7 @@ function SkillsModuleMain(props: {
 
   const skillActionBusy = pendingSkillAction !== null;
   return (
-    <main className="maka-main detailPane maka-module-main" aria-label="技能">
+    <main className="maka-main detailPane maka-module-main agents-chat-panel" aria-label="技能">
       <header className="maka-module-main-header">
         <div>
           <h2>技能</h2>
@@ -1644,7 +1650,7 @@ function PlanReminderPanel(props: {
 
   return (
     <div className="maka-plan-panel">
-      <div className="maka-plan-shell">
+      <div className="maka-plan-shell agents-inner-view-clamp">
         <div className="maka-plan-hero">
           <div className="maka-plan-heading">
             <h2>定时任务</h2>
@@ -1793,7 +1799,7 @@ function PlanReminderPanel(props: {
                 extraClassName="maka-plan-empty"
               />
             ) : (
-              <div className="maka-plan-card-grid" aria-label="计划提醒列表">
+              <div className="maka-plan-card-grid agents-dual-card-row" aria-label="计划提醒列表">
                 {sortedReminders.map((reminder) => {
                   const reminderActionPrefix = `${reminder.id}:`;
                   const reminderActionPending = Array.from(pendingActionKeys).some((key) => key.startsWith(reminderActionPrefix));
@@ -3703,7 +3709,7 @@ export function ChatView(props: {
 
   if (props.mode === 'automations') {
     return (
-      <main className="maka-main detailPane maka-module-main" aria-label="计划">
+      <main className="maka-main detailPane maka-module-main agents-chat-panel" aria-label="计划">
         <PlanReminderPanel
           reminders={props.planReminders ?? []}
           onRefresh={props.onRefreshPlanReminders}
@@ -3721,7 +3727,7 @@ export function ChatView(props: {
 
   if (props.mode === 'daily-review') {
     return (
-      <main className="maka-main detailPane maka-module-main" aria-label="每日回顾">
+      <main className="maka-main detailPane maka-module-main agents-chat-panel" aria-label="每日回顾">
         <header className="maka-module-main-header">
           <div>
             <h2>每日回顾</h2>
@@ -3768,14 +3774,7 @@ export function ChatView(props: {
 
   if (!props.activeSession) {
     return (
-      <main className="maka-main detailPane">
-        <header className="maka-chat-header">
-          <ChatTab title="新建对话" />
-          <UiButton className="maka-chat-tab-plus" variant="quiet" size="icon-sm" type="button" aria-label="新建对话" onClick={props.onNew}>
-            <Plus strokeWidth={1.5} aria-hidden="true" />
-          </UiButton>
-          <span className="maka-chat-header-spacer" />
-        </header>
+      <main className="maka-main detailPane agents-chat-panel agents-chat-view-root">
         <OverlayScrollArea
           className="maka-chat messages"
           viewportClassName="maka-chatViewport"
@@ -3789,10 +3788,12 @@ export function ChatView(props: {
 
   const isLocalSimulationBackend = props.activeSession.backend === 'fake';
   const deepResearchActive = isDeepResearchSession(props.activeSession.labels);
+  const isEmptyHome = chat.length === 0 && !props.streamingText && !props.messageLoadError && !deepResearchActive;
 
   return (
-    <main className="maka-main detailPane">
-      <header className="maka-chat-header">
+    <main className="maka-main detailPane agents-chat-panel agents-chat-view-root">
+      {!isEmptyHome && (
+        <header className="maka-chat-header">
         <ChatTab
           title={props.activeSession.name}
           subtitle={props.activeModelLabel ?? props.activeConnectionLabel}
@@ -3851,7 +3852,8 @@ export function ChatView(props: {
           pending={props.permissionModePending}
           onChange={props.onPermissionModeChange}
         />
-      </header>
+        </header>
+      )}
       {isLocalSimulationBackend && (
         <Alert variant="info" className="maka-fake-backend-banner" role="status">
           <AlertTriangle size={14} strokeWidth={1.75} aria-hidden="true" />
@@ -5770,6 +5772,7 @@ export const Composer = forwardRef<
     onImportTextFile?(): void | Promise<void>;
     onImportFolderOutline?(): void | Promise<void>;
     onImportDroppedTextFiles?(files: File[]): void | Promise<void>;
+    modelLabel?: string;
     workspacePicker?: {
       label?: string;
       branch?: string | null;
@@ -6051,6 +6054,7 @@ export const Composer = forwardRef<
   if (props.hidden) return null;
   const importActionBusy = pendingImportAction !== null;
   const sendDisabled = props.disabled || sendPending || importActionBusy || !hasDraftText;
+  const modelChipLabel = props.modelLabel?.trim() || '选择模型';
 
   return (
     <form
@@ -6062,7 +6066,7 @@ export const Composer = forwardRef<
       onDrop={onComposerDrop}
       onSubmit={submit}
     >
-      <div className="maka-composer-inner composerInner">
+      <div className="maka-composer-inner composerInner agents-parchment-paper-surface">
         <UiTextarea
           ref={textareaRef}
           name="text"
@@ -6154,8 +6158,9 @@ export const Composer = forwardRef<
           <div className="maka-composer-right-controls">
             {!props.streaming && (
               <>
-                <span className="maka-composer-mode-chip" aria-label="标准模式">
-                  标准
+                <span className="maka-composer-model-chip" aria-label={`当前模型：${modelChipLabel}`} title={modelChipLabel}>
+                  <span className="maka-composer-model-chip-text">{modelChipLabel}</span>
+                  <span className="maka-composer-model-status" aria-hidden="true" />
                   <ChevronDown size={12} strokeWidth={1.8} aria-hidden="true" />
                 </span>
                 <UiButton
