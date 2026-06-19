@@ -424,4 +424,82 @@ describe('Config.systemPrompt (benchmark config variable, not session state)', (
       assert.equal(captured[0]?.systemPrompt, undefined, 'no systemPrompt should be injected when Config omits it');
     });
   });
+
+  // End-to-end wiring test: proves config.systemPrompt flows all the way
+  // through to the backend constructor's systemPrompt parameter — the exact
+  // seam a real AiSdkBackend factory (like desktop's) uses. Uses an ai-sdk
+  // stub that records its constructor input, so we verify the wiring contract
+  // without needing a live LLM call.
+  class SystemPromptCapturingBackend implements AgentBackend {
+    readonly kind: BackendKind = 'ai-sdk';
+    readonly sessionId: string;
+    readonly receivedSystemPrompt: string | undefined;
+    constructor(
+      private readonly ctx: { sessionId: string; header: SessionHeader; store: SessionStore },
+      systemPrompt?: string,
+    ) {
+      this.sessionId = ctx.sessionId;
+      this.receivedSystemPrompt = systemPrompt;
+    }
+    async *send(input: BackendSendInput): AsyncIterable<SessionEvent> {
+      const turnId = input.turnId;
+      const ts = Date.now();
+      const messageId = 'capture-msg';
+      await this.ctx.store.appendMessage(this.sessionId, {
+        type: 'assistant', id: messageId, turnId, ts,
+        text: 'ok', modelId: this.ctx.header.model,
+      });
+      yield { type: 'text_complete', id: 'capture-tc', turnId, ts, messageId, text: 'ok' };
+      yield { type: 'complete', id: 'capture-c', turnId, ts, stopReason: 'end_turn' };
+    }
+    async stop(): Promise<void> {}
+    async respondToPermission(_decision: PermissionDecision): Promise<void> {}
+    async dispose(): Promise<void> {}
+  }
+
+  test('config.systemPrompt reaches the backend constructor systemPrompt parameter', async () => {
+    await withDirs(async (fixtureDir, storageRoot) => {
+      await writeFile(join(fixtureDir, 'marker.txt'), 'present', 'utf8');
+      const prompt = 'You are a benchmark agent. Use tools, do not narrate.';
+      let constructedBackend: SystemPromptCapturingBackend | undefined;
+      const configWithPrompt: Config = {
+        id: 'real-cfg',
+        backend: 'ai-sdk',
+        llmConnectionSlug: 'deepseek',
+        model: 'deepseek-chat',
+        systemPrompt: prompt,
+      };
+      const task: Task = {
+        id: 'wiring-task',
+        instruction: 'do the thing',
+        workspaceDir: fixtureDir,
+        verification: { command: 'test -f marker.txt', protectedPaths: [] },
+      };
+
+      await runExperiment(configWithPrompt, task, {
+        storageRoot,
+        realBackendIsolation: { kind: 'external', label: 'wiring test' },
+        registerBackends: (registry, context) => {
+          // This is the exact pattern a real benchmark factory uses:
+          // read config.systemPrompt from the closure, pass to backend ctor.
+          // The factory receives BackendFactoryContext (with store/header),
+          // and context.config is the HeadlessBackendContext closure copy.
+          registry.register('ai-sdk', (ctx) => {
+            constructedBackend = new SystemPromptCapturingBackend(
+              { sessionId: ctx.sessionId, header: ctx.header, store: ctx.store },
+              context.config.systemPrompt,
+            );
+            return constructedBackend;
+          });
+        },
+      });
+
+      assert.ok(constructedBackend, 'backend must have been constructed');
+      assert.equal(
+        constructedBackend!.receivedSystemPrompt,
+        prompt,
+        'config.systemPrompt must reach the backend constructor systemPrompt parameter',
+      );
+    });
+  });
 });
