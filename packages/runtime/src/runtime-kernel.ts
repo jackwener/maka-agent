@@ -21,6 +21,11 @@ import {
   normalizeStopSessionSource,
   turnHasRetainedOutput as messagesHaveRetainedOutput,
 } from './session-projection-helpers.js';
+import {
+  assertAgentDefinitionRunnable,
+  buildToolsForAgentDefinition,
+  requireBuiltinAgentDefinition,
+} from './agent-catalog.js';
 
 export interface RuntimeKernelLike {
   startTurn(sessionId: string, input: UserMessageInput): AsyncIterable<SessionEvent>;
@@ -92,16 +97,25 @@ export class RuntimeKernel implements RuntimeKernelLike {
     input: ChildAgentTurnInput,
   ): AsyncIterable<SessionEvent> {
     const parentHeader = await this.deps.store.readHeader(sessionId);
+    const definition = requireBuiltinAgentDefinition(input.spec.id);
+    const availableChildTools = this.deps.childTools ?? [];
+    assertAgentDefinitionRunnable({
+      parentPermissionMode: parentHeader.permissionMode,
+      definition,
+      tools: availableChildTools,
+    });
+    const childTools = buildToolsForAgentDefinition(availableChildTools, definition);
     const childHeader: SessionHeader = {
       ...parentHeader,
-      permissionMode: 'explore',
+      permissionMode: definition.permissionMode,
       connectionLocked: true,
     };
     const userInput: UserMessageInput = {
       turnId: input.turnId,
       text: input.prompt,
       parentRunId: input.parentRunId,
-      agentName: input.spec.name,
+      agentId: definition.id,
+      agentName: definition.name,
     };
     const activeKey = childActiveKey(sessionId, input.turnId);
     const run = new AgentRun({
@@ -116,7 +130,7 @@ export class RuntimeKernel implements RuntimeKernelLike {
       recordSessionMessages: false,
       hooks: {
         ensureActive: (targetSessionId, nextHeader) =>
-          this.ensureChildActive(activeKey, targetSessionId, nextHeader, input.spec.systemPrompt),
+          this.ensureChildActive(activeKey, targetSessionId, nextHeader, definition.systemPrompt, childTools),
         registerRun: (active, activeRun) => this.registerRun(active, activeRun),
         unregisterRun: (active, activeRun) => this.unregisterChildRun(activeKey, active, activeRun),
         updateHeader: async (_targetSessionId, patch) => ({ ...childHeader, ...patch }),
@@ -308,6 +322,7 @@ export class RuntimeKernel implements RuntimeKernelLike {
     sessionId: string,
     header: SessionHeader,
     systemPrompt: string,
+    tools: readonly MakaTool[],
   ): Promise<ActiveSession> {
     const existing = this.childActive.get(activeKey);
     if (existing) {
@@ -321,7 +336,7 @@ export class RuntimeKernel implements RuntimeKernelLike {
       store: this.deps.store,
       appendMessage: async () => {},
       systemPrompt,
-      tools: this.deps.childTools ?? [],
+      tools,
       recordRunTrace: (event) => {
         const active = this.childActive.get(activeKey);
         const runId = active?.turnToRunId.get(event.turnId);

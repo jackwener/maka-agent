@@ -67,6 +67,21 @@ export type {
 export { buildBuiltinTools } from './builtin-tools.js';
 export type { MakaTool as BuiltinMakaTool, MakaToolContext as BuiltinMakaToolContext } from './builtin-tools.js';
 export {
+  BUILTIN_AGENT_DEFINITIONS,
+  LOCAL_READ_AGENT_DEFINITION,
+  LOCAL_READ_AGENT_ID,
+  assertAgentDefinitionRunnable,
+  buildToolsForAgentDefinition,
+  evaluateAgentDefinitionToolAccess,
+  getBuiltinAgentDefinition,
+  listBuiltinAgentDefinitions,
+  requireBuiltinAgentDefinition,
+} from './agent-catalog.js';
+export type {
+  AgentDefinition,
+  AgentDefinitionListItem,
+} from './agent-catalog.js';
+export {
   AGENT_LIST_TOOL_NAME,
   AGENT_OUTPUT_TOOL_NAME,
   AGENT_SPAWN_TOOL_NAME,

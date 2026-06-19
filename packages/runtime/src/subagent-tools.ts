@@ -1,36 +1,37 @@
 import { z } from 'zod';
 import type { ToolResultContent } from '@maka/core';
 import type { MakaTool } from './tool-runtime.js';
+import {
+  LOCAL_READ_AGENT_DEFINITION,
+  buildToolsForAgentDefinition,
+  requireBuiltinAgentDefinition,
+} from './agent-catalog.js';
 
 export const AGENT_SPAWN_TOOL_NAME = 'agent_spawn';
 export const AGENT_LIST_TOOL_NAME = 'agent_list';
 export const AGENT_OUTPUT_TOOL_NAME = 'agent_output';
-export const CHILD_AGENT_TOOL_NAMES = ['Bash', 'Read', 'Glob', 'Grep'] as const;
-
-const childAgentToolNameSet = new Set<string>(CHILD_AGENT_TOOL_NAMES);
+export const CHILD_AGENT_TOOL_NAMES = LOCAL_READ_AGENT_DEFINITION.tools;
 
 type SubagentToolResult = Extract<ToolResultContent, { kind: 'subagent' }>;
 
 export function buildChildAgentTools(tools: readonly MakaTool[]): MakaTool[] {
-  return tools.filter((tool) => childAgentToolNameSet.has(tool.name));
+  return buildToolsForAgentDefinition(tools, LOCAL_READ_AGENT_DEFINITION);
 }
 
 export function buildSubagentSpawnTool(): MakaTool<
   {
-    agent_name: string;
-    instructions: string;
-    prompt: string;
+    agent: string;
+    task: string;
   },
   unknown
 > {
   return {
     name: AGENT_SPAWN_TOOL_NAME,
     displayName: 'Agent',
-    description: 'Run a foreground read-only child agent for a bounded task and return its explicit result.',
+    description: 'Run a foreground catalog child agent for a bounded task and return its explicit result.',
     parameters: z.object({
-      agent_name: z.string().min(1).max(80).describe('Short display name for the child agent.'),
-      instructions: z.string().min(1).max(12_000).describe('Additional role instructions for the child agent. These do not override session policy.'),
-      prompt: z.string().min(1).max(60_000).describe('Delegation prompt for the child agent.'),
+      agent: z.string().min(1).max(80).describe('Built-in agent id, such as "local-read".'),
+      task: z.string().min(1).max(60_000).describe('Bounded task for the selected child agent.'),
     }),
     permissionRequired: true,
     categoryHint: 'subagent',
@@ -38,12 +39,14 @@ export function buildSubagentSpawnTool(): MakaTool<
       if (!ctx.spawnChildAgent) {
         throw new Error('spawnChildAgent capability is unavailable in this runtime context');
       }
+      const definition = requireBuiltinAgentDefinition(input.agent);
       const result = await ctx.spawnChildAgent({
         spec: {
-          name: input.agent_name,
-          systemPrompt: input.instructions,
+          id: definition.id,
+          name: definition.name,
+          systemPrompt: definition.systemPrompt,
         },
-        prompt: input.prompt,
+        prompt: input.task,
       }) as Omit<SubagentToolResult, 'kind'>;
       return {
         kind: 'subagent',
@@ -57,7 +60,7 @@ export function buildSubagentListTool(): MakaTool<Record<string, never>, unknown
   return {
     name: AGENT_LIST_TOOL_NAME,
     displayName: 'Agent List',
-    description: 'List child agent runs for the current session.',
+    description: 'List available agent catalog definitions and child agent runs for the current session.',
     parameters: z.object({}),
     permissionRequired: false,
     categoryHint: 'read',

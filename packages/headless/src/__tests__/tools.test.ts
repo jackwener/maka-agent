@@ -41,7 +41,7 @@ describe('isolated headless tools', () => {
     });
   });
 
-  test('standard isolated tool surface replaces only Bash', () => {
+  test('standard isolated tool surface keeps local-read child tools shell-free', () => {
     const tools = buildIsolatedHeadlessTools({
       async exec() {
         return { exitCode: 0, stdout: '', stderr: '' };
@@ -55,6 +55,6 @@ describe('isolated headless tools', () => {
     assert.ok(names.includes('agent_list'));
     assert.ok(names.includes('agent_output'));
     assert.equal(names.filter((name) => name === 'Bash').length, 1);
-    assert.deepEqual(buildChildAgentTools(tools).map((tool) => tool.name), ['Bash', 'Read', 'Glob', 'Grep']);
+    assert.deepEqual(buildChildAgentTools(tools).map((tool) => tool.name), ['Read', 'Glob', 'Grep']);
   });
 });

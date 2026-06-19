@@ -32,6 +32,7 @@ export interface UserMessageInput {
   text: string;
   attachments?: AttachmentRef[];
   parentRunId?: string;
+  agentId?: string;
   agentName?: string;
   parentTurnId?: string;
   retriedFromTurnId?: string;
@@ -41,6 +42,7 @@ export interface UserMessageInput {
 }
 
 export interface AgentSpec {
+  id: string;
   name: string;
   systemPrompt: string;
 }

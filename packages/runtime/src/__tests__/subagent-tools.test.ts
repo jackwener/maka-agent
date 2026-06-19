@@ -7,6 +7,12 @@ import type { SessionEvent } from '@maka/core/events';
 import { buildBuiltinTools } from '../builtin-tools.js';
 import { PermissionEngine } from '../permission-engine.js';
 import {
+  LOCAL_READ_AGENT_ID,
+  LOCAL_READ_AGENT_DEFINITION,
+  assertAgentDefinitionRunnable,
+  evaluateAgentDefinitionToolAccess,
+} from '../agent-catalog.js';
+import {
   AGENT_LIST_TOOL_NAME,
   AGENT_OUTPUT_TOOL_NAME,
   AGENT_SPAWN_TOOL_NAME,
@@ -19,7 +25,56 @@ import { ToolRuntime, type MakaTool } from '../tool-runtime.js';
 import { expect } from '../test-helpers.js';
 
 describe('subagent tools', () => {
-  test('child agent toolset keeps only local non-prompting tools', () => {
+  test('built-in catalog exposes local-read without shell, web, nested, or write tools', () => {
+    expect(LOCAL_READ_AGENT_DEFINITION.id).toBe(LOCAL_READ_AGENT_ID);
+    expect(LOCAL_READ_AGENT_DEFINITION.permissionMode).toBe('explore');
+    expect([...LOCAL_READ_AGENT_DEFINITION.tools]).toEqual(['Read', 'Glob', 'Grep']);
+    expect(LOCAL_READ_AGENT_DEFINITION.tools.includes('Bash')).toBe(false);
+    expect(LOCAL_READ_AGENT_DEFINITION.tools.includes('WebSearch')).toBe(false);
+    expect(LOCAL_READ_AGENT_DEFINITION.tools.includes('WebFetch')).toBe(false);
+    expect(LOCAL_READ_AGENT_DEFINITION.tools.includes('ExploreAgent')).toBe(false);
+  });
+
+  test('agent definition policy evaluates each tool through allowlist and category policy', () => {
+    expect(evaluateAgentDefinitionToolAccess(LOCAL_READ_AGENT_DEFINITION, testCatalogTool('Read', 'read'))).toEqual({
+      category: 'read',
+      decision: 'allow',
+    });
+    expect(evaluateAgentDefinitionToolAccess(LOCAL_READ_AGENT_DEFINITION, testCatalogTool('Write', 'file_write'))).toEqual({
+      category: 'file_write',
+      decision: 'block',
+    });
+    expect(evaluateAgentDefinitionToolAccess({
+      ...LOCAL_READ_AGENT_DEFINITION,
+      id: 'web-review',
+      tools: ['WebSearch'],
+      categoryPolicy: { web_read: 'prompt' },
+    }, testCatalogTool('WebSearch', 'web_read'))).toEqual({
+      category: 'web_read',
+      decision: 'prompt',
+    });
+  });
+
+  test('agent definition cannot require broader permissions than the parent turn', async () => {
+    await expectRejects(
+      Promise.resolve().then(() => assertAgentDefinitionRunnable({
+        parentPermissionMode: 'explore',
+        definition: {
+          ...LOCAL_READ_AGENT_DEFINITION,
+          id: 'writer',
+          permissionMode: 'execute',
+        },
+        tools: [
+          testCatalogTool('Read', 'read'),
+          testCatalogTool('Glob', 'read'),
+          testCatalogTool('Grep', 'read'),
+        ],
+      })),
+      /cannot run in parent permission mode "explore" because it requires "execute"/,
+    );
+  });
+
+  test('child agent toolset keeps only local-read allowlisted tools', () => {
     const tools = buildChildAgentTools([
       ...buildBuiltinTools(),
       {
@@ -36,9 +91,16 @@ describe('subagent tools', () => {
         categoryHint: 'web_read',
         impl: async () => ({}),
       },
+      {
+        name: 'ExploreAgent',
+        description: 'deterministic exploration',
+        parameters: {},
+        categoryHint: 'subagent',
+        impl: async () => ({}),
+      },
     ]);
 
-    expect(tools.map((tool) => tool.name)).toEqual(['Bash', 'Read', 'Glob', 'Grep']);
+    expect(tools.map((tool) => tool.name)).toEqual(['Read', 'Glob', 'Grep']);
   });
 
   test('child agent toolset enforces explore-mode read-only behavior without prompting', async () => {
@@ -52,30 +114,22 @@ describe('subagent tools', () => {
       await runTool(runtime, tools, 'Read', { path: 'notes.txt' }, events);
       await runTool(runtime, tools, 'Glob', { pattern: '*.txt' }, events);
       await runTool(runtime, tools, 'Grep', { pattern: 'SUBAGENT_CHILD_TOOL_MARKER' }, events);
-      await runTool(runtime, tools, 'Bash', { command: 'pwd' }, events);
-      const unsafe = await runTool(runtime, tools, 'Bash', { command: 'node -e "console.log(1)"' }, events);
 
       expect(events.some((event) => event.type === 'permission_request')).toBe(false);
-      expect((unsafe as { error?: string }).error).toBeDefined();
-      expect(events.some((event) =>
-        event.type === 'tool_result' &&
-        event.toolUseId === 'tool-Bash-node -e "console.log(1)"' &&
-        event.isError
-      )).toBe(true);
+      expect(tools.has('Bash')).toBe(false);
     } finally {
       await rm(cwd, { recursive: true, force: true });
     }
   });
 
-  test('agent_spawn delegates through the narrow tool context capability', async () => {
+  test('agent_spawn delegates a catalog agent and task through the narrow context capability', async () => {
     const tool = buildSubagentSpawnTool();
     const abortController = new AbortController();
     const calls: unknown[] = [];
 
     const result = await tool.impl({
-      agent_name: 'Researcher',
-      instructions: 'Stay read-only.',
-      prompt: 'Inspect the runtime tests.',
+      agent: LOCAL_READ_AGENT_ID,
+      task: 'Inspect the runtime tests.',
     }, {
       sessionId: 'session-1',
       turnId: 'parent-turn',
@@ -86,6 +140,7 @@ describe('subagent tools', () => {
       spawnChildAgent: async (input) => {
         calls.push(input);
         return {
+          agentId: input.spec.id,
           agentName: input.spec.name,
           turnId: 'child-turn',
           status: 'completed',
@@ -101,20 +156,48 @@ describe('subagent tools', () => {
     expect(tool.permissionRequired).toBe(true);
     expect(calls).toEqual([{
       spec: {
-        name: 'Researcher',
-        systemPrompt: 'Stay read-only.',
+        id: LOCAL_READ_AGENT_ID,
+        name: 'Local Read',
+        systemPrompt: LOCAL_READ_AGENT_DEFINITION.systemPrompt,
       },
       prompt: 'Inspect the runtime tests.',
     }]);
     expect(result).toEqual({
       kind: 'subagent',
-      agentName: 'Researcher',
+      agentId: LOCAL_READ_AGENT_ID,
+      agentName: 'Local Read',
       turnId: 'child-turn',
       status: 'completed',
       permissionMode: 'explore',
       summary: 'done',
       artifactIds: [],
     });
+  });
+
+  test('agent_spawn rejects an unknown catalog id without spawning a child', async () => {
+    const tool = buildSubagentSpawnTool();
+    const schema = tool.parameters as { safeParse(input: unknown): { success: boolean } };
+
+    expect(schema.safeParse({ agent: LOCAL_READ_AGENT_ID, task: 'Inspect the repo.' }).success).toBe(true);
+    expect(schema.safeParse({ agent_name: 'Researcher', instructions: 'Read only.', prompt: 'Inspect.' }).success).toBe(false);
+
+    await expectRejects(
+      Promise.resolve(tool.impl({
+        agent: 'implementation',
+        task: 'Edit files.',
+      }, {
+        sessionId: 'session-1',
+        turnId: 'parent-turn',
+        cwd: '/tmp/cwd',
+        toolCallId: 'tool-1',
+        abortSignal: new AbortController().signal,
+        emitOutput: () => {},
+        spawnChildAgent: async () => {
+          throw new Error('spawn should not be called');
+        },
+      })),
+      /Unknown agent "implementation"/,
+    );
   });
 
   test('agent projection tools delegate through read-only context capabilities', async () => {
@@ -128,7 +211,10 @@ describe('subagent tools', () => {
       toolCallId: 'tool-list',
       abortSignal: new AbortController().signal,
       emitOutput: () => {},
-      listChildAgents: async () => ({ agents: [{ runId: 'child-run', turnId: 'child-turn' }] }),
+      listChildAgents: async () => ({
+        definitions: [{ id: LOCAL_READ_AGENT_ID }],
+        runs: [{ runId: 'child-run', turnId: 'child-turn' }],
+      }),
     });
     const output = await outputTool.impl({ run_id: 'child-run' }, {
       sessionId: 'session-1',
@@ -144,7 +230,10 @@ describe('subagent tools', () => {
     expect(outputTool.name).toBe(AGENT_OUTPUT_TOOL_NAME);
     expect(listTool.permissionRequired).toBe(false);
     expect(outputTool.permissionRequired).toBe(false);
-    expect(list).toEqual({ agents: [{ runId: 'child-run', turnId: 'child-turn' }] });
+    expect(list).toEqual({
+      definitions: [{ id: LOCAL_READ_AGENT_ID }],
+      runs: [{ runId: 'child-run', turnId: 'child-turn' }],
+    });
     expect(output).toEqual({ requested: { runId: 'child-run' } });
   });
 
@@ -190,6 +279,26 @@ async function runTool(
     toolCallId: `tool-${name}-${typeof args === 'object' && args && 'command' in args ? (args as { command: string }).command : 'read'}`,
     abortSignal: new AbortController().signal,
   });
+}
+
+function testCatalogTool(name: string, categoryHint: MakaTool['categoryHint']): MakaTool {
+  return {
+    name,
+    description: name,
+    parameters: {},
+    categoryHint,
+    impl: async () => ({}),
+  };
+}
+
+async function expectRejects(promise: Promise<unknown>, pattern: RegExp): Promise<void> {
+  try {
+    await promise;
+  } catch (error) {
+    expect(error instanceof Error ? error.message : String(error)).toMatch(pattern);
+    return;
+  }
+  throw new Error('Expected promise to reject');
 }
 
 function childHeader(cwd: string): SessionHeader {

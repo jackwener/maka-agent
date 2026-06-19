@@ -69,6 +69,11 @@ import {
   buildTurnStateMessage,
   turnHasRetainedOutput as messagesHaveRetainedOutput,
 } from './session-projection-helpers.js';
+import {
+  listBuiltinAgentDefinitions,
+  requireBuiltinAgentDefinition,
+  type AgentDefinitionListItem,
+} from './agent-catalog.js';
 
 export interface StopSessionInput {
   source?: 'stop_button';
@@ -83,11 +88,12 @@ export interface SpawnChildAgentInput {
 }
 
 export interface SpawnChildAgentResult {
+  agentId: string;
   agentName: string;
   turnId: string;
   runId?: string;
   status: 'completed' | 'failed' | 'cancelled' | 'running' | 'waiting_permission';
-  permissionMode: 'explore';
+  permissionMode: PermissionMode;
   summary: string;
   artifactIds: string[];
   startedAt: number;
@@ -103,6 +109,7 @@ export interface AgentListItem {
   runId: string;
   turnId: string;
   parentRunId: string;
+  agentId?: string;
   agentName?: string;
   status: AgentRunHeader['status'];
   permissionMode: AgentRunHeader['permissionMode'];
@@ -114,7 +121,8 @@ export interface AgentListItem {
 }
 
 export interface AgentListResult {
-  agents: AgentListItem[];
+  definitions: AgentDefinitionListItem[];
+  runs: AgentListItem[];
 }
 
 export interface AgentOutputInput {
@@ -411,6 +419,7 @@ export class SessionManager {
     sessionId: string,
     input: SpawnChildAgentInput,
   ): Promise<SpawnChildAgentResult> {
+    const definition = requireBuiltinAgentDefinition(input.spec.id);
     const turnId = input.turnId ?? this.deps.newId();
     const startedAt = this.deps.now();
     const summary = new ChildAgentSummaryAccumulator();
@@ -445,11 +454,12 @@ export class SessionManager {
       ? await this.deps.listArtifactsForTurn(sessionId, turnId)
       : [];
     return {
-      agentName: input.spec.name,
+      agentId: definition.id,
+      agentName: definition.name,
       turnId,
       ...(run?.runId ? { runId: run.runId } : {}),
       status: run ? agentRunStatusForSpawnResult(run.status) : summary.status(aborted),
-      permissionMode: 'explore',
+      permissionMode: definition.permissionMode,
       summary: summary.text(),
       artifactIds: artifacts.map((artifact) => artifact.id),
       startedAt,
@@ -461,15 +471,18 @@ export class SessionManager {
   }
 
   async listChildAgents(sessionId: string): Promise<AgentListResult> {
-    if (!this.deps.runStore) return { agents: [] };
+    const definitions = listBuiltinAgentDefinitions();
+    if (!this.deps.runStore) return { definitions, runs: [] };
     const runs = await this.deps.runStore.listSessionRuns(sessionId);
     return {
-      agents: runs
+      definitions,
+      runs: runs
         .filter((run): run is AgentRunHeader & { parentRunId: string } => !!run.parentRunId)
         .map((run) => ({
           runId: run.runId,
           turnId: run.turnId,
           parentRunId: run.parentRunId,
+          ...(run.agentId ? { agentId: run.agentId } : {}),
           ...(run.agentName ? { agentName: run.agentName } : {}),
           status: run.status,
           permissionMode: run.permissionMode,

@@ -9,7 +9,7 @@
  * Connection-setup events live in ./connections.ts (separate channel).
  */
 
-import type { PermissionRequest, PermissionResponse, ToolCategory } from './permission.js';
+import type { PermissionMode, PermissionRequest, PermissionResponse, ToolCategory } from './permission.js';
 import type {
   CacheMissInputSource,
   ContextBudgetDiagnostic,
@@ -248,11 +248,12 @@ export type ToolResultContent =
     }
   | {
       kind: 'subagent';
+      agentId?: string;
       agentName: string;
       turnId: string;
       runId?: string;
       status: 'completed' | 'failed' | 'cancelled' | 'running' | 'waiting_permission';
-      permissionMode: 'explore';
+      permissionMode: PermissionMode;
       summary: string;
       artifactIds: readonly string[];
       startedAt?: number;

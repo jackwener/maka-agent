@@ -296,6 +296,7 @@ export class AgentRun {
       createdAt,
       updatedAt: createdAt,
       ...this.lineage,
+      ...(this.input.userInput.agentId ? { agentId: this.input.userInput.agentId } : {}),
       ...(this.input.userInput.agentName ? { agentName: this.input.userInput.agentName } : {}),
     };
     try {

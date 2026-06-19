@@ -29,6 +29,10 @@ import type { RuntimeKernelLike } from '../runtime-kernel.js';
 import { RuntimeReadModel } from '../runtime-read-model.js';
 import type { AgentBackend, MakaTool } from '../ai-sdk-backend.js';
 import type { InvocationResult } from '../invocation-context.js';
+import {
+  LOCAL_READ_AGENT_DEFINITION,
+  LOCAL_READ_AGENT_ID,
+} from '../agent-catalog.js';
 
 describe('SessionManager permission mode updates', () => {
   test('updates header, rebuilds active backend, and writes an audit note', async () => {
@@ -1117,7 +1121,7 @@ describe('SessionManager permission mode updates', () => {
     expect(childInput.runtimeContext).toBe(undefined);
   });
 
-  test('startChildTurn uses a separate explore backend with the child system prompt', async () => {
+  test('startChildTurn uses a separate explore backend with the catalog child definition', async () => {
     const store = new MemorySessionStore();
     const runStore = new MemoryAgentRunStore();
     const backends = new BackendRegistry();
@@ -1129,7 +1133,14 @@ describe('SessionManager permission mode updates', () => {
       backendInstances.push(backend);
       return backend;
     });
-    const childTools = [testTool('Read'), testTool('Bash')];
+    const childTools = [
+      testTool('Read'),
+      testTool('Bash'),
+      testTool('Glob'),
+      testTool('WebSearch'),
+      testTool('Grep'),
+      testTool('ExploreAgent'),
+    ];
     const manager = new SessionManager({
       store,
       runStore, runtimeEventStore: runStore, backends,
@@ -1148,15 +1159,16 @@ describe('SessionManager permission mode updates', () => {
       turnId: 'child-turn',
       parentRunId: parentRun.runId,
       spec: {
-        name: 'Researcher',
-        systemPrompt: 'You are a read-only child researcher.',
+        id: LOCAL_READ_AGENT_ID,
+        name: 'Injected Name',
+        systemPrompt: 'Injected child prompt.',
       },
       prompt: 'inspect the repo',
     }));
 
     expect(contexts.map((ctx) => ctx.header.permissionMode)).toEqual(['ask', 'explore']);
-    expect(contexts[1]?.systemPrompt).toBe('You are a read-only child researcher.');
-    expect(contexts[1]?.tools?.map((tool) => tool.name)).toEqual(['Read', 'Bash']);
+    expect(contexts[1]?.systemPrompt).toBe(LOCAL_READ_AGENT_DEFINITION.systemPrompt);
+    expect(contexts[1]?.tools?.map((tool) => tool.name)).toEqual(['Read', 'Glob', 'Grep']);
     expect(backendInstances).toHaveLength(2);
     expect(backendInstances[0] === backendInstances[1]).toBe(false);
     expect(backendInstances[1]?.sendInputs[0]?.context).toEqual([]);
@@ -1164,7 +1176,8 @@ describe('SessionManager permission mode updates', () => {
 
     const childRun = (await runStore.listSessionRuns(session.id)).find((run) => run.turnId === 'child-turn');
     expect(childRun?.parentRunId).toBe(parentRun.runId);
-    expect(childRun?.agentName).toBe('Researcher');
+    expect(childRun?.agentId).toBe(LOCAL_READ_AGENT_ID);
+    expect(childRun?.agentName).toBe(LOCAL_READ_AGENT_DEFINITION.name);
     expect(childRun?.permissionMode).toBe('explore');
 
     const childMessages = (await store.readMessages(session.id)).filter((message) =>
@@ -1181,6 +1194,7 @@ describe('SessionManager permission mode updates', () => {
     const manager = new SessionManager({
       store,
       runStore, runtimeEventStore: runStore, backends,
+      childTools: [testTool('Read'), testTool('Glob'), testTool('Grep')],
       listArtifactsForTurn: async (_sessionId, turnId) => turnId === 'child-turn'
         ? [{
             id: 'artifact-1',
@@ -1206,10 +1220,12 @@ describe('SessionManager permission mode updates', () => {
     const result = await manager.spawnChildAgent(session.id, {
       turnId: 'child-turn',
       parentRunId: parentRun.runId,
-      spec: { name: 'Researcher', systemPrompt: 'read only' },
+      spec: { id: LOCAL_READ_AGENT_ID, name: 'Injected Name', systemPrompt: 'read only' },
       prompt: 'inspect',
     });
 
+    expect(result.agentId).toBe(LOCAL_READ_AGENT_ID);
+    expect(result.agentName).toBe(LOCAL_READ_AGENT_DEFINITION.name);
     expect(result.artifactIds).toEqual(['artifact-1']);
   });
 
@@ -1221,6 +1237,7 @@ describe('SessionManager permission mode updates', () => {
     const manager = new SessionManager({
       store,
       runStore, runtimeEventStore: runStore, backends,
+      childTools: [testTool('Read'), testTool('Glob'), testTool('Grep')],
       newId: nextId(),
       now: nextNow(6_844),
       runtimeSource: 'test',
@@ -1233,7 +1250,7 @@ describe('SessionManager permission mode updates', () => {
     const result = await manager.spawnChildAgent(session.id, {
       turnId: 'child-turn',
       parentRunId: parentRun.runId,
-      spec: { name: 'Researcher', systemPrompt: 'read only' },
+      spec: { id: LOCAL_READ_AGENT_ID, name: 'Researcher', systemPrompt: 'read only' },
       prompt: 'produce a large report',
     });
 
@@ -1259,6 +1276,7 @@ describe('SessionManager permission mode updates', () => {
     const manager = new SessionManager({
       store,
       runStore, runtimeEventStore: runStore, backends,
+      childTools: [testTool('Read'), testTool('Glob'), testTool('Grep')],
       newId: nextId(),
       now: nextNow(6_845),
       runtimeSource: 'test',
@@ -1271,7 +1289,7 @@ describe('SessionManager permission mode updates', () => {
     const child = manager.startChildTurn(session.id, {
       turnId: 'child-turn',
       parentRunId: parentRun.runId,
-      spec: { name: 'Researcher', systemPrompt: 'read only' },
+      spec: { id: LOCAL_READ_AGENT_ID, name: 'Researcher', systemPrompt: 'read only' },
       prompt: 'inspect slowly',
     })[Symbol.asyncIterator]();
     await child.next();
@@ -1289,7 +1307,48 @@ describe('SessionManager permission mode updates', () => {
     expect((await store.readHeader(session.id)).permissionMode).toBe('execute');
   });
 
-  test('agent projections list child runs and read output artifacts by child turn', async () => {
+  test('spawnChildAgent fails closed instead of running a degraded catalog agent', async () => {
+    const store = new MemorySessionStore();
+    const runStore = new MemoryAgentRunStore();
+    const backends = new BackendRegistry();
+    const backendInstances: TestBackend[] = [];
+    backends.register('fake', (ctx) => {
+      const backend = new TestBackend(ctx);
+      backendInstances.push(backend);
+      return backend;
+    });
+    const manager = new SessionManager({
+      store,
+      runStore, runtimeEventStore: runStore, backends,
+      childTools: [testTool('Read')],
+      newId: nextId(),
+      now: nextNow(6_847),
+      runtimeSource: 'test',
+    });
+    const session = await manager.createSession(makeInput({ permissionMode: 'ask' }));
+    await drain(manager.sendMessage(session.id, { turnId: 'parent-turn', text: 'parent context' }));
+    const [parentRun] = await runStore.listSessionRuns(session.id);
+    if (!parentRun) throw new Error('parent run was not recorded');
+
+    await expectRejects(
+      manager.spawnChildAgent(session.id, {
+        turnId: 'child-turn',
+        parentRunId: parentRun.runId,
+        spec: {
+          id: LOCAL_READ_AGENT_ID,
+          name: LOCAL_READ_AGENT_DEFINITION.name,
+          systemPrompt: LOCAL_READ_AGENT_DEFINITION.systemPrompt,
+        },
+        prompt: 'inspect',
+      }),
+      /Agent "local-read" is unavailable: missing tools: Glob, Grep/,
+    );
+
+    expect(backendInstances).toHaveLength(1);
+    expect((await runStore.listSessionRuns(session.id)).some((run) => run.turnId === 'child-turn')).toBe(false);
+  });
+
+  test('agent projections list catalog definitions separately from child runs and read output artifacts by child turn', async () => {
     const store = new MemorySessionStore();
     const runStore = new MemoryAgentRunStore();
     const backends = new BackendRegistry();
@@ -1336,6 +1395,7 @@ describe('SessionManager permission mode updates', () => {
       updatedAt: 130,
       completedAt: 130,
       parentRunId: 'parent-run',
+      agentId: LOCAL_READ_AGENT_ID,
       agentName: 'Researcher',
       permissionMode: 'explore',
     }), [
@@ -1345,9 +1405,11 @@ describe('SessionManager permission mode updates', () => {
     ]);
 
     const list = await manager.listChildAgents(session.id);
-    expect(list.agents.map((agent) => agent.runId)).toEqual(['child-run']);
-    expect(list.agents[0]?.agentName).toBe('Researcher');
-    expect(list.agents[0]?.durationMs).toBe(10);
+    expect(list.definitions.map((agent) => agent.id)).toEqual([LOCAL_READ_AGENT_ID]);
+    expect(list.runs.map((agent) => agent.runId)).toEqual(['child-run']);
+    expect(list.runs[0]?.agentId).toBe(LOCAL_READ_AGENT_ID);
+    expect(list.runs[0]?.agentName).toBe('Researcher');
+    expect(list.runs[0]?.durationMs).toBe(10);
 
     const output = await manager.readChildAgentOutput(session.id, { runId: 'child-run' });
     expect(output.header.runId).toBe('child-run');
@@ -1377,6 +1439,7 @@ describe('SessionManager permission mode updates', () => {
       updatedAt: 200,
       completedAt: 200,
       parentRunId: 'parent-run',
+      agentId: LOCAL_READ_AGENT_ID,
       agentName: 'Researcher',
       permissionMode: 'explore',
     });
@@ -1435,6 +1498,7 @@ describe('SessionManager permission mode updates', () => {
       updatedAt: 130,
       completedAt: 130,
       parentRunId: 'parent-run',
+      agentId: LOCAL_READ_AGENT_ID,
       agentName: 'Researcher',
       permissionMode: 'explore',
     }));
