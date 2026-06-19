@@ -202,6 +202,11 @@ export class AgentRun {
           errorClass: turnStatus.errorClass,
         });
       }
+      // A complete(error) without a preceding error event leaves failureClass
+      // unset — record it now so finalize does not fall back to 'unknown'.
+      if (turnStatus?.status === 'failed' && turnStatus.errorClass && !this.failureClass) {
+        this.markRunFailed(turnStatus.errorClass, 'turn ended with stopReason=error', ev.ts);
+      }
     }
     if (ev.type === 'error') {
       if (this.stopped) {
@@ -623,7 +628,7 @@ function turnStatusFromEvent(event: SessionEvent): { status: TurnRecord['status'
       return { status: 'failed', errorClass: event.reason ?? event.code ?? 'unknown' };
     case 'complete':
       if (event.stopReason === 'user_stop') return { status: 'aborted' };
-      if (event.stopReason === 'error') return { status: 'failed', errorClass: 'unknown' };
+      if (event.stopReason === 'error') return { status: 'failed', errorClass: 'runtime_error' };
       if (event.stopReason === 'permission_handoff') return { status: 'running' };
       return { status: 'completed' };
     default:
