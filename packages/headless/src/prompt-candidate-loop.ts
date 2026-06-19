@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
-import { readFile, writeFile } from 'node:fs/promises';
+import { lstat, readFile, writeFile } from 'node:fs/promises';
 import { basename, relative } from 'node:path';
 import { promisify } from 'node:util';
 import {
@@ -92,6 +92,7 @@ export async function runPromptCandidateRound(
 ): Promise<PromptCandidateRoundResult> {
   const now = input.now ?? Date.now;
   const newId = input.newId ?? randomId;
+  await assertRegularSystemPromptFile(input.systemPromptPath);
   const program = await readFile(input.programPath, 'utf8');
   const currentSystemPrompt = await readFile(input.systemPromptPath, 'utf8');
   const resultsTsv = filterResultsTsvForHeldIn(
@@ -240,6 +241,13 @@ export function assertOnlySystemPromptChanged(
   const unexpected = changedFiles.filter((file) => !allowed.has(normalizeChangedPath(file)));
   if (unexpected.length > 0) {
     throw new Error(`only system_prompt.md may change; unexpected files: ${unexpected.join(', ')}`);
+  }
+}
+
+async function assertRegularSystemPromptFile(systemPromptPath: string): Promise<void> {
+  const stat = await lstat(systemPromptPath);
+  if (!stat.isFile() || stat.isSymbolicLink()) {
+    throw new Error('system_prompt.md must be a regular file');
   }
 }
 

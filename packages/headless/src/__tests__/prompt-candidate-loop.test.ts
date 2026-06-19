@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFile } from 'node:child_process';
@@ -121,6 +121,38 @@ describe('prompt candidate loop', () => {
       );
 
       assert.equal(committed, false);
+    });
+  });
+
+  test('rejects a symlinked system prompt before writing outside the repo', async () => {
+    await withDir(async (dir) => {
+      const programPath = join(dir, 'program.md');
+      const systemPromptPath = join(dir, 'system_prompt.md');
+      const outsidePath = join(dir, '..', 'outside-system-prompt.md');
+      const resultsTsvPath = join(dir, 'results.tsv');
+      await writeFile(programPath, 'Improve the prompt conservatively.\n', 'utf8');
+      await writeFile(outsidePath, 'outside prompt\n', 'utf8');
+      await symlink(outsidePath, systemPromptPath);
+      await writeFile(resultsTsvPath, 'task_id\tpassed\ntask-a\tfalse\n', 'utf8');
+
+      await assert.rejects(
+        runPromptCandidateRound({
+          runId: 'run-1',
+          roundId: 'round-1',
+          programPath,
+          systemPromptPath,
+          resultsTsvPath,
+          resultsJsonlPath: join(dir, 'results.jsonl'),
+          heldInDigests: [],
+          metaAgent: async () => ({ systemPrompt: 'candidate prompt\n', summary: 'changed prompt' }),
+          git: gitNoop(),
+          now: () => 100,
+          newId: idFactory(),
+        }),
+        /system_prompt.md must be a regular file/,
+      );
+
+      assert.equal(await readFile(outsidePath, 'utf8'), 'outside prompt\n');
     });
   });
 
