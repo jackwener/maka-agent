@@ -97,7 +97,25 @@ export interface FixedPromptTaskPlumbingFailedEvent {
   };
 }
 
+export interface PromptCandidateCommittedEvent {
+  schemaVersion: typeof FIXED_PROMPT_WAL_SCHEMA_VERSION;
+  type: 'prompt_candidate_committed';
+  id: string;
+  ts: number;
+  runId: string;
+  roundId: string;
+  commitSha: string;
+  summary: string;
+  promptHash: string;
+}
+
 export type FixedPromptWalEvent =
+  | FixedPromptTaskCompletedEvent
+  | FixedPromptTaskInfraFailedEvent
+  | FixedPromptTaskPlumbingFailedEvent
+  | PromptCandidateCommittedEvent;
+
+export type FixedPromptTaskWalEvent =
   | FixedPromptTaskCompletedEvent
   | FixedPromptTaskInfraFailedEvent
   | FixedPromptTaskPlumbingFailedEvent;
@@ -117,7 +135,7 @@ export interface RunFixedPromptControllerInput {
 
 export interface FixedPromptControllerResult {
   taskIds: string[];
-  events: FixedPromptWalEvent[];
+  events: FixedPromptTaskWalEvent[];
   totalTokens: number;
   totalCostUsd: number;
   resultsTsvPath: string;
@@ -153,7 +171,7 @@ export async function runFixedPromptController(
 
   const resultEvents = input.tasks
     .map((task) => completed.get(task.id))
-    .filter((event): event is FixedPromptWalEvent => event !== undefined);
+    .filter((event): event is FixedPromptTaskWalEvent => event !== undefined);
   await writeFixedPromptResultsTsv(input.resultsTsvPath, resultEvents);
 
   return {
@@ -207,7 +225,7 @@ export async function appendFixedPromptWalEvent(path: string, event: FixedPrompt
 
 export async function writeFixedPromptResultsTsv(
   path: string,
-  events: readonly FixedPromptWalEvent[],
+  events: readonly FixedPromptTaskWalEvent[],
 ): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
   const header = [
@@ -246,7 +264,7 @@ async function runTaskAndBuildEvent(input: {
   expectedPromptHash: string;
   id: string;
   ts: number;
-}): Promise<FixedPromptWalEvent> {
+}): Promise<FixedPromptTaskWalEvent> {
   try {
     const output = await input.input.harborRunner({
       runId: input.input.runId,
@@ -423,9 +441,10 @@ function terminalTaskEvents(
   runId: string,
   roundId: string,
   expectedPromptHash: string,
-): Map<string, FixedPromptWalEvent> {
-  const byTask = new Map<string, FixedPromptWalEvent>();
+): Map<string, FixedPromptTaskWalEvent> {
+  const byTask = new Map<string, FixedPromptTaskWalEvent>();
   for (const event of events) {
+    if (!isTaskEvent(event)) continue;
     if (event.runId !== runId || event.roundId !== roundId) continue;
     if (!eventMatchesPrompt(event, expectedPromptHash)) continue;
     if (
@@ -442,6 +461,13 @@ function eventMatchesPrompt(event: FixedPromptWalEvent, expectedPromptHash: stri
   if (event.type === 'task_infra_failed') return true;
   if (event.promptHash === expectedPromptHash) return true;
   return event.type === 'task_plumbing_failed' && event.expectedPromptHash === expectedPromptHash;
+}
+
+function isTaskEvent(event: FixedPromptWalEvent): event is
+  FixedPromptTaskWalEvent {
+  return event.type === 'task_completed'
+    || event.type === 'task_infra_failed'
+    || event.type === 'task_plumbing_failed';
 }
 
 function tsvCell(value: string): string {

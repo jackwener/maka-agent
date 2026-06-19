@@ -31,10 +31,12 @@ export type {
   FixedPromptTaskCompletedEvent,
   FixedPromptTaskInfraFailedEvent,
   FixedPromptTaskPlumbingFailedEvent,
+  FixedPromptTaskWalEvent,
   FixedPromptWalEvent,
   HarborTaskRunInput,
   HarborTaskRunOutput,
   HarborTaskRunner,
+  PromptCandidateCommittedEvent,
   ReadHarborTaskRunOutputInput,
   RunFixedPromptControllerInput,
 } from './fixed-prompt-controller.js';
@@ -47,6 +49,19 @@ export {
   runFixedPromptController,
   writeFixedPromptResultsTsv,
 } from './fixed-prompt-controller.js';
+export type {
+  MetaAgent,
+  MetaAgentPromptInput,
+  MetaAgentPromptResult,
+  PromptCandidateGit,
+  PromptCandidateRoundResult,
+  RunPromptCandidateRoundInput,
+  TrajectoryDigest,
+} from './prompt-candidate-loop.js';
+export {
+  assertOnlySystemPromptChanged,
+  runPromptCandidateRound,
+} from './prompt-candidate-loop.js';
 export type {
   BenchmarkAdapter,
   BenchmarkAdapterRegistry,
