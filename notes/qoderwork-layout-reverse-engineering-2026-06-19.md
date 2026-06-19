@@ -68,22 +68,49 @@ QoderWork 的 sidebar 有 **expanded** 和 **collapsed** 两种状态，通过 s
 - 字体：14px，nav item 用中等 weight；子项 13px 浅灰
 - 选中态：白色背景 + 浅阴影（这个细节在 nav `任务` tab pill 上很明显）
 
-### 2.2 Collapsed sidebar（之前 collapsed 截屏 `/tmp/qoder-A.png` 观察到）
+### 2.2 Collapsed sidebar — 2026-06-19 17:58 实测更正
 
-**宽度**：约 **56–60px**（只剩 icon）
+**宽度：0px（完全隐藏）**
 
-**结构**：
-- 同样有顶部 toggle 按钮（点击展开）
-- 主 nav 仅显示 icon（无文字 label）
-- 选中态：蓝色 pill 背景包住 icon
-- hover：浅灰方块
+> ⚠️ 之前我在 §2.2 写的「56–60px icon-only rail」**是错的**。实际点 sidebar
+> toggle (⌘+\\) 之后，整个 sidebar **直接消失到 0px**，没有 icon rail 兜底。
+> 我看截屏 `/tmp/qoder-A.png` 看到的「icon-only」状态，其实是另一个 app
+> （Clash Verge）的 sidebar 透出来，不是 QoderWork 自己的。
 
-### 2.3 Toggle 按钮
+**collapsed 后的窗口顶部 bar**（窗口的极简模式）：
+- 左：macOS traffic lights
+- 接着：`[侧边栏图标]` toggle button（折叠时点这个会展开）
+- 再接着：`[🔍 搜索]` icon button（搜索对话）
+- 再接着：`[+] 新任务` icon button（plus icon）
+- 右：`[问题反馈]`、`[⊞]`、`[?]`
 
-- 位置：**sidebar 顶部右上角**
-- 图标：看起来像「侧边栏/面板」icon，可能是 lucide-react `PanelLeft` 或 `PanelLeftClose` / `PanelLeftOpen` 的样子
-- 点击切换 expanded ↔ collapsed
-- 状态应该 persist（用户偏好持久化）
+主内容区 0 偏移 / 100% 宽，hero 居中。
+
+### 2.3 Toggle 按钮 — 实测细节
+
+- **位置**：
+  - **expanded 状态**下：位于 sidebar 顶部右上角
+  - **collapsed 状态**下：位于窗口顶部 bar 的左半部（紧贴 traffic lights）
+  - 也就是说 toggle 按钮跟着可视化层级跑，不是固定在某个 DOM 位置
+- **图标**：tooltip 显示「关闭侧边栏 ⌘ + \\」（关 / 开切换）
+- **快捷键**：`⌘ + \\`（系统级 toggle）
+- **图标视觉**：类 `PanelLeftClose` / `PanelLeftOpen` 的方框带竖线 icon
+
+### 2.4 ⚠️ kenji 的 60px icon-only rail 偏离了 QoderWork 实际行为
+
+kenji 在 task #68 实装的是「collapsed = 60px icon rail」(`27f851c tighten
+expanded sidebar width`)，这跟 QoderWork 实测的「collapsed = 0px 完全隐藏」
+**不一致**。
+
+不过我个人觉得 kenji 的 60px icon rail UX 更好 —— QoderWork 折叠后用户要按
+toggle 才能再访问 nav，相对更隐藏 nav 入口；而 60px rail 保留 quick nav
+但更紧凑。**需要 WAWQAQ 拍板：要严格抄 0px 隐藏，还是保留 60px icon rail？**
+
+如果走严格 0px 隐藏路线，要做的事：
+1. SessionListPanel 当 `sidebarCollapsed === true` 时 return null（或宽度 0）
+2. toggle button 位置从 sidebar 内部移到 window top bar（紧贴 traffic lights）
+3. 搜索 button + 新建对话 button 也跟着 toggle 走到 window top bar
+4. collapsed 状态下 sessions list 完全不可见
 
 ---
 
