@@ -26,6 +26,28 @@ export {
   runHarborCellFromEnv,
 } from './harbor-cell.js';
 export type {
+  FixedPromptControllerResult,
+  FixedPromptTask,
+  FixedPromptTaskCompletedEvent,
+  FixedPromptTaskInfraFailedEvent,
+  FixedPromptTaskPlumbingFailedEvent,
+  FixedPromptWalEvent,
+  HarborTaskRunInput,
+  HarborTaskRunOutput,
+  HarborTaskRunner,
+  ReadHarborTaskRunOutputInput,
+  RunFixedPromptControllerInput,
+} from './fixed-prompt-controller.js';
+export {
+  FIXED_PROMPT_WAL_SCHEMA_VERSION,
+  appendFixedPromptWalEvent,
+  hashSystemPrompt,
+  readHarborTaskRunOutput,
+  readFixedPromptWal,
+  runFixedPromptController,
+  writeFixedPromptResultsTsv,
+} from './fixed-prompt-controller.js';
+export type {
   BenchmarkAdapter,
   BenchmarkAdapterRegistry,
   BenchmarkInstanceRef,
