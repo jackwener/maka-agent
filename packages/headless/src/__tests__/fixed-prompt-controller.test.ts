@@ -127,6 +127,35 @@ describe('fixed prompt controller', () => {
     });
   });
 
+  test('retries infra-failed WAL events on resume', async () => {
+    await withDir(async (dir) => {
+      const systemPromptPath = join(dir, 'system_prompt.md');
+      const resultsJsonlPath = join(dir, 'results.jsonl');
+      await writeFile(systemPromptPath, 'fixed prompt\n', 'utf8');
+      await appendFile(resultsJsonlPath, `${JSON.stringify(taskInfraFailedEvent({ taskId: 'task-a' }))}\n`, 'utf8');
+
+      const calls: string[] = [];
+      const result = await runFixedPromptController({
+        runId: 'run-1',
+        roundId: 'round-1',
+        config,
+        systemPromptPath,
+        resultsJsonlPath,
+        resultsTsvPath: join(dir, 'results.tsv'),
+        tasks: [{ id: 'task-a', path: '/bench/task-a' }],
+        harborRunner: async ({ task }) => {
+          calls.push(task.id);
+          return harborOutput({ taskId: task.id });
+        },
+        now: () => 100,
+        newId: idFactory(),
+      });
+
+      assert.deepEqual(calls, ['task-a']);
+      assert.equal(result.events[0]?.type, 'task_completed');
+    });
+  });
+
   test('derives results TSV from replayed task events', async () => {
     await withDir(async (dir) => {
       const systemPromptPath = join(dir, 'system_prompt.md');
@@ -330,6 +359,24 @@ function taskCompletedEvent(input: { taskId: string; promptHash?: string }): Fix
     durationMs: 50,
     runtimeEventsPath: `/logs/${input.taskId}/runtime-events.jsonl`,
     harbor: { reward: 1 },
+  };
+}
+
+function taskInfraFailedEvent(input: { taskId: string }): FixedPromptWalEvent {
+  return {
+    schemaVersion: 1,
+    type: 'task_infra_failed',
+    id: `event-${input.taskId}`,
+    ts: 10,
+    runId: 'run-1',
+    roundId: 'round-1',
+    taskId: input.taskId,
+    status: 'infra_failed',
+    passed: false,
+    scored: false,
+    eligible: false,
+    errorClass: 'infra_error',
+    error: 'container crashed',
   };
 }
 

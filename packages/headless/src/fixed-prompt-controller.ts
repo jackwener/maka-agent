@@ -429,7 +429,6 @@ function terminalTaskEvents(
     if (!eventMatchesPrompt(event, expectedPromptHash)) continue;
     if (
       event.type === 'task_completed'
-      || event.type === 'task_infra_failed'
       || event.type === 'task_plumbing_failed'
     ) {
       byTask.set(event.taskId, event);
