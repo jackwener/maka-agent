@@ -216,5 +216,5 @@ function improved(candidate: number | null, reference: number | null, noiseBand:
 }
 
 function regressed(candidate: number | null, reference: number | null, noiseBand: number): boolean {
-  return candidate === null || (reference !== null && candidate < reference - noiseBand);
+  return reference !== null && (candidate === null || candidate < reference - noiseBand);
 }

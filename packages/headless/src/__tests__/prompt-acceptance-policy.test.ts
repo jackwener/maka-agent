@@ -59,6 +59,27 @@ describe('prompt acceptance policy', () => {
     assert.equal(decision.metrics.candidate.heldOut.passEligibleRate, 1);
   });
 
+  test('keeps held-in improvements when no held-out floor is configured', () => {
+    const decision = decidePromptAcceptance({
+      ...baseDecisionInput(),
+      heldOutTaskIds: [],
+      originalEvents: [],
+      lastKeptEvents: [
+        completed('in-a', true),
+        completed('in-b', false),
+      ],
+      candidateEvents: [
+        completed('in-a', true),
+        completed('in-b', true),
+      ],
+    });
+
+    assert.equal(decision.decision, 'keep');
+    assert.equal(decision.reason, 'held_in_improved');
+    assert.equal(decision.metrics.original.heldOut.coverageRate, null);
+    assert.equal(decision.metrics.candidate.heldOut.coverageRate, null);
+  });
+
   test('summarizes pass over eligible separately from coverage', () => {
     const summary = summarizePromptAcceptancePartition([
       completed('task-a', true),
