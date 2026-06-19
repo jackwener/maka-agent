@@ -433,3 +433,90 @@ state of the codebase against this cheatsheet's rules:
   is still added to migrated `UiButton` callers as a
   presentation fallback; deletion happens after the last lane
   closes.
+
+## 9. 2026-06-19 closing-batch addendum (COSS + QoderWork-layout series)
+
+Outcome of the 10-round QoderWork-layout / COSS-familiarization
+reminders WAWQAQ scheduled (anchor msg `fa5f40d3`):
+
+### 9.1 What `Alert` and `Empty` are for vs. not
+
+COSS `Alert` (variant=`info / warning / error`) replaces every
+hand-rolled `.maka-*-error` / `.maka-*-banner` / `.maka-*-notice`
+that takes a full row across a pane. Confirmed migrations:
+
+- `PermissionDialog` danger + stale notes
+- `Daily Review` refresh-failure banner
+- `ToolErrorBanner`
+- `fake-backend` banner
+- `FirstRunChecklist` two error states
+- `artifact-list-error` row
+
+Rule: if the prose is "something went wrong / be careful / FYI",
+it is an Alert. Title is short imperative, description is the
+recovery hint, action goes into `<AlertAction>`.
+
+COSS `Empty` (with `EmptyHeader + EmptyMedia variant="icon" +
+EmptyTitle + EmptyDescription`) replaces hand-rolled column-flex
+empty states **only at pane/region scope**. Confirmed migrations:
+
+- `browser-panel` "嵌入式浏览器" overlay (Globe icon)
+- `command-palette` "没有匹配的命令" results panel (Search icon)
+- `artifact-pane` "暂未选中文件" preview pane (FileText icon)
+- `EmptyState` shared component (`packages/ui/src/components.tsx`)
+  already routed through `Empty` since round 2
+
+### 9.2 When NOT to use Empty
+
+Inline cell-level "no results" messages stay as `<small>` /
+`<p>` / `<strong>` — they preserve dense Settings rhythm. Empty
+imposes `flex-col items-center gap-6 px-6 py-12` which is too
+heavy for inline contexts.
+
+Deliberately **kept inline**, audited 2026-06-19:
+
+- `ProvidersPanel:1912/1918` — model table inline empty / no-results
+- `SettingsModal:2917` — `settingsConnectionMeta` "没有结果。"
+- `SettingsModal:3786` — memory items search empty (`role="status"`
+  in-list message)
+- `SettingsModal:6093` — capability audit log `<small>暂无审计记录。</small>`
+
+If you migrate any of these later, override the padding to `py-3
+gap-2` and drop EmptyMedia, otherwise the cell grows to ~140px tall.
+
+### 9.3 QoderWork imitation boundary (2026-06-19 WAWQAQ correction)
+
+Per `[msg=246a09a9]`: imitate **layout structure**, not
+identity. We borrow:
+
+- single-column centered hero arrangements
+- info hierarchy (eyebrow → headline → intro → composer/actions)
+- control combinations (Switch on / Menu actions / Card grid)
+- motion / state expression patterns (Alert banners, Empty cards)
+
+We do **not** copy:
+
+- mascots / illustration characters
+- brand visual assets, logos, or recognizable identity marks
+- task / channel tab split (Maka stays mixed)
+
+The OnboardingHero brand-mark revert (`6a22e77`) is the canonical
+example: the centered `.maka-onboarding-ready header` layout
+stays, the 56×56 gradient "M" disk was removed.
+
+### 9.4 COSS vendoring pattern (recap from round 1)
+
+Components live in `packages/ui/src/coss/`. Each file is a
+verbatim copy from `cosscom/coss` with two sed-style rewrites:
+
+```
+@coss/ui/lib/utils                → ../utils.js
+@coss/ui/components/<name>        → ./<name>.js
+@coss/ui/hooks/use-media-query    → ./use-media-query.js
+```
+
+`scripts/check-a11y.mjs` skips `coss/` (English aria-labels get
+localized at the consuming surface). `calendar.tsx` is omitted
+because we don't ship `react-day-picker`. New COSS components
+re-export from `packages/ui/src/index.ts` so renderers consume
+them as `import { Alert, Empty, … } from '@maka/ui'`.
