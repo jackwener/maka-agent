@@ -26,7 +26,7 @@
 
 import { useEffect, useState } from 'react';
 import type { ArtifactRecord } from '@maka/core';
-import { Button } from '@maka/ui';
+import { Button, Spinner } from '@maka/ui';
 import {
   type ArtifactPreviewInput,
   type PreviewResolution,
@@ -179,7 +179,7 @@ function ImageArtifactPreview(props: {
   if (result.state === 'loading') {
     return (
       <div className="maka-artifact-preview-loading" role="status" aria-live="polite">
-        <span className="maka-artifact-preview-spinner" aria-hidden="true" />
+        <Spinner className="maka-artifact-preview-spinner" aria-hidden="true" role="presentation" />
         <span>加载图片预览…</span>
       </div>
     );

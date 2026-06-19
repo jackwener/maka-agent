@@ -9417,17 +9417,10 @@ button:active {
 }
 
 .maka-artifact-preview-spinner {
-  display: inline-block;
   width: 12px;
   height: 12px;
-  border-radius: 50%;
-  border: 2px solid oklch(from var(--accent) l c h / 0.2);
-  border-top-color: var(--accent);
-  animation: maka-artifact-spinner 0.9s linear infinite;
-}
-
-@keyframes maka-artifact-spinner {
-  to { transform: rotate(360deg); }
+  flex: 0 0 auto;
+  color: var(--accent);
 }
 
 .maka-artifact-preview-fail {

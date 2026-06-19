@@ -17,10 +17,35 @@ describe('renderer utility surfaces use shared UI primitives', () => {
   it('keeps unsupported artifact preview CTA on Button without legacy classes', async () => {
     const source = await readFile(join(process.cwd(), 'src/renderer/artifact-preview-registry-shell.tsx'), 'utf8');
 
-    assert.match(source, /import \{ Button \} from '@maka\/ui';/);
+    assert.match(source, /import \{ Button, Spinner \} from '@maka\/ui';/);
     assert.doesNotMatch(source, /<button\b/, 'unsupported artifact preview CTA must use shared Button');
     assert.doesNotMatch(source, /className="maka-button/, 'artifact preview CTA must not keep legacy maka-button styling');
     assert.match(source, /<Button[\s\S]*variant="secondary"[\s\S]*className="maka-artifact-preview-unsupported-cta"/);
+  });
+
+  it('keeps artifact preview loading indicators on COSS Spinner', async () => {
+    const legacySource = await readFile(join(process.cwd(), 'src/renderer/artifact-preview.tsx'), 'utf8');
+    const registrySource = await readFile(join(process.cwd(), 'src/renderer/artifact-preview-registry-shell.tsx'), 'utf8');
+    const styles = await readFile(join(process.cwd(), 'src/renderer/styles.css'), 'utf8');
+
+    for (const [label, source] of [
+      ['legacy preview', legacySource],
+      ['registry preview', registrySource],
+    ] as const) {
+      assert.match(source, /import \{[^}]*\bSpinner\b[^}]*\} from '@maka\/ui';/, `${label} must import COSS Spinner`);
+      assert.match(
+        source,
+        /<Spinner className="maka-artifact-preview-spinner" aria-hidden="true" role="presentation" \/>/,
+        `${label} loading indicator must render COSS Spinner as a decorative glyph inside the Chinese status row`,
+      );
+      assert.doesNotMatch(
+        source,
+        /<span className="maka-artifact-preview-spinner"/,
+        `${label} must not restore the hand-rolled spinner span`,
+      );
+    }
+    assert.doesNotMatch(styles, /@keyframes maka-artifact-spinner/, 'artifact loading must not keep a custom spinner animation');
+    assert.doesNotMatch(styles, /border-top-color:\s*var\(--accent\)/, 'artifact loading spinner styling must not hand-draw a border spinner');
   });
 
   it('keeps artifact pane controls on shared Button primitives', async () => {
