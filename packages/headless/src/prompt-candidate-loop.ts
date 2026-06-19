@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { lstat, readFile, writeFile } from 'node:fs/promises';
-import { basename, relative } from 'node:path';
+import { relative } from 'node:path';
 import { promisify } from 'node:util';
 import {
   appendFixedPromptWalEvent,
@@ -57,6 +57,7 @@ export interface CreateScriptedMetaAgentInput {
 }
 
 export interface PromptCandidateGit {
+  systemPromptGitPath: string;
   changedFiles(): Promise<readonly string[]>;
   commit(message: string): Promise<string>;
 }
@@ -109,7 +110,7 @@ export async function runPromptCandidateRound(
   });
 
   await writeFile(input.systemPromptPath, result.systemPrompt, 'utf8');
-  assertOnlySystemPromptChanged(await input.git.changedFiles(), input.systemPromptPath);
+  assertOnlySystemPromptChanged(await input.git.changedFiles(), input.git.systemPromptGitPath);
   const commitSha = await input.git.commit(`candidate prompt ${input.roundId}`);
   await appendFixedPromptWalEvent(input.resultsJsonlPath, promptCandidateCommittedEvent({
     runId: input.runId,
@@ -231,16 +232,12 @@ function promptCandidateCommittedEvent(input: {
 
 export function assertOnlySystemPromptChanged(
   changedFiles: readonly string[],
-  systemPromptPath: string,
+  systemPromptGitPath: string,
 ): void {
-  const allowed = new Set([
-    normalizeChangedPath(systemPromptPath),
-    basename(systemPromptPath),
-    'system_prompt.md',
-  ]);
-  const unexpected = changedFiles.filter((file) => !allowed.has(normalizeChangedPath(file)));
+  const allowed = normalizeGitPath(systemPromptGitPath);
+  const unexpected = changedFiles.filter((file) => normalizeGitPath(file) !== allowed);
   if (unexpected.length > 0) {
-    throw new Error(`only system_prompt.md may change; unexpected files: ${unexpected.join(', ')}`);
+    throw new Error(`only ${allowed} may change; unexpected files: ${unexpected.join(', ')}`);
   }
 }
 
@@ -254,6 +251,7 @@ async function assertRegularSystemPromptFile(systemPromptPath: string): Promise<
 export function createCliPromptCandidateGit(input: CreateCliPromptCandidateGitInput): PromptCandidateGit {
   const systemPromptGitPath = relative(input.cwd, input.systemPromptPath).split('\\').join('/');
   return {
+    systemPromptGitPath,
     async changedFiles(): Promise<readonly string[]> {
       const { stdout } = await execFileAsync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: input.cwd });
       return stdout
@@ -270,14 +268,9 @@ export function createCliPromptCandidateGit(input: CreateCliPromptCandidateGitIn
   };
 }
 
-function normalizeChangedPath(path: string): string {
-  const cwdRelative = relative(process.cwd(), path);
-  const normalized = (cwdRelative && !cwdRelative.startsWith('..') ? cwdRelative : path).split('\\').join('/');
-  return stripLeadingDotSlash(normalized);
-}
-
-function stripLeadingDotSlash(path: string): string {
+function normalizeGitPath(path: string): string {
   let current = path;
+  current = current.split('\\').join('/');
   while (current.startsWith('./')) current = current.slice(2);
   return current;
 }

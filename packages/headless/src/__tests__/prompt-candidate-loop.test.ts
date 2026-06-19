@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFile } from 'node:child_process';
@@ -108,6 +108,7 @@ describe('prompt candidate loop', () => {
           heldOutDigests: [],
           metaAgent: async () => ({ systemPrompt: 'candidate prompt\n', summary: 'changed prompt' }),
           git: {
+            systemPromptGitPath: 'system_prompt.md',
             changedFiles: async () => ['system_prompt.md', 'program.md'],
             commit: async () => {
               committed = true;
@@ -153,6 +154,46 @@ describe('prompt candidate loop', () => {
       );
 
       assert.equal(await readFile(outsidePath, 'utf8'), 'outside prompt\n');
+    });
+  });
+
+  test('rejects changes to a different system_prompt.md path', async () => {
+    await withDir(async (dir) => {
+      const promptDir = join(dir, 'prompts');
+      await mkdir(promptDir);
+      const programPath = join(dir, 'program.md');
+      const systemPromptPath = join(promptDir, 'system_prompt.md');
+      const resultsTsvPath = join(dir, 'results.tsv');
+      await writeFile(programPath, 'Improve the prompt conservatively.\n', 'utf8');
+      await writeFile(systemPromptPath, 'original prompt\n', 'utf8');
+      await writeFile(resultsTsvPath, 'task_id\tpassed\ntask-a\tfalse\n', 'utf8');
+
+      let committed = false;
+      await assert.rejects(
+        runPromptCandidateRound({
+          runId: 'run-1',
+          roundId: 'round-1',
+          programPath,
+          systemPromptPath,
+          resultsTsvPath,
+          resultsJsonlPath: join(dir, 'results.jsonl'),
+          heldInDigests: [],
+          metaAgent: async () => ({ systemPrompt: 'candidate prompt\n', summary: 'changed prompt' }),
+          git: {
+            systemPromptGitPath: 'prompts/system_prompt.md',
+            changedFiles: async () => ['system_prompt.md'],
+            commit: async () => {
+              committed = true;
+              return 'commit-1';
+            },
+          },
+          now: () => 100,
+          newId: idFactory(),
+        }),
+        /only prompts\/system_prompt.md may change/,
+      );
+
+      assert.equal(committed, false);
     });
   });
 
@@ -260,6 +301,7 @@ describe('prompt candidate loop', () => {
 
 function gitNoop() {
   return {
+    systemPromptGitPath: 'system_prompt.md',
     changedFiles: async () => ['system_prompt.md'],
     commit: async () => 'commit-1',
   };
