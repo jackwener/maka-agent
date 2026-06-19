@@ -8,12 +8,53 @@ import type { MakaTool } from './tool-runtime.js';
 
 export const LOCAL_READ_AGENT_ID = 'local-read';
 export const LOCAL_READ_AGENT_PROFILE = 'local_read';
+export const AGENT_INVOCATION_FOREGROUND = 'foreground';
+export const AGENT_CONTEXT_ISOLATED = 'isolated';
+export const AGENT_WORKSPACE_SAME_WORKSPACE = 'same_workspace';
+export const AGENT_WRITE_BACK_SUMMARY = 'summary';
+
+export type AgentProfile = typeof LOCAL_READ_AGENT_PROFILE;
+export type AgentCapability = 'local_read';
+export type AgentInvocationMode = typeof AGENT_INVOCATION_FOREGROUND;
+export type AgentContextMode = typeof AGENT_CONTEXT_ISOLATED;
+export type AgentWorkspaceMode = typeof AGENT_WORKSPACE_SAME_WORKSPACE | 'worktree' | 'sandbox';
+export type AgentWriteBackMode = typeof AGENT_WRITE_BACK_SUMMARY | 'decision' | 'artifact' | 'patch';
+
+export interface AgentProfileContract {
+  capability: AgentCapability;
+  invocation: AgentInvocationMode;
+  context: AgentContextMode;
+  workspace: AgentWorkspaceMode;
+  defaultWriteBack: AgentWriteBackMode;
+  supportedWriteBack: readonly AgentWriteBackMode[];
+}
+
+export type AgentDefinitionAvailability =
+  | { status: 'unknown' }
+  | { status: 'available' }
+  | {
+      status: 'unavailable';
+      reason: 'parent_permission_mode';
+      parentPermissionMode: PermissionMode;
+      requiredPermissionMode: PermissionMode;
+    }
+  | {
+      status: 'unavailable';
+      reason: 'missing_tools';
+      missingTools: string[];
+    }
+  | {
+      status: 'unavailable';
+      reason: 'non_allow_tool_policy';
+      blockedTools: Array<{ name: string; category: ToolCategory; decision: PolicyDecision }>;
+    };
 
 export interface AgentDefinition {
   id: string;
-  profile: string;
+  profile: AgentProfile;
   name: string;
   description: string;
+  contract: AgentProfileContract;
   permissionMode: PermissionMode;
   tools: readonly string[];
   categoryPolicy: Readonly<Partial<Record<ToolCategory, PolicyDecision>>>;
@@ -22,11 +63,18 @@ export interface AgentDefinition {
 
 export interface AgentDefinitionListItem {
   id: string;
-  profile: string;
+  profile: AgentProfile;
   name: string;
   description: string;
+  contract: AgentProfileContract;
+  availability: AgentDefinitionAvailability;
   permissionMode: PermissionMode;
   tools: string[];
+}
+
+export interface AgentDefinitionListOptions {
+  parentPermissionMode?: PermissionMode;
+  tools?: readonly MakaTool[];
 }
 
 export const LOCAL_READ_AGENT_DEFINITION: AgentDefinition = {
@@ -34,6 +82,14 @@ export const LOCAL_READ_AGENT_DEFINITION: AgentDefinition = {
   profile: LOCAL_READ_AGENT_PROFILE,
   name: 'Local Read',
   description: 'Read-only repository exploration with file and text search tools only.',
+  contract: {
+    capability: 'local_read',
+    invocation: AGENT_INVOCATION_FOREGROUND,
+    context: AGENT_CONTEXT_ISOLATED,
+    workspace: AGENT_WORKSPACE_SAME_WORKSPACE,
+    defaultWriteBack: AGENT_WRITE_BACK_SUMMARY,
+    supportedWriteBack: [AGENT_WRITE_BACK_SUMMARY],
+  },
   permissionMode: 'explore',
   tools: ['Read', 'Glob', 'Grep'],
   categoryPolicy: {
@@ -57,12 +113,20 @@ const modeRank: Record<PermissionMode, number> = {
   execute: 2,
 };
 
-export function listBuiltinAgentDefinitions(): AgentDefinitionListItem[] {
+export function listBuiltinAgentDefinitions(options: AgentDefinitionListOptions = {}): AgentDefinitionListItem[] {
   return BUILTIN_AGENT_DEFINITIONS.map((definition) => ({
     id: definition.id,
     profile: definition.profile,
     name: definition.name,
     description: definition.description,
+    contract: definition.contract,
+    availability: options.parentPermissionMode && options.tools
+      ? evaluateAgentDefinitionAvailability({
+          parentPermissionMode: options.parentPermissionMode,
+          definition,
+          tools: options.tools,
+        })
+      : { status: 'unknown' },
     permissionMode: definition.permissionMode,
     tools: [...definition.tools],
   }));
@@ -106,6 +170,42 @@ export function evaluateAgentDefinitionToolAccess(
   };
 }
 
+export function evaluateAgentDefinitionAvailability(input: {
+  parentPermissionMode: PermissionMode;
+  definition: AgentDefinition;
+  tools: readonly MakaTool[];
+}): AgentDefinitionAvailability {
+  const { parentPermissionMode, definition, tools } = input;
+  if (modeRank[definition.permissionMode] > modeRank[parentPermissionMode]) {
+    return {
+      status: 'unavailable',
+      reason: 'parent_permission_mode',
+      parentPermissionMode,
+      requiredPermissionMode: definition.permissionMode,
+    };
+  }
+
+  const byName = new Map(tools.map((tool) => [tool.name, tool]));
+  const missingTools = definition.tools.filter((name) => !byName.has(name));
+  if (missingTools.length > 0) {
+    return { status: 'unavailable', reason: 'missing_tools', missingTools };
+  }
+
+  const blockedTools = definition.tools
+    .map((name) => {
+      const tool = byName.get(name);
+      return tool ? { name, ...evaluateAgentDefinitionToolAccess(definition, tool) } : undefined;
+    })
+    .filter((item): item is { name: string; category: ToolCategory; decision: PolicyDecision } =>
+      item !== undefined && item.decision !== 'allow'
+    );
+  if (blockedTools.length > 0) {
+    return { status: 'unavailable', reason: 'non_allow_tool_policy', blockedTools };
+  }
+
+  return { status: 'available' };
+}
+
 export function buildToolsForAgentDefinition(
   tools: readonly MakaTool[],
   definition: AgentDefinition = LOCAL_READ_AGENT_DEFINITION,
@@ -128,28 +228,19 @@ export function assertAgentDefinitionRunnable(input: {
   tools: readonly MakaTool[];
 }): void {
   const { parentPermissionMode, definition, tools } = input;
-  if (modeRank[definition.permissionMode] > modeRank[parentPermissionMode]) {
+  const availability = evaluateAgentDefinitionAvailability({ parentPermissionMode, definition, tools });
+  if (availability.status !== 'unavailable') return;
+
+  if (availability.reason === 'parent_permission_mode') {
     throw new Error(
-      `Agent "${definition.id}" cannot run in parent permission mode "${parentPermissionMode}" because it requires "${definition.permissionMode}".`,
+      `Agent "${definition.id}" cannot run in parent permission mode "${availability.parentPermissionMode}" because it requires "${availability.requiredPermissionMode}".`,
     );
   }
-
-  const byName = new Map(tools.map((tool) => [tool.name, tool]));
-  const missing = definition.tools.filter((name) => !byName.has(name));
-  if (missing.length > 0) {
-    throw new Error(`Agent "${definition.id}" is unavailable: missing tools: ${missing.join(', ')}`);
+  if (availability.reason === 'missing_tools') {
+    throw new Error(`Agent "${definition.id}" is unavailable: missing tools: ${availability.missingTools.join(', ')}`);
   }
-
-  const nonAllow = definition.tools
-    .map((name) => {
-      const tool = byName.get(name);
-      return tool ? { name, ...evaluateAgentDefinitionToolAccess(definition, tool) } : undefined;
-    })
-    .filter((item): item is { name: string; category: ToolCategory; decision: PolicyDecision } =>
-      item !== undefined && item.decision !== 'allow'
-    );
-  if (nonAllow.length > 0) {
-    const details = nonAllow.map((item) => `${item.name}:${item.decision}`).join(', ');
+  if (availability.reason === 'non_allow_tool_policy') {
+    const details = availability.blockedTools.map((item) => `${item.name}:${item.decision}`).join(', ');
     throw new Error(`Agent "${definition.id}" is unavailable: non-allow tool policy: ${details}`);
   }
 }

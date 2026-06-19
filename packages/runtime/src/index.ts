@@ -67,12 +67,17 @@ export type {
 export { buildBuiltinTools } from './builtin-tools.js';
 export type { MakaTool as BuiltinMakaTool, MakaToolContext as BuiltinMakaToolContext } from './builtin-tools.js';
 export {
+  AGENT_CONTEXT_ISOLATED,
+  AGENT_INVOCATION_FOREGROUND,
+  AGENT_WORKSPACE_SAME_WORKSPACE,
+  AGENT_WRITE_BACK_SUMMARY,
   BUILTIN_AGENT_DEFINITIONS,
   LOCAL_READ_AGENT_DEFINITION,
   LOCAL_READ_AGENT_ID,
   LOCAL_READ_AGENT_PROFILE,
   assertAgentDefinitionRunnable,
   buildToolsForAgentDefinition,
+  evaluateAgentDefinitionAvailability,
   evaluateAgentDefinitionToolAccess,
   getBuiltinAgentDefinition,
   getBuiltinAgentDefinitionByProfile,
@@ -81,8 +86,17 @@ export {
   requireBuiltinAgentDefinitionByProfile,
 } from './agent-catalog.js';
 export type {
+  AgentCapability,
   AgentDefinition,
+  AgentDefinitionAvailability,
   AgentDefinitionListItem,
+  AgentDefinitionListOptions,
+  AgentContextMode,
+  AgentInvocationMode,
+  AgentProfile,
+  AgentProfileContract,
+  AgentWorkspaceMode,
+  AgentWriteBackMode,
 } from './agent-catalog.js';
 export {
   AGENT_LIST_TOOL_NAME,

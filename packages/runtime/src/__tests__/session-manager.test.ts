@@ -1356,6 +1356,7 @@ describe('SessionManager permission mode updates', () => {
     const manager = new SessionManager({
       store,
       runStore, runtimeEventStore: runStore, backends,
+      childTools: [testTool('Read'), testTool('Glob'), testTool('Grep')],
       listArtifactsForTurn: async (_sessionId, turnId) => turnId === 'child-turn'
         ? [{
             id: 'artifact-1',
@@ -1406,6 +1407,9 @@ describe('SessionManager permission mode updates', () => {
 
     const list = await manager.listChildAgents(session.id);
     expect(list.definitions.map((agent) => agent.id)).toEqual([LOCAL_READ_AGENT_ID]);
+    expect(list.definitions[0]?.availability).toEqual({ status: 'available' });
+    expect(list.definitions[0]?.contract.defaultWriteBack).toBe('summary');
+    expect(list.definitions[0]?.contract.workspace).toBe('same_workspace');
     expect(list.runs.map((agent) => agent.runId)).toEqual(['child-run']);
     expect(list.runs[0]?.agentId).toBe(LOCAL_READ_AGENT_ID);
     expect(list.runs[0]?.agentName).toBe('Researcher');

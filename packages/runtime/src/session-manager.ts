@@ -471,7 +471,11 @@ export class SessionManager {
   }
 
   async listChildAgents(sessionId: string): Promise<AgentListResult> {
-    const definitions = listBuiltinAgentDefinitions();
+    const header = await this.deps.store.readHeader(sessionId);
+    const definitions = listBuiltinAgentDefinitions({
+      parentPermissionMode: header.permissionMode,
+      tools: this.deps.childTools ?? [],
+    });
     if (!this.deps.runStore) return { definitions, runs: [] };
     const runs = await this.deps.runStore.listSessionRuns(sessionId);
     return {

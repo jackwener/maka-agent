@@ -7,10 +7,15 @@ import type { SessionEvent } from '@maka/core/events';
 import { buildBuiltinTools } from '../builtin-tools.js';
 import { PermissionEngine } from '../permission-engine.js';
 import {
+  AGENT_CONTEXT_ISOLATED,
+  AGENT_INVOCATION_FOREGROUND,
+  AGENT_WORKSPACE_SAME_WORKSPACE,
+  AGENT_WRITE_BACK_SUMMARY,
   LOCAL_READ_AGENT_ID,
   LOCAL_READ_AGENT_DEFINITION,
   LOCAL_READ_AGENT_PROFILE,
   assertAgentDefinitionRunnable,
+  evaluateAgentDefinitionAvailability,
   evaluateAgentDefinitionToolAccess,
   listBuiltinAgentDefinitions,
 } from '../agent-catalog.js';
@@ -53,6 +58,14 @@ describe('subagent tools', () => {
   test('built-in catalog exposes local-read without shell, web, nested, or write tools', () => {
     expect(LOCAL_READ_AGENT_DEFINITION.id).toBe(LOCAL_READ_AGENT_ID);
     expect(LOCAL_READ_AGENT_DEFINITION.profile).toBe(LOCAL_READ_AGENT_PROFILE);
+    expect(LOCAL_READ_AGENT_DEFINITION.contract).toEqual({
+      capability: 'local_read',
+      invocation: AGENT_INVOCATION_FOREGROUND,
+      context: AGENT_CONTEXT_ISOLATED,
+      workspace: AGENT_WORKSPACE_SAME_WORKSPACE,
+      defaultWriteBack: AGENT_WRITE_BACK_SUMMARY,
+      supportedWriteBack: [AGENT_WRITE_BACK_SUMMARY],
+    });
     expect(LOCAL_READ_AGENT_DEFINITION.permissionMode).toBe('explore');
     expect([...LOCAL_READ_AGENT_DEFINITION.tools]).toEqual(['Read', 'Glob', 'Grep']);
     expect(LOCAL_READ_AGENT_DEFINITION.tools.includes('Bash')).toBe(false);
@@ -60,14 +73,54 @@ describe('subagent tools', () => {
     expect(LOCAL_READ_AGENT_DEFINITION.tools.includes('WebFetch')).toBe(false);
     expect(LOCAL_READ_AGENT_DEFINITION.tools.includes('ExploreAgent')).toBe(false);
 
-    expect(listBuiltinAgentDefinitions()).toEqual([{
+    expect(listBuiltinAgentDefinitions({
+      parentPermissionMode: 'ask',
+      tools: [
+        testCatalogTool('Read', 'read'),
+        testCatalogTool('Glob', 'read'),
+        testCatalogTool('Grep', 'read'),
+      ],
+    })).toEqual([{
       id: LOCAL_READ_AGENT_ID,
       profile: LOCAL_READ_AGENT_PROFILE,
       name: 'Local Read',
       description: 'Read-only repository exploration with file and text search tools only.',
       permissionMode: 'explore',
       tools: ['Read', 'Glob', 'Grep'],
+      contract: LOCAL_READ_AGENT_DEFINITION.contract,
+      availability: { status: 'available' },
     }]);
+  });
+
+  test('agent definition availability reports missing tools and parent permission mismatches without running', () => {
+    expect(evaluateAgentDefinitionAvailability({
+      parentPermissionMode: 'ask',
+      definition: LOCAL_READ_AGENT_DEFINITION,
+      tools: [testCatalogTool('Read', 'read')],
+    })).toEqual({
+      status: 'unavailable',
+      reason: 'missing_tools',
+      missingTools: ['Glob', 'Grep'],
+    });
+
+    expect(evaluateAgentDefinitionAvailability({
+      parentPermissionMode: 'explore',
+      definition: {
+        ...LOCAL_READ_AGENT_DEFINITION,
+        id: 'writer',
+        permissionMode: 'execute',
+      },
+      tools: [
+        testCatalogTool('Read', 'read'),
+        testCatalogTool('Glob', 'read'),
+        testCatalogTool('Grep', 'read'),
+      ],
+    })).toEqual({
+      status: 'unavailable',
+      reason: 'parent_permission_mode',
+      parentPermissionMode: 'explore',
+      requiredPermissionMode: 'execute',
+    });
   });
 
   test('agent definition policy evaluates each tool through allowlist and category policy', () => {
