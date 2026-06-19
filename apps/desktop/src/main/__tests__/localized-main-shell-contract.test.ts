@@ -458,6 +458,14 @@ describe('localized main shell contract', () => {
     // 1px border-right separates it from the main pane.
     assert.match(listPanel, /background:\s*var\(--background\)/);
     assert.doesNotMatch(listPanel, /calc\(l - 0\.015\)/);
+    const detailPanel = extractCssRule(styles, '.maka-panel-detail.maka-floating-panel');
+    assert.ok(detailPanel, '.maka-panel-detail.maka-floating-panel rule must exist');
+    assert.match(detailPanel, /margin:\s*8px 8px 8px 0/);
+    assert.match(detailPanel, /border:\s*1px solid var\(--border\)/);
+    assert.match(detailPanel, /border-radius:\s*12px/);
+    assert.match(detailPanel, /background:\s*var\(--background\)/);
+    assert.match(detailPanel, /box-shadow:\s*none/);
+    assert.doesNotMatch(detailPanel, /background-image:\s*radial-gradient/);
     const sidebarTopBar = extractCssRule(styles, '.maka-sidebar-drag-strip');
     assert.ok(sidebarTopBar, '.maka-sidebar-drag-strip rule must exist');
     assert.match(sidebarTopBar, /justify-content:\s*space-between/);

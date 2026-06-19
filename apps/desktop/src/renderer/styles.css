@@ -184,7 +184,16 @@ button:active {
 }
 
 .maka-panel-detail.maka-floating-panel {
+  /* QoderWork's right column is a page-level content surface
+     (.agents-content-area / parchment-paper-surface), while the
+     sidebar stays flat. Keep this at the shell boundary so chat,
+     modules, and artifact panes share one workspace surface. */
+  margin: 8px 8px 8px 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
   background: var(--background);
+  box-shadow: none;
+  box-sizing: border-box;
 }
 
 .maka-resize-handle {

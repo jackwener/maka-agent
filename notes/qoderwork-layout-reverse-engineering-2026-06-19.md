@@ -514,6 +514,44 @@ kenji 现在 Maka 实装 32px（`39a338a`），按 spec 可加大到 40px。
 6. ⏳ **Hero 整体 `gap-8` (32px)** — 主间距
 7. 🟡 **figma-squircle** — 不抄，CSS border-radius 接近即可
 
+## 12.7 主内容 surface 纠偏（2026-06-19 19:40）
+
+@yuejing 从 asar 里继续抓到 QoderWork 右侧主内容容器的真实 semantic class：
+
+```css
+.agents-content-area {
+  background: var(--agents-content-area-bg);
+  margin: var(--agents-content-area-gap) var(--agents-content-area-gap) var(--agents-content-area-gap) 0;
+  border-radius: var(--agents-content-area-radius);
+  transition: margin-left .15s ease-out;
+}
+
+.agents-parchment-paper-surface {
+  border: 1px solid var(--color-border-tertiary);
+  background-color: var(--agents-content-area-bg);
+  background-image: radial-gradient(circle, #3a2a1c0b .95px, transparent 1.05px);
+  background-repeat: repeat;
+  background-size: 12px 12px;
+  box-shadow: none;
+}
+```
+
+结论修正：
+
+- §3.5 里「主内容整体也压平」是早期截图推断，已被这个 asar 证据修正。
+- QoderWork 正确结构是：**flat sidebar + inset rounded workspace surface**。
+- “不要双卡片”不是“右侧主区不能是 surface”，而是“左 sidebar 不应也是 card”。
+- 专业术语：Material Design 叫 **Surface**；Material UI 类似 **Paper**；在 Maka 命名上可以叫
+  **workspace surface / main content surface / content panel**。
+
+Maka 实装建议：
+
+- `.maka-panel-list.maka-floating-panel` 保持 flat：无圆角、无 shadow、`background: var(--background)`，只用
+  `border-right` 做分隔。
+- `.maka-panel-detail.maka-floating-panel` 是 page-level surface：`margin: 8px 8px 8px 0`、`border: 1px solid
+  var(--border)`、`border-radius: 12px`、`background: var(--background)`、`box-shadow: none`。
+- 不建议照抄 `agents-parchment-paper-surface` 的 dotted parchment 纹理；这是 QoderWork 命名和视觉识别度很高的品牌特征。
+
 ---
 
 ## 12. 已落地的细节对齐（截至 2026-06-19 17:30，commit `417a9af`）
