@@ -173,10 +173,19 @@ export async function readFixedPromptWal(path: string): Promise<FixedPromptWalEv
     if (isNotFound(error)) return [];
     throw error;
   }
-  return raw
-    .split('\n')
-    .filter((line) => line.trim().length > 0)
-    .map((line) => JSON.parse(line) as FixedPromptWalEvent);
+  const lines = raw.split('\n');
+  const events: FixedPromptWalEvent[] = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index]!;
+    if (line.trim().length === 0) continue;
+    try {
+      events.push(JSON.parse(line) as FixedPromptWalEvent);
+    } catch (error) {
+      if (index === lines.length - 1 && !raw.endsWith('\n')) break;
+      throw error;
+    }
+  }
+  return events;
 }
 
 export async function readHarborTaskRunOutput(

@@ -91,6 +91,42 @@ describe('fixed prompt controller', () => {
     });
   });
 
+  test('ignores a torn final WAL line when resuming', async () => {
+    await withDir(async (dir) => {
+      const systemPromptPath = join(dir, 'system_prompt.md');
+      const resultsJsonlPath = join(dir, 'results.jsonl');
+      await writeFile(systemPromptPath, 'fixed prompt\n', 'utf8');
+      await appendFile(
+        resultsJsonlPath,
+        `${JSON.stringify(taskCompletedEvent({ taskId: 'task-a' }))}\n{"schemaVersion":`,
+        'utf8',
+      );
+
+      const calls: string[] = [];
+      const result = await runFixedPromptController({
+        runId: 'run-1',
+        roundId: 'round-1',
+        config,
+        systemPromptPath,
+        resultsJsonlPath,
+        resultsTsvPath: join(dir, 'results.tsv'),
+        tasks: [
+          { id: 'task-a', path: '/bench/task-a' },
+          { id: 'task-b', path: '/bench/task-b' },
+        ],
+        harborRunner: async ({ task }) => {
+          calls.push(task.id);
+          return harborOutput({ taskId: task.id });
+        },
+        now: () => 100,
+        newId: idFactory(),
+      });
+
+      assert.deepEqual(calls, ['task-b']);
+      assert.deepEqual(result.taskIds, ['task-a', 'task-b']);
+    });
+  });
+
   test('derives results TSV from replayed task events', async () => {
     await withDir(async (dir) => {
       const systemPromptPath = join(dir, 'system_prompt.md');
