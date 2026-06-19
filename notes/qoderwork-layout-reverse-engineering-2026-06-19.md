@@ -342,6 +342,180 @@ sidebar 是它左侧的一块次要区域，**不是独立的卡片**。
 
 ---
 
+## 12.5 实际 asar 解包 (2026-06-19 18:42) — pixel-perfect 真相
+
+WAWQAQ msg `e449eda5` 让我直接逆向。`/Applications/QoderWork.app/Contents/Resources/app.asar`
+用 `npx asar extract` 解到 `/tmp/qoder-extracted/`。下面是从 minified CSS + JS
+里抓出来的真实规格，比之前从截图量的更可信。
+
+### 12.5.1 渲染层 tech stack（实测）
+
+| 类别 | 真实使用 |
+|---|---|
+| 框架 | **Tailwind v4**（`@layer` directives 实证） |
+| 设计系统 | **没有 Ant Design / Mantine / Radix / shadcn** —— 纯自研 Tailwind utility classes 堆叠 |
+| Bundle | Vite + React |
+| 拖拽 | `@dnd-kit/core` + `@dnd-kit/sortable` |
+| Squircle | `figma-squircle` ← **这就是 QoderWork 卡片圆角看起来"丝滑"的原因**（不是 CSS `border-radius`，是 SVG squircle path） |
+| Build owner | Alibaba (`gitlab.alibaba-inc.com/qoder-core/qoder-work.git`) |
+
+> 💡 关键发现：**figma-squircle**。我们 Maka 现在的 `border-radius: 12px` 是
+> 标准 CSS 圆角，QoderWork 用的是 Apple Squircle（看起来更柔和）。
+> **建议不抄 squircle，CSS `border-radius` 接近即可**，引入要改 box-shadow /
+> focus ring 计算成本高、收益小。
+
+### 12.5.2 颜色 token 体系（真实 token 名）
+
+QoderWork 全部用 semantic token：
+
+**Background**：
+`--color-bg-base / -container / -elevated / -hover / -layout / -mask / -subtle / -sunken / -tertiary`
+
+**Text**：
+`--color-text-base / -primary / -secondary / -tertiary / -quaternary / -error / -on`
+
+**Border**：
+`--color-border / -border-tertiary / -border-accent`
+
+**Semantic**：
+`--color-primary / -primary-hover / -destructive / -error / -warning-bg / -highlight-hover`
+
+→ 建议给 token migration lane：在 `maka-tokens.css` 加一层 alias，
+   `--background` → `--color-bg-base`、`--foreground-N` → `--color-text-N`、
+   `--border` → `--color-border-tertiary`，让 spec 跟 QoderWork 命名对齐。
+
+### 12.5.3 Sidebar — 真实 class + CSS rule
+
+```css
+.agents-sidebar > div { background: var(--color-bg-container) }
+.agents-sidebar { background: 0 0 !important }
+.agents-sidebar { contain: layout paint style }  /* 性能 hint */
+
+.agents-sidebar.agents-sidebar-floating-glass {
+  background: var(--color-bg-container);
+  border-color: var(--color-border-tertiary);
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+}
+
+.agents-sidebar[data-resizing="true"] {
+  box-shadow: none !important;
+}
+```
+
+要点：
+- **没有 fixed 宽度 CSS rule** — 宽度由 React state + inline style 控制
+- **floating-glass** 是 collapsed 时的 popover 浮窗状态，强制 `bg-container`
+- `contain: layout paint style` — 浏览器性能 hint
+- 拖动时 `data-resizing=true` 去 shadow
+
+### 12.5.4 Composer — 真实 class 组合
+
+Composer 没有 dedicated semantic class，纯 Tailwind utility：
+
+```jsx
+<div class="rounded-lg bg-bg-container border border-border-tertiary
+            shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
+  <textarea
+    class="w-full p-3 bg-transparent text-text-base
+           placeholder:text-text-tertiary resize-none"
+    placeholder="描述任务，/ 快捷调用，@ 添加上下文，标准模式经济高效" />
+  <div class="flex items-center justify-between px-4 py-3
+              border-t border-border-tertiary gap-2">
+    {/* 左侧：+ / 蛙 / [💬 通用 ▾] */}
+    {/* 右侧：[🔧 标准 ▾] / 🎤 / [⬆ send] */}
+  </div>
+</div>
+```
+
+**Send button** — 终于有真实规格：
+
+```jsx
+<button class="w-10 h-10 rounded-full bg-black hover:bg-black/80 text-white
+               flex items-center justify-center">
+  <ArrowUp />
+</button>
+```
+
+- **40×40px**（不是我之前估的 30–32px ⚠️）
+- `bg-black` 直接黑（不是 oklch derived）
+- `hover:bg-black/80`
+- `text-white` 强制白色 icon
+
+kenji 现在 Maka 实装 32px（`39a338a`），按 spec 可加大到 40px。
+
+### 12.5.5 Card 几何
+
+- `rounded-lg` = Tailwind 默认 **8px**（**不是我之前估的 12–14px** ⚠️）
+- `bg-bg-container` —— 容器背景
+- `border border-border-tertiary` —— 1px 弱描边
+- `shadow-[0_1px_3px_rgba(0,0,0,0.03)]` —— 几乎不可见
+
+**焦点 / 浮层阴影体系**：
+- 默认：`shadow-[0_1px_3px_rgba(0,0,0,0.03)]`
+- 浮层 modal：`shadow-[0_4px_12px_rgba(12,12,13,0.06)]`
+- 深下拉：`shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15)]`
+- 按下高光：`shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]`
+
+### 12.5.6 Hero / Home 实际结构
+
+```jsx
+<div class="flex flex-col items-center justify-center h-screen gap-8 p-8">
+  <h1 class="text-[28px] text-text-base font-semibold">不止聊天，搞定一切</h1>
+  <p class="text-text-secondary max-w-[520px] text-center">
+    本地运行、自主规划、安全可控的 AI 工作搭子
+  </p>
+
+  <div class="w-full max-w-[520px]">
+    {/* composer card 在这里 */}
+  </div>
+
+  <button class="px-4 py-2 rounded-md text-text-secondary hover:bg-bg-hover">
+    选择工作目录
+  </button>
+</div>
+```
+
+⚠️ **修正项**（按 spec → 当前 Maka）：
+- h1 字号 **28px**，不是我之前估的 32–36px
+- composer max-width **520px**，kenji 现在是 640px ⚠️
+- 整体 `gap-8` (32px) 间距
+- 「选择工作目录」: `px-4 py-2 rounded-md text-text-secondary` —— **无 border**，
+  hover 才出 `bg-bg-hover`
+
+### 12.5.7 Typography
+
+- 全部 Tailwind 标准 size 或 arbitrary `text-[28px]`
+- **没有 font-family 自定义** —— 用系统字体（macOS = SF Pro）
+- Maka 用 Geist 可以保留（差异不大）
+
+### 12.5.8 间距 / 圆角 / 阴影 cheat sheet
+
+| 用途 | QoderWork |
+|---|---|
+| 卡片间距 | `gap-2 / 3 / 4 / 6` (8/12/16/24 px) |
+| 卡片 padding | `p-3 / 4` (12/16 px) |
+| 卡片圆角 | `rounded-lg` (Tailwind default **8px**) |
+| 卡片描边 | `border border-border-tertiary` |
+| 卡片 shadow | `shadow-[0_1px_3px_rgba(0,0,0,0.03)]` |
+| Send button | `w-10 h-10 rounded-full bg-black hover:bg-black/80` |
+
+---
+
+## 12.6 给 kenji 的 micro-tuning checklist（基于真实 spec）
+
+按差距从大到小：
+
+1. ⏳ **Composer max-width 640px → 520px** — QoderWork 实际更紧凑
+2. ⏳ **Send button 32px → 40px** — `w-10 h-10`（形状 ✓ 已对，size 偏小）
+3. ⏳ **Hero h1 字号** — Maka 现在 `clamp(28px, 2.6vw, 34px)`，QoderWork 固定 28px
+4. ⏳ **Card radius 12px → 8px** — Tailwind `rounded-lg`，更紧凑
+5. ⏳ **「选择工作目录」 button 删 border** — hover 才出 bg
+6. ⏳ **Hero 整体 `gap-8` (32px)** — 主间距
+7. 🟡 **figma-squircle** — 不抄，CSS border-radius 接近即可
+
+---
+
 ## 12. 已落地的细节对齐（截至 2026-06-19 17:30，commit `417a9af`）
 
 @kenji 在 task #68 落了一刀：
