@@ -70,12 +70,15 @@ export {
   BUILTIN_AGENT_DEFINITIONS,
   LOCAL_READ_AGENT_DEFINITION,
   LOCAL_READ_AGENT_ID,
+  LOCAL_READ_AGENT_PROFILE,
   assertAgentDefinitionRunnable,
   buildToolsForAgentDefinition,
   evaluateAgentDefinitionToolAccess,
   getBuiltinAgentDefinition,
+  getBuiltinAgentDefinitionByProfile,
   listBuiltinAgentDefinitions,
   requireBuiltinAgentDefinition,
+  requireBuiltinAgentDefinitionByProfile,
 } from './agent-catalog.js';
 export type {
   AgentDefinition,

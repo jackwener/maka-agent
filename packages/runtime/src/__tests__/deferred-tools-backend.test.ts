@@ -15,7 +15,7 @@ import {
   type ToolAvailabilityConfig,
 } from '../tool-availability.js';
 import { toolSchemaCharsForDiagnostics } from '../request-shape.js';
-import { LOCAL_READ_AGENT_ID } from '../agent-catalog.js';
+import { LOCAL_READ_AGENT_ID, LOCAL_READ_AGENT_PROFILE } from '../agent-catalog.js';
 import {
   AGENT_LIST_TOOL_NAME,
   AGENT_OUTPUT_TOOL_NAME,
@@ -496,7 +496,7 @@ function loadAgentThenSpawnModel(captured: string[][]): MockLanguageModelV3 {
 
 function agentSpawnInput(): string {
   return JSON.stringify({
-    agent: LOCAL_READ_AGENT_ID,
+    profile: LOCAL_READ_AGENT_PROFILE,
     task: 'Inspect the runtime tests.',
   });
 }

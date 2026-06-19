@@ -9,8 +9,10 @@ import { PermissionEngine } from '../permission-engine.js';
 import {
   LOCAL_READ_AGENT_ID,
   LOCAL_READ_AGENT_DEFINITION,
+  LOCAL_READ_AGENT_PROFILE,
   assertAgentDefinitionRunnable,
   evaluateAgentDefinitionToolAccess,
+  listBuiltinAgentDefinitions,
 } from '../agent-catalog.js';
 import {
   AGENT_TOOL_GROUP_ID,
@@ -50,12 +52,22 @@ describe('subagent tools', () => {
 
   test('built-in catalog exposes local-read without shell, web, nested, or write tools', () => {
     expect(LOCAL_READ_AGENT_DEFINITION.id).toBe(LOCAL_READ_AGENT_ID);
+    expect(LOCAL_READ_AGENT_DEFINITION.profile).toBe(LOCAL_READ_AGENT_PROFILE);
     expect(LOCAL_READ_AGENT_DEFINITION.permissionMode).toBe('explore');
     expect([...LOCAL_READ_AGENT_DEFINITION.tools]).toEqual(['Read', 'Glob', 'Grep']);
     expect(LOCAL_READ_AGENT_DEFINITION.tools.includes('Bash')).toBe(false);
     expect(LOCAL_READ_AGENT_DEFINITION.tools.includes('WebSearch')).toBe(false);
     expect(LOCAL_READ_AGENT_DEFINITION.tools.includes('WebFetch')).toBe(false);
     expect(LOCAL_READ_AGENT_DEFINITION.tools.includes('ExploreAgent')).toBe(false);
+
+    expect(listBuiltinAgentDefinitions()).toEqual([{
+      id: LOCAL_READ_AGENT_ID,
+      profile: LOCAL_READ_AGENT_PROFILE,
+      name: 'Local Read',
+      description: 'Read-only repository exploration with file and text search tools only.',
+      permissionMode: 'explore',
+      tools: ['Read', 'Glob', 'Grep'],
+    }]);
   });
 
   test('agent definition policy evaluates each tool through allowlist and category policy', () => {
@@ -145,13 +157,13 @@ describe('subagent tools', () => {
     }
   });
 
-  test('agent_spawn delegates a catalog agent and task through the narrow context capability', async () => {
+  test('agent_spawn delegates an explicit profile and task through the narrow context capability', async () => {
     const tool = buildSubagentSpawnTool();
     const abortController = new AbortController();
     const calls: unknown[] = [];
 
     const result = await tool.impl({
-      agent: LOCAL_READ_AGENT_ID,
+      profile: LOCAL_READ_AGENT_PROFILE,
       task: 'Inspect the runtime tests.',
     }, {
       sessionId: 'session-1',
@@ -197,16 +209,18 @@ describe('subagent tools', () => {
     });
   });
 
-  test('agent_spawn rejects an unknown catalog id without spawning a child', async () => {
+  test('agent_spawn rejects legacy agent ids and unknown profiles without spawning a child', async () => {
     const tool = buildSubagentSpawnTool();
     const schema = tool.parameters as { safeParse(input: unknown): { success: boolean } };
 
-    expect(schema.safeParse({ agent: LOCAL_READ_AGENT_ID, task: 'Inspect the repo.' }).success).toBe(true);
+    expect(schema.safeParse({ profile: LOCAL_READ_AGENT_PROFILE, task: 'Inspect the repo.' }).success).toBe(true);
+    expect(schema.safeParse({ agent: LOCAL_READ_AGENT_ID, task: 'Inspect the repo.' }).success).toBe(false);
+    expect(schema.safeParse({ profile: LOCAL_READ_AGENT_ID, task: 'Inspect the repo.' }).success).toBe(false);
     expect(schema.safeParse({ agent_name: 'Researcher', instructions: 'Read only.', prompt: 'Inspect.' }).success).toBe(false);
 
     await expectRejects(
       Promise.resolve(tool.impl({
-        agent: 'implementation',
+        profile: 'implementation',
         task: 'Edit files.',
       }, {
         sessionId: 'session-1',
@@ -219,7 +233,7 @@ describe('subagent tools', () => {
           throw new Error('spawn should not be called');
         },
       })),
-      /Unknown agent "implementation"/,
+      /Unknown agent profile "implementation"/,
     );
   });
 
