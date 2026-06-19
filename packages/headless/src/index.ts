@@ -76,9 +76,14 @@ export {
 } from './prompt-candidate-loop.js';
 export type {
   AppendPromptAcceptanceDecisionInput,
+  CalibratePromptAcceptanceBaselineInput,
   DecidePromptAcceptanceInput,
+  PromptAcceptanceBaseline,
+  PromptAcceptanceBaselinePartition,
+  PromptAcceptanceBaselineRun,
   PromptAcceptanceDecision,
   PromptAcceptanceMetrics,
+  PromptAcceptanceNoiseBandInput,
   PromptAcceptancePartitionSummary,
   PromptAcceptanceReason,
   PromptAcceptanceResult,
@@ -86,7 +91,9 @@ export type {
 } from './prompt-acceptance-policy.js';
 export {
   appendPromptAcceptanceDecision,
+  calibratePromptAcceptanceBaseline,
   decidePromptAcceptance,
+  promptAcceptanceNoiseBand,
   promptAcceptanceStateFromWal,
   summarizePromptAcceptancePartition,
 } from './prompt-acceptance-policy.js';

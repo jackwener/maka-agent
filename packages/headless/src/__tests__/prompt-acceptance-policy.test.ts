@@ -5,7 +5,9 @@ import { join } from 'node:path';
 import { describe, test } from 'node:test';
 import {
   appendPromptAcceptanceDecision,
+  calibratePromptAcceptanceBaseline,
   decidePromptAcceptance,
+  promptAcceptanceNoiseBand,
   promptAcceptanceStateFromWal,
   summarizePromptAcceptancePartition,
 } from '../prompt-acceptance-policy.js';
@@ -16,6 +18,64 @@ import type {
 import { readFixedPromptWal } from '../fixed-prompt-controller.js';
 
 describe('prompt acceptance policy', () => {
+  test('calibrates separate held-in and held-out noise bands from baseline runs', () => {
+    const baseline = calibratePromptAcceptanceBaseline({
+      heldInTaskIds: ['in-a', 'in-b', 'in-c', 'in-d'],
+      heldOutTaskIds: ['out-a', 'out-b'],
+      baselineRuns: [
+        {
+          heldInEvents: [
+            completed('in-a', true),
+            completed('in-b', true),
+            completed('in-c', false),
+            completed('in-d', false),
+          ],
+          heldOutEvents: [
+            completed('out-a', true),
+            completed('out-b', false),
+          ],
+        },
+        {
+          heldInEvents: [
+            completed('in-a', true),
+            completed('in-b', true),
+            completed('in-c', true),
+            completed('in-d', false),
+          ],
+          heldOutEvents: [
+            completed('out-a', true),
+            completed('out-b', true),
+          ],
+        },
+      ],
+    });
+
+    assert.equal(baseline.heldIn.meanPassEligibleRate, 0.625);
+    assert.equal(baseline.heldIn.observedSpread, 0.125);
+    assert.equal(baseline.heldIn.referencePassEligibleRate, 0.625);
+    assert.equal(baseline.heldOut.originalPassEligibleRate, 0.75);
+    assert.equal(baseline.heldOut.observedSpread, 0.25);
+    assert.equal(
+      baseline.heldIn.noiseBand,
+      promptAcceptanceNoiseBand({
+        sampleSize: 4,
+        passRate: 0.625,
+        baselineRunCount: 2,
+        observedSpread: 0.125,
+      }),
+    );
+    assert.equal(
+      baseline.heldOut.noiseBand,
+      promptAcceptanceNoiseBand({
+        sampleSize: 2,
+        passRate: 0.75,
+        baselineRunCount: 2,
+        observedSpread: 0.25,
+      }),
+    );
+    assert.notEqual(baseline.heldIn.noiseBand, baseline.heldOut.noiseBand);
+  });
+
   test('keeps candidates that improve held-in beyond noise without falling below the held-out original floor', () => {
     const heldInTaskIds = ['in-a', 'in-b', 'in-c', 'in-d'];
     const heldOutTaskIds = ['out-a', 'out-b'];

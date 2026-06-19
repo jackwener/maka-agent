@@ -40,6 +40,43 @@ export interface PromptAcceptanceMetrics {
   };
 }
 
+export interface PromptAcceptanceBaselineRun {
+  heldInEvents: readonly FixedPromptTaskWalEvent[];
+  heldOutEvents: readonly FixedPromptTaskWalEvent[];
+}
+
+export interface PromptAcceptanceBaselinePartition {
+  taskCount: number;
+  baselineRunCount: number;
+  meanPassEligibleRate: number | null;
+  observedSpread: number;
+  noiseBand: number;
+}
+
+export interface PromptAcceptanceBaseline {
+  heldIn: PromptAcceptanceBaselinePartition & {
+    referencePassEligibleRate: number | null;
+  };
+  heldOut: PromptAcceptanceBaselinePartition & {
+    originalPassEligibleRate: number | null;
+  };
+}
+
+export interface CalibratePromptAcceptanceBaselineInput {
+  heldInTaskIds: readonly string[];
+  heldOutTaskIds: readonly string[];
+  baselineRuns: readonly PromptAcceptanceBaselineRun[];
+  zScore?: number;
+}
+
+export interface PromptAcceptanceNoiseBandInput {
+  sampleSize: number;
+  passRate: number | null;
+  baselineRunCount: number;
+  observedSpread?: number;
+  zScore?: number;
+}
+
 export interface DecidePromptAcceptanceInput {
   runId: string;
   roundId: string;
@@ -83,6 +120,40 @@ export interface PromptAcceptanceState {
   }>;
 }
 
+export function calibratePromptAcceptanceBaseline(
+  input: CalibratePromptAcceptanceBaselineInput,
+): PromptAcceptanceBaseline {
+  const heldIn = calibratePartitionBaseline(
+    input.baselineRuns.map((run) => summarizePromptAcceptancePartition(run.heldInEvents, input.heldInTaskIds)),
+    input.zScore,
+  );
+  const heldOut = calibratePartitionBaseline(
+    input.baselineRuns.map((run) => summarizePromptAcceptancePartition(run.heldOutEvents, input.heldOutTaskIds)),
+    input.zScore,
+  );
+  return {
+    heldIn: {
+      ...heldIn,
+      referencePassEligibleRate: heldIn.meanPassEligibleRate,
+    },
+    heldOut: {
+      ...heldOut,
+      originalPassEligibleRate: heldOut.meanPassEligibleRate,
+    },
+  };
+}
+
+export function promptAcceptanceNoiseBand(input: PromptAcceptanceNoiseBandInput): number {
+  const observedSpread = input.observedSpread ?? 0;
+  if (input.sampleSize <= 0 || input.passRate === null || input.baselineRunCount <= 0) {
+    return observedSpread;
+  }
+  const zScore = input.zScore ?? 1.96;
+  const wilson = wilsonHalfWidth(input.sampleSize, input.passRate, zScore);
+  const differenceWidth = wilson * Math.sqrt(1 + 1 / input.baselineRunCount);
+  return Math.max(differenceWidth, observedSpread);
+}
+
 export function decidePromptAcceptance(input: DecidePromptAcceptanceInput): PromptAcceptanceResult {
   const metrics: PromptAcceptanceMetrics = {
     original: {
@@ -109,6 +180,45 @@ export function decidePromptAcceptance(input: DecidePromptAcceptanceInput): Prom
     originalCommitSha: input.originalCommitSha,
     metrics,
   };
+}
+
+function calibratePartitionBaseline(
+  summaries: readonly PromptAcceptancePartitionSummary[],
+  zScore: number | undefined,
+): PromptAcceptanceBaselinePartition {
+  const passRates = summaries
+    .map((summary) => summary.passEligibleRate)
+    .filter((rate): rate is number => rate !== null);
+  const meanPassEligibleRate = mean(passRates);
+  const observedSpread = meanPassEligibleRate === null
+    ? 0
+    : Math.max(0, ...passRates.map((rate) => Math.abs(rate - meanPassEligibleRate)));
+  const sampleSize = Math.max(0, ...summaries.map((summary) => summary.eligible));
+  return {
+    taskCount: Math.max(0, ...summaries.map((summary) => summary.taskCount)),
+    baselineRunCount: summaries.length,
+    meanPassEligibleRate,
+    observedSpread,
+    noiseBand: promptAcceptanceNoiseBand({
+      sampleSize,
+      passRate: meanPassEligibleRate,
+      baselineRunCount: summaries.length,
+      observedSpread,
+      zScore,
+    }),
+  };
+}
+
+function wilsonHalfWidth(sampleSize: number, passRate: number, zScore: number): number {
+  const z2 = zScore * zScore;
+  const denominator = 1 + z2 / sampleSize;
+  const inner = passRate * (1 - passRate) / sampleSize + z2 / (4 * sampleSize * sampleSize);
+  return zScore * Math.sqrt(inner) / denominator;
+}
+
+function mean(values: readonly number[]): number | null {
+  if (values.length === 0) return null;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
 export async function appendPromptAcceptanceDecision(
