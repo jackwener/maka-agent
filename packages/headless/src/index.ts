@@ -19,7 +19,16 @@ export type { FinalScore, FinalScorer, FinalScorerInput } from './scorer.js';
 export type {
   AutonomousDecision,
   AutonomousResultTaxonomy,
+  EnvNetworkSecretPolicy,
   FeedbackObservation,
+  HeadlessInterventionMode,
+  IsolationPolicyRecordedEvent,
+  PermissionDecision,
+  PermissionDecisionRecordedEvent,
+  PermissionDecisionSource,
+  PermissionGrantRecordedEvent,
+  PermissionRequestRecordedEvent,
+  PermissionResourceScope,
   ResultTaxonomy,
   ScoreResult,
   SelfCheckObservation,
@@ -28,6 +37,15 @@ export type {
   TaskDefinition,
   TaskEvent,
   TaskEventCorrupt,
+  TaskInboxItem,
+  TaskInboxItemRecordedEvent,
+  TaskInboxItemResolvedEvent,
+  TaskInboxKind,
+  TaskInboxStatus,
+  TaskInterventionPolicy,
+  TaskIsolationFacts,
+  TaskPermissionGrant,
+  TaskPermissionRequest,
   TaskRunAbortedEvent,
   TaskRunBlockedEvent,
   TaskRunBudgetExhaustedEvent,
@@ -36,6 +54,8 @@ export type {
   TaskRunCreatedEvent,
   TaskRunFailedEvent,
   TaskRunIncompleteEvent,
+  TaskRunNeedsApprovalEvent,
+  TaskRunParkedState,
   TaskRunPolicyDeniedEvent,
   TaskRunQueuedEvent,
   TaskRunStartedEvent,
@@ -44,7 +64,11 @@ export type {
   TaskRunError,
   TaskRunResult,
   TaskRunStatus,
+  ToolExecutorIdentity,
+  ToolExecutorIdentityRecordedEvent,
   VerifierResult,
+  WorkspaceLeaseRecordedEvent,
+  WorkspaceLeaseFacts,
 } from './task-contracts.js';
 export {
   TASK_RUN_TERMINAL_STATUSES,
@@ -52,6 +76,15 @@ export {
   isTerminalTaskRunStatus,
   taxonomyFromResultRecord,
 } from './task-contracts.js';
+export {
+  commandResourceScope,
+  hashNormalizedArgs,
+  matchPermissionGrant,
+  normalizePermissionArgs,
+  permissionPreview,
+  resourceScopeEquals,
+  type NormalizedPermissionArgs,
+} from './permission-grants.js';
 export type { TaskRunProjection, TaskRunStore } from './task-run-store.js';
 export { createInMemoryTaskRunStore, createTaskRunStore, projectTaskRun } from './task-run-store.js';
 export type { TaskEventsFromResultRecordOptions } from './task-run-adapter.js';

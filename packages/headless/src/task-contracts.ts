@@ -11,6 +11,7 @@ export type TaskRunStatus =
   | 'blocked'
   | 'policy_denied'
   | 'budget_exhausted'
+  | 'needs_approval'
   | 'aborted'
   | 'cancelled';
 export type TaskAttemptStatus =
@@ -21,6 +22,7 @@ export type TaskAttemptStatus =
   | 'blocked'
   | 'policy_denied'
   | 'budget_exhausted'
+  | 'needs_approval'
   | 'aborted'
   | 'cancelled';
 
@@ -57,6 +59,15 @@ export type AutonomousResultTaxonomy =
   | 'cancelled';
 
 export type ResultTaxonomy = AutonomousResultTaxonomy;
+
+export type HeadlessInterventionMode = 'fail_closed' | 'park';
+
+export interface TaskInterventionPolicy {
+  mode: HeadlessInterventionMode;
+  approvalTimeoutMs?: number;
+  allowBudgetExtensionRequests?: boolean;
+  allowAmbiguousFailureTriage?: boolean;
+}
 
 export function taxonomyFromResultRecord(record: ResultRecord): AutonomousResultTaxonomy {
   if (record.status === 'completed') {
@@ -210,6 +221,127 @@ export interface ScoreResult {
   details?: Record<string, unknown>;
 }
 
+export interface EnvNetworkSecretPolicy {
+  schemaVersion: 1;
+  env: 'inherit_none' | 'allowlist';
+  envAllowlist?: string[];
+  network: 'disabled' | 'allowlist' | 'unrestricted_external_boundary';
+  networkAllowlist?: string[];
+  secrets: 'none' | 'brokered_by_executor' | 'explicit_allowlist';
+  secretRefs?: string[];
+}
+
+export interface TaskIsolationFacts {
+  schemaVersion: 1;
+  backendKind: string;
+  required: boolean;
+  mode: 'inert_fake_backend' | 'external';
+  label?: string;
+  assertionSource: 'headless_deps' | 'test_fixture' | 'desktop' | 'ci';
+  validatedAt: number;
+}
+
+export interface WorkspaceLeaseFacts {
+  schemaVersion: 1;
+  leaseId: string;
+  taskRunId: string;
+  attemptId?: string;
+  sourceWorkspaceDir: string;
+  workspaceDir: string;
+  leaseKind: 'throwaway_copy';
+  writable: boolean;
+  cleanupPolicy: 'cleanup_on_finally';
+  createdAt: number;
+  releasedAt?: number;
+}
+
+export interface ToolExecutorIdentity {
+  schemaVersion: 1;
+  executorId: string;
+  taskRunId: string;
+  attemptId?: string;
+  toolNames: string[];
+  isolationMode: 'external' | 'inert_fake_backend';
+  label: string;
+  commandPolicy?: EnvNetworkSecretPolicy;
+}
+
+export type PermissionDecision = 'allow' | 'deny' | 'timeout' | 'expired';
+export type PermissionDecisionSource = 'ci_policy' | 'desktop_user' | 'test_fixture' | 'policy_engine';
+
+export interface PermissionResourceScope {
+  kind: 'workspace_path' | 'network' | 'secret' | 'command' | 'tool' | 'budget';
+  value: string;
+  mode?: 'read' | 'write' | 'execute' | 'connect' | 'reveal' | 'extend';
+}
+
+export interface TaskPermissionRequest {
+  schemaVersion: 1;
+  requestId: string;
+  taskRunId: string;
+  attemptId: string;
+  toolCallId: string;
+  toolName: string;
+  normalizedArgsHash: string;
+  resourceScope: PermissionResourceScope;
+  reason: string;
+  preview: Record<string, unknown>;
+  requestedAt: number;
+  expiresAt: number;
+}
+
+export interface TaskPermissionGrant {
+  schemaVersion: 1;
+  grantId: string;
+  requestId: string;
+  taskRunId: string;
+  attemptId?: string;
+  toolCallId?: string;
+  toolName: string;
+  normalizedArgsHash: string;
+  resourceScope: PermissionResourceScope;
+  decision: PermissionDecision;
+  actor: { kind: 'user' | 'system' | 'test'; id?: string };
+  source: PermissionDecisionSource;
+  decidedAt: number;
+  expiresAt: number;
+  reason?: string;
+}
+
+export type TaskInboxKind =
+  | 'approval_request'
+  | 'ambiguous_failure_triage'
+  | 'budget_extension'
+  | 'claim_to_chat';
+
+export type TaskInboxStatus = 'open' | 'claimed' | 'resolved' | 'dismissed' | 'expired';
+
+export interface TaskInboxItem {
+  schemaVersion: 1;
+  inboxItemId: string;
+  taskRunId: string;
+  attemptId?: string;
+  kind: TaskInboxKind;
+  status: TaskInboxStatus;
+  title: string;
+  reason: string;
+  createdAt: number;
+  expiresAt?: number;
+  relatedRequestId?: string;
+  relatedGrantId?: string;
+  relatedVerifierResultId?: string;
+  relatedScoreResultId?: string;
+  claim?: { actorId: string; claimedAt: number; chatRef?: string };
+  resolution?: { decision: string; actorId?: string; resolvedAt: number; reason?: string };
+  preview?: Record<string, unknown>;
+}
+
+export interface TaskRunParkedState {
+  reason: 'approval' | 'ambiguous_failure' | 'budget_extension' | 'claim_to_chat';
+  inboxItemId: string;
+  since: number;
+}
+
 interface BaseTaskEvent {
   id: string;
   taskRunId: string;
@@ -274,6 +406,60 @@ export interface VerifierResultRecordedEvent extends BaseTaskEvent {
 export interface ScoreResultRecordedEvent extends BaseTaskEvent {
   type: 'score_result_recorded';
   result: ScoreResult;
+}
+
+export interface IsolationPolicyRecordedEvent extends BaseTaskEvent {
+  type: 'isolation_policy_recorded';
+  facts: TaskIsolationFacts;
+}
+
+export interface WorkspaceLeaseRecordedEvent extends BaseTaskEvent {
+  type: 'workspace_lease_recorded';
+  lease: WorkspaceLeaseFacts;
+}
+
+export interface ToolExecutorIdentityRecordedEvent extends BaseTaskEvent {
+  type: 'tool_executor_identity_recorded';
+  identity: ToolExecutorIdentity;
+}
+
+export interface PermissionRequestRecordedEvent extends BaseTaskEvent {
+  type: 'permission_request_recorded';
+  request: TaskPermissionRequest;
+}
+
+export interface PermissionGrantRecordedEvent extends BaseTaskEvent {
+  type: 'permission_grant_recorded';
+  grant: TaskPermissionGrant;
+}
+
+export interface PermissionDecisionRecordedEvent extends BaseTaskEvent {
+  type: 'permission_decision_recorded';
+  requestId: string;
+  grant?: TaskPermissionGrant;
+  decision: PermissionDecision;
+  source: PermissionDecisionSource;
+  decidedAt: number;
+  reason?: string;
+}
+
+export interface TaskInboxItemRecordedEvent extends BaseTaskEvent {
+  type: 'task_inbox_item_recorded';
+  item: TaskInboxItem;
+}
+
+export interface TaskInboxItemResolvedEvent extends BaseTaskEvent {
+  type: 'task_inbox_item_resolved';
+  inboxItemId: string;
+  status: Exclude<TaskInboxStatus, 'open'>;
+  resolution?: NonNullable<TaskInboxItem['resolution']>;
+}
+
+export interface TaskRunNeedsApprovalEvent extends BaseTaskEvent {
+  type: 'task_run_needs_approval';
+  attemptId?: string;
+  reason: TaskRunParkedState['reason'];
+  inboxItemId: string;
 }
 
 export interface TaskAttemptCompletedEvent extends BaseTaskEvent {
@@ -349,6 +535,15 @@ export type TaskEvent =
   | AutonomousDecisionRecordedEvent
   | VerifierResultRecordedEvent
   | ScoreResultRecordedEvent
+  | IsolationPolicyRecordedEvent
+  | WorkspaceLeaseRecordedEvent
+  | ToolExecutorIdentityRecordedEvent
+  | PermissionRequestRecordedEvent
+  | PermissionGrantRecordedEvent
+  | PermissionDecisionRecordedEvent
+  | TaskInboxItemRecordedEvent
+  | TaskInboxItemResolvedEvent
+  | TaskRunNeedsApprovalEvent
   | TaskAttemptCompletedEvent
   | TaskRunCompletedEvent
   | TaskRunFailedEvent
