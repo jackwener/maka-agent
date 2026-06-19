@@ -1,5 +1,6 @@
 import { StrictMode, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from 'react';
 import { createRoot } from 'react-dom/client';
+import { PanelLeftOpen, Search, SquarePen } from 'lucide-react';
 import type {
   ConnectionTestResult,
   ConnectionEvent,
@@ -49,6 +50,7 @@ import {
   SessionListPanel,
   type SkillEntry,
   ToastProvider,
+  Button as UiButton,
   type TurnFooterActionMeta,
   type TurnLineageBadge,
   useToast,
@@ -103,7 +105,7 @@ const NO_REAL_CONNECTION_CODE = 'NO_REAL_CONNECTION';
 const NO_REAL_CONNECTION_REASON_RE = /NO_REAL_CONNECTION:([a-z_]+): /;
 const USER_MESSAGE_VISIBLE_TIMEOUT_MS = 1_200;
 const USER_MESSAGE_VISIBLE_POLL_MS = 40;
-const SESSION_LIST_COLLAPSED_WIDTH = 60;
+const SESSION_LIST_COLLAPSED_WIDTH = 0;
 const SESSION_LIST_EXPANDED_DEFAULT_WIDTH = 210;
 const SESSION_LIST_EXPANDED_MIN_WIDTH = 210;
 const SESSION_LIST_EXPANDED_MAX_WIDTH = 280;
@@ -2671,7 +2673,11 @@ function AppShell() {
           '--maka-resize-handle-width': sessionListCollapsed ? '0px' : '8px',
         } as CSSProperties}
       >
-        <div className="maka-panel maka-panel-list maka-floating-panel">
+        <div
+          className="maka-panel maka-panel-list maka-floating-panel"
+          aria-hidden={sessionListCollapsed ? 'true' : undefined}
+          inert={sessionListCollapsed ? true : undefined}
+        >
           <SessionListPanel
             selection={navSelection}
             sessionCounts={sessionCounts}
@@ -2742,7 +2748,44 @@ function AppShell() {
           onPointerDown={startColumnResize}
           onKeyDown={onResizeHandleKeyDown}
         />
-        <div className="maka-panel maka-panel-detail maka-floating-panel">
+        <div className="maka-panel maka-panel-detail maka-floating-panel" data-sidebar-state={sessionListCollapsed ? 'collapsed' : 'expanded'}>
+          {sessionListCollapsed && (
+            <div className="maka-collapsed-drag-strip" aria-label="侧边栏已收起">
+              <UiButton
+                className="maka-collapsed-topbar-button"
+                variant="quiet"
+                size="icon-sm"
+                type="button"
+                onClick={() => setSessionListCollapsed(false)}
+                aria-label="展开侧边栏"
+                title="展开侧边栏"
+              >
+                <PanelLeftOpen size={16} strokeWidth={1.65} aria-hidden="true" />
+              </UiButton>
+              <UiButton
+                className="maka-collapsed-topbar-button"
+                variant="quiet"
+                size="icon-sm"
+                type="button"
+                onClick={() => setSearchModalOpen(true)}
+                aria-label="搜索对话"
+                title="搜索对话"
+              >
+                <Search size={16} strokeWidth={1.65} aria-hidden="true" />
+              </UiButton>
+              <UiButton
+                className="maka-collapsed-topbar-button"
+                variant="quiet"
+                size="icon-sm"
+                type="button"
+                onClick={createSession}
+                aria-label="新建对话"
+                title="新建对话"
+              >
+                <SquarePen size={16} strokeWidth={1.65} aria-hidden="true" />
+              </UiButton>
+            </div>
+          )}
           {/* PR-UI-RENDER-2: install the internal-URI dispatcher
               for any Markdown rendered inside ChatView (assistant
               answers, thinking panels, streaming bubbles). Wrapping

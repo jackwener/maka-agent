@@ -28,6 +28,7 @@ import {
   Loader2,
   MessageSquare,
   MoreHorizontal,
+  Mic,
   Paperclip,
   PanelLeftClose,
   PanelLeftOpen,
@@ -6018,7 +6019,29 @@ export const Composer = forwardRef<
           </span>
         )}
         <div className="maka-composer-toolbar composerActions" data-streaming={props.streaming ? 'true' : undefined}>
-          <span>
+          <div className="maka-composer-left-controls">
+            {!props.streaming && props.onImportTextFile && (
+              <UiButton
+                variant="quiet"
+                size="icon-sm"
+                className="maka-composer-tool-button maka-composer-context-plus"
+                type="button"
+                disabled={props.disabled || importActionBusy}
+                onClick={() => void runImportAction('file', props.onImportTextFile)}
+                aria-label={pendingImportAction === 'file' ? '正在添加上下文' : '添加上下文'}
+                aria-busy={pendingImportAction === 'file' ? 'true' : undefined}
+                data-pending={pendingImportAction === 'file' ? 'true' : undefined}
+                title={pendingImportAction === 'file' ? '正在添加上下文' : '添加上下文'}
+              >
+                <Plus size={15} strokeWidth={1.85} aria-hidden="true" />
+              </UiButton>
+            )}
+            <span className="maka-composer-role-chip" aria-label="通用助手">
+              通用
+              <ChevronDown size={12} strokeWidth={1.8} aria-hidden="true" />
+            </span>
+          </div>
+          <span className="maka-composer-status-slot">
             {props.disabled ? (
               copy.awaitingPermission
             ) : sendPending ? (
@@ -6034,22 +6057,41 @@ export const Composer = forwardRef<
               null
             )}
           </span>
-          <div>
-            {!props.streaming && props.onImportTextFile && (
-              <UiButton
-                variant="quiet"
-                size="icon-sm"
-                className="maka-composer-tool-button"
-                type="button"
-                disabled={props.disabled || importActionBusy}
-                onClick={() => void runImportAction('file', props.onImportTextFile)}
-                aria-label={pendingImportAction === 'file' ? '正在导入文件内容' : '导入文件内容'}
-                aria-busy={pendingImportAction === 'file' ? 'true' : undefined}
-                data-pending={pendingImportAction === 'file' ? 'true' : undefined}
-                title={pendingImportAction === 'file' ? '正在导入文件内容' : '导入文件内容'}
-              >
-                <Paperclip size={14} strokeWidth={1.75} aria-hidden="true" />
-              </UiButton>
+          <div className="maka-composer-right-controls">
+            {!props.streaming && (
+              <>
+                <span className="maka-composer-mode-chip" aria-label="标准模式">
+                  标准
+                  <ChevronDown size={12} strokeWidth={1.8} aria-hidden="true" />
+                </span>
+                <UiButton
+                  variant="quiet"
+                  size="icon-sm"
+                  className="maka-composer-tool-button"
+                  type="button"
+                  disabled
+                  aria-label="语音输入暂未启用"
+                  title="语音输入暂未启用"
+                >
+                  <Mic size={14} strokeWidth={1.75} aria-hidden="true" />
+                </UiButton>
+                {props.onImportTextFile && (
+                  <UiButton
+                    variant="quiet"
+                    size="icon-sm"
+                    className="maka-composer-tool-button"
+                    type="button"
+                    disabled={props.disabled || importActionBusy}
+                    onClick={() => void runImportAction('file', props.onImportTextFile)}
+                    aria-label={pendingImportAction === 'file' ? '正在导入文件内容' : '导入文件内容'}
+                    aria-busy={pendingImportAction === 'file' ? 'true' : undefined}
+                    data-pending={pendingImportAction === 'file' ? 'true' : undefined}
+                    title={pendingImportAction === 'file' ? '正在导入文件内容' : '导入文件内容'}
+                  >
+                    <Paperclip size={14} strokeWidth={1.75} aria-hidden="true" />
+                  </UiButton>
+                )}
+              </>
             )}
             {!props.streaming && props.onImportFolderOutline && (
               <UiButton

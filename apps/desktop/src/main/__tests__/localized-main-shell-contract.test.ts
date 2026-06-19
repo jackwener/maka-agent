@@ -420,7 +420,7 @@ describe('localized main shell contract', () => {
     assert.match(resizeBlock, /window\.removeEventListener\('blur', cleanupResize\)/, 'resize cleanup must remove the blur listener');
   });
 
-  it('keeps the QoderWork-like app shell as one canvas with a collapsible icon sidebar', async () => {
+  it('keeps the QoderWork-like app shell as one canvas with a fully hidden collapsed sidebar', async () => {
     const components = await readFile(resolve(process.cwd(), '..', '..', 'packages', 'ui', 'src', 'components.tsx'), 'utf8');
     const main = await readFile(join(process.cwd(), 'src', 'renderer', 'main.tsx'), 'utf8');
     const styles = await readFile(join(process.cwd(), 'src', 'renderer', 'styles.css'), 'utf8');
@@ -437,9 +437,15 @@ describe('localized main shell contract', () => {
     assert.match(main, /const \[sessionListCollapsed, setSessionListCollapsed\] = useState\(\(\) => readSessionListCollapsed\(\)\);/);
     assert.match(main, /localStorage\.setItem\('maka-chat-list-collapsed-v1', sessionListCollapsed \? 'true' : 'false'\)/);
     assert.match(main, /data-sidebar-state=\{sessionListCollapsed \? 'collapsed' : 'expanded'\}/);
-    assert.match(main, /const SESSION_LIST_COLLAPSED_WIDTH = 60;/);
+    assert.match(main, /const SESSION_LIST_COLLAPSED_WIDTH = 0;/);
     assert.match(main, /'--maka-session-list-width': `\$\{sessionListCollapsed \? SESSION_LIST_COLLAPSED_WIDTH : sessionListWidth\}px`/);
     assert.match(main, /'--maka-resize-handle-width': sessionListCollapsed \? '0px' : '8px'/);
+    assert.match(main, /className="maka-panel maka-panel-list maka-floating-panel"[\s\S]*aria-hidden=\{sessionListCollapsed \? 'true' : undefined\}[\s\S]*inert=\{sessionListCollapsed \? true : undefined\}/);
+    assert.match(main, /className="maka-panel maka-panel-detail maka-floating-panel" data-sidebar-state=\{sessionListCollapsed \? 'collapsed' : 'expanded'\}/);
+    const collapsedTopbarMarkup = main.match(/className="maka-collapsed-drag-strip" aria-label="侧边栏已收起"[\s\S]*?<MakaUriContext\.Provider/)?.[0] ?? '';
+    assert.match(collapsedTopbarMarkup, /aria-label="展开侧边栏"[\s\S]*<PanelLeftOpen size=\{16\}/);
+    assert.match(collapsedTopbarMarkup, /onClick=\{\(\) => setSearchModalOpen\(true\)\}[\s\S]*aria-label="搜索对话"[\s\S]*<Search size=\{16\}/);
+    assert.match(collapsedTopbarMarkup, /onClick=\{createSession\}[\s\S]*aria-label="新建对话"[\s\S]*<SquarePen size=\{16\}/);
     assert.match(main, /if \(sessionListCollapsed\) return;[\s\S]*function onResizeHandleKeyDown/);
     assert.match(main, /aria-hidden=\{sessionListCollapsed \? 'true' : undefined\}/);
     assert.match(main, /tabIndex=\{sessionListCollapsed \? -1 : 0\}/);
@@ -458,24 +464,33 @@ describe('localized main shell contract', () => {
     // 1px border-right separates it from the main pane.
     assert.match(listPanel, /background:\s*var\(--background\)/);
     assert.doesNotMatch(listPanel, /calc\(l - 0\.015\)/);
+    assert.match(styles, /\.maka-shell-2col\[data-sidebar-state="collapsed"\] \.maka-panel-list\.maka-floating-panel \{[\s\S]*?border-right:\s*0/);
     const detailPanel = extractCssRule(styles, '.maka-panel-detail.maka-floating-panel');
     assert.ok(detailPanel, '.maka-panel-detail.maka-floating-panel rule must exist');
-    assert.match(detailPanel, /margin:\s*8px 8px 8px 0/);
+    assert.match(detailPanel, /margin:\s*12px 12px 12px 0/);
     assert.match(detailPanel, /border:\s*1px solid var\(--border\)/);
     assert.match(detailPanel, /border-radius:\s*12px/);
     assert.match(detailPanel, /background:\s*var\(--background\)/);
     assert.match(detailPanel, /box-shadow:\s*none/);
+    assert.match(detailPanel, /display:\s*flex/);
+    assert.match(detailPanel, /flex-direction:\s*column/);
     assert.doesNotMatch(detailPanel, /background-image:\s*radial-gradient/);
+    const collapsedTopbar = extractCssRule(styles, '.maka-collapsed-drag-strip');
+    assert.ok(collapsedTopbar, '.maka-collapsed-drag-strip rule must exist');
+    assert.match(collapsedTopbar, /min-height:\s*38px/);
+    assert.match(collapsedTopbar, /padding:\s*8px 12px 0/);
+    assert.match(collapsedTopbar, /-webkit-app-region:\s*drag/);
+    const collapsedTopbarButton = extractCssRule(styles, '.maka-collapsed-topbar-button');
+    assert.ok(collapsedTopbarButton, '.maka-collapsed-topbar-button rule must exist');
+    assert.match(collapsedTopbarButton, /-webkit-app-region:\s*no-drag/);
     const sidebarTopBar = extractCssRule(styles, '.maka-sidebar-drag-strip');
     assert.ok(sidebarTopBar, '.maka-sidebar-drag-strip rule must exist');
     assert.match(sidebarTopBar, /justify-content:\s*space-between/);
     assert.match(styles, /\.maka-sidebar-search-button,\n\.maka-sidebar-toggle \{/);
-    const collapsedNav = extractCssRule(styles, '.maka-session-panel[data-collapsed="true"] .maka-nav-primary,\n.maka-session-panel[data-collapsed="true"] .maka-nav-row');
-    assert.ok(collapsedNav, 'collapsed nav sizing rule must exist');
-    assert.match(collapsedNav, /width:\s*34px/);
-    assert.match(collapsedNav, /grid-template-columns:\s*1fr/);
-    assert.match(styles, /\.maka-session-panel\[data-collapsed="true"\] \.maka-session-list-title,\n\.maka-session-panel\[data-collapsed="true"\] \.maka-list-stack,\n\.maka-session-panel\[data-collapsed="true"\] \.maka-sidebar-module-hint,\n\.maka-session-panel\[data-collapsed="true"\] \.maka-empty-state \{[\s\S]*?display:\s*none/);
-    assert.match(styles, /\.maka-session-panel\[data-collapsed="true"\] \.maka-nav-row\[data-active="true"\] \.maka-nav-icon \{[\s\S]*?color:\s*white/);
+    const detailWithArtifacts = extractCssRule(styles, '.maka-detail-with-artifacts');
+    assert.ok(detailWithArtifacts, '.maka-detail-with-artifacts rule must exist');
+    assert.match(detailWithArtifacts, /flex:\s*1 1 auto/);
+    assert.match(detailWithArtifacts, /height:\s*auto/);
     assert.match(styles, /--w-sessionlist:\s*210px;/);
   });
 
@@ -486,7 +501,9 @@ describe('localized main shell contract', () => {
     const composerCard = extractCssRule(styles, '.composer .maka-composer-inner');
     const composerFocus = extractCssRule(styles, '.composer .maka-composer-inner:focus-within');
     const composerToolbar = extractCssRule(styles, '.composerActions');
+    const composerTextarea = extractCssRule(styles, '.composer textarea');
     const composerShell = extractCssRule(styles, '.composer');
+    const heroShell = extractCssRule(styles, '.maka-hero,\n.emptyChat');
     const heroHeadline = extractCssRule(styles, '.maka-hero h1,\n.emptyChat h1');
     const workspaceRow = extractCssRule(styles, '.maka-composer-workspace-row');
     const workspacePicker = extractCssRule(styles, '.maka-composer-workspace-picker');
@@ -517,6 +534,8 @@ describe('localized main shell contract', () => {
     assert.ok(composerShell, '.composer rule must exist');
     assert.match(composerShell, /display:\s*flex/);
     assert.match(composerShell, /align-items:\s*center/);
+    assert.ok(heroShell, '.maka-hero rule must exist');
+    assert.match(heroShell, /gap:\s*32px/);
     assert.ok(heroHeadline, '.maka-hero h1 rule must exist');
     assert.match(heroHeadline, /font-size:\s*28px/);
     assert.doesNotMatch(heroHeadline, /clamp\(/);
@@ -540,6 +559,14 @@ describe('localized main shell contract', () => {
     assert.match(composerToolbar, /margin-top:\s*12px/);
     assert.match(composerToolbar, /padding-top:\s*10px/);
     assert.match(composerToolbar, /border-top:\s*1px solid oklch\(from var\(--foreground\) l c h \/ 0\.055\)/);
+    assert.ok(composerTextarea, '.composer textarea rule must exist');
+    assert.match(composerTextarea, /min-height:\s*var\(--h-composer-min,\s*84px\)/);
+    assert.match(styles, /\.maka-composer-left-controls,\n\.maka-composer-right-controls \{[\s\S]*?gap:\s*6px/);
+    assert.match(styles, /\.maka-composer-role-chip,\n\.maka-composer-mode-chip \{[\s\S]*?height:\s*32px[\s\S]*?border-radius:\s*8px/);
+    assert.match(components, /className="maka-composer-tool-button maka-composer-context-plus"[\s\S]*aria-label=\{pendingImportAction === 'file' \? '正在添加上下文' : '添加上下文'\}[\s\S]*<Plus size=\{15\}/);
+    assert.match(components, /className="maka-composer-role-chip"[\s\S]*aria-label="通用助手"[\s\S]*通用[\s\S]*<ChevronDown size=\{12\}/);
+    assert.match(components, /className="maka-composer-mode-chip"[\s\S]*aria-label="标准模式"[\s\S]*标准[\s\S]*<ChevronDown size=\{12\}/);
+    assert.match(components, /aria-label="语音输入暂未启用"[\s\S]*<Mic size=\{14\}/);
     assert.match(components, /import \{[\s\S]*ArrowUp,[\s\S]*\} from 'lucide-react';/);
     assert.match(components, /className="maka-composer-send-button"[\s\S]*size="icon-sm"[\s\S]*aria-label=\{buttonCopy\.sendLabel\}[\s\S]*<ArrowUp size=\{16\} strokeWidth=\{2\.1\} aria-hidden="true" \/>/);
     const sendButton = extractCssRule(styles, '.maka-composer-send-button');

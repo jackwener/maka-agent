@@ -188,12 +188,40 @@ button:active {
      (.agents-content-area / parchment-paper-surface), while the
      sidebar stays flat. Keep this at the shell boundary so chat,
      modules, and artifact panes share one workspace surface. */
-  margin: 8px 8px 8px 0;
+  margin: 12px 12px 12px 0;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--background);
   box-shadow: none;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.maka-shell-2col[data-sidebar-state="collapsed"] .maka-panel-list.maka-floating-panel {
+  border-right: 0;
+}
+
+.maka-collapsed-drag-strip {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px 0;
+  -webkit-app-region: drag;
+}
+
+.maka-collapsed-topbar-button {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  color: var(--foreground-70);
+  -webkit-app-region: no-drag;
+}
+
+.maka-collapsed-topbar-button:hover {
+  color: var(--foreground);
+  background: var(--foreground-5);
 }
 
 .maka-resize-handle {
@@ -4114,7 +4142,7 @@ button:active {
   margin: auto;
   padding: 24px 28px 8vh;
   display: grid;
-  gap: 20px;
+  gap: 32px;
   color: var(--foreground);
 }
 
@@ -4153,7 +4181,7 @@ button:active {
 
 .maka-hero p,
 .emptyChat p {
-  margin: 10px 0 0;
+  margin: 0;
   max-width: 54ch;
   color: var(--foreground-60);
   font-size: 14px;
@@ -4837,7 +4865,7 @@ button:active {
   /* Auto-resizing textarea: starts at min-height for a single line, grows up
      to max-height as the user adds lines, then scrolls internally. The JS
      side caps at 240px (see `COMPOSER_MAX_HEIGHT` in @maka/ui). */
-  min-height: var(--h-composer-min, 56px);
+  min-height: var(--h-composer-min, 84px);
   max-height: 240px;
   resize: none;
   overflow-y: auto;
@@ -4860,16 +4888,55 @@ button:active {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   margin-top: 12px;
   padding-top: 10px;
   border-top: 1px solid oklch(from var(--foreground) l c h / 0.055);
 }
 
-.composerActions > div {
+.maka-composer-left-controls,
+.maka-composer-right-controls {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.maka-composer-left-controls {
+  flex: 0 0 auto;
+}
+
+.maka-composer-right-controls {
+  flex: 0 0 auto;
+  justify-content: flex-end;
+}
+
+.maka-composer-status-slot {
+  min-width: 0;
+  flex: 1 1 auto;
+  color: var(--foreground-50);
+  font-size: 12px;
+}
+
+.maka-composer-role-chip,
+.maka-composer-mode-chip {
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 10px;
+  background: transparent;
+  color: var(--foreground-60);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.maka-composer-role-chip:hover,
+.maka-composer-mode-chip:hover {
+  background: var(--foreground-3);
+  color: var(--foreground);
 }
 
 .maka-composer-tool-button {
@@ -4883,6 +4950,11 @@ button:active {
   background: var(--foreground-3);
   color: var(--foreground-60);
   cursor: pointer;
+}
+
+.maka-composer-context-plus {
+  border-color: transparent;
+  background: transparent;
 }
 
 .maka-composer-tool-button:hover:not(:disabled) {
@@ -9009,7 +9081,8 @@ button:active {
   display: flex;
   flex-direction: row;
   align-items: stretch;
-  height: 100%;
+  flex: 1 1 auto;
+  height: auto;
   min-width: 0;
   min-height: 0;
 }
