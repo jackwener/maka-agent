@@ -557,7 +557,7 @@ const openGateway = new OpenGatewayService({
       getPrivacyContext: getWorkspacePrivacyContext,
     }),
   onStatusChanged: (status) => {
-    mainWindow?.webContents.send('gateway:statusChanged', status);
+    safeSendToRenderer('gateway:statusChanged', status);
   },
 });
 const backends = new BackendRegistry();
@@ -626,7 +626,7 @@ const botRegistry = new BotRegistry({
     void handleBotIncomingMessage(message);
   },
   onStatusChange: (status) => {
-    mainWindow?.webContents.send('settings:bots:statusChanged', status);
+    safeSendToRenderer('settings:bots:statusChanged', status);
     // PR-BOT-LASTERROR-FROM-SEND-0: persist send-path failure reasons
     // to settings so they survive a Settings page close/reopen. The
     // existing connection-test path writes `lastError` only on test
@@ -732,7 +732,7 @@ async function persistToolArtifacts(cwd: string, event: ToolArtifactRecorderInpu
       source: candidate.source ?? 'tool_result',
       ...(candidate.summary ? { summary: candidate.summary } : {}),
     });
-    mainWindow?.webContents.send('artifacts:changed', {
+    safeSendToRenderer('artifacts:changed', {
       reason: 'created',
       artifactId: artifact.id,
       sessionId: artifact.sessionId,
@@ -857,7 +857,7 @@ backends.register('ai-sdk', async (ctx) => {
     loadHistoryCompact: (event) => loadHistoryCompactBlocksFromArtifacts(artifactStore, event),
     writeHistoryCompact: (event) => persistHistoryCompactBlocksToArtifacts(artifactStore, event, {
       onArtifactCreated: (artifact) => {
-        mainWindow?.webContents.send('artifacts:changed', {
+        safeSendToRenderer('artifacts:changed', {
           reason: 'created',
           artifactId: artifact.id,
           sessionId: artifact.sessionId,
@@ -868,7 +868,7 @@ backends.register('ai-sdk', async (ctx) => {
     loadSynthesisCache: (event) => loadSynthesisCacheBlocksFromArtifacts(artifactStore, event),
     writeSynthesisCache: (event) => persistSynthesisCacheBlocksToArtifacts(artifactStore, event, {
       onArtifactCreated: (artifact) => {
-        mainWindow?.webContents.send('artifacts:changed', {
+        safeSendToRenderer('artifacts:changed', {
           reason: 'created',
           artifactId: artifact.id,
           sessionId: artifact.sessionId,
@@ -1279,6 +1279,26 @@ const onboardingService = createOnboardingService(
 );
 
 let mainWindow: BrowserWindow | null = null;
+
+/**
+ * Guarded `webContents.send` for `mainWindow`. The `mainWindow?.` optional
+ * chain only covers a null reference — it does NOT catch the case where the
+ * BrowserWindow has been destroyed (window closed, renderer crashed,
+ * teardown raced) while the variable still points at the freed object.
+ * Calling `.webContents.send` in that state throws `TypeError: Object has
+ * been destroyed`, surfacing as a main-process JS-error dialog.
+ *
+ * Use this helper anywhere a timer / IPC / menu accelerator might race
+ * window teardown. No-op when the window is gone — callers that need
+ * delivery confirmation should observe their own state.
+ */
+function safeSendToRenderer(channel: string, ...args: unknown[]): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const wc = mainWindow.webContents;
+  if (wc.isDestroyed()) return;
+  wc.send(channel, ...args);
+}
+
 const MAIN_WINDOW_TRAFFIC_LIGHT_POSITION = { x: 14, y: 14 } as const;
 const HIDDEN_TRAFFIC_LIGHT_POSITION = { x: -100, y: -100 } as const;
 const planReminderTimers = new Map<string, NodeJS.Timeout>();
@@ -1299,10 +1319,10 @@ function getBrowserViews(): BrowserViewManager<BrowserViewController> {
       create: (sessionId) => {
         if (!mainWindow) throw new Error('Embedded browser used before the window is ready.');
         return new BrowserViewController(mainWindow, sessionId, (sid, state) => {
-          mainWindow?.webContents.send('browser:state', { sessionId: sid, state });
+          safeSendToRenderer('browser:state', { sessionId: sid, state });
         });
       },
-      onLiveChange: (sessionIds) => mainWindow?.webContents.send('browser:live', { sessionIds }),
+      onLiveChange: (sessionIds) => safeSendToRenderer('browser:live', { sessionIds }),
     });
   }
   return browserViews;
@@ -1568,7 +1588,7 @@ function installApplicationMenu(): void {
           {
             label: '设置…',
             accelerator: 'CommandOrControl+,',
-            click: () => mainWindow?.webContents.send('window:openSettings'),
+            click: () => safeSendToRenderer('window:openSettings'),
           },
           { type: 'separator' },
           { role: 'hide', label: '隐藏 Maka' },
@@ -2159,7 +2179,7 @@ function registerIpc(): void {
     await artifactStore.delete(artifactId);
     const artifact = await artifactStore.get(artifactId);
     if (artifact) {
-      mainWindow?.webContents.send('artifacts:changed', {
+      safeSendToRenderer('artifacts:changed', {
         reason: 'deleted',
         artifactId,
         sessionId: artifact.sessionId,
@@ -3253,7 +3273,7 @@ function registerIpc(): void {
       }
       await telemetryRepo.upsertPricing(normalized.value);
       lookupPricing = buildPricingLookup(telemetryRepo.listPricingOverrides());
-      mainWindow?.webContents.send('usage:pricing:changed');
+      safeSendToRenderer('usage:pricing:changed');
       return normalized.value;
     }, 'USAGE_PRICING_PUT_FAILED'),
   );
@@ -3270,7 +3290,7 @@ function registerIpc(): void {
       }
       await telemetryRepo.deletePricing(keyResult.value);
       lookupPricing = buildPricingLookup(telemetryRepo.listPricingOverrides());
-      mainWindow?.webContents.send('usage:pricing:changed');
+      safeSendToRenderer('usage:pricing:changed');
     }, 'USAGE_PRICING_RESET_FAILED'),
   );
 
@@ -3293,14 +3313,14 @@ async function applySettingsRuntimeEffects(settings: AppSettings, patch: UpdateA
   if (patch.network) {
     const network = toContractNetworkSettings(settings.network);
     setActiveProxy(network.proxy);
-    mainWindow?.webContents.send('settings:network:changed', maskNetworkSettings(network));
+    safeSendToRenderer('settings:network:changed', maskNetworkSettings(network));
   }
   if (patch.botChat) {
     await botRegistry.applySettings(settings.botChat);
   }
   if (patch.openGateway) {
     const status = await openGateway.sync(settings.openGateway);
-    mainWindow?.webContents.send('gateway:statusChanged', status);
+    safeSendToRenderer('gateway:statusChanged', status);
   }
 }
 
@@ -3317,7 +3337,7 @@ async function streamEvents(
         emitSessionsChanged('message-appended', sessionId);
         userAppendBroadcasted = true;
       }
-      mainWindow?.webContents.send(`sessions:event:${sessionId}`, event);
+      safeSendToRenderer(`sessions:event:${sessionId}`, event);
       openGateway.publishSessionEvent(sessionId, event);
       if (isStatusChangingSessionEvent(event)) {
         emitSessionsChanged('status-change', sessionId);
@@ -3341,7 +3361,7 @@ async function streamEvents(
       reason: errorReason(error),
       message: errorMessage(error),
     } satisfies SessionEvent;
-    mainWindow?.webContents.send(`sessions:event:${sessionId}`, event);
+    safeSendToRenderer(`sessions:event:${sessionId}`, event);
     openGateway.publishSessionEvent(sessionId, event);
     emitSessionsChanged('status-change', sessionId);
     emitSessionsChanged('turn-status-change', sessionId);
@@ -3654,7 +3674,7 @@ async function collectBotReply(
         emitSessionsChanged('message-appended', sessionId);
         userAppendBroadcasted = true;
       }
-      mainWindow?.webContents.send(`sessions:event:${sessionId}`, event);
+      safeSendToRenderer(`sessions:event:${sessionId}`, event);
       if (event.type === 'text_complete') latestText = event.text;
       if (event.type === 'permission_request') {
         return '这条请求需要在 Maka 桌面端审批后才能继续。';
@@ -3674,7 +3694,7 @@ async function collectBotReply(
       }
     }
   } catch (error) {
-    mainWindow?.webContents.send(`sessions:event:${sessionId}`, {
+    safeSendToRenderer(`sessions:event:${sessionId}`, {
       type: 'error',
       id: randomUUID(),
       turnId: fallbackTurnId,
@@ -3935,7 +3955,7 @@ function emitConnectionListChanged(): void {
     id: randomUUID(),
     ts: Date.now(),
   };
-  mainWindow?.webContents.send('connections:event', event);
+  safeSendToRenderer('connections:event', event);
 }
 
 function emitSessionsChanged(
@@ -3951,7 +3971,7 @@ function emitSessionsChanged(
   if (sessionId) event.sessionId = sessionId;
   if (extra?.connectionSlug) event.connectionSlug = extra.connectionSlug;
   if (extra?.modelId) event.modelId = extra.modelId;
-  mainWindow?.webContents.send('sessions:changed', event);
+  safeSendToRenderer('sessions:changed', event);
 }
 
 function normalizeSessionModelSelection(input: unknown): { llmConnectionSlug: string; model: string } {
@@ -3974,7 +3994,7 @@ function emitPlansChanged(
   reason: 'created' | 'updated' | 'deleted' | 'triggered' | 'blocked',
   reminder: Pick<PlanReminder, 'id'>,
 ): void {
-  mainWindow?.webContents.send('plans:changed', {
+  safeSendToRenderer('plans:changed', {
     type: 'plans_changed',
     reason,
     reminderId: reminder.id,
@@ -3983,7 +4003,7 @@ function emitPlansChanged(
 }
 
 function emitPlanDue(reminder: PlanReminder): void {
-  mainWindow?.webContents.send('plans:due', reminder);
+  safeSendToRenderer('plans:due', reminder);
 }
 
 function clearPlanReminderTimer(id: string): void {
