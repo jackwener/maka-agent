@@ -94,7 +94,10 @@ export async function runPromptCandidateRound(
   const newId = input.newId ?? randomId;
   const program = await readFile(input.programPath, 'utf8');
   const currentSystemPrompt = await readFile(input.systemPromptPath, 'utf8');
-  const resultsTsv = await readFile(input.resultsTsvPath, 'utf8');
+  const resultsTsv = filterResultsTsvForHeldIn(
+    await readFile(input.resultsTsvPath, 'utf8'),
+    input.heldInDigests,
+  );
   const result = await input.metaAgent({
     runId: input.runId,
     roundId: input.roundId,
@@ -161,6 +164,32 @@ export function renderMetaAgentPrompt(input: MetaAgentPromptInput): string {
     JSON.stringify(input.heldInDigests, null, 2),
     '',
   ].join('\n');
+}
+
+export function filterResultsTsvForHeldIn(
+  resultsTsv: string,
+  heldInDigests: readonly TrajectoryDigest[],
+): string {
+  const hasTrailingNewline = resultsTsv.endsWith('\n');
+  const lines = resultsTsv.split(/\r?\n/);
+  if (lines.at(-1) === '') lines.pop();
+  if (lines.length === 0) return '';
+
+  const header = lines[0];
+  const taskIdIndex = header.split('\t').indexOf('task_id');
+  if (taskIdIndex === -1) {
+    throw new Error('results TSV must include a task_id column');
+  }
+
+  const heldInTaskIds = new Set(heldInDigests.map((digest) => digest.taskId));
+  const filtered = [
+    header,
+    ...lines.slice(1).filter((line) => {
+      const columns = line.split('\t');
+      return heldInTaskIds.has(columns[taskIdIndex] ?? '');
+    }),
+  ];
+  return `${filtered.join('\n')}${hasTrailingNewline ? '\n' : ''}`;
 }
 
 export function parseMetaAgentResult(raw: string): MetaAgentPromptResult {

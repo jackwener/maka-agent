@@ -27,7 +27,7 @@ describe('prompt candidate loop', () => {
       const resultsJsonlPath = join(dir, 'results.jsonl');
       await writeFile(programPath, 'Improve the prompt conservatively.\n', 'utf8');
       await writeFile(systemPromptPath, 'original prompt\n', 'utf8');
-      await writeFile(resultsTsvPath, 'task_id\tpassed\ntask-a\tfalse\n', 'utf8');
+      await writeFile(resultsTsvPath, 'task_id\tpassed\ntask-a\tfalse\nheld-out-secret\ttrue\n', 'utf8');
 
       let seenInput: MetaAgentPromptInput | undefined;
       await runPromptCandidateRound({
