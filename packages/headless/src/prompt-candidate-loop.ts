@@ -302,6 +302,9 @@ export function createCliPromptCandidateGit(input: CreateCliPromptCandidateGitIn
     gitRootPath,
     systemPromptGitPath,
     async assertSystemPromptClean(): Promise<void> {
+      if (!(await isGitTracked(gitRootPath, systemPromptGitPath))) {
+        throw new Error('system_prompt.md must be tracked before candidate round');
+      }
       const [worktreeDirty, indexDirty] = await Promise.all([
         hasGitDiff(gitRootPath, ['diff', '--quiet', '--', systemPromptGitPath]),
         hasGitDiff(gitRootPath, ['diff', '--cached', '--quiet', '--', systemPromptGitPath]),
@@ -327,6 +330,15 @@ export function createCliPromptCandidateGit(input: CreateCliPromptCandidateGitIn
       await execFileAsync('git', ['restore', '--staged', '--worktree', '--', systemPromptGitPath], { cwd: gitRootPath });
     },
   };
+}
+
+async function isGitTracked(cwd: string, path: string): Promise<boolean> {
+  try {
+    await execFileAsync('git', ['ls-files', '--error-unmatch', '--', path], { cwd });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function hasGitDiff(cwd: string, args: readonly string[]): Promise<boolean> {
