@@ -5,7 +5,9 @@ import { join } from 'node:path';
 import { describe, test } from 'node:test';
 import { hashSystemPrompt } from '../fixed-prompt-controller.js';
 import {
+  createScriptedMetaAgent,
   extractTrajectoryDigest,
+  renderMetaAgentPrompt,
   runPromptCandidateRound,
   type MetaAgentPromptInput,
   type MetaAgentPromptResult,
@@ -144,6 +146,43 @@ describe('prompt candidate loop', () => {
         ],
       });
       assert.equal(JSON.stringify(digest).includes('long raw content'), false);
+    });
+  });
+
+  test('scripted meta-agent renders a fixed prompt and parses JSON output', async () => {
+    const input: MetaAgentPromptInput = {
+      runId: 'run-1',
+      roundId: 'round-1',
+      program: 'Improve conservatively.',
+      currentSystemPrompt: 'original prompt',
+      resultsTsv: 'task_id\tpassed\ntask-a\tfalse\n',
+      heldInDigests: [
+        {
+          taskId: 'task-a',
+          errorClass: 'verification_failed',
+          summary: 'missing expected line',
+          recentToolCalls: [{ name: 'Bash', argsPreview: 'command' }],
+        },
+      ],
+    };
+    const prompt = renderMetaAgentPrompt(input);
+    assert.match(prompt, /Improve conservatively/);
+    assert.match(prompt, /task-a/);
+    assert.match(prompt, /original prompt/);
+
+    const metaAgent = createScriptedMetaAgent({
+      complete: async ({ prompt: renderedPrompt }) => {
+        assert.equal(renderedPrompt, prompt);
+        return JSON.stringify({
+          systemPrompt: 'candidate prompt\n',
+          summary: 'ask for exact output line',
+        });
+      },
+    });
+
+    assert.deepEqual(await metaAgent(input), {
+      systemPrompt: 'candidate prompt\n',
+      summary: 'ask for exact output line',
     });
   });
 });

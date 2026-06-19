@@ -42,6 +42,16 @@ export interface MetaAgentPromptResult {
 
 export type MetaAgent = (input: MetaAgentPromptInput) => Promise<MetaAgentPromptResult>;
 
+export interface MetaAgentCompletionInput {
+  prompt: string;
+}
+
+export type MetaAgentCompletion = (input: MetaAgentCompletionInput) => Promise<string>;
+
+export interface CreateScriptedMetaAgentInput {
+  complete: MetaAgentCompletion;
+}
+
 export interface PromptCandidateGit {
   changedFiles(): Promise<readonly string[]>;
   commit(message: string): Promise<string>;
@@ -118,6 +128,44 @@ export async function extractTrajectoryDigest(
     summary: input.verifierSummary,
     ...(recentToolCalls.length > 0 ? { recentToolCalls } : {}),
   };
+}
+
+export function createScriptedMetaAgent(input: CreateScriptedMetaAgentInput): MetaAgent {
+  return async (promptInput) => {
+    const raw = await input.complete({ prompt: renderMetaAgentPrompt(promptInput) });
+    return parseMetaAgentResult(raw);
+  };
+}
+
+export function renderMetaAgentPrompt(input: MetaAgentPromptInput): string {
+  return [
+    'You are improving one system prompt for benchmark tasks.',
+    'Return JSON only: {"systemPrompt":"...","summary":"..."}.',
+    '',
+    '# Program',
+    input.program,
+    '# Current System Prompt',
+    input.currentSystemPrompt,
+    '# Results TSV',
+    input.resultsTsv,
+    '# Held-In Digests',
+    JSON.stringify(input.heldInDigests, null, 2),
+    '',
+  ].join('\n');
+}
+
+export function parseMetaAgentResult(raw: string): MetaAgentPromptResult {
+  const parsed = JSON.parse(raw) as unknown;
+  if (!isRecord(parsed)) throw new Error('meta-agent output must be a JSON object');
+  const systemPrompt = parsed.systemPrompt;
+  const summary = parsed.summary;
+  if (typeof systemPrompt !== 'string' || systemPrompt.length === 0) {
+    throw new Error('meta-agent output systemPrompt must be a non-empty string');
+  }
+  if (typeof summary !== 'string' || summary.length === 0) {
+    throw new Error('meta-agent output summary must be a non-empty string');
+  }
+  return { systemPrompt, summary };
 }
 
 function promptCandidateCommittedEvent(input: {

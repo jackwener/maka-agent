@@ -54,6 +54,9 @@ export type {
   MetaAgentPromptInput,
   MetaAgentPromptResult,
   ExtractTrajectoryDigestInput,
+  CreateScriptedMetaAgentInput,
+  MetaAgentCompletion,
+  MetaAgentCompletionInput,
   PromptCandidateGit,
   PromptCandidateRoundResult,
   RunPromptCandidateRoundInput,
@@ -62,7 +65,10 @@ export type {
 } from './prompt-candidate-loop.js';
 export {
   assertOnlySystemPromptChanged,
+  createScriptedMetaAgent,
   extractTrajectoryDigest,
+  parseMetaAgentResult,
+  renderMetaAgentPrompt,
   runPromptCandidateRound,
 } from './prompt-candidate-loop.js';
 export type {
