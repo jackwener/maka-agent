@@ -26,6 +26,7 @@ export {
   runHarborCellFromEnv,
 } from './harbor-cell.js';
 export type {
+  FixedPromptControllerStopReason,
   FixedPromptControllerResult,
   FixedPromptTask,
   FixedPromptTaskCompletedEvent,

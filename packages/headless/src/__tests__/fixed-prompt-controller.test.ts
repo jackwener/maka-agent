@@ -241,6 +241,81 @@ describe('fixed prompt controller', () => {
     });
   });
 
+  test('stops when infra failures exceed the configured rate', async () => {
+    await withDir(async (dir) => {
+      const systemPromptPath = join(dir, 'system_prompt.md');
+      const resultsJsonlPath = join(dir, 'results.jsonl');
+      await writeFile(systemPromptPath, 'fixed prompt\n', 'utf8');
+
+      const calls: string[] = [];
+      const result = await runFixedPromptController({
+        runId: 'run-1',
+        roundId: 'round-1',
+        config,
+        systemPromptPath,
+        resultsJsonlPath,
+        resultsTsvPath: join(dir, 'results.tsv'),
+        tasks: [
+          { id: 'task-a', path: '/bench/task-a' },
+          { id: 'task-b', path: '/bench/task-b' },
+          { id: 'task-c', path: '/bench/task-c' },
+          { id: 'task-d', path: '/bench/task-d' },
+          { id: 'task-e', path: '/bench/task-e' },
+        ],
+        maxInfraFailureRate: 0.2,
+        harborRunner: async ({ task }) => {
+          calls.push(task.id);
+          throw new Error(`container crashed for ${task.id}`);
+        },
+        now: () => 100,
+        newId: idFactory(),
+      });
+
+      assert.deepEqual(calls, ['task-a', 'task-b']);
+      assert.equal(result.stopReason, 'infra_failure_rate_exceeded');
+      assert.deepEqual(result.taskIds, ['task-a', 'task-b']);
+      assert.equal((await readFile(resultsJsonlPath, 'utf8')).trimEnd().split('\n').length, 2);
+    });
+  });
+
+  test('stops when cost exceeds the configured ceiling', async () => {
+    await withDir(async (dir) => {
+      const systemPromptPath = join(dir, 'system_prompt.md');
+      const resultsJsonlPath = join(dir, 'results.jsonl');
+      await writeFile(systemPromptPath, 'fixed prompt\n', 'utf8');
+
+      const calls: string[] = [];
+      const result = await runFixedPromptController({
+        runId: 'run-1',
+        roundId: 'round-1',
+        config,
+        systemPromptPath,
+        resultsJsonlPath,
+        resultsTsvPath: join(dir, 'results.tsv'),
+        tasks: [
+          { id: 'task-a', path: '/bench/task-a' },
+          { id: 'task-b', path: '/bench/task-b' },
+          { id: 'task-c', path: '/bench/task-c' },
+        ],
+        costCeilingUsd: 0.03,
+        harborRunner: async ({ task }) => {
+          calls.push(task.id);
+          return harborOutput({
+            taskId: task.id,
+            tokenSummary: { input: 1, output: 2, reasoning: 0, total: 3, costUsd: 0.02 },
+          });
+        },
+        now: () => 100,
+        newId: idFactory(),
+      });
+
+      assert.deepEqual(calls, ['task-a', 'task-b']);
+      assert.equal(result.stopReason, 'cost_ceiling_exceeded');
+      assert.equal(result.totalCostUsd, 0.04);
+      assert.deepEqual(result.taskIds, ['task-a', 'task-b']);
+    });
+  });
+
   test('reads Harbor reward and Maka cell output artifacts', async () => {
     await withDir(async (dir) => {
       const harborResultPath = join(dir, 'result.json');
