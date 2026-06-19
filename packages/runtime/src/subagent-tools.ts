@@ -3,8 +3,9 @@ import type { ToolResultContent } from '@maka/core';
 import type { MakaTool } from './tool-runtime.js';
 import {
   LOCAL_READ_AGENT_DEFINITION,
+  LOCAL_READ_AGENT_PROFILE,
   buildToolsForAgentDefinition,
-  requireBuiltinAgentDefinition,
+  requireBuiltinAgentDefinitionByProfile,
 } from './agent-catalog.js';
 import type { ToolGroup } from './tool-availability.js';
 
@@ -27,7 +28,7 @@ export function buildChildAgentTools(tools: readonly MakaTool[]): MakaTool[] {
 
 export function buildSubagentSpawnTool(): MakaTool<
   {
-    agent: string;
+    profile: string;
     task: string;
   },
   unknown
@@ -37,7 +38,7 @@ export function buildSubagentSpawnTool(): MakaTool<
     displayName: 'Agent',
     description: 'Run a foreground catalog child agent for a bounded task and return its explicit result.',
     parameters: z.object({
-      agent: z.string().min(1).max(80).describe('Built-in agent id, such as "local-read".'),
+      profile: z.enum([LOCAL_READ_AGENT_PROFILE]).describe('Child agent profile, currently "local_read".'),
       task: z.string().min(1).max(60_000).describe('Bounded task for the selected child agent.'),
     }),
     permissionRequired: true,
@@ -46,7 +47,7 @@ export function buildSubagentSpawnTool(): MakaTool<
       if (!ctx.spawnChildAgent) {
         throw new Error('spawnChildAgent capability is unavailable in this runtime context');
       }
-      const definition = requireBuiltinAgentDefinition(input.agent);
+      const definition = requireBuiltinAgentDefinitionByProfile(input.profile);
       const result = await ctx.spawnChildAgent({
         spec: {
           id: definition.id,

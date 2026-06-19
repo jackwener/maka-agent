@@ -7,9 +7,11 @@ import {
 import type { MakaTool } from './tool-runtime.js';
 
 export const LOCAL_READ_AGENT_ID = 'local-read';
+export const LOCAL_READ_AGENT_PROFILE = 'local_read';
 
 export interface AgentDefinition {
   id: string;
+  profile: string;
   name: string;
   description: string;
   permissionMode: PermissionMode;
@@ -20,6 +22,7 @@ export interface AgentDefinition {
 
 export interface AgentDefinitionListItem {
   id: string;
+  profile: string;
   name: string;
   description: string;
   permissionMode: PermissionMode;
@@ -28,6 +31,7 @@ export interface AgentDefinitionListItem {
 
 export const LOCAL_READ_AGENT_DEFINITION: AgentDefinition = {
   id: LOCAL_READ_AGENT_ID,
+  profile: LOCAL_READ_AGENT_PROFILE,
   name: 'Local Read',
   description: 'Read-only repository exploration with file and text search tools only.',
   permissionMode: 'explore',
@@ -56,6 +60,7 @@ const modeRank: Record<PermissionMode, number> = {
 export function listBuiltinAgentDefinitions(): AgentDefinitionListItem[] {
   return BUILTIN_AGENT_DEFINITIONS.map((definition) => ({
     id: definition.id,
+    profile: definition.profile,
     name: definition.name,
     description: definition.description,
     permissionMode: definition.permissionMode,
@@ -67,11 +72,24 @@ export function getBuiltinAgentDefinition(id: string): AgentDefinition | undefin
   return BUILTIN_AGENT_DEFINITIONS.find((definition) => definition.id === id);
 }
 
+export function getBuiltinAgentDefinitionByProfile(profile: string): AgentDefinition | undefined {
+  return BUILTIN_AGENT_DEFINITIONS.find((definition) => definition.profile === profile);
+}
+
 export function requireBuiltinAgentDefinition(id: string): AgentDefinition {
   const definition = getBuiltinAgentDefinition(id);
   if (!definition) {
     const available = BUILTIN_AGENT_DEFINITIONS.map((agent) => agent.id).join(', ');
     throw new Error(`Unknown agent "${id}". Available agents: ${available}.`);
+  }
+  return definition;
+}
+
+export function requireBuiltinAgentDefinitionByProfile(profile: string): AgentDefinition {
+  const definition = getBuiltinAgentDefinitionByProfile(profile);
+  if (!definition) {
+    const available = BUILTIN_AGENT_DEFINITIONS.map((agent) => agent.profile).join(', ');
+    throw new Error(`Unknown agent profile "${profile}". Available profiles: ${available}.`);
   }
   return definition;
 }
