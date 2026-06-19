@@ -351,7 +351,7 @@ button:active {
   position: absolute;
   z-index: 4;
   top: 16px;
-  right: 18px;
+  right: 32px;
   display: inline-flex;
   align-items: center;
   gap: 12px;
@@ -5160,6 +5160,7 @@ button:active {
 }
 
 .composer .maka-composer-inner {
+  --h-composer-min: 88px;
   width: min(750px, 80vw);
   max-width: 750px;
   margin-inline: auto;

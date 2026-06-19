@@ -458,7 +458,7 @@ describe('localized main shell contract', () => {
     assert.ok(workspaceTopActions, '.maka-workspace-top-actions rule must exist');
     assert.match(workspaceTopActions, /position:\s*absolute/);
     assert.match(workspaceTopActions, /top:\s*16px/);
-    assert.match(workspaceTopActions, /right:\s*18px/);
+    assert.match(workspaceTopActions, /right:\s*32px/);
     assert.match(workspaceTopActions, /gap:\s*12px/);
     assert.match(styles, /\.mainColumn\[data-home-surface="true"\]\s*\{[\s\S]*?grid-template-rows:\s*auto auto[\s\S]*?align-content:\s*center/);
     assert.match(main, /if \(sessionListCollapsed\) return;[\s\S]*function onResizeHandleKeyDown/);
@@ -553,6 +553,8 @@ describe('localized main shell contract', () => {
     assert.doesNotMatch(emptyHero, /maka-hero-eyebrow/);
     assert.doesNotMatch(emptyHero, /maka-hero-palette-hint/);
     assert.doesNotMatch(emptyHero, /paletteHint|copy\.eyebrow/);
+    assert.match(components, /intro:\s*'本地运行、自主规划、安全可控的 AI 工作搭子。'/);
+    assert.doesNotMatch(components, /说一下你要改的、想问的、想查的；直接在下方输入框里描述需求/);
     assert.doesNotMatch(styles, /\.maka-hero-palette-hint/);
     assert.ok(composerShell, '.composer rule must exist');
     assert.match(composerShell, /display:\s*flex/);
@@ -566,6 +568,7 @@ describe('localized main shell contract', () => {
     assert.match(heroHeadline, /font-size:\s*28px/);
     assert.doesNotMatch(heroHeadline, /clamp\(/);
     assert.ok(composerCard, '.composer .maka-composer-inner rule must exist');
+    assert.match(composerCard, /--h-composer-min:\s*88px/);
     assert.match(composerCard, /width:\s*min\(750px,\s*80vw\)/);
     assert.match(composerCard, /max-width:\s*750px/);
     assert.match(composerCard, /margin-inline:\s*auto/);
@@ -574,7 +577,8 @@ describe('localized main shell contract', () => {
     assert.match(composerCard, /padding:\s*16px/);
     assert.match(composerCard, /0 0 0 1px oklch\(from var\(--foreground\) l c h \/ 0\.065\)/);
     assert.match(components, /className="maka-composer-inner composerInner agents-parchment-paper-surface"/);
-    assert.match(qoderworkShell, /\.composer \.maka-composer-inner\.agents-parchment-paper-surface\s*\{[\s\S]*?border:\s*1px solid var\(--color-border-tertiary\)/);
+    assert.match(qoderworkShell, /\.composer \.maka-composer-inner\.agents-parchment-paper-surface\s*\{[\s\S]*?border:\s*1px solid var\(--color-border-tertiary\)[\s\S]*?box-shadow:\s*0 1px 3px rgba\(0, 0, 0, 0\.03\)/);
+    assert.doesNotMatch(qoderworkShell, /0 18px 46px/);
     assert.doesNotMatch(composerCard, /0 2px 8px/);
     assert.doesNotMatch(composerCard, /var\(--shadow-medium\)/);
     assert.ok(composerFocus, '.composer .maka-composer-inner:focus-within rule must exist');

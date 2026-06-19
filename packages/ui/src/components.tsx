@@ -4496,7 +4496,7 @@ const EMPTY_HERO_COPY_BY_LOCALE: Record<PromptSuggestionLocale, {
     },
     headlineWithLabel: (greeting, label) => `${greeting} ${label}，今天想做点什么？`,
     headlineFallback: (greeting, tail) => `${greeting}，${tail}。`,
-    intro: '说一下你要改的、想问的、想查的；直接在下方输入框里描述需求，Maka 会从这里开始。',
+    intro: '本地运行、自主规划、安全可控的 AI 工作搭子。',
   },
   en: {
     ariaLabel: 'Start a conversation',
