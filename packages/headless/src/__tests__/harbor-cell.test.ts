@@ -11,6 +11,7 @@ import type { HeadlessBackendContext } from '../isolation.js';
 import {
   HARBOR_CELL_OUTPUT_FILENAME,
   HARBOR_CELL_RUNTIME_EVENTS_FILENAME,
+  resolveHarborCellAiSdkEnv,
   runHarborCellFromEnv,
   runHarborCell,
 } from '../harbor-cell.js';
@@ -185,6 +186,60 @@ describe('runHarborCell', () => {
         label: 'Harbor task container',
       });
     });
+  });
+
+  test('env entrypoint keeps slashful model ids when provider is explicit', async () => {
+    await withDirs(async ({ workspaceDir, outputDir, storageRoot }) => {
+      const seenContexts: HeadlessBackendContext[] = [];
+      const registerAiSdkBackend = (registry: BackendRegistry, context: HeadlessBackendContext): void => {
+        seenContexts.push(context);
+        registry.register('ai-sdk', (ctx) =>
+          new CellReportingBackend({ sessionId: ctx.sessionId, header: ctx.header, store: ctx.store }, 'ai-sdk'),
+        );
+      };
+
+      await runHarborCellFromEnv({
+        MAKA_INSTRUCTION: 'solve through an OpenAI-compatible gateway',
+        MAKA_PROVIDER: 'openai-compatible',
+        MAKA_MODEL: 'anthropic/claude-sonnet-4-5',
+        MAKA_WORKDIR: workspaceDir,
+        MAKA_OUTPUT_DIR: outputDir,
+        MAKA_STORAGE_ROOT: storageRoot,
+      }, {
+        registerBackends: registerAiSdkBackend,
+      });
+
+      assert.equal(seenContexts[0].config.llmConnectionSlug, 'openai-compatible');
+      assert.equal(seenContexts[0].config.model, 'anthropic/claude-sonnet-4-5');
+    });
+  });
+
+  test('resolves ai-sdk connection env without constructing a network backend', () => {
+    const gateway = resolveHarborCellAiSdkEnv({
+      provider: 'openai-compatible',
+      model: 'anthropic/claude-sonnet-4-5',
+      env: {
+        OPENAI_API_KEY: 'gateway-key',
+        OPENAI_BASE_URL: 'https://gateway.example/v1',
+      },
+      ts: 123,
+    });
+    assert.equal(gateway.apiKey, 'gateway-key');
+    assert.equal(gateway.connection.providerType, 'openai-compatible');
+    assert.equal(gateway.connection.baseUrl, 'https://gateway.example/v1');
+    assert.equal(gateway.connection.defaultModel, 'anthropic/claude-sonnet-4-5');
+
+    const deepseek = resolveHarborCellAiSdkEnv({
+      provider: 'deepseek',
+      model: 'deepseek-chat',
+      env: {
+        OPENAI_API_KEY: 'fallback-key',
+        OPENAI_BASE_URL: 'https://fallback.example/v1',
+      },
+      ts: 456,
+    });
+    assert.equal(deepseek.apiKey, 'fallback-key');
+    assert.equal(deepseek.connection.baseUrl, 'https://fallback.example/v1');
   });
 });
 

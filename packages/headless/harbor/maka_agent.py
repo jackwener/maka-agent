@@ -43,6 +43,13 @@ class MakaAgent(BaseInstalledAgent):
             default="ai-sdk",
             env_fallback="MAKA_BACKEND",
         ),
+        CliFlag(
+            "provider",
+            cli="",
+            type="str",
+            default="",
+            env_fallback="MAKA_PROVIDER",
+        ),
     ]
 
     @staticmethod
@@ -106,6 +113,7 @@ class MakaAgent(BaseInstalledAgent):
         system_prompt = self._resolved_flags.get("system_prompt", "") or self._get_env("MAKA_SYSTEM_PROMPT") or ""
         model = self.model_name or self._get_env("MAKA_MODEL") or "deepseek/deepseek-chat"
         backend = self._resolved_flags.get("backend", "ai-sdk")
+        provider = self._resolved_flags.get("provider", "") or self._get_env("MAKA_PROVIDER") or ""
         env = {
             "MAKA_BACKEND": backend,
             "MAKA_MODEL": model,
@@ -115,6 +123,8 @@ class MakaAgent(BaseInstalledAgent):
             "MAKA_OUTPUT_DIR": EnvironmentPaths.agent_dir.as_posix(),
             "MAKA_STORAGE_ROOT": (EnvironmentPaths.agent_dir / "maka-storage").as_posix(),
         }
+        if provider:
+            env["MAKA_PROVIDER"] = provider
         for key in (
             "DEEPSEEK_API_KEY",
             "DEEPSEEK_BASE_URL",

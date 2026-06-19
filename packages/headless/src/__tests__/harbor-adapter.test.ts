@@ -78,9 +78,13 @@ base_mod = module("harbor.agents.installed.base")
 class BaseInstalledAgent:
     def __init__(self, logs_dir, *args, **kwargs):
         self.logs_dir = Path(logs_dir)
+        self._extra_env = kwargs.get("extra_env") or {}
         self._resolved_flags = {}
         self.model_name = None
         self.logger = types.SimpleNamespace(debug=lambda *args, **kwargs: None)
+
+    def _get_env(self, key):
+        return self._extra_env.get(key)
 
     def version(self):
         return "test"
@@ -155,5 +159,13 @@ with tempfile.TemporaryDirectory() as tmp:
         "runtimeRefs": {"sessionId": "session-1"},
     })
     print(context.metadata["maka_cell_output"])
+
+    gateway_agent = MakaAgent(Path(tmp), extra_env={
+        "MAKA_PROVIDER": "openai-compatible",
+        "MAKA_MODEL": "anthropic/claude-sonnet-4-5",
+    })
+    gateway_env = gateway_agent._cell_env(Path("/logs/agent/instruction.txt"))
+    assert gateway_env["MAKA_PROVIDER"] == "openai-compatible", gateway_env
+    assert gateway_env["MAKA_MODEL"] == "anthropic/claude-sonnet-4-5", gateway_env
 `;
 }

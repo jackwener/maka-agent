@@ -62,6 +62,11 @@ export interface RunHarborCellFromEnvOptions {
   newId?: () => string;
 }
 
+export interface ResolvedHarborCellAiSdkEnv {
+  connection: LlmConnection;
+  apiKey: string;
+}
+
 export async function runHarborCell(input: RunHarborCellInput): Promise<RunHarborCellResult> {
   if (backendNeedsIsolation(input.config.backend)) {
     validateRealBackendIsolation(input.realBackendIsolation);
@@ -190,8 +195,12 @@ function buildAiSdkCellBackendRegistration(input: {
   now: () => number;
   newId: () => string;
 }): RunHarborCellInput['registerBackends'] {
-  const connection = connectionFromEnv(input.provider, input.model, input.env, input.now());
-  const apiKey = apiKeyFromEnv(input.provider, input.env);
+  const { connection, apiKey } = resolveHarborCellAiSdkEnv({
+    provider: input.provider,
+    model: input.model,
+    env: input.env,
+    ts: input.now(),
+  });
   const permissionEngine = new PermissionEngine({ newId: input.newId, now: input.now });
   return (registry, context) => {
     registry.register('ai-sdk', (ctx) =>
@@ -216,6 +225,18 @@ function buildAiSdkCellBackendRegistration(input: {
   };
 }
 
+export function resolveHarborCellAiSdkEnv(input: {
+  provider: ProviderType;
+  model: string;
+  env: RunHarborCellEnv;
+  ts: number;
+}): ResolvedHarborCellAiSdkEnv {
+  return {
+    connection: connectionFromEnv(input.provider, input.model, input.env, input.ts),
+    apiKey: apiKeyFromEnv(input.provider, input.env),
+  };
+}
+
 async function instructionFromEnv(env: RunHarborCellEnv): Promise<string> {
   if (env.MAKA_INSTRUCTION !== undefined) return env.MAKA_INSTRUCTION;
   if (env.MAKA_INSTRUCTION_FILE) return await readFile(env.MAKA_INSTRUCTION_FILE, 'utf8');
@@ -229,9 +250,14 @@ function backendFromEnv(value: string | undefined): BackendKind {
 }
 
 function parseModelSpec(rawModel: string, rawProvider: string | undefined): { provider: ProviderType; model: string } {
-  const [providerPart, modelPart] = rawModel.includes('/')
-    ? rawModel.split('/', 2)
-    : [rawProvider ?? 'deepseek', rawModel];
+  if (rawProvider !== undefined) {
+    if (!rawModel) throw new Error('MAKA_MODEL must include a model id');
+    return { provider: providerFromEnv(rawProvider), model: rawModel };
+  }
+  const separator = rawModel.indexOf('/');
+  const [providerPart, modelPart] = separator >= 0
+    ? [rawModel.slice(0, separator), rawModel.slice(separator + 1)]
+    : ['deepseek', rawModel];
   const provider = providerFromEnv(providerPart);
   if (!modelPart) throw new Error('MAKA_MODEL must include a model id');
   return { provider, model: modelPart };
