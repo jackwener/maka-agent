@@ -177,6 +177,15 @@ export interface BackendFactoryContext {
   header: SessionHeader;
   store: SessionStore;
   appendMessage?: (message: StoredMessage) => Promise<void>;
+  /**
+   * Child-agent instruction channel. Only `ensureChildActive` populates
+   * this; the main-session `ensureActive` path leaves it undefined. A
+   * main-session factory that needs a system prompt must source it from
+   * its own closure (the desktop path and the headless benchmark path
+   * both do this) — do NOT route a main-session prompt through this
+   * field, it is semantically the child instruction, not the session
+   * system prompt.
+   */
   systemPrompt?: string;
   tools?: readonly MakaTool[];
   recordRunTrace?: RunTraceRecorder;

@@ -139,6 +139,7 @@ export {
   writeTaskRunExport,
 } from './result-export.js';
 export { normalizeVerifier } from './verifier.js';
+export { BENCHMARK_BASE_SYSTEM_PROMPT } from './system-prompts.js';
 export type {
   HeadlessBackendContext,
   IsolatedCommandInput,

@@ -8,9 +8,8 @@
  *
  * MVP scope only. Deliberately deferred as pure additions: a matrix /
  * compare layer, LLM/rule evaluators (MVP = command/test only), Docker
- * execution, network allowlist, `systemPrompt`/toolset overrides on
- * Config, and promoting these contracts into @maka/core once a second
- * consumer exists.
+ * execution, network allowlist, toolset overrides on Config, and
+ * promoting these contracts into @maka/core once a second consumer exists.
  */
 
 import type { BackendKind } from '@maka/core';
@@ -131,6 +130,15 @@ export interface Config {
   llmConnectionSlug: string;
   /** Falls back to the connection's default model when omitted. */
   model?: string;
+  /**
+   * Optional system prompt for the config under test. This is a benchmark
+   * variable, NOT persisted session state — the `registerBackends` factory
+   * reads it from its closure and passes it to the backend constructor
+   * directly (same pattern as the desktop interactive path). It never
+   * enters `SessionHeader` or `BackendFactoryContext.systemPrompt` (which
+   * is the child-agent instruction channel, not the main-session prompt).
+   */
+  systemPrompt?: string;
 }
 
 /** One row of canonical truth per run: did it run, did it pass, and how much it cost. */

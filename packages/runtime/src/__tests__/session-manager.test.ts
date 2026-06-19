@@ -1816,6 +1816,31 @@ describe('SessionManager permission mode updates', () => {
     expect(turn?.errorClass).toBe('tool_failed');
   });
 
+  test('complete(stopReason=error) without a prior error event classifies as runtime_error not unknown', async () => {
+    // Reproduces the DeepSeek-reasoner smoke failure: the backend ended with
+    // stopReason='error' but never emitted a preceding error event, so the
+    // run ledger's failureClass was 'unknown'. It should be 'runtime_error'
+    // so benchmark scoring can distinguish runtime failures from max_tokens.
+    const store = new MemorySessionStore();
+    const runStore = new MemoryAgentRunStore();
+    const backends = new BackendRegistry();
+    backends.register('fake', (ctx) => new EventBackend(ctx, [
+      { type: 'complete', stopReason: 'error' },
+    ]));
+    const manager = new SessionManager({
+      store, runStore, backends, newId: nextId(), now: nextNow(10_000),
+    });
+    const session = await manager.createSession(makeInput());
+
+    await drain(manager.sendMessage(session.id, { turnId: 'turn-1', text: 'hello' }));
+
+    const [turn] = await store.listTurns(session.id);
+    expect(turn?.status).toBe('failed');
+    expect(turn?.errorClass).toBe('runtime_error');
+    const [run] = await runStore.listSessionRuns(session.id);
+    expect(run?.failureClass).toBe('runtime_error');
+  });
+
   test('does not let a late complete event overwrite a prior turn error', async () => {
     const store = new MemorySessionStore();
     const backends = new BackendRegistry();
