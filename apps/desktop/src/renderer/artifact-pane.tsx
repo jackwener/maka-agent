@@ -58,6 +58,7 @@ import {
   AlertAction,
   AlertDescription,
   AlertTitle,
+  Badge,
   Button,
   Empty,
   EmptyDescription,
@@ -451,7 +452,7 @@ export function ArtifactPane(props: { sessionId: string | undefined }) {
                     <span className="maka-artifact-row-time">{formatRelative(record.createdAt)}</span>
                   </span>
                   {record.status === 'deleted' && (
-                    <span className="maka-artifact-row-badge">已删除</span>
+                    <Badge variant="destructive" className="maka-artifact-row-badge">已删除</Badge>
                   )}
                 </Button>
               </li>

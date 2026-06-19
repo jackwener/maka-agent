@@ -9299,11 +9299,6 @@ button:active {
 .maka-artifact-row-badge {
   grid-column: 1 / -1;
   justify-self: start;
-  font-size: 10px;
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: oklch(from var(--destructive) l c h / 0.10);
-  color: var(--destructive-text);
 }
 
 .maka-artifact-preview {
