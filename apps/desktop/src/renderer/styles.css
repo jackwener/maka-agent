@@ -771,15 +771,15 @@ button:active {
 .maka-sidebar-account {
   min-width: 0;
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr);
+  grid-template-columns: 24px minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   border: 0;
-  border-radius: 10px;
+  border-radius: 8px;
   background: transparent;
   color: var(--foreground);
   cursor: pointer;
-  padding: 4px 0;
+  padding: 3px 0;
   text-align: left;
 }
 
@@ -789,15 +789,15 @@ button:active {
 }
 
 .maka-sidebar-account-avatar {
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 24px;
   display: inline-grid;
   place-items: center;
   border: 1px solid oklch(from var(--accent) l c h / 0.14);
   border-radius: 999px;
   background: oklch(0.92 0.06 340);
   color: oklch(0.58 0.19 340);
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 700;
 }
 
@@ -816,23 +816,23 @@ button:active {
 }
 
 .maka-sidebar-account-copy strong {
-  font-size: 13px;
-  font-weight: 650;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .maka-sidebar-account-copy small {
   color: var(--foreground-45);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
 }
 
 .maka-sidebar-account-settings {
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 24px;
   display: inline-grid;
   place-items: center;
   border: 0;
-  border-radius: 8px;
+  border-radius: 6px;
   background: transparent;
   color: var(--foreground-55);
   cursor: pointer;
@@ -3711,15 +3711,15 @@ button:active {
    the chat has a real connection. The ProviderLogo already renders an
    inline 32px square via .providerLogo[data-compact]; we just resize. */
 .maka-chat-tab-provider {
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
   display: inline-grid;
   place-items: center;
 }
 
 .maka-chat-tab-provider .providerLogo {
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
   /* 28% ratio matching the md / sm anchors (PR-UI-13). Previously 6px
    * (33%) which made the chat-tab badge feel rounder than the sidebar
    * chip and onboarding card. */
@@ -3795,13 +3795,13 @@ button:active {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 8px;
+  padding: 1px 6px;
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   -webkit-app-region: no-drag;
-  margin-right: 6px;
-  margin-bottom: 9px;
+  margin-right: 4px;
+  margin-bottom: 3px;
   white-space: nowrap;
   flex: 0 0 auto;
 }
@@ -3823,12 +3823,12 @@ button:active {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 8px;
+  padding: 1px 6px;
   font-size: 11px;
   font-weight: 650;
   -webkit-app-region: no-drag;
-  margin-right: 6px;
-  margin-bottom: 9px;
+  margin-right: 4px;
+  margin-bottom: 3px;
   white-space: nowrap;
   flex: 0 0 auto;
 }
@@ -3838,14 +3838,14 @@ button:active {
 }
 
 .maka-chat-header .modePill {
-  margin-bottom: 9px;
+  margin-bottom: 3px;
   -webkit-app-region: no-drag;
 }
 
 .maka-model-switcher {
   display: inline-flex;
   align-items: center;
-  margin: 0 6px 7px 0;
+  margin: 0 4px 2px 0;
   min-width: 0;
   max-width: min(320px, 28vw);
   -webkit-app-region: no-drag;
@@ -3862,18 +3862,19 @@ button:active {
 
 .maka-model-switcher-trigger {
   width: 100%;
-  min-width: 144px;
+  min-width: 120px;
   max-width: min(320px, 28vw);
-  height: 28px;
+  height: 22px;
   display: inline-flex;
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  padding: 2px 7px 2px 10px;
+  padding: 1px 6px 1px 8px;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--foreground-5);
   color: var(--foreground);
+  font-size: 11px;
   box-shadow: none;
   cursor: pointer;
 }
