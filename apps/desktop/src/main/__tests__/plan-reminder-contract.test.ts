@@ -111,8 +111,7 @@ describe('Plan reminder MVP contract', () => {
     assert.match(ui, /<Switch[\s\S]*checked=\{reminder\.enabled\}/, 'plan cards must expose target-layout style enable switches');
     assert.match(ui, /保持系统唤醒[\s\S]*<Switch checked=\{false\} disabled aria-label="保持系统唤醒暂未启用" \/>/, 'info banner must include the target-layout style keep-awake switch affordance without faking backend support');
     assert.match(ui, /className="maka-plan-new-task-button"/, 'primary create action must use the target-layout style black CTA hook');
-    assert.match(ui, /maka-plan-card-grid/, 'task cards must render in a responsive grid');
-    assert.match(ui, /maka-plan-card-divider/, 'task cards must use a dashed divider before schedule metadata');
+    assert.match(ui, /maka-plan-card-grid/, 'task cards must render inside the row list container');
     assert.match(ui, /planReminderRunRangeStart/, 'execution record filters must use a centralized range helper');
     assert.match(ui, /planReminderStatusLabel/, 'status labels must come from a centralized mapper');
     assert.match(ui, /import \{[^}]*\bAlert\b[^}]*\bAlertDescription\b[^}]*\bAlertTitle\b[^}]*\} from '\.\/primitives\/alert\.js'/, 'PlanReminderPanel must consume the vendored shared primitive Alert primitive');
@@ -142,7 +141,8 @@ describe('Plan reminder MVP contract', () => {
     assert.match(css, /\.maka-plan-template-strip[\s\S]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/, 'example templates must use the same two-column surface rhythm as reference implementation');
     assert.match(css, /\.maka-plan-template-card[\s\S]*border-radius:\s*6px/, 'example template cards must use the reference implementation 6px card radius');
     assert.match(css, /\.maka-plan-new-task-button[\s\S]*background:\s*#000/, 'primary plan CTA must be black, not the app accent color');
-    assert.match(css, /\.maka-plan-form,[\s\S]*\.maka-plan-card,[\s\S]*\.maka-plan-run-row[\s\S]*border-radius:\s*6px/, 'plan cards and rows must keep the reference implementation 6px radius');
+    assert.match(css, /\.maka-plan-card\s*\{[\s\S]*?border-radius:\s*6px/, 'plan cards must keep the 6px row radius');
+    assert.match(css, /\.maka-plan-run-row[\s\S]*border-radius:\s*6px/, 'plan run rows must keep the 6px row radius');
     assert.match(ui, /function PlanReminderSelect[\s\S]*<SelectPositioner alignItemWithTrigger=\{false\} sideOffset=\{6\}>/, 'PlanReminder Select popups must opt out of item-trigger alignment');
     assert.doesNotMatch(panelBlock, /<input\b/, 'PlanReminderPanel text fields must use shared Input');
     assert.doesNotMatch(panelBlock, /<textarea\b/, 'PlanReminderPanel notes must use shared Textarea');

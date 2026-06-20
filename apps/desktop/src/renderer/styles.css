@@ -2893,13 +2893,12 @@ button:active {
 }
 
 .maka-plan-card-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .maka-plan-form,
-.maka-plan-card,
 .maka-plan-run-row {
   display: grid;
   gap: 10px;
@@ -2910,23 +2909,27 @@ button:active {
 }
 
 .maka-plan-card {
-  min-height: 164px;
-  align-content: start;
-  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  padding: 5px 8px;
+  transition: background 120ms ease;
 }
 
 .maka-plan-card:hover {
-  border-color: oklch(from var(--foreground) l c h / 0.18);
-  background: var(--foreground-2);
-  transform: translateY(-1px);
+  background: oklch(from var(--foreground) l c h / 0.04);
 }
 
 .maka-plan-card[data-status="completed"] {
-  opacity: 0.72;
+  opacity: 0.62;
 }
 
 .maka-plan-card-chrome,
-.maka-plan-card-title-row,
 .maka-plan-card-footer,
 .maka-plan-form-header,
 .maka-plan-form-footer {
@@ -2934,6 +2937,29 @@ button:active {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+}
+
+.maka-plan-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.maka-plan-card-chrome {
+  order: 3;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 150ms ease-out, transform 150ms ease-out;
+  transform: scale(0.95);
+  pointer-events: none;
+}
+
+.maka-plan-card:hover .maka-plan-card-chrome,
+.maka-plan-card:focus-within .maka-plan-card-chrome {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
 }
 
 .maka-plan-card-menu-trigger {
@@ -3146,7 +3172,7 @@ button:active {
 
 .maka-plan-card-main {
   display: grid;
-  gap: 8px;
+  gap: 2px;
   min-width: 0;
 }
 
@@ -3154,10 +3180,12 @@ button:active {
   margin: 0;
   min-width: 0;
   color: var(--foreground);
-  font-size: 14px;
-  font-weight: 650;
+  font-size: 13px;
+  font-weight: 600;
   line-height: 1.35;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .maka-plan-card-status {
@@ -3172,15 +3200,12 @@ button:active {
   line-height: 1.45;
 }
 
-.maka-plan-card-divider {
-  border-top: 1px dashed var(--border);
-  margin-top: 4px;
-}
-
 .maka-plan-card-footer {
-  justify-content: flex-start;
-  flex-wrap: wrap;
+  order: 2;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
   gap: 6px;
+  white-space: nowrap;
 }
 
 .maka-plan-card-chip {
@@ -3219,17 +3244,14 @@ button:active {
 }
 
 .maka-plan-card-note {
-  min-height: 44px;
-  color: var(--foreground-60);
-  font-size: 13px;
-  line-height: 1.5;
+  color: var(--foreground-55);
+  font-size: 11px;
+  line-height: 1.4;
   margin: 0;
   padding: 0;
-  display: -webkit-box;
   overflow: hidden;
-  overflow-wrap: anywhere;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .maka-plan-run-list {

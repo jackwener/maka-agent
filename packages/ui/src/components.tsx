@@ -2008,7 +2008,6 @@ function PlanReminderPanel(props: {
                           </div>
                         )}
                       </div>
-                      <div className="maka-plan-card-divider" aria-hidden="true" />
                       <div className="maka-plan-card-footer">
                         <span className="maka-plan-card-chip">
                           <Clock size={13} strokeWidth={1.75} aria-hidden="true" />
