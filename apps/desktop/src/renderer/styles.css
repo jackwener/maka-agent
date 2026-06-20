@@ -420,11 +420,9 @@ button:active {
    * and centering. */
 }
 .maka-search-modal {
-  width: min(640px, 92vw);
-  max-height: 70vh;
+  width: min(560px, 92vw);
+  max-height: 64vh;
   display: grid;
-  /* PR-UX-POLISH-1 commit 5: now 3 rows — header / input / body.
-   * Body scrolls when results overflow modal height. */
   grid-template-rows: auto auto minmax(0, 1fr);
   padding: 0;
   overflow: hidden;
@@ -433,23 +431,23 @@ button:active {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  padding: 16px 20px 12px;
+  padding: 8px 12px 6px;
   border-bottom: 1px solid var(--border);
 }
 .maka-search-modal-title {
   margin: 0;
-  font-size: 15px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--foreground);
 }
 .maka-search-modal-close {
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
   border: 0;
   background: transparent;
   color: var(--foreground-60);
   cursor: pointer;
-  font-size: 20px;
+  font-size: 16px;
   line-height: 1;
   border-radius: 6px;
 }
@@ -469,8 +467,8 @@ button:active {
  */
 .maka-search-modal-input-row {
   width: auto;
-  min-height: 40px;
-  margin: 12px 20px;
+  min-height: 32px;
+  margin: 8px 12px;
   border-color: var(--border);
   background: var(--surface);
 }
@@ -480,7 +478,7 @@ button:active {
 .maka-search-modal-input {
   width: 100%;
   color: var(--foreground);
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.4;
 }
 .maka-search-modal-input::placeholder {
@@ -490,9 +488,9 @@ button:active {
   display: none;
 }
 .maka-search-modal-clear {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
   color: var(--foreground-50);
 }
 .maka-search-modal-clear:hover {
@@ -640,11 +638,11 @@ button:active {
 }
 
 .maka-sidebar-drag-strip {
-  min-height: 30px;
+  min-height: 28px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
   box-sizing: border-box;
   padding-left: calc(var(--maka-titlebar-control-safe-left) - 10px);
   -webkit-app-region: drag;
@@ -653,16 +651,16 @@ button:active {
 .maka-sidebar-search-button,
 .maka-sidebar-toggle {
   -webkit-app-region: no-drag;
-  width: 30px;
-  height: 30px;
+  width: 24px;
+  height: 24px;
   display: inline-grid;
   place-items: center;
   border: 0;
-  border-radius: 8px;
+  border-radius: 6px;
   background: transparent;
   color: var(--foreground-55);
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease, box-shadow 120ms ease;
+  transition: background 150ms ease-out, color 150ms ease-out, box-shadow 150ms ease-out;
 }
 
 .maka-sidebar-search-button:hover,
@@ -739,12 +737,12 @@ button:active {
 }
 
 .maka-session-list-title {
-  height: 24px;
+  height: 20px;
   display: flex;
   align-items: center;
-  padding: 0 12px;
+  padding: 0 10px;
   color: var(--foreground-35);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
   letter-spacing: 0;
   text-transform: none;
@@ -752,10 +750,10 @@ button:active {
 
 .maka-session-panel-footer {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 32px;
+  grid-template-columns: minmax(0, 1fr) 24px;
   align-items: center;
-  gap: 8px;
-  padding: 10px 12px 12px;
+  gap: 6px;
+  padding: 6px 10px 8px;
   border-top: 0;
 }
 
@@ -866,22 +864,22 @@ button:active {
 .maka-nav-primary {
   -webkit-app-region: no-drag;
   width: 100%;
-  height: 36px;
+  height: 28px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   margin: 0;
-  padding: 0 8px;
+  padding: 0 6px;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: 6px;
   background: transparent;
   box-shadow: none;
   color: var(--foreground-75);
   cursor: pointer;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
   text-align: left;
-  transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+  transition: background 150ms ease-out, border-color 150ms ease-out, color 150ms ease-out;
 }
 
 .maka-nav-primary:hover {
@@ -903,17 +901,17 @@ button:active {
 }
 
 .maka-session-panel[data-collapsed="true"] .maka-nav-primary {
-  width: 34px;
-  min-width: 34px;
-  height: 34px;
-  min-height: 34px;
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  min-height: 28px;
   display: grid;
   grid-template-columns: 1fr;
   place-items: center;
   gap: 0;
   margin-inline: auto;
   padding: 0;
-  border-radius: 9px;
+  border-radius: 6px;
 }
 
 .maka-session-panel[data-collapsed="true"] .maka-nav-primary span {
@@ -1793,15 +1791,8 @@ button:active {
 .maka-onboarding-footer {
   display: flex;
   align-items: center;
-  /* PR-PARCHMENT-HOME-7 (WAWQAQ msg `2690c2e4` round 7/20): center
-     the footer's CTAs so they sit on the column's vertical axis
-     instead of clinging to the left edge. The rest of the
-     OnboardingHero header is now centered (PR-PARCHMENT-HOME-1) and
-     the left-anchored footer read as a visual snag. The
-     `.maka-onboarding-ready` left-aligned branch overrides this
-     below for the in-chat composer-led state. */
   justify-content: center;
-  gap: 16px;
+  gap: 8px;
 }
 
 .maka-onboarding-ready .maka-onboarding-footer {
@@ -1815,29 +1806,19 @@ button:active {
   padding: 0;
   list-style: none;
   display: grid;
-  /* PR-PARCHMENT-HOME-4 (WAWQAQ msg `2690c2e4` round 4/20): tighter
-     vertical rhythm so the 3-step picker doesn't push the provider
-     grid below the fold on common laptop viewports. Was gap 8;
-     now 6, plus tighter per-step padding (10 12 → 8 10), smaller
-     marker (24 → 22), and dropped strong/small font sizes one notch
-     (13/12 → 12/11). Total ≈ 28px saved across the block. */
-  gap: 6px;
+  gap: 3px;
 }
 
 .maka-onboarding-setup-steps > li {
   min-width: 0;
   display: grid;
-  grid-template-columns: 22px minmax(0, 1fr) max-content;
+  grid-template-columns: 18px minmax(0, 1fr) max-content;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  /* PR-GRAY-CARD-LIFT-2 (WAWQAQ msg `053ca971`): pending step rows now
-     sit on `--background` (pure white) so they read as cards lifting
-     off the gray plate, not as faintly-tinted ribbons. Active /
-     warning / done variants override with their semantic accent. */
-  background: var(--background);
+  gap: 8px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
 }
 
 .maka-onboarding-setup-steps > li[data-state="active"] {
@@ -1855,17 +1836,16 @@ button:active {
 }
 
 .maka-onboarding-setup-step-marker {
-  /* PR-PARCHMENT-HOME-4: 24 → 22 to match the tighter grid column. */
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
   background: var(--background-elevated);
   color: var(--foreground-70);
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 10px;
+  font-weight: 600;
 }
 
 .maka-onboarding-setup-steps > li[data-state="active"] .maka-onboarding-setup-step-marker {
@@ -1886,17 +1866,15 @@ button:active {
 
 .maka-onboarding-setup-step-copy strong {
   color: var(--foreground);
-  /* PR-PARCHMENT-HOME-4: 13 → 12 to match the tighter row height. */
-  font-size: 12px;
-  font-weight: 650;
-  line-height: 1.25;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
 }
 
 .maka-onboarding-setup-step-copy small {
   color: var(--foreground-60);
-  /* PR-PARCHMENT-HOME-4: 12 → 11 to keep the strong/small contrast. */
-  font-size: 11px;
-  line-height: 1.35;
+  font-size: 10px;
+  line-height: 1.3;
 }
 
 .maka-onboarding-setup-step-state {
@@ -2494,34 +2472,34 @@ button:active {
   transform: translate(-50%, -50%);
   display: grid;
   justify-items: center;
-  gap: 10px;
+  gap: 6px;
   text-align: center;
   color: var(--foreground-60);
 }
 
 .maka-empty-state-icon {
-  width: 44px;
-  height: 44px;
+  width: 32px;
+  height: 32px;
   color: var(--foreground-40);
   padding: 0;
 }
 
 .maka-empty-state-media .maka-empty-state-icon {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
 }
 
 .maka-empty-state-title {
   color: var(--foreground);
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
 }
 
 .maka-empty-state-body {
   max-width: 30ch;
   color: var(--foreground-50);
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: 11px;
+  line-height: 1.4;
   text-wrap: pretty;
 }
 
@@ -2535,14 +2513,14 @@ button:active {
 }
 
 .maka-empty-state-actions {
-  margin-top: 6px;
+  margin-top: 4px;
   display: grid;
-  gap: 6px;
+  gap: 4px;
   justify-items: center;
 }
 
 .maka-empty-state-cta {
-  min-width: 104px;
+  min-width: 88px;
 }
 
 .maka-plan-panel {
@@ -2562,28 +2540,28 @@ button:active {
   width: min(100%, 1080px);
   margin: 0 auto;
   display: grid;
-  gap: 16px;
-  padding: clamp(34px, 5vh, 58px) 0 32px;
+  gap: 10px;
+  padding: clamp(16px, 3vh, 32px) 0 16px;
 }
 
 .maka-plan-hero {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 20px;
+  gap: 12px;
 }
 
 .maka-plan-heading {
   display: grid;
-  gap: 8px;
+  gap: 4px;
   max-width: 560px;
 }
 
 .maka-plan-eyebrow {
   margin: 0;
   color: var(--foreground-40);
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 10px;
+  font-weight: 600;
   letter-spacing: 0;
 }
 
@@ -2599,36 +2577,36 @@ button:active {
 .maka-plan-heading p:last-child {
   margin: 0;
   color: var(--foreground-60);
-  font-size: 12px;
-  line-height: 1.55;
+  font-size: 11px;
+  line-height: 1.45;
 }
 
 .maka-plan-top-actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 
 .maka-plan-create-through {
-  gap: 6px;
+  gap: 4px;
   background: var(--foreground-3);
   color: var(--foreground);
   border-color: transparent;
   border-radius: 999px;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
 }
 
 .maka-plan-new-task-button {
-  gap: 6px;
+  gap: 4px;
   border-color: #000;
   border-radius: 999px;
   background: #000;
   color: #fff;
-  font-size: 13px;
-  font-weight: 650;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .maka-plan-new-task-button:hover {
@@ -2670,8 +2648,8 @@ button:active {
 
 .maka-plan-template-icon {
   display: inline-flex;
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   align-items: center;
   justify-content: center;
   border-radius: 4px;
@@ -2682,14 +2660,14 @@ button:active {
 .maka-plan-template-main {
   display: grid;
   min-width: 0;
-  gap: 4px;
+  gap: 2px;
 }
 
 .maka-plan-template-title {
   color: var(--foreground);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
-  line-height: 1.3;
+  line-height: 1.2;
 }
 
 .maka-plan-template-note {
@@ -2697,38 +2675,38 @@ button:active {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
-  line-height: 1.4;
+  line-height: 1.35;
 }
 
 .maka-plan-template-schedule {
   display: inline-flex;
   align-self: start;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--foreground-2);
   color: var(--foreground-55);
-  font-size: 11px;
-  font-weight: 650;
+  font-size: 10px;
+  font-weight: 600;
   line-height: 1;
-  padding: 6px 8px;
+  padding: 3px 6px;
   white-space: nowrap;
 }
 
 .maka-plan-system-alert {
   display: flex;
-  min-height: 56px;
+  min-height: 36px;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
+  gap: 12px;
   border-color: oklch(0.90 0.04 240);
-  border-radius: 8px;
+  border-radius: 6px;
   background: oklch(0.965 0.035 235);
   color: oklch(0.50 0.13 245);
-  padding: 12px 18px;
+  padding: 6px 10px;
 }
 
 .maka-plan-system-alert [class*="lucide"] {
@@ -2740,13 +2718,13 @@ button:active {
   display: inline-flex;
   min-width: 0;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
 }
 
 .maka-plan-system-alert-main div {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .maka-plan-system-alert-main [data-slot="alert-description"] {
@@ -2760,7 +2738,7 @@ button:active {
 .maka-plan-system-alert-switch {
   flex: 0 0 auto;
   color: oklch(0.38 0.075 245);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
 }
@@ -2778,18 +2756,18 @@ button:active {
 
 .maka-plan-tabs {
   display: grid;
-  gap: 12px;
+  gap: 8px;
 }
 
 .maka-plan-tabs-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 10px;
 }
 
 .maka-plan-tabs-list {
-  gap: 24px;
+  gap: 16px;
   border-radius: 0;
   background: transparent;
   padding: 0;
@@ -2797,15 +2775,15 @@ button:active {
 
 .maka-plan-tab {
   position: relative;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
-  height: 36px;
+  height: 28px;
   padding: 0;
   border-radius: 0;
   background: transparent;
   color: var(--foreground-45);
-  font-size: 14px;
-  font-weight: 650;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .maka-plan-tab[data-state="active"] {
@@ -2827,7 +2805,7 @@ button:active {
 
 .maka-plan-tab span {
   color: var(--foreground-40);
-  font-size: 11px;
+  font-size: 10px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -2934,20 +2912,19 @@ button:active {
 
 .maka-plan-card-menu-trigger {
   display: inline-flex;
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
   align-items: center;
   justify-content: center;
-  border: 1px solid transparent;
-  border-radius: 6px;
+  border: 0;
+  border-radius: 4px;
   background: transparent;
   color: var(--foreground-60);
   cursor: pointer;
 }
 
 .maka-plan-card-menu-trigger:hover {
-  border-color: var(--border);
-  background: var(--background);
+  background: oklch(from var(--foreground) l c h / 0.06);
   color: var(--foreground);
 }
 
@@ -2957,7 +2934,7 @@ button:active {
 }
 
 .maka-plan-card-menu {
-  min-width: 152px;
+  min-width: 132px;
 }
 
 .maka-plan-dialog {
@@ -2968,34 +2945,34 @@ button:active {
   border: 0;
   border-radius: 0;
   background: var(--background);
-  padding: 18px;
+  padding: 12px;
   overflow: auto;
 }
 
 .maka-plan-form-header {
   align-items: flex-start;
-  padding-bottom: 4px;
+  padding-bottom: 2px;
 }
 
 .maka-plan-form-title {
   margin: 0;
   color: var(--foreground);
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 1.25;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
 }
 
 .maka-plan-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 6px;
 }
 
 .maka-plan-field {
   display: grid;
-  gap: 4px;
+  gap: 3px;
   color: var(--foreground-60);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
 }
 
@@ -3023,12 +3000,12 @@ button:active {
 .maka-plan-presets {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
+  gap: 4px;
 }
 
 .maka-plan-preset {
   min-width: 0;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3042,27 +3019,27 @@ button:active {
 .maka-plan-validation {
   margin: 0;
   border: 1px solid oklch(from var(--warning) l c h / 0.34);
-  border-radius: 6px;
+  border-radius: 5px;
   background: oklch(from var(--warning) l c h / 0.08);
   color: var(--foreground-80);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  line-height: 1.45;
-  padding: 7px 8px;
+  line-height: 1.4;
+  padding: 4px 8px;
 }
 
 .maka-plan-delivery-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 10px;
+  gap: 6px;
 }
 
 .maka-plan-delivery-help {
   margin: 0;
   color: var(--foreground-60);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
-  line-height: 1.45;
+  line-height: 1.4;
 }
 
 .maka-plan-submit {
@@ -3127,9 +3104,9 @@ button:active {
   min-width: 0;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
   color: var(--foreground-50);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
 }
 
@@ -3137,7 +3114,7 @@ button:active {
   position: static;
   width: auto;
   transform: none;
-  padding: 28px 12px;
+  padding: 16px 10px;
 }
 
 .maka-plan-card-main {
@@ -3160,38 +3137,38 @@ button:active {
 
 .maka-plan-card-status {
   color: var(--foreground-35);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
 }
 
 .maka-plan-card-run {
   color: var(--foreground-50);
-  font-size: 12px;
-  line-height: 1.45;
+  font-size: 10px;
+  line-height: 1.35;
 }
 
 .maka-plan-card-footer {
   order: 2;
   justify-content: flex-end;
   flex-wrap: nowrap;
-  gap: 6px;
+  gap: 4px;
   white-space: nowrap;
 }
 
 .maka-plan-card-chip {
   display: inline-flex;
   max-width: 100%;
-  min-height: 26px;
+  min-height: 20px;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: transparent;
   color: var(--foreground-60);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   line-height: 1;
-  padding: 5px 8px;
+  padding: 2px 6px;
 }
 
 .maka-plan-card-recurrence {
@@ -3203,20 +3180,20 @@ button:active {
    distance-from-now in one glance. */
 .maka-plan-card-countdown {
   display: inline-block;
-  margin-left: 6px;
-  padding: 1px 6px;
+  margin-left: 4px;
+  padding: 0 5px;
   border-radius: 999px;
   background: oklch(from var(--accent) l c h / 0.10);
   color: var(--accent);
   font-weight: 600;
-  font-size: 10px;
-  letter-spacing: 0.02em;
+  font-size: 9px;
+  letter-spacing: 0;
 }
 
 .maka-plan-card-note {
   color: var(--foreground-55);
-  font-size: 11px;
-  line-height: 1.4;
+  font-size: 10px;
+  line-height: 1.35;
   margin: 0;
   padding: 0;
   overflow: hidden;
@@ -3226,23 +3203,23 @@ button:active {
 
 .maka-plan-run-list {
   display: grid;
-  gap: 8px;
+  gap: 4px;
 }
 
 .maka-plan-run-row {
   grid-template-columns: max-content minmax(0, 1fr) max-content;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
+  gap: 8px;
+  padding: 6px 10px;
 }
 
 .maka-plan-run-status {
   border-radius: 999px;
   background: var(--foreground-3);
   color: var(--foreground-60);
-  font-size: 11px;
-  font-weight: 700;
-  padding: 5px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
 }
 
 .maka-plan-run-status[data-status="triggered"] {
@@ -3258,13 +3235,13 @@ button:active {
 
 .maka-plan-run-main {
   display: grid;
-  gap: 3px;
+  gap: 1px;
   min-width: 0;
 }
 
 .maka-plan-run-main strong {
   color: var(--foreground);
-  font-size: 13px;
+  font-size: 12px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3273,8 +3250,8 @@ button:active {
 .maka-plan-run-main span,
 .maka-plan-run-row time {
   color: var(--foreground-50);
-  font-size: 12px;
-  line-height: 1.4;
+  font-size: 10px;
+  line-height: 1.35;
 }
 
 .maka-plan-run-row time {
@@ -3346,8 +3323,8 @@ button:active {
 .maka-module-main {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  gap: 16px;
-  padding: 20px;
+  gap: 10px;
+  padding: 12px;
   overflow: auto;
 }
 
@@ -3355,24 +3332,24 @@ button:active {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
-  padding-bottom: 14px;
+  gap: 12px;
+  padding-bottom: 8px;
   border-bottom: 1px solid var(--border);
 }
 
 .maka-module-main-header h2 {
   margin: 0;
   color: var(--foreground);
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 650;
   letter-spacing: 0;
 }
 
 .maka-module-main-header p {
-  margin: 5px 0 0;
+  margin: 2px 0 0;
   color: var(--foreground-60);
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: 11px;
+  line-height: 1.4;
 }
 
 .maka-module-main-actions {
@@ -3405,32 +3382,32 @@ button:active {
 .maka-skill-workbench-summary {
   min-width: 0;
   display: grid;
-  gap: 5px;
-  padding: 12px;
+  gap: 3px;
+  padding: 8px 10px;
   border: 1px solid var(--foreground-8);
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--foreground-2);
 }
 
 .maka-skill-workbench-summary strong {
   min-width: 0;
   color: var(--foreground);
-  font-size: 15px;
-  font-weight: 650;
-  line-height: 1.25;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
 }
 
 .maka-skill-workbench-summary span:not(.maka-skill-section-label) {
   min-width: 0;
   color: var(--foreground-55);
-  font-size: 12px;
-  line-height: 1.45;
+  font-size: 11px;
+  line-height: 1.4;
 }
 
 .maka-skill-examples,
 .maka-skill-installed {
   display: grid;
-  gap: 10px;
+  gap: 6px;
   min-width: 0;
 }
 
@@ -3439,9 +3416,9 @@ button:active {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   color: var(--foreground-55);
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.35;
 }
 
@@ -3549,13 +3526,13 @@ button:active {
   appearance: none;
   width: 100%;
   height: auto !important;
-  min-height: 58px;
+  min-height: 38px;
   display: grid;
-  grid-template-columns: 24px minmax(150px, 0.32fr) minmax(180px, 1fr) 52px;
+  grid-template-columns: 20px minmax(140px, 0.32fr) minmax(180px, 1fr) 44px;
   align-items: center;
   justify-content: stretch !important;
-  gap: 12px;
-  padding: 10px 12px;
+  gap: 8px;
+  padding: 5px 8px;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -3563,7 +3540,7 @@ button:active {
   white-space: normal !important;
   text-align: left;
   cursor: pointer;
-  transition: background-color 160ms ease, transform 160ms ease;
+  transition: background-color 150ms ease-out;
 }
 
 .maka-skill-library-row:hover {
@@ -3580,14 +3557,14 @@ button:active {
 }
 
 .maka-skill-library-status {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   display: inline-grid;
   place-items: center;
-  border-radius: 6px;
+  border-radius: 5px;
   background: var(--foreground-4);
   color: var(--foreground-50);
-  transition: background-color 160ms ease, color 160ms ease;
+  transition: background-color 150ms ease-out, color 150ms ease-out;
 }
 
 .maka-skill-library-row:hover .maka-skill-library-status,
@@ -3607,7 +3584,7 @@ button:active {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
 }
 
@@ -3617,16 +3594,16 @@ button:active {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--foreground-60);
-  font-size: 12px;
-  line-height: 1.35;
+  font-size: 11px;
+  line-height: 1.3;
 }
 
 .maka-skill-library-meta {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   color: var(--foreground-50);
-  font-size: 11px;
+  font-size: 10px;
   white-space: nowrap;
   min-width: 0;
   overflow: hidden;
@@ -3639,17 +3616,17 @@ button:active {
 
 .maka-skill-library-action {
   justify-self: end;
-  min-width: 48px;
-  padding: 5px 9px;
-  border-radius: 6px;
+  min-width: 40px;
+  padding: 3px 7px;
+  border-radius: 5px;
   background: var(--foreground-5);
   color: var(--foreground-55);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   text-align: center;
   opacity: 0;
   transform: translateX(4px);
-  transition: opacity 160ms ease, transform 160ms ease, background-color 160ms ease, color 160ms ease;
+  transition: opacity 150ms ease-out, transform 150ms ease-out, background-color 150ms ease-out, color 150ms ease-out;
 }
 
 .maka-skill-library-row:hover .maka-skill-library-action,
@@ -4194,14 +4171,14 @@ button:active {
 }
 
 .modePill {
-  height: 22px;
+  height: 20px;
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
   background: oklch(from var(--info) l c h / 0.10);
   color: var(--info-text);
-  padding: 0 8px;
-  font-size: 12px;
+  padding: 0 6px;
+  font-size: 11px;
   font-weight: 500;
 }
 
@@ -4282,44 +4259,44 @@ button:active {
 
 .maka-error-card {
   display: grid;
-  grid-template-columns: 48px minmax(0, 1fr);
+  grid-template-columns: 32px minmax(0, 1fr);
   align-items: start;
-  gap: 18px;
-  max-width: 640px;
-  padding: 22px 24px;
+  gap: 12px;
+  max-width: 520px;
+  padding: 14px 16px;
   border: 1px solid oklch(from var(--destructive) l c h / 0.3);
-  border-radius: 16px;
+  border-radius: 10px;
   background: var(--background-elevated);
   box-shadow: var(--shadow-modal);
 }
 
 .maka-error-icon {
-  width: 48px;
-  height: 48px;
+  width: 32px;
+  height: 32px;
   display: grid;
   place-items: center;
-  border-radius: 12px;
+  border-radius: 8px;
   background: oklch(from var(--destructive) l c h / 0.10);
   color: var(--destructive-text);
 }
 
 .maka-error-copy {
   display: grid;
-  gap: 10px;
+  gap: 6px;
 }
 
 .maka-error-copy h2 {
   margin: 0;
   color: var(--foreground);
-  font-size: 17px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .maka-error-copy p {
   margin: 0;
   color: var(--foreground-70);
-  font-size: 13px;
-  line-height: 1.55;
+  font-size: 12px;
+  line-height: 1.45;
   max-width: 56ch;
 }
 
@@ -4518,7 +4495,7 @@ button:active {
 }
 
 .maka-help-modal {
-  width: min(680px, calc(100vw - 48px));
+  width: min(560px, calc(100vw - 48px));
   max-height: calc(100vh - 96px);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
@@ -4528,41 +4505,41 @@ button:active {
   display: flex;
   align-items: start;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
 }
 
 .maka-help-eyebrow {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 6px;
+  gap: 4px;
+  margin-bottom: 4px;
   color: var(--foreground-50);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .maka-help-body {
   display: grid;
-  gap: 22px;
-  padding: 18px 20px 22px;
+  gap: 14px;
+  padding: 10px 14px 14px;
   overflow-y: auto;
 }
 
 .maka-help-section h3 {
-  margin: 0 0 10px;
+  margin: 0 0 6px;
   color: var(--foreground-70);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .maka-help-section dl {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 6px 16px;
+  gap: 4px 12px;
   margin: 0;
 }
 
@@ -4572,8 +4549,8 @@ button:active {
 
 .maka-help-section dt {
   color: var(--foreground-80);
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .maka-help-section dd {
@@ -4646,17 +4623,17 @@ button:active {
 }
 
 .maka-shortcut-kbd {
-  height: 20px;
-  min-width: 20px;
-  padding: 1px 5px;
-  border-radius: 4px;
+  height: 16px;
+  min-width: 16px;
+  padding: 0 4px;
+  border-radius: 3px;
   border: 1px solid var(--border);
   background: var(--foreground-5);
   box-shadow: inset 0 1px 0 oklch(from var(--background) l c h / 0.45);
   color: var(--foreground-60);
   font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 650;
+  font-size: 9px;
+  font-weight: 600;
   line-height: 1;
 }
 
@@ -4845,28 +4822,19 @@ button:active {
 .message.system > span { color: var(--info-text); }
 
 .maka-message-time {
-  margin-left: 8px;
+  margin-left: 6px;
   color: var(--foreground-40);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
 
-/* Message meta row — replaces the loose `<span>{label}</span>` of the
- * previous structure. Inline horizontal: avatar circle + role name +
- * timestamp, with the user row mirrored to the right via the global
- * `.message.user` flow.  */
 .maka-message-meta {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 11px;
+  gap: 4px;
+  font-size: 10px;
   font-weight: 600;
-  /* PR-CHAT-MAIN-REDESIGN-0: tightened tracking. The previous
-     0.02em positive tracking + uppercase-feel font-weight read as
-     "label small-caps" which is fine for buttons but feels heavy
-     for a per-turn meta. -0.005em pulls characters together just
-     enough to register as a refined inline annotation. */
   letter-spacing: -0.005em;
   color: var(--foreground-60);
 }
@@ -4875,21 +4843,14 @@ button:active {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
-  /* PR-CHAT-MAIN-REDESIGN-0: replace the generic-AI perfect circle
-     with a squircle. 30% radius reads as "rounded square" rather
-     than "circle" — softer than a hard rectangle, distinctive vs
-     the default Slack/Discord avatar pattern. */
+  width: 18px;
+  height: 18px;
   border-radius: 30%;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0;
   user-select: none;
   flex-shrink: 0;
-  /* Subtle inner highlight so the badge feels lit from above
-     instead of perfectly flat — pairs with the colored shadows
-     elsewhere in the theme. */
   box-shadow: inset 0 1px 0 oklch(from currentColor l c h / 0.18);
 }
 
@@ -4922,23 +4883,23 @@ button:active {
   border-radius: 999px;
   background: oklch(from var(--info) l c h / 0.08);
   color: var(--info-text);
-  padding: 4px 9px;
-  font-size: 12px;
+  padding: 2px 7px;
+  font-size: 10px;
 }
 
 .toolInline {
-  width: min(760px, 100%);
-  margin: 4px auto 0;
-  padding: 0 24px;
+  width: min(680px, 100%);
+  margin: 2px auto 0;
+  padding: 0 16px;
 }
 
 .toolInline > header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   color: var(--foreground-50);
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .toolItem {
@@ -4948,16 +4909,16 @@ button:active {
 
 .toolArgs {
   margin: 0;
-  max-height: 132px;
+  max-height: 110px;
   overflow: auto;
 }
 
 .maka-overlay-preview {
-  margin: 8px 0 0;
-  max-height: 240px;
+  margin: 6px 0 0;
+  max-height: 200px;
   overflow: auto;
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: 11px;
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -4966,21 +4927,20 @@ button:active {
   justify-self: end;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-height: 32px;
-  padding-inline: 10px;
+  gap: 4px;
+  min-height: 24px;
+  padding-inline: 8px;
 }
 
-/* load_tool: friendly deferred-loading result card (vs raw JSON). */
 .maka-load-tool-preview {
-  margin: 8px 0 0;
-  padding: 10px 12px;
+  margin: 6px 0 0;
+  padding: 6px 10px;
   display: grid;
-  gap: 4px;
+  gap: 3px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 6px;
   background: var(--background);
-  font-size: 12.5px;
+  font-size: 11px;
 }
 
 .maka-load-tool-preview p {
@@ -5609,7 +5569,7 @@ button:active {
   min-width: 0;
   flex: 1 1 auto;
   color: var(--foreground-50);
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .maka-composer-role-chip,
@@ -5788,16 +5748,17 @@ button:active {
 .maka-composer-streaming-hint {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   color: var(--foreground-70);
+  font-size: 11px;
 }
 
 .maka-composer-streaming-dot {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: var(--accent);
-  box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.15);
+  box-shadow: 0 0 0 2px oklch(from var(--accent) l c h / 0.15);
   animation: maka-composer-stream-pulse 1.2s ease-in-out infinite;
 }
 
@@ -5888,11 +5849,9 @@ button:active {
 
 .maka-permission-tool {
   font-family: var(--font-mono);
-  font-size: 12px;
-  padding: 1px 6px;
-  /* PR-UI-LAYOUT-40: tool pill radius 4 → 5 to match the inline
-   * `<code>` family (LAYOUT-28 set inline code at 5). */
-  border-radius: 5px;
+  font-size: 11px;
+  padding: 0 5px;
+  border-radius: 4px;
   background: var(--foreground-5);
   color: var(--foreground-80);
   border: 1px solid oklch(from var(--foreground) l c h / 0.03);
@@ -5994,24 +5953,24 @@ button:active {
 
 .maka-permission-diff {
   display: grid;
-  gap: 10px;
+  gap: 6px;
 }
 
 .maka-permission-diff > div {
   display: grid;
-  gap: 4px;
+  gap: 2px;
 }
 
 .maka-permission-diff-tag {
   display: inline-flex;
   align-items: center;
   width: fit-content;
-  padding: 1px 7px;
+  padding: 0 5px;
   border-radius: 4px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .maka-permission-diff-tag[data-side="old"] {
@@ -6026,16 +5985,16 @@ button:active {
 
 .maka-permission-raw {
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 6px;
   background: var(--foreground-2);
 }
 
 .maka-permission-raw > summary {
   cursor: pointer;
   list-style: none;
-  padding: 8px 12px;
+  padding: 5px 10px;
   color: var(--foreground-60);
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .maka-permission-raw > summary::-webkit-details-marker { display: none; }
@@ -6048,9 +6007,9 @@ button:active {
 .maka-permission-raw .maka-code {
   margin: 0;
   border: 0;
-  border-radius: 0 0 10px 10px;
+  border-radius: 0 0 6px 6px;
   background: var(--foreground-2);
-  max-height: 220px;
+  max-height: 180px;
   overflow: auto;
 }
 
@@ -6388,7 +6347,7 @@ button:active {
 .settingsFeatureStatusPage {
   display: grid;
   align-content: start;
-  gap: 18px;
+  gap: 10px;
 }
 
 /* Status banner at the top of feature settings pages. */
@@ -6421,48 +6380,48 @@ button:active {
 
 .settingsFeatureStatusHero {
   display: grid;
-  grid-template-columns: 56px minmax(0, 1fr);
+  grid-template-columns: 36px minmax(0, 1fr);
   align-items: start;
-  gap: 16px;
-  padding: 18px;
+  gap: 10px;
+  padding: 10px 12px;
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 8px;
   background: var(--foreground-3);
 }
 
 .settingsFeatureStatusIcon {
-  width: 56px;
-  height: 56px;
+  width: 36px;
+  height: 36px;
   display: grid;
   place-items: center;
-  border-radius: 14px;
+  border-radius: 8px;
   background: oklch(from var(--accent) l c h / 0.08);
   color: var(--accent);
 }
 
 .settingsFeatureStatusHero h3 {
-  margin: 0 0 6px;
+  margin: 0 0 3px;
   color: var(--foreground);
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .settingsFeatureStatusHero p {
   margin: 0;
   max-width: 56ch;
   color: var(--foreground-70);
-  font-size: 13px;
-  line-height: 1.55;
+  font-size: 11px;
+  line-height: 1.45;
 }
 
 .settingsFeatureStatusList {
   margin: 0;
-  padding: 0 0 0 18px;
+  padding: 0 0 0 14px;
   display: grid;
-  gap: 6px;
+  gap: 4px;
   color: var(--foreground-70);
-  font-size: 13px;
-  line-height: 1.55;
+  font-size: 11px;
+  line-height: 1.45;
 }
 
 .settingsFeatureStatusList li::marker {
@@ -6664,13 +6623,13 @@ button:active {
 }
 
 .settingsFormRow {
-  min-height: 58px;
+  min-height: 40px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
+  gap: 12px;
   border-bottom: 1px solid var(--border);
-  padding: 10px 0;
+  padding: 6px 0;
 }
 
 .settingsFormRow strong,
@@ -6678,16 +6637,16 @@ button:active {
 .settingsFormGrid label span {
   display: block;
   color: var(--foreground);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
 }
 
 .settingsFormRow small,
 .settingsField small {
   display: block;
-  margin-top: 4px;
+  margin-top: 2px;
   color: var(--foreground-50);
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.35;
 }
 
@@ -6765,7 +6724,7 @@ button:active {
 .settingsField,
 .settingsFormGrid label {
   display: grid;
-  gap: 7px;
+  gap: 4px;
 }
 
 .settingsField input,
@@ -6775,27 +6734,23 @@ button:active {
 .settingsUsageFilters input,
 .settingsUsageFilters select {
   min-width: 0;
-  min-height: 34px;
+  min-height: 26px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: 6px;
   background: var(--background);
   color: var(--foreground);
-  padding: 0 12px;
+  padding: 0 8px;
+  font-size: 12px;
   outline: none;
-  /* PR-UI-LAYOUT-21: smooth focus transition for the halo below. */
-  transition: border-color 140ms ease, box-shadow 140ms ease;
+  transition: border-color 150ms ease-out, box-shadow 150ms ease-out;
 }
 
-/* PR-UI-LAYOUT-23: textarea needs different chrome from input
- * since it's multi-line. Override radius (999 pill→12 rounded
- * rect), padding (0 12→10 12 for top/bottom breathing), and
- * line-height. The focus halo selector below catches it. */
 .settingsField textarea {
-  border-radius: 12px;
-  padding: 10px 12px;
-  line-height: 1.5;
+  border-radius: 6px;
+  padding: 6px 8px;
+  line-height: 1.45;
   font-family: inherit;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .settingsField input:focus,
@@ -6949,37 +6904,35 @@ button:active {
 .settingsThemeOptions {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: 8px;
 }
 
 .settingsThemeOption {
   display: grid;
-  grid-template-columns: 56px minmax(0, 1fr);
+  grid-template-columns: 40px minmax(0, 1fr);
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   width: 100%;
   height: auto;
-  min-height: 66px;
+  min-height: 48px;
   justify-content: stretch;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 8px;
   background: var(--background-elevated);
   color: var(--foreground);
   cursor: pointer;
   overflow: hidden;
-  padding: 12px;
+  padding: 8px;
   text-align: left;
   white-space: normal;
 }
 
-/* Preview variant: tile stacks vertically (mock on top, label below) and
- * gives the mock more room. Used by the theme picker, not the density picker. */
 .settingsThemeOptionPreview {
   grid-template-columns: 1fr;
   grid-template-rows: auto auto;
   align-items: stretch;
-  gap: 10px;
-  min-height: 142px;
+  gap: 8px;
+  min-height: 116px;
 }
 
 /* Mini chat-surface mock rendered inside each theme tile. Hardcodes colors
@@ -7118,17 +7071,17 @@ button:active {
 .settingsPaletteGroup {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 .settingsPaletteGroup + .settingsPaletteGroup {
-  margin-top: 14px;
+  margin-top: 8px;
 }
 .settingsPaletteGroupHeading {
   margin: 0;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   color: var(--foreground-55);
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
 }
 
 /* PR-BOT-SETTINGS-PASSWORD-EYE-0 (WAWQAQ msg `51c7b4ff` screenshots):
@@ -7142,15 +7095,11 @@ button:active {
 }
 .settingsPasswordField input {
   width: 100%;
-  padding-right: 70px;
+  padding-right: 56px;
 }
-/* PR-BOT-SETTINGS-PASSWORD-COPY-0: cluster the copy + eye buttons at
-   the trailing edge of the input. padding-right above leaves room for
-   up to two buttons; the copy button is conditional on non-empty
-   value so the slot collapses when nothing to copy. */
 .settingsPasswordActions {
   position: absolute;
-  right: 6px;
+  right: 4px;
   top: 50%;
   transform: translateY(-50%);
   display: flex;
@@ -7160,14 +7109,14 @@ button:active {
 .settingsPasswordToggle {
   display: grid;
   place-items: center;
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   border: 0;
-  border-radius: 6px;
+  border-radius: 4px;
   background: transparent;
   color: var(--foreground-50);
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
+  transition: background 150ms ease-out, color 150ms ease-out;
 }
 .settingsPasswordToggle:hover {
   background: var(--hover);
@@ -7263,12 +7212,12 @@ button:active {
 .settingsBotScanLoginModal {
   background: var(--background);
   border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 22px 26px 24px;
-  width: min(360px, 92vw);
+  border-radius: 10px;
+  padding: 14px 16px;
+  width: min(320px, 92vw);
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 12px;
   box-shadow: var(--shadow-minimal);
 }
 .settingsBotScanLoginHeader {
@@ -7278,39 +7227,39 @@ button:active {
 }
 .settingsBotScanLoginHeader h3 {
   margin: 0;
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 600;
 }
 .settingsBotScanLoginBody {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
   text-align: center;
 }
 .settingsBotScanLoginQr {
-  width: 220px;
-  height: 220px;
-  border-radius: 12px;
+  width: 180px;
+  height: 180px;
+  border-radius: 8px;
   background: white;
-  padding: 12px;
+  padding: 8px;
   border: 1px solid var(--border);
   object-fit: contain;
 }
 .settingsBotScanLoginQrPlaceholder {
-  width: 220px;
-  height: 220px;
+  width: 180px;
+  height: 180px;
   display: grid;
   place-items: center;
-  border-radius: 12px;
+  border-radius: 8px;
   background: var(--foreground-5);
   border: 1px dashed var(--border);
   color: var(--foreground-40);
-  font-size: 32px;
+  font-size: 24px;
 }
 .settingsBotScanLoginStatus {
   margin: 0;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 500;
   color: var(--foreground-70);
 }
@@ -7870,7 +7819,7 @@ button:active {
 .settingsUsagePage {
   display: grid;
   align-content: start;
-  gap: 14px;
+  gap: 10px;
 }
 
 .settingsUsageToolbar,
@@ -7878,7 +7827,7 @@ button:active {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 9px;
+  gap: 6px;
 }
 
 .settingsSegmented {
@@ -7893,14 +7842,14 @@ button:active {
 }
 
 .settingsSegmented button {
-  min-height: 26px;
+  min-height: 22px;
   border: 0;
   border-radius: 999px;
   background: transparent;
   color: var(--foreground-60);
   cursor: pointer;
-  padding: 0 11px;
-  font-size: 12px;
+  padding: 0 8px;
+  font-size: 11px;
 }
 
 .settingsSegmented button[data-active="true"] {
@@ -7912,27 +7861,27 @@ button:active {
 .settingsUsageSummary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
+  gap: 6px;
 }
 
 .settingsMetricCard {
-  min-height: 76px;
+  min-height: 52px;
   display: grid;
   align-content: center;
-  gap: 4px;
-  border-radius: 14px;
+  gap: 2px;
+  border-radius: 8px;
   background: var(--foreground-5);
-  padding: 12px;
+  padding: 6px 10px;
 }
 
 .settingsMetricCard small,
 .settingsMetricCard span {
   color: var(--foreground-50);
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .settingsMetricCard strong {
-  font-size: 18px;
+  font-size: 14px;
 }
 
 .settingsStatsTable {
@@ -7940,15 +7889,15 @@ button:active {
   border-collapse: collapse;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 12px;
-  font-size: 12px;
+  border-radius: 8px;
+  font-size: 11px;
 }
 
 .settingsStatsTable th,
 .settingsStatsTable td {
   border-bottom: 1px solid var(--border);
   color: var(--foreground-60);
-  padding: 11px 12px;
+  padding: 5px 8px;
   text-align: left;
 }
 
@@ -7958,47 +7907,47 @@ button:active {
 }
 
 .settingsHeader {
-  min-height: 86px;
+  min-height: 52px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 22px 28px 18px;
+  gap: 12px;
+  padding: 12px 16px 10px;
   border-bottom: 1px solid var(--border);
   background: var(--foreground-2);
 }
 
 .settingsSurface[data-modal="true"] .settingsHeader {
-  min-height: 78px;
-  padding: 24px 34px 14px;
+  min-height: 48px;
+  padding: 12px 18px 8px;
   border-bottom: 0;
   background: var(--background);
 }
 
 .settingsHeader span {
   display: block;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
   color: var(--foreground-50);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .settingsHeader h1 {
   margin: 0;
   color: var(--foreground);
-  font-size: 24px;
+  font-size: 16px;
   font-weight: 600;
 }
 
 .settingsCloseButton {
-  width: 36px;
-  height: 36px;
+  width: 24px;
+  height: 24px;
   display: grid;
   place-items: center;
   border: 0;
-  border-radius: 50%;
+  border-radius: 6px;
   background: transparent;
   color: var(--foreground-50);
   cursor: pointer;
@@ -8006,8 +7955,8 @@ button:active {
 }
 
 .settingsCloseButton svg {
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
 }
 
 .settingsCloseButton:hover {
@@ -8045,22 +7994,22 @@ button:active {
 
 .settingsTab {
   display: grid;
-  gap: 3px;
+  gap: 2px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 6px;
   background: transparent;
   color: var(--foreground-70);
   cursor: pointer;
-  padding: 9px 10px;
+  padding: 4px 8px;
   text-align: left;
 }
 
 .settingsSurface[data-modal="true"] .settingsTab {
-  min-height: 46px;
+  min-height: 32px;
   grid-template-columns: 1fr;
   align-content: center;
-  border-radius: 12px;
-  padding: 8px 14px;
+  border-radius: 6px;
+  padding: 4px 10px;
 }
 
 .settingsTab:hover {
@@ -8074,13 +8023,13 @@ button:active {
 }
 
 .settingsTab strong {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
 }
 
 .settingsTab small {
   color: var(--foreground-50);
-  font-size: 11px;
+  font-size: 10px;
   line-height: 1.3;
 }
 
@@ -8089,22 +8038,22 @@ button:active {
   overflow: auto;
   display: grid;
   align-content: start;
-  gap: 14px;
-  padding: 18px;
+  gap: 10px;
+  padding: 12px;
 }
 
 .settingsSurface[data-modal="true"] .settingsContent {
-  padding: 10px 28px 24px 8px;
+  padding: 8px 18px 16px 6px;
 }
 
 .settingsCard {
   display: grid;
-  gap: 14px;
+  gap: 10px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 8px;
   background: var(--background);
   box-shadow: var(--shadow-minimal-flat);
-  padding: 16px;
+  padding: 10px 12px;
 }
 
 .settingsSurface[data-modal="true"] .settingsCard {
@@ -8118,16 +8067,16 @@ button:active {
 .settingsCard h2 {
   margin: 0;
   color: var(--foreground);
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
 }
 
 .settingsCard p {
-  margin: 4px 0 0;
+  margin: 2px 0 0;
   max-width: 68ch;
   color: var(--foreground-60);
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: 11px;
+  line-height: 1.4;
 }
 
 .settingsCardHeader,
@@ -8148,12 +8097,12 @@ button:active {
 .settingsBadge {
   display: inline-flex;
   align-items: center;
-  min-height: 22px;
+  min-height: 18px;
   border-radius: 4px;
   background: var(--foreground-5);
   color: var(--foreground-60);
-  padding: 0 8px;
-  font-size: 12px;
+  padding: 0 6px;
+  font-size: 10px;
 }
 
 .providerGrid,
@@ -8346,8 +8295,8 @@ button:active {
 .settingsConnectionDetail {
   margin: 0;
   color: var(--foreground-70);
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: 11px;
+  line-height: 1.45;
 }
 
 .settingsAuthContract {
@@ -8498,9 +8447,9 @@ button:active {
 .providerEmpty span,
 .settingsRow small {
   display: block;
-  margin-top: 4px;
+  margin-top: 2px;
   color: var(--foreground-50);
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.35;
 }
 
@@ -8514,14 +8463,14 @@ button:active {
 .connectionForm {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 6px;
 }
 
 .connectionForm label {
   display: grid;
-  gap: 6px;
+  gap: 3px;
   color: var(--foreground-60);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
 }
 
@@ -8768,14 +8717,14 @@ button:active {
 }
 
 .catalogTab {
-  min-height: 58px;
+  min-height: 38px;
   display: grid;
-  gap: 3px;
+  gap: 2px;
   border: 1px solid transparent;
   border-radius: 8px;
   background: var(--foreground-3);
   color: var(--foreground);
-  padding: 10px 12px;
+  padding: 6px 8px;
   text-align: left;
   cursor: pointer;
 }
@@ -8790,14 +8739,14 @@ button:active {
 }
 
 .catalogTabs strong {
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .catalogTabs small {
   color: var(--foreground-50);
   font-size: 10px;
-  line-height: 1.25;
+  line-height: 1.2;
 }
 
 .catalogGrid {
@@ -8810,23 +8759,23 @@ button:active {
 }
 
 .providerCatalogCard {
-  height: 172px;
-  min-height: 104px;
+  height: 124px;
+  min-height: 76px;
   display: grid;
   grid-template-columns: 1fr;
-  gap: 10px;
+  gap: 6px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: transparent;
   color: var(--foreground);
-  padding: 14px;
+  padding: 10px;
   text-align: left;
   cursor: pointer;
   transition:
-    border-color 140ms ease,
-    background 140ms ease,
-    box-shadow 160ms ease,
-    transform 140ms var(--ease-out-strong);
+    border-color 150ms ease-out,
+    background 150ms ease-out,
+    box-shadow 150ms ease-out,
+    transform 150ms ease-out;
 }
 
 /* PR-UI-LAYOUT-15 fixup (@kenji review @msg 0e7482e5):
@@ -9189,17 +9138,17 @@ button:active {
 .modelTableRow {
   width: 100%;
   display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) auto auto;
+  grid-template-columns: 16px minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 10px;
-  padding: 7px 10px;
+  gap: 8px;
+  padding: 4px 8px;
   border: 1px solid transparent;
   border-radius: 8px;
   background: transparent;
   color: var(--foreground);
   text-align: left;
   cursor: pointer;
-  transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+  transition: background 150ms ease-out, border-color 150ms ease-out, box-shadow 150ms ease-out;
 }
 
 .modelTableRow:hover {
@@ -10098,7 +10047,7 @@ button:active {
 .maka-artifact-list {
   list-style: none;
   margin: 0;
-  padding: 6px 6px 0;
+  padding: 4px 4px 0;
   overflow-y: auto;
   border-bottom: 1px solid var(--border);
   max-height: 40%;
@@ -10111,18 +10060,18 @@ button:active {
 .maka-artifact-row {
   width: 100%;
   display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) auto;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
-  padding: 7px 8px;
+  gap: 6px;
+  padding: 4px 6px;
   margin: 0;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: 6px;
   background: transparent;
   color: var(--foreground);
   cursor: pointer;
   text-align: left;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .maka-artifact-row:hover {
@@ -10174,7 +10123,7 @@ button:active {
 .maka-artifact-preview {
   position: relative;
   overflow: auto;
-  padding: 10px 12px;
+  padding: 6px 10px;
   background: var(--background);
   min-height: 0;
 }
@@ -10184,24 +10133,24 @@ button:active {
   align-items: center;
   justify-content: center;
   color: oklch(from var(--foreground) l c h / 0.5);
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .maka-artifact-preview-empty {
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .maka-artifact-preview-file {
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
-  font-size: 12px;
-  line-height: 1.55;
+  font-size: 11px;
+  line-height: 1.45;
 }
 
 .maka-artifact-preview-diff {
   margin: 0;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .maka-artifact-preview-html {
@@ -10222,9 +10171,9 @@ button:active {
 }
 
 .maka-artifact-preview-external-links-bar {
-  font-size: 11px;
-  padding: 6px 8px;
-  border-radius: 6px;
+  font-size: 10px;
+  padding: 4px 6px;
+  border-radius: 5px;
   background: oklch(from var(--info) l c h / 0.10);
   color: var(--info-text);
   border: 1px solid oklch(from var(--info) l c h / 0.20);
