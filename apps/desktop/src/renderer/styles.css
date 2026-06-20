@@ -6043,6 +6043,31 @@ button:active {
   }
 }
 
+.settingsModal.settingsPage {
+  position: fixed;
+  inset: 0;
+  width: auto;
+  max-width: none;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--background);
+  z-index: 35;
+  overflow: hidden;
+  transform: none;
+  transition: opacity 160ms ease-out;
+}
+
+@starting-style {
+  .settingsModal.settingsPage {
+    transform: none;
+    opacity: 0;
+  }
+}
+
 .settingsSurface[data-modal="true"] {
   position: relative;
   background: var(--background);

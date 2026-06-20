@@ -292,8 +292,8 @@ describe('localized main shell contract', () => {
 
     assert.match(
       appShell,
-      /const hasModalOpen = Boolean\(activePermission\) \|\| settingsOpen \|\| helpOpen \|\| paletteOpen \|\| searchModalOpen;/,
-      'all top-level modal states must contribute to the accessibility background-hide flag',
+      /const hasModalOpen = Boolean\(activePermission\) \|\| helpOpen \|\| paletteOpen \|\| searchModalOpen;/,
+      'all top-level modal states must contribute to the accessibility background-hide flag; Settings is now an inline page, not a modal',
     );
     assert.match(
       appShell,
@@ -347,7 +347,7 @@ describe('localized main shell contract', () => {
     );
   });
 
-  it('focuses the active Settings nav item when the modal opens', async () => {
+  it('focuses the active Settings nav item when the page opens', async () => {
     const settings = await readFile(join(process.cwd(), 'src', 'renderer', 'settings', 'SettingsModal.tsx'), 'utf8');
     const modalBlock = settings.match(/function SettingsModal[\s\S]*?function SettingsSurface/)?.[0] ?? '';
     const navButtonBlock = settings.match(/items\.map\(\(item\) => \([\s\S]*?<\/Button>\s*\)\)/)?.[0] ?? '';
@@ -355,12 +355,12 @@ describe('localized main shell contract', () => {
     assert.match(
       modalBlock,
       /const activeNavRef = useRef<HTMLButtonElement>\(null\);/,
-      'Settings modal must nominate the active nav item as the initial focus target',
+      'Settings must nominate the active nav item as the initial focus target',
     );
     assert.match(
       modalBlock,
-      /useModalA11y\(dialogRef,\s*props\.onClose,\s*activeNavRef\)/,
-      'Settings modal focus should not fall back to the first enabled button when a later section is active',
+      /activeNavRef\.current\?\.focus\(\)/,
+      'Settings page must focus the active nav ref on mount',
     );
     assert.match(
       modalBlock,

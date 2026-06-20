@@ -792,44 +792,42 @@ export function SettingsModal(props: {
    */
   onOpenSession?(sessionId: string): void;
 }) {
-  const dialogRef = useRef<HTMLDivElement>(null);
+  const pageRef = useRef<HTMLDivElement>(null);
   const activeNavRef = useRef<HTMLButtonElement>(null);
-  // Escape closes the modal, Tab/Shift+Tab cycles inside the dialog,
-  // focus restored to the trigger on close.
-  useModalA11y(dialogRef, props.onClose, activeNavRef);
+  useEffect(() => {
+    function onKey(event: globalThis.KeyboardEvent) {
+      if (event.key === 'Escape') props.onClose();
+    }
+    window.addEventListener('keydown', onKey);
+    activeNavRef.current?.focus();
+    return () => window.removeEventListener('keydown', onKey);
+  }, [props.onClose]);
 
   return (
-    <DialogRoot
-      open
-      onOpenChange={(open) => {
-        if (!open) props.onClose();
-      }}
+    <div
+      ref={pageRef}
+      role="region"
+      aria-label="设置"
+      className="settingsModal settingsPage"
     >
-      <DialogContent
-        ref={dialogRef}
-        className="settingsModal w-[min(96vw,1120px)] p-0"
-        aria-label="设置"
-        showClose={false}
-      >
-        <SettingsSurface
-          connections={props.connections}
-          defaultSlug={props.defaultSlug}
-          onRefresh={props.onRefresh}
-          onClose={props.onClose}
-          themePref={props.themePref}
-          onThemeChange={props.onThemeChange}
-          density={props.density}
-          onDensityChange={props.onDensityChange}
-          themePalette={props.themePalette}
-          onThemePaletteChange={props.onThemePaletteChange}
-          onUserLabelChange={props.onUserLabelChange}
-          requestedSection={props.requestedSection}
-          initialFocusRef={activeNavRef}
-          onOpenDailyReview={props.onOpenDailyReview}
-          onOpenSession={props.onOpenSession}
-        />
-      </DialogContent>
-    </DialogRoot>
+      <SettingsSurface
+        connections={props.connections}
+        defaultSlug={props.defaultSlug}
+        onRefresh={props.onRefresh}
+        onClose={props.onClose}
+        themePref={props.themePref}
+        onThemeChange={props.onThemeChange}
+        density={props.density}
+        onDensityChange={props.onDensityChange}
+        themePalette={props.themePalette}
+        onThemePaletteChange={props.onThemePaletteChange}
+        onUserLabelChange={props.onUserLabelChange}
+        requestedSection={props.requestedSection}
+        initialFocusRef={activeNavRef}
+        onOpenDailyReview={props.onOpenDailyReview}
+        onOpenSession={props.onOpenSession}
+      />
+    </div>
   );
 }
 

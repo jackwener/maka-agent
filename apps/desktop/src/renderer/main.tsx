@@ -2679,7 +2679,7 @@ function AppShell() {
     setSessionListWidth(clampSessionListWidth(next));
   }
 
-  const hasModalOpen = Boolean(activePermission) || settingsOpen || helpOpen || paletteOpen || searchModalOpen;
+  const hasModalOpen = Boolean(activePermission) || helpOpen || paletteOpen || searchModalOpen;
   const activeMessageLoadError = activeId ? messageLoadErrorBySession[activeId] : undefined;
   const homeSurfaceActive =
     navSelection.section === 'sessions'
