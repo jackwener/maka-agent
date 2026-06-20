@@ -6069,15 +6069,15 @@ button:active {
   min-height: 0;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  padding: 22px 8px 22px 18px;
+  padding: 12px 6px 12px 12px;
   background: var(--background);
 }
 
 .settingsSidebar header {
-  min-height: 46px;
+  min-height: 32px;
   display: flex;
   align-items: center;
-  padding: 0 10px;
+  padding: 0 6px;
 }
 
 .settingsSidebar header span {
@@ -6085,20 +6085,20 @@ button:active {
   align-items: center;
   gap: 4px;
   color: var(--foreground-50);
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .settingsSidebar header .maka-shortcut-kbd {
-  font-size: 11px;
-  padding: 1px 6px;
+  font-size: 10px;
+  padding: 0 4px;
 }
 
 .settingsSidebar nav {
   min-height: 0;
   display: grid;
   align-content: start;
-  gap: 14px;
+  gap: 10px;
   overflow: auto;
   padding-right: 2px;
 }
@@ -6198,17 +6198,17 @@ button:active {
 }
 
 .settingsNavItem {
-  min-height: 38px;
+  min-height: 28px;
   display: grid;
-  grid-template-columns: 26px minmax(0, 1fr);
+  grid-template-columns: 20px minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   border: 0;
-  border-radius: 12px;
+  border-radius: 6px;
   background: transparent;
   color: var(--foreground-70);
   cursor: pointer;
-  padding: 6px 10px;
+  padding: 3px 6px;
   text-align: left;
 }
 
@@ -6244,16 +6244,16 @@ button:active {
 }
 
 .settingsNavGlyph {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   display: grid;
   place-items: center;
   color: var(--foreground-60);
 }
 
 .settingsNavGlyph svg {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
 }
 
 /* PR-UI-11 (@yuejing 2026-05-22): inactive glyph stays muted; active
@@ -6263,12 +6263,12 @@ button:active {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
 }
 
 .settingsNavItem {
-  grid-template-columns: 26px minmax(0, 1fr) auto;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
 }
 
 .settingsNavBadge {
