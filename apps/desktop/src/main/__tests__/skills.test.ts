@@ -357,11 +357,17 @@ name: Writer
     assert.match(skillPanel, /actionBusy\?: boolean/);
     assert.match(skillPanel, /createPending\?: boolean/);
     assert.match(skillPanel, /openingSkillId\?: string \| null/);
+    assert.match(skillPanel, /const sidebar = \(/);
+    assert.match(skillPanel, /<aside className="maka-skill-workbench-rail" aria-label="技能概览">/);
+    assert.match(skillPanel, /<section className="maka-skill-workbench-summary" aria-label="技能库状态">/);
     assert.match(skillPanel, /<section className="maka-skill-examples" aria-label="技能示例">/);
     assert.match(skillPanel, /<ul className="maka-skill-example-grid" aria-label="技能模板示例">/);
+    assert.match(skillPanel, /className="maka-skill-template-row"/);
     assert.match(skillPanel, /<section className="maka-skill-installed" aria-label="已安装技能">/);
     assert.match(skillPanel, /<div className="maka-skill-library" aria-busy=\{props\.actionBusy \? 'true' : undefined\}>/);
     assert.match(skillPanel, /<ul className="maka-skill-library-list" aria-label="技能列表">/);
+    assert.match(skillPanel, /<span className="maka-skill-library-status" aria-hidden="true">/);
+    assert.match(skillPanel, /<span className="maka-skill-library-action" aria-hidden="true">[\s\S]*打开[\s\S]*<\/span>/);
     assert.match(skillPanel, /label: props\.createPending \? '创建中…' : '创建示例技能'/);
     assert.match(skillPanel, /label: props\.refreshPending \? '刷新中…' : '刷新技能'/);
     assert.match(skillPanel, /disabled: props\.actionBusy/);

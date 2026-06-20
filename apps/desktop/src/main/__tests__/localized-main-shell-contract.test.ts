@@ -793,16 +793,22 @@ describe('localized main shell contract', () => {
     const wrapperStyle = styles.match(/\.maka-skill-library\s*\{[\s\S]*?\n\}/)?.[0] ?? '';
     const listStyle = styles.match(/\.maka-skill-library-list\s*\{[\s\S]*?\n\}/)?.[0] ?? '';
 
+    assert.match(skillPanel, /const sidebar = \(/);
+    assert.match(skillPanel, /<aside className="maka-skill-workbench-rail" aria-label="技能概览">/);
+    assert.match(skillPanel, /<section className="maka-skill-workbench-summary" aria-label="技能库状态">/);
     assert.match(skillPanel, /<div className="maka-skill-library" aria-busy=\{props\.actionBusy \? 'true' : undefined\}>/);
     assert.match(skillPanel, /<ul className="maka-skill-library-list" aria-label="技能列表">/);
     assert.match(skillPanel, /<li key=\{skill\.id\} className="maka-skill-library-item">[\s\S]*?<UiButton[\s\S]*?className="maka-skill-library-row"/);
+    assert.match(skillPanel, /<span className="maka-skill-library-status" aria-hidden="true">/);
+    assert.match(skillPanel, /<span className="maka-skill-library-action" aria-hidden="true">[\s\S]*打开[\s\S]*<\/span>/);
     assert.match(skillPanel, /<UiButton[\s\S]*variant="ghost"[\s\S]*disabled=\{props\.actionBusy\}[\s\S]*title=\{hoverText\}/);
     assert.doesNotMatch(skillPanel, /<button[\s\S]*?className="maka-skill-library-row"/);
     assert.match(wrapperStyle, /overflow:\s*auto/);
+    assert.match(wrapperStyle, /grid-template-columns:\s*minmax\(190px,\s*0\.28fr\)\s*minmax\(0,\s*1fr\)/);
     assert.match(listStyle, /list-style:\s*none/);
     assert.match(listStyle, /margin:\s*0/);
     assert.match(listStyle, /padding:\s*0/);
-    assert.match(listStyle, /overflow:\s*visible/);
+    assert.match(listStyle, /border:\s*1px solid var\(--foreground-8\)/);
   });
 
   it('does not leak absolute skill paths through row hover or accessibility help', async () => {

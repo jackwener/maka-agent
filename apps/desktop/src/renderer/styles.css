@@ -3415,9 +3415,44 @@ button:active {
   min-height: 0;
   overflow: auto;
   display: grid;
+  grid-template-columns: minmax(190px, 0.28fr) minmax(0, 1fr);
   align-content: start;
-  gap: 12px;
+  align-items: start;
+  gap: 14px;
   padding-right: 2px;
+}
+
+.maka-skill-workbench-rail {
+  position: sticky;
+  top: 0;
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.maka-skill-workbench-summary {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid var(--foreground-8);
+  border-radius: 8px;
+  background: var(--foreground-2);
+}
+
+.maka-skill-workbench-summary strong {
+  min-width: 0;
+  color: var(--foreground);
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.maka-skill-workbench-summary span:not(.maka-skill-section-label) {
+  min-width: 0;
+  color: var(--foreground-55);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .maka-skill-examples,
@@ -3449,58 +3484,70 @@ button:active {
   padding: 0;
   list-style: none;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 6px;
 }
 
-.maka-skill-example-card {
+.maka-skill-template-row {
   min-width: 0;
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr);
-  gap: 3px 10px;
-  align-items: start;
-  padding: 12px;
-  border: 1px solid var(--foreground-10);
-  border-radius: 8px;
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: 2px 8px;
+  align-items: center;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: 7px;
   background: var(--foreground-2);
+  transition: border-color 160ms ease, background-color 160ms ease;
 }
 
-.maka-skill-example-icon {
-  grid-row: span 3;
-  width: 28px;
-  height: 28px;
+.maka-skill-template-row:hover {
+  border-color: var(--foreground-10);
+  background: var(--background);
+}
+
+.maka-skill-template-icon {
+  grid-row: span 2;
+  width: 26px;
+  height: 26px;
   display: inline-grid;
   place-items: center;
-  border-radius: 7px;
+  border-radius: 6px;
   background: oklch(from var(--accent) l c h / 0.08);
   color: var(--accent);
 }
 
-.maka-skill-example-card strong {
+.maka-skill-template-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.maka-skill-template-copy strong {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--foreground);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 650;
   line-height: 1.25;
 }
 
-.maka-skill-example-card span:not(.maka-skill-example-icon) {
+.maka-skill-template-copy span {
   min-width: 0;
   color: var(--foreground-60);
-  font-size: 12px;
-  line-height: 1.45;
+  font-size: 11px;
+  line-height: 1.35;
 }
 
-.maka-skill-example-card small {
+.maka-skill-template-row small {
+  grid-column: 2;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--foreground-45);
-  font-size: 11px;
+  font-size: 10px;
   line-height: 1.35;
 }
 
@@ -3512,33 +3559,43 @@ button:active {
   overflow: visible;
   display: grid;
   align-content: start;
-  gap: 10px;
+  gap: 0;
+  border: 1px solid var(--foreground-8);
+  border-radius: 8px;
+  background: var(--background);
 }
 
 .maka-skill-library-item {
   min-width: 0;
 }
 
+.maka-skill-library-item + .maka-skill-library-item {
+  border-top: 1px solid var(--foreground-8);
+}
+
 .maka-skill-library-row {
   appearance: none;
   width: 100%;
+  height: auto !important;
+  min-height: 58px;
   display: grid;
-  grid-template-columns: minmax(140px, 0.35fr) minmax(0, 1fr) auto;
+  grid-template-columns: 24px minmax(150px, 0.32fr) minmax(180px, 1fr) 52px;
   align-items: center;
-  gap: 14px;
-  padding: 12px 14px;
-  border: 1px solid var(--foreground-10);
-  border-radius: 8px;
-  background: var(--foreground-3);
+  justify-content: stretch !important;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--foreground);
+  white-space: normal !important;
   text-align: left;
   cursor: pointer;
-  transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease;
+  transition: background-color 160ms ease, transform 160ms ease;
 }
 
 .maka-skill-library-row:hover {
-  border-color: oklch(from var(--accent) l c h / 0.28);
-  background: oklch(from var(--accent) l c h / 0.06);
+  background: oklch(from var(--accent) l c h / 0.055);
 }
 
 .maka-skill-library-row:active {
@@ -3550,12 +3607,35 @@ button:active {
   outline-offset: 2px;
 }
 
+.maka-skill-library-status {
+  width: 24px;
+  height: 24px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 6px;
+  background: var(--foreground-4);
+  color: var(--foreground-50);
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.maka-skill-library-row:hover .maka-skill-library-status,
+.maka-skill-library-row:focus-visible .maka-skill-library-status {
+  background: oklch(from var(--accent) l c h / 0.1);
+  color: var(--accent);
+}
+
+.maka-skill-library-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
 .maka-skill-library-name {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
 }
 
@@ -3565,7 +3645,8 @@ button:active {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--foreground-60);
-  font-size: 13px;
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .maka-skill-library-meta {
@@ -3575,6 +3656,40 @@ button:active {
   color: var(--foreground-50);
   font-size: 11px;
   white-space: nowrap;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.maka-skill-library-meta > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.maka-skill-library-action {
+  justify-self: end;
+  min-width: 48px;
+  padding: 5px 9px;
+  border-radius: 6px;
+  background: var(--foreground-5);
+  color: var(--foreground-55);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  opacity: 0;
+  transform: translateX(4px);
+  transition: opacity 160ms ease, transform 160ms ease, background-color 160ms ease, color 160ms ease;
+}
+
+.maka-skill-library-row:hover .maka-skill-library-action,
+.maka-skill-library-row:focus-visible .maka-skill-library-action {
+  opacity: 1;
+  transform: translateX(0);
+  background: var(--foreground);
+  color: var(--background);
+}
+
+.maka-skill-installed-empty {
+  align-self: stretch;
 }
 
 @media (max-width: 820px) {
@@ -3590,8 +3705,12 @@ button:active {
     justify-content: flex-start;
   }
 
-  .maka-skill-example-grid {
+  .maka-skill-library {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .maka-skill-workbench-rail {
+    position: static;
   }
 
   .maka-skill-examples-header,
@@ -3602,13 +3721,21 @@ button:active {
   }
 
   .maka-skill-library-row {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: 24px minmax(0, 1fr);
     gap: 6px;
   }
 
   .maka-skill-library-meta {
+    grid-column: 2;
     flex-wrap: wrap;
     white-space: normal;
+  }
+
+  .maka-skill-library-action {
+    grid-column: 2;
+    justify-self: start;
+    opacity: 1;
+    transform: none;
   }
 }
 
