@@ -12475,8 +12475,8 @@ button:active {
   overflow: auto;
   display: grid;
   align-content: start;
-  gap: 14px;
-  padding: 10px 12px 20px;
+  gap: 10px;
+  padding: 6px 12px 16px;
 }
 
 .maka-module-main .maka-daily-review-panel {
@@ -12487,17 +12487,17 @@ button:active {
 
 .maka-daily-review-header {
   display: grid;
-  grid-template-columns: 32px 1fr 32px;
+  grid-template-columns: 24px 1fr 24px;
   align-items: center;
-  gap: 6px;
-  padding: 4px 2px 8px;
+  gap: 4px;
+  padding: 2px 2px 6px;
   border-bottom: 1px solid var(--foreground-10);
 }
 
 .maka-daily-review-day {
   text-align: center;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 12px;
   color: var(--foreground);
 }
 
@@ -12508,8 +12508,8 @@ button:active {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
-  padding: 4px 0 8px;
+  gap: 6px;
+  padding: 2px 0 6px;
   border-bottom: 1px solid var(--foreground-10);
 }
 
@@ -12569,20 +12569,20 @@ button:active {
 .maka-daily-review-totals {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
-  gap: 8px;
+  gap: 4px;
 }
 
 .maka-module-main .maka-daily-review-totals {
-  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
 }
 
 .maka-daily-review-totals-cell {
   display: grid;
-  gap: 2px;
-  padding: 8px 10px;
-  border: 1px solid var(--foreground-10);
-  border-radius: 8px;
-  background: var(--foreground-5);
+  gap: 1px;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: oklch(from var(--foreground) l c h / 0.04);
 }
 
 .maka-daily-review-totals-cell[data-tone="error"] {
@@ -12591,14 +12591,14 @@ button:active {
 }
 
 .maka-daily-review-totals-value {
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--foreground);
   font-variant-numeric: tabular-nums;
 }
 
 .maka-daily-review-totals-label {
-  font-size: 11px;
+  font-size: 10px;
   text-transform: none;
   letter-spacing: 0;
   color: var(--foreground-50);
@@ -12606,11 +12606,11 @@ button:active {
 
 .maka-daily-review-section {
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
 .maka-daily-review-section-title {
-  font-size: 12px;
+  font-size: 11px;
   text-transform: none;
   letter-spacing: 0;
   color: var(--foreground-50);
@@ -12622,15 +12622,20 @@ button:active {
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 4px;
+  gap: 2px;
 }
 
 .maka-daily-review-list-item {
   display: grid;
-  gap: 2px;
-  padding: 6px 8px;
+  gap: 1px;
+  padding: 4px 8px;
   border-radius: 6px;
-  background: var(--foreground-3, transparent);
+  background: transparent;
+  transition: background 120ms ease;
+}
+
+.maka-daily-review-list-item:hover {
+  background: oklch(from var(--foreground) l c h / 0.04);
 }
 
 .maka-daily-review-session-button {
