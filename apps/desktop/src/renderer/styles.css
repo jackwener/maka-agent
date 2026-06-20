@@ -420,11 +420,9 @@ button:active {
    * and centering. */
 }
 .maka-search-modal {
-  width: min(640px, 92vw);
-  max-height: 70vh;
+  width: min(560px, 92vw);
+  max-height: 64vh;
   display: grid;
-  /* PR-UX-POLISH-1 commit 5: now 3 rows — header / input / body.
-   * Body scrolls when results overflow modal height. */
   grid-template-rows: auto auto minmax(0, 1fr);
   padding: 0;
   overflow: hidden;
@@ -433,23 +431,23 @@ button:active {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  padding: 16px 20px 12px;
+  padding: 8px 12px 6px;
   border-bottom: 1px solid var(--border);
 }
 .maka-search-modal-title {
   margin: 0;
-  font-size: 15px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--foreground);
 }
 .maka-search-modal-close {
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
   border: 0;
   background: transparent;
   color: var(--foreground-60);
   cursor: pointer;
-  font-size: 20px;
+  font-size: 16px;
   line-height: 1;
   border-radius: 6px;
 }
@@ -469,8 +467,8 @@ button:active {
  */
 .maka-search-modal-input-row {
   width: auto;
-  min-height: 40px;
-  margin: 12px 20px;
+  min-height: 32px;
+  margin: 8px 12px;
   border-color: var(--border);
   background: var(--surface);
 }
@@ -480,7 +478,7 @@ button:active {
 .maka-search-modal-input {
   width: 100%;
   color: var(--foreground);
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.4;
 }
 .maka-search-modal-input::placeholder {
@@ -490,9 +488,9 @@ button:active {
   display: none;
 }
 .maka-search-modal-clear {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
   color: var(--foreground-50);
 }
 .maka-search-modal-clear:hover {
@@ -640,11 +638,11 @@ button:active {
 }
 
 .maka-sidebar-drag-strip {
-  min-height: 30px;
+  min-height: 28px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
   box-sizing: border-box;
   padding-left: calc(var(--maka-titlebar-control-safe-left) - 10px);
   -webkit-app-region: drag;
@@ -653,16 +651,16 @@ button:active {
 .maka-sidebar-search-button,
 .maka-sidebar-toggle {
   -webkit-app-region: no-drag;
-  width: 30px;
-  height: 30px;
+  width: 24px;
+  height: 24px;
   display: inline-grid;
   place-items: center;
   border: 0;
-  border-radius: 8px;
+  border-radius: 6px;
   background: transparent;
   color: var(--foreground-55);
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease, box-shadow 120ms ease;
+  transition: background 150ms ease-out, color 150ms ease-out, box-shadow 150ms ease-out;
 }
 
 .maka-sidebar-search-button:hover,
@@ -866,22 +864,22 @@ button:active {
 .maka-nav-primary {
   -webkit-app-region: no-drag;
   width: 100%;
-  height: 36px;
+  height: 28px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   margin: 0;
-  padding: 0 8px;
+  padding: 0 6px;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: 6px;
   background: transparent;
   box-shadow: none;
   color: var(--foreground-75);
   cursor: pointer;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
   text-align: left;
-  transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+  transition: background 150ms ease-out, border-color 150ms ease-out, color 150ms ease-out;
 }
 
 .maka-nav-primary:hover {
@@ -903,17 +901,17 @@ button:active {
 }
 
 .maka-session-panel[data-collapsed="true"] .maka-nav-primary {
-  width: 34px;
-  min-width: 34px;
-  height: 34px;
-  min-height: 34px;
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  min-height: 28px;
   display: grid;
   grid-template-columns: 1fr;
   place-items: center;
   gap: 0;
   margin-inline: auto;
   padding: 0;
-  border-radius: 9px;
+  border-radius: 6px;
 }
 
 .maka-session-panel[data-collapsed="true"] .maka-nav-primary span {
@@ -4518,7 +4516,7 @@ button:active {
 }
 
 .maka-help-modal {
-  width: min(680px, calc(100vw - 48px));
+  width: min(560px, calc(100vw - 48px));
   max-height: calc(100vh - 96px);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
@@ -4528,41 +4526,41 @@ button:active {
   display: flex;
   align-items: start;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
 }
 
 .maka-help-eyebrow {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 6px;
+  gap: 4px;
+  margin-bottom: 4px;
   color: var(--foreground-50);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .maka-help-body {
   display: grid;
-  gap: 22px;
-  padding: 18px 20px 22px;
+  gap: 14px;
+  padding: 10px 14px 14px;
   overflow-y: auto;
 }
 
 .maka-help-section h3 {
-  margin: 0 0 10px;
+  margin: 0 0 6px;
   color: var(--foreground-70);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .maka-help-section dl {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 6px 16px;
+  gap: 4px 12px;
   margin: 0;
 }
 
@@ -4572,8 +4570,8 @@ button:active {
 
 .maka-help-section dt {
   color: var(--foreground-80);
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .maka-help-section dd {
@@ -7958,47 +7956,47 @@ button:active {
 }
 
 .settingsHeader {
-  min-height: 86px;
+  min-height: 52px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 22px 28px 18px;
+  gap: 12px;
+  padding: 12px 16px 10px;
   border-bottom: 1px solid var(--border);
   background: var(--foreground-2);
 }
 
 .settingsSurface[data-modal="true"] .settingsHeader {
-  min-height: 78px;
-  padding: 24px 34px 14px;
+  min-height: 48px;
+  padding: 12px 18px 8px;
   border-bottom: 0;
   background: var(--background);
 }
 
 .settingsHeader span {
   display: block;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
   color: var(--foreground-50);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .settingsHeader h1 {
   margin: 0;
   color: var(--foreground);
-  font-size: 24px;
+  font-size: 16px;
   font-weight: 600;
 }
 
 .settingsCloseButton {
-  width: 36px;
-  height: 36px;
+  width: 24px;
+  height: 24px;
   display: grid;
   place-items: center;
   border: 0;
-  border-radius: 50%;
+  border-radius: 6px;
   background: transparent;
   color: var(--foreground-50);
   cursor: pointer;
@@ -8006,8 +8004,8 @@ button:active {
 }
 
 .settingsCloseButton svg {
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
 }
 
 .settingsCloseButton:hover {
