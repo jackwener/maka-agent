@@ -6662,13 +6662,13 @@ button:active {
 }
 
 .settingsFormRow {
-  min-height: 58px;
+  min-height: 40px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
+  gap: 12px;
   border-bottom: 1px solid var(--border);
-  padding: 10px 0;
+  padding: 6px 0;
 }
 
 .settingsFormRow strong,
@@ -6676,16 +6676,16 @@ button:active {
 .settingsFormGrid label span {
   display: block;
   color: var(--foreground);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
 }
 
 .settingsFormRow small,
 .settingsField small {
   display: block;
-  margin-top: 4px;
+  margin-top: 2px;
   color: var(--foreground-50);
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.35;
 }
 
@@ -8043,22 +8043,22 @@ button:active {
 
 .settingsTab {
   display: grid;
-  gap: 3px;
+  gap: 2px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 6px;
   background: transparent;
   color: var(--foreground-70);
   cursor: pointer;
-  padding: 9px 10px;
+  padding: 4px 8px;
   text-align: left;
 }
 
 .settingsSurface[data-modal="true"] .settingsTab {
-  min-height: 46px;
+  min-height: 32px;
   grid-template-columns: 1fr;
   align-content: center;
-  border-radius: 12px;
-  padding: 8px 14px;
+  border-radius: 6px;
+  padding: 4px 10px;
 }
 
 .settingsTab:hover {
@@ -8072,13 +8072,13 @@ button:active {
 }
 
 .settingsTab strong {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
 }
 
 .settingsTab small {
   color: var(--foreground-50);
-  font-size: 11px;
+  font-size: 10px;
   line-height: 1.3;
 }
 
@@ -8087,22 +8087,22 @@ button:active {
   overflow: auto;
   display: grid;
   align-content: start;
-  gap: 14px;
-  padding: 18px;
+  gap: 10px;
+  padding: 12px;
 }
 
 .settingsSurface[data-modal="true"] .settingsContent {
-  padding: 10px 28px 24px 8px;
+  padding: 8px 18px 16px 6px;
 }
 
 .settingsCard {
   display: grid;
-  gap: 14px;
+  gap: 10px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 8px;
   background: var(--background);
   box-shadow: var(--shadow-minimal-flat);
-  padding: 16px;
+  padding: 10px 12px;
 }
 
 .settingsSurface[data-modal="true"] .settingsCard {
@@ -8116,16 +8116,16 @@ button:active {
 .settingsCard h2 {
   margin: 0;
   color: var(--foreground);
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
 }
 
 .settingsCard p {
-  margin: 4px 0 0;
+  margin: 2px 0 0;
   max-width: 68ch;
   color: var(--foreground-60);
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: 11px;
+  line-height: 1.4;
 }
 
 .settingsCardHeader,
@@ -8146,12 +8146,12 @@ button:active {
 .settingsBadge {
   display: inline-flex;
   align-items: center;
-  min-height: 22px;
+  min-height: 18px;
   border-radius: 4px;
   background: var(--foreground-5);
   color: var(--foreground-60);
-  padding: 0 8px;
-  font-size: 12px;
+  padding: 0 6px;
+  font-size: 10px;
 }
 
 .providerGrid,
@@ -8496,9 +8496,9 @@ button:active {
 .providerEmpty span,
 .settingsRow small {
   display: block;
-  margin-top: 4px;
+  margin-top: 2px;
   color: var(--foreground-50);
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.35;
 }
 
@@ -8512,14 +8512,14 @@ button:active {
 .connectionForm {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 6px;
 }
 
 .connectionForm label {
   display: grid;
-  gap: 6px;
+  gap: 3px;
   color: var(--foreground-60);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
 }
 
