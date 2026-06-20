@@ -1577,27 +1577,13 @@ button:active {
 
 /* Onboarding hero — first-run, no real connection configured. */
 .maka-onboarding {
-  width: min(760px, 100%);
+  width: min(680px, 100%);
   margin: auto;
-  /* PR-PARCHMENT-HOME-5 (WAWQAQ msg `2690c2e4` round 5/20): bottom
-     padding was `8vh`, which left an oversized empty band below the
-     CTA on common laptop viewports and pushed the visual center of
-     the hero too high. reference implementation's home stack sits centered with a
-     uniform breathing room (≈ 24-32px). Drop bottom to `32px` to
-     match. The outer column already does its own auto margin so the
-     8vh wasn't needed for vertical centering — the chat surface
-     handled that. */
-  padding: 24px 28px 32px;
+  padding: 12px 16px 16px;
   display: grid;
-  /* PR-PARCHMENT-HOME-5: row gap 24 → 20 for the same reason — the
-     parchment hero reads as a tight stack, not a loose poster. */
-  gap: 20px;
+  gap: 10px;
   color: var(--foreground);
-  /* PR-UI-7 (@yuejing 2026-05-22): @starting-style entrance.
-   * Hero fades + slides up when first mounted (chat surface gets a
-   * session that's empty, or app launches into ready_empty). Honors
-   * prefers-reduced-motion + visual-smoke deterministic capture. */
-  animation: maka-hero-enter 320ms var(--ease-out-strong) both;
+  animation: maka-hero-enter 220ms var(--ease-out-strong) both;
 }
 
 @keyframes maka-hero-enter {
@@ -1623,27 +1609,15 @@ button:active {
 
 .maka-onboarding header {
   display: grid;
-  gap: 10px;
-  /* PR-PARCHMENT-HOME-1 (WAWQAQ msg 2690c2e4): reference implementation home hero is
-     centered (mascot → bold title → 1-line subtitle stacked center).
-     We do not copy the mascot, but the centered alignment is the
-     layout signal that distinguishes the reference implementation home from the
-     in-chat empty state. The `.maka-onboarding-ready` override below
-     keeps the in-chat "已配置好了" branch left-aligned because that
-     state is composer-led, not hero-led. */
-  justify-items: center;
-  text-align: center;
+  gap: 4px;
+  justify-items: start;
+  text-align: left;
 }
 
-/* target-layout style centered hero layout: eyebrow + headline +
-   subtitle stack centered in the column, on the ready branch
-   only. We only borrow the layout (single centered column with
-   structured info hierarchy); no app-specific brand mark /
-   mascot / illustration character is copied. */
 .maka-onboarding-ready header {
   justify-items: start;
   text-align: left;
-  gap: 10px;
+  gap: 4px;
 }
 
 .maka-onboarding-ready .maka-onboarding-eyebrow {
@@ -1653,103 +1627,65 @@ button:active {
 .maka-onboarding-eyebrow {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  color: var(--accent);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  gap: 4px;
+  color: var(--foreground-55);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
 }
 
-/* PR-PARCHMENT-HOME-6 (WAWQAQ msg `2690c2e4` round 6/20): soft
-   accent-tinted disc above the eyebrow. Stand-in for the reference implementation
-   mascot slot — same hero-icon rhythm, no character/illustration
-   lifted. Sized 44px so it reads as the visual lead at a glance
-   without dominating the bold headline below it. */
 .maka-onboarding-hero-icon {
-  width: 44px;
-  height: 44px;
-  margin: 0 auto 2px;
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  background: oklch(from var(--accent) l c h / 0.10);
-  color: var(--accent);
+  display: none;
 }
 
 .maka-onboarding header h1 {
   margin: 0;
-  max-width: 24ch;
+  max-width: 32ch;
   color: var(--foreground);
-  font-size: clamp(26px, 3vw, 36px);
-  font-weight: 700;
-  line-height: 1.12;
-  letter-spacing: -0.01em;
-  text-wrap: balance;
+  font-size: 18px;
+  font-weight: 650;
+  line-height: 1.25;
+  letter-spacing: 0;
 }
 
 .maka-onboarding header p {
   margin: 0;
-  /* PR-PARCHMENT-HOME-1: shorter measure (52ch instead of 60ch) so
-     the subtitle reads as a single confident line on common widths,
-     mirroring reference implementation's one-line "本地运行，自主规划，安全可控的 AI
-     工作搭子。" rhythm. */
   max-width: 52ch;
-  color: var(--foreground-60);
-  font-size: 14px;
-  line-height: 1.55;
-  text-wrap: pretty;
+  color: var(--foreground-55);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .maka-onboarding-grid {
   margin: 0;
   padding: 0;
   list-style: none;
-  display: grid;
-  /* PR-PARCHMENT-HOME-3 (WAWQAQ msg `2690c2e4` round 3/20): tighten
-     minmax to 220 so the 6 provider cards land as 2×3 on the new
-     680-wide hero column. Previously the cards held 248 minimum which
-     wrapped to 2×3 of wider cards — visually closer to a stack of
-     rows than a compact picker grid. 220 keeps room for "GLM Coding
-     Plan · Z.ai" without forcing a second line. */
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .maka-onboarding-card {
   width: 100%;
   height: auto;
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr) 14px;
+  grid-template-columns: 22px minmax(0, 1fr) 14px;
   align-items: center;
-  gap: 14px;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  /* PR-GRAY-CARD-LIFT-1 (WAWQAQ msg `053ca971` 2026-06-20):
-     provider cards switch from `transparent` to `--background`
-     (pure white) so they read as real "content surface" tiles
-     lifting off the gray plate, matching reference implementation's
-     `--color-bg-container: #fff` pattern. */
-  background: var(--background);
+  gap: 10px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
   color: var(--foreground);
   cursor: pointer;
   text-align: left;
-  /* PR-UI-7: focus ring + smoother multi-prop transition + 增加 box-shadow
-   * 到 hover/active 让 card 有 lift 感。 */
-  transition:
-    border-color 140ms ease,
-    background 140ms ease,
-    box-shadow 160ms ease,
-    transform 140ms var(--ease-out-strong);
+  transition: background 120ms ease;
 }
 
 .maka-onboarding-card:hover {
-  border-color: var(--border-strong);
-  background: var(--foreground-3);
-  transform: translateY(-1px);
-  box-shadow:
-    0 1px 2px oklch(from var(--foreground) l c h / 0.035),
-    0 8px 18px oklch(from var(--foreground) l c h / 0.055);
+  background: oklch(from var(--foreground) l c h / 0.04);
+  transform: none;
+  box-shadow: none;
 }
 
 .maka-onboarding-card:focus-visible {
@@ -1758,7 +1694,7 @@ button:active {
 }
 
 .maka-onboarding-card:active:not(:disabled) {
-  transform: translateY(0) scale(0.99);
+  background: oklch(from var(--foreground) l c h / 0.07);
 }
 
 /* PR-UI-7: stagger entrance on provider tiles. Each card delays

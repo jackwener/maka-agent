@@ -343,13 +343,11 @@ describe('getOnboardingSetupSteps — first-run AI setup guide', () => {
     const styles = await readFile(new URL('../../../src/renderer/styles.css', import.meta.url), 'utf8');
     const hoverRule = styles.match(/\.maka-onboarding-card:hover\s*\{[\s\S]*?\n\}/)?.[0] ?? '';
 
-    assert.match(hoverRule, /border-color:\s*var\(--border-strong\)/);
-    assert.match(hoverRule, /background:\s*var\(--foreground-3\)/);
-    assert.match(hoverRule, /0 8px 18px oklch\(from var\(--foreground\) l c h \/ 0\.055\)/);
+    assert.match(hoverRule, /background:\s*oklch\(from var\(--foreground\) l c h \/ 0\.04\)/);
     assert.doesNotMatch(
       hoverRule,
       /var\(--accent\)/,
-      'Provider setup cards should keep neutral target-layout style hover chrome; semantic accent belongs to active setup rows',
+      'Provider setup cards should keep neutral hover chrome; semantic accent belongs to active setup rows',
     );
   });
 });
