@@ -366,36 +366,31 @@ button:active {
   -webkit-app-region: no-drag;
   position: absolute;
   z-index: 4;
-  /* WAWQAQ msg `c6bee634` (2026-06-20): right-side top icons were
-     sitting at top:16, which put their centerline at y≈31 while the
-     sidebar drag-strip buttons (8px padding + 30px tall) center at
-     y≈23 and the macOS traffic lights at y≈20. Pulling top down to
-     8 lands all three rows on the same horizontal line. */
-  top: 8px;
-  right: 32px;
+  top: 11px;
+  right: 24px;
   display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
   color: var(--foreground-60);
 }
 
 .maka-workspace-feedback-action,
 .maka-workspace-icon-action {
-  height: 30px;
-  border-radius: 8px;
+  height: 24px;
+  border-radius: 6px;
   color: var(--foreground-65);
 }
 
 .maka-workspace-feedback-action {
-  gap: 6px;
-  padding-inline: 8px;
-  font-size: 13px;
+  gap: 4px;
+  padding-inline: 6px;
+  font-size: 11px;
   font-weight: 500;
   color: var(--foreground-55);
 }
 
 .maka-workspace-icon-action {
-  width: 30px;
+  width: 24px;
 }
 
 .maka-workspace-feedback-action:hover,
@@ -1982,35 +1977,31 @@ button:active {
   max-width: 56ch;
 }
 .maka-onboarding-quickchat {
-  /* target-layout style unified composer card: textarea + action row
-     share one bordered surface instead of stacking as two
-     separate fields. The outer wrapper holds the border + radius;
-     each child is borderless so the surface reads as one panel. */
   display: flex;
   flex-direction: column;
   gap: 0;
-  margin-top: 16px;
-  border-radius: 14px;
-  border: 1px solid var(--border);
-  background: var(--background-elevated, var(--background));
+  margin-top: 8px;
+  border-radius: 10px;
+  border: 0;
+  background: var(--background);
+  box-shadow: 0 0 0 1px oklch(from var(--foreground) l c h / 0.06);
   transition:
-    border-color 140ms ease,
     box-shadow 160ms ease;
 }
 .maka-onboarding-quickchat:focus-within {
-  border-color: oklch(from var(--accent) l c h / 0.55);
-  box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.14);
+  box-shadow: 0 0 0 1px oklch(from var(--foreground) l c h / 0.16);
 }
 .maka-onboarding-quickchat-input {
   width: 100%;
   resize: vertical;
-  min-height: 80px;
-  padding: 14px 16px;
-  border-radius: 14px 14px 0 0;
+  min-height: 64px;
+  padding: 10px 12px;
+  border-radius: 10px 10px 0 0;
   border: 0;
   background: transparent;
   color: var(--foreground);
   font: inherit;
+  font-size: 13px;
   line-height: 1.5;
 }
 .maka-onboarding-quickchat[data-drag-active="true"] .maka-onboarding-quickchat-input {
@@ -2036,10 +2027,10 @@ button:active {
  * to type after we shortened the placeholder to "Message Maka…". */
 .maka-onboarding-quickchat-example {
   margin-top: -2px;
-  padding-inline: 16px;
+  padding-inline: 12px;
   color: var(--foreground-50);
-  font-size: 0.78rem;
-  line-height: 1.45;
+  font-size: 11px;
+  line-height: 1.4;
   font-style: italic;
 }
 .maka-onboarding-quickchat-example[data-pending="true"] {
@@ -2069,12 +2060,9 @@ button:active {
   justify-content: flex-end;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
-  /* Sit inside the unified composer card frame; the parent
-     `.maka-onboarding-quickchat` owns the border + background,
-     so the action row keeps its padding here. */
-  padding: 8px 10px 10px;
-  border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+  gap: 6px;
+  padding: 6px 8px;
+  border-top: 1px solid oklch(from var(--foreground) l c h / 0.05);
 }
 
 .maka-onboarding-quickchat-action,
@@ -3963,8 +3951,8 @@ button:active {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 9px;
-  margin-bottom: 9px;
+  padding: 1px 6px;
+  margin-bottom: 3px;
   border-radius: 999px;
   border: 1px solid transparent;
   font-size: 11px;
@@ -4175,50 +4163,6 @@ button:active {
   min-height: 100%;
 }
 
-/* Soft scrim at the top of the chat scroll area so headings + tabs read
-   as a distinct strata above scrolling content. The bottom edge stays
-   uncovered so the composer keeps a clear connection to the last message. */
-.maka-chat-shell::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 24px;
-  pointer-events: none;
-  background: linear-gradient(180deg, var(--background) 0%, transparent 100%);
-  z-index: 1;
-}
-
-/* PR-CHAT-MAIN-REDESIGN-0: a very subtle grain overlay over the
-   chat surface. Replaces pure flat color with a touch of organic
-   texture (the "high-end design" trick to defeat the sterile
-   AI-app feel). Opacity is intentionally low — visible at 200%
-   zoom in DevTools, ambient at 100%. SVG-as-data-URL so we don't
-   ship a binary asset. */
-.maka-chat-shell::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  opacity: 0.025;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.8 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-  background-repeat: repeat;
-  mix-blend-mode: overlay;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  /* Grain on a static surface isn't motion, but users who opt out
-     of motion often also prefer flat surfaces for legibility —
-     respect that by removing the texture entirely. */
-  .maka-chat-shell::after {
-    display: none;
-  }
-}
-
-/* Wraps the scroll surface so the jump-to-bottom button can be absolutely
-   positioned over the chat without escaping the column. */
 .maka-chat-shell {
   position: relative;
   min-height: 0;
@@ -4230,11 +4174,11 @@ button:active {
 
 .maka-chat-jump-bottom {
   position: absolute;
-  bottom: 12px;
+  bottom: 10px;
   left: 50%;
   transform: translateX(-50%);
-  width: 34px;
-  height: 34px;
+  width: 26px;
+  height: 26px;
   display: grid;
   place-items: center;
   border: 1px solid var(--border-strong);
@@ -4412,21 +4356,16 @@ button:active {
 
 .maka-toast {
   display: grid;
-  grid-template-columns: 20px minmax(0, 1fr) auto auto;
+  grid-template-columns: 16px minmax(0, 1fr) auto auto;
   align-items: start;
-  gap: 10px;
-  /* PR-UI-LAYOUT-9: toast chrome aligns with the new card family.
-   * Was: `--border-strong` + `--shadow-medium` (heavy 4-layer
-   * stack). Now: `--border` hairline + softer 2-layer shadow that
-   * still floats above the chat but doesn't drop a heavy shadow
-   * onto the warm canvas. */
+  gap: 8px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 8px;
   background: var(--background);
   box-shadow:
     0 1px 2px oklch(from var(--foreground) l c h / 0.04),
-    0 10px 24px oklch(from var(--foreground) l c h / 0.08);
-  padding: 12px 14px;
+    0 6px 16px oklch(from var(--foreground) l c h / 0.06);
+  padding: 8px 10px;
   pointer-events: auto;
   opacity: 1;
   transform: translateY(0);
@@ -4464,15 +4403,15 @@ button:active {
 
 .maka-toast-copy strong {
   color: var(--foreground);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   text-wrap: balance;
 }
 
 .maka-toast-copy small {
   color: var(--foreground-60);
-  font-size: 12px;
-  line-height: 1.45;
+  font-size: 11px;
+  line-height: 1.4;
   text-wrap: pretty;
 }
 
@@ -4483,8 +4422,8 @@ button:active {
   background: var(--background);
   color: var(--accent);
   cursor: pointer;
-  padding: 4px 10px;
-  font-size: 12px;
+  padding: 2px 8px;
+  font-size: 11px;
   font-weight: 600;
 }
 
@@ -4603,8 +4542,8 @@ button:active {
 }
 
 .maka-palette-modal {
-  width: min(620px, calc(100vw - 48px));
-  max-height: 70vh;
+  width: min(560px, calc(100vw - 48px));
+  max-height: 64vh;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   overflow: hidden;
@@ -4612,15 +4551,15 @@ button:active {
 
 .maka-palette-input-wrap {
   width: auto;
-  min-height: 42px;
-  margin: 12px 14px;
+  min-height: 32px;
+  margin: 8px 10px;
   border-color: var(--border);
   background: var(--surface);
 }
 
 .maka-palette-input {
   color: var(--foreground);
-  font-size: 16px;
+  font-size: 13px;
   line-height: 1.4;
 }
 
@@ -4683,28 +4622,28 @@ button:active {
 }
 
 .maka-palette-group-label {
-  padding: 8px 10px 4px;
+  padding: 4px 8px 2px;
   color: var(--foreground-50);
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .maka-palette-item {
   width: 100%;
   display: grid;
-  grid-template-columns: 22px minmax(0, 1fr) auto;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 6px;
   background: transparent;
   color: var(--foreground);
   cursor: pointer;
-  padding: 8px 10px;
+  padding: 4px 8px;
   text-align: left;
-  font-size: 13.5px;
+  font-size: 12px;
 }
 
 .maka-palette-item[data-active="true"] {
@@ -4745,7 +4684,7 @@ button:active {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 14px;
+  padding: 4px 10px;
   border-top: 1px solid var(--border);
   background: var(--foreground-2);
   color: var(--foreground-50);
@@ -5813,22 +5752,22 @@ button:active {
 
 /* PR30 Permission dialog: per-reason iconography + per-tool summary block */
 .permissionDialog {
-  width: min(560px, calc(100vw - 48px));
+  width: min(480px, calc(100vw - 48px));
 }
 
 .maka-permission-header {
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr);
+  grid-template-columns: 28px minmax(0, 1fr);
   align-items: start;
-  gap: 14px;
+  gap: 10px;
 }
 
 .maka-permission-icon {
-  width: 40px;
-  height: 40px;
+  width: 28px;
+  height: 28px;
   display: grid;
   place-items: center;
-  border-radius: 12px;
+  border-radius: 8px;
   background: oklch(from var(--info) l c h / 0.10);
   color: var(--info-text);
 }
@@ -5886,7 +5825,7 @@ button:active {
 .maka-permission-line {
   margin: 0;
   color: var(--foreground-80);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .maka-permission-path {
@@ -5895,12 +5834,8 @@ button:active {
 
 .maka-permission-path code {
   font-family: var(--font-mono);
-  font-size: 12.5px;
-  padding: 2px 6px;
-  /* PR-UI-LAYOUT-40: radius 4 → 5 + hairline border to match the
-   * inline `<code>` family (LAYOUT-28 / 40). The path display in
-   * the Permission Dialog now reads as the same kind of element
-   * as inline code anywhere else. */
+  font-size: 11px;
+  padding: 1px 5px;
   border-radius: 5px;
   background: var(--foreground-5);
   color: var(--foreground);
@@ -5910,23 +5845,23 @@ button:active {
 .maka-permission-command,
 .maka-permission-preview {
   margin: 0;
-  max-height: 200px;
+  max-height: 180px;
   overflow: auto;
 }
 
 .maka-permission-meta {
   margin: 0;
   color: var(--foreground-60);
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .maka-permission-hint {
-  border-radius: 10px;
+  border-radius: 6px;
   background: oklch(from var(--info) l c h / 0.10);
   color: var(--info-text);
-  padding: 9px 12px;
-  font-size: 12.5px;
-  line-height: 1.5;
+  padding: 6px 10px;
+  font-size: 11px;
+  line-height: 1.4;
 }
 
 /* Single-line emphasis under the "记住本轮" checkbox when the action is
@@ -5942,10 +5877,10 @@ button:active {
 
 .maka-permission-stale-note {
   margin: 0;
-  border-radius: 10px;
-  padding: 9px 12px;
-  font-size: 12px;
-  line-height: 1.5;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 11px;
+  line-height: 1.4;
   color: var(--warning-text);
   background: oklch(from var(--warning) l c h / 0.10);
   border: 1px solid oklch(from var(--warning) l c h / 0.20);
@@ -6134,15 +6069,15 @@ button:active {
   min-height: 0;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  padding: 22px 8px 22px 18px;
+  padding: 12px 6px 12px 12px;
   background: var(--background);
 }
 
 .settingsSidebar header {
-  min-height: 46px;
+  min-height: 32px;
   display: flex;
   align-items: center;
-  padding: 0 10px;
+  padding: 0 6px;
 }
 
 .settingsSidebar header span {
@@ -6150,20 +6085,20 @@ button:active {
   align-items: center;
   gap: 4px;
   color: var(--foreground-50);
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .settingsSidebar header .maka-shortcut-kbd {
-  font-size: 11px;
-  padding: 1px 6px;
+  font-size: 10px;
+  padding: 0 4px;
 }
 
 .settingsSidebar nav {
   min-height: 0;
   display: grid;
   align-content: start;
-  gap: 14px;
+  gap: 10px;
   overflow: auto;
   padding-right: 2px;
 }
@@ -6263,17 +6198,17 @@ button:active {
 }
 
 .settingsNavItem {
-  min-height: 38px;
+  min-height: 28px;
   display: grid;
-  grid-template-columns: 26px minmax(0, 1fr);
+  grid-template-columns: 20px minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   border: 0;
-  border-radius: 12px;
+  border-radius: 6px;
   background: transparent;
   color: var(--foreground-70);
   cursor: pointer;
-  padding: 6px 10px;
+  padding: 3px 6px;
   text-align: left;
 }
 
@@ -6309,16 +6244,16 @@ button:active {
 }
 
 .settingsNavGlyph {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   display: grid;
   place-items: center;
   color: var(--foreground-60);
 }
 
 .settingsNavGlyph svg {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
 }
 
 /* PR-UI-11 (@yuejing 2026-05-22): inactive glyph stays muted; active
@@ -6328,12 +6263,12 @@ button:active {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
 }
 
 .settingsNavItem {
-  grid-template-columns: 26px minmax(0, 1fr) auto;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
 }
 
 .settingsNavBadge {
@@ -9921,28 +9856,26 @@ button:active {
 
 .maka-artifact-pane {
   flex: 0 0 auto;
-  width: 360px;
+  width: 320px;
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
   border-left: 1px solid var(--border);
   background: var(--background);
   overflow: hidden;
-  /* No animation on width — instant collapse feels more responsive than a
-     fly-out for a layout primitive the user toggles deliberately. */
 }
 
 .maka-artifact-pane[data-collapsed="true"] {
-  width: 32px;
+  width: 28px;
   grid-template-rows: auto;
 }
 
 .maka-artifact-pane-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
+  gap: 6px;
+  padding: 4px 8px;
   border-bottom: 1px solid var(--border);
-  min-height: 36px;
+  min-height: 28px;
 }
 
 .maka-artifact-pane[data-collapsed="true"] .maka-artifact-pane-header {
@@ -9951,22 +9884,18 @@ button:active {
 
 .maka-artifact-pane-collapse {
   flex: 0 0 auto;
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--border);
+  border: 0;
   background: transparent;
   color: var(--foreground-70);
-  /* PR-UI-LAYOUT-18: bumped 22→24 (more comfortable target) and
-   * radius 6→8 to join the card family. Background drops to
-   * transparent so the toggle sits lightly on the panel; hover
-   * tints subtly. Focus ring added. */
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
   padding: 0;
-  transition: background 120ms ease, color 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+  transition: background 120ms ease, color 120ms ease, box-shadow 120ms ease;
 }
 
 .maka-artifact-pane-collapse:hover {
@@ -9982,19 +9911,19 @@ button:active {
 }
 
 .maka-artifact-pane-title {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--foreground);
 }
 
 .maka-artifact-pane-count {
-  font-size: 11px;
-  padding: 1px 7px;
+  font-size: 10px;
+  padding: 0 5px;
   border-radius: 999px;
-  background: oklch(from var(--accent) l c h / 0.12);
-  color: var(--accent);
+  background: oklch(from var(--foreground) l c h / 0.05);
+  color: var(--foreground-60);
   font-variant-numeric: tabular-nums;
 }
 
@@ -12524,8 +12453,8 @@ button:active {
   overflow: auto;
   display: grid;
   align-content: start;
-  gap: 14px;
-  padding: 10px 12px 20px;
+  gap: 10px;
+  padding: 6px 12px 16px;
 }
 
 .maka-module-main .maka-daily-review-panel {
@@ -12536,17 +12465,17 @@ button:active {
 
 .maka-daily-review-header {
   display: grid;
-  grid-template-columns: 32px 1fr 32px;
+  grid-template-columns: 24px 1fr 24px;
   align-items: center;
-  gap: 6px;
-  padding: 4px 2px 8px;
+  gap: 4px;
+  padding: 2px 2px 6px;
   border-bottom: 1px solid var(--foreground-10);
 }
 
 .maka-daily-review-day {
   text-align: center;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 12px;
   color: var(--foreground);
 }
 
@@ -12557,8 +12486,8 @@ button:active {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
-  padding: 4px 0 8px;
+  gap: 6px;
+  padding: 2px 0 6px;
   border-bottom: 1px solid var(--foreground-10);
 }
 
@@ -12618,20 +12547,20 @@ button:active {
 .maka-daily-review-totals {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
-  gap: 8px;
+  gap: 4px;
 }
 
 .maka-module-main .maka-daily-review-totals {
-  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
 }
 
 .maka-daily-review-totals-cell {
   display: grid;
-  gap: 2px;
-  padding: 8px 10px;
-  border: 1px solid var(--foreground-10);
-  border-radius: 8px;
-  background: var(--foreground-5);
+  gap: 1px;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: oklch(from var(--foreground) l c h / 0.04);
 }
 
 .maka-daily-review-totals-cell[data-tone="error"] {
@@ -12640,14 +12569,14 @@ button:active {
 }
 
 .maka-daily-review-totals-value {
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--foreground);
   font-variant-numeric: tabular-nums;
 }
 
 .maka-daily-review-totals-label {
-  font-size: 11px;
+  font-size: 10px;
   text-transform: none;
   letter-spacing: 0;
   color: var(--foreground-50);
@@ -12655,11 +12584,11 @@ button:active {
 
 .maka-daily-review-section {
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
 .maka-daily-review-section-title {
-  font-size: 12px;
+  font-size: 11px;
   text-transform: none;
   letter-spacing: 0;
   color: var(--foreground-50);
@@ -12671,15 +12600,20 @@ button:active {
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 4px;
+  gap: 2px;
 }
 
 .maka-daily-review-list-item {
   display: grid;
-  gap: 2px;
-  padding: 6px 8px;
+  gap: 1px;
+  padding: 4px 8px;
   border-radius: 6px;
-  background: var(--foreground-3, transparent);
+  background: transparent;
+  transition: background 120ms ease;
+}
+
+.maka-daily-review-list-item:hover {
+  background: oklch(from var(--foreground) l c h / 0.04);
 }
 
 .maka-daily-review-session-button {
