@@ -3547,13 +3547,13 @@ button:active {
   appearance: none;
   width: 100%;
   height: auto !important;
-  min-height: 58px;
+  min-height: 38px;
   display: grid;
-  grid-template-columns: 24px minmax(150px, 0.32fr) minmax(180px, 1fr) 52px;
+  grid-template-columns: 20px minmax(140px, 0.32fr) minmax(180px, 1fr) 44px;
   align-items: center;
   justify-content: stretch !important;
-  gap: 12px;
-  padding: 10px 12px;
+  gap: 8px;
+  padding: 5px 8px;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -3561,7 +3561,7 @@ button:active {
   white-space: normal !important;
   text-align: left;
   cursor: pointer;
-  transition: background-color 160ms ease, transform 160ms ease;
+  transition: background-color 150ms ease-out;
 }
 
 .maka-skill-library-row:hover {
@@ -3578,14 +3578,14 @@ button:active {
 }
 
 .maka-skill-library-status {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   display: inline-grid;
   place-items: center;
-  border-radius: 6px;
+  border-radius: 5px;
   background: var(--foreground-4);
   color: var(--foreground-50);
-  transition: background-color 160ms ease, color 160ms ease;
+  transition: background-color 150ms ease-out, color 150ms ease-out;
 }
 
 .maka-skill-library-row:hover .maka-skill-library-status,
@@ -3605,7 +3605,7 @@ button:active {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
 }
 
@@ -8766,14 +8766,14 @@ button:active {
 }
 
 .catalogTab {
-  min-height: 58px;
+  min-height: 38px;
   display: grid;
-  gap: 3px;
+  gap: 2px;
   border: 1px solid transparent;
   border-radius: 8px;
   background: var(--foreground-3);
   color: var(--foreground);
-  padding: 10px 12px;
+  padding: 6px 8px;
   text-align: left;
   cursor: pointer;
 }
@@ -8808,23 +8808,23 @@ button:active {
 }
 
 .providerCatalogCard {
-  height: 172px;
-  min-height: 104px;
+  height: 124px;
+  min-height: 76px;
   display: grid;
   grid-template-columns: 1fr;
-  gap: 10px;
+  gap: 6px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: transparent;
   color: var(--foreground);
-  padding: 14px;
+  padding: 10px;
   text-align: left;
   cursor: pointer;
   transition:
-    border-color 140ms ease,
-    background 140ms ease,
-    box-shadow 160ms ease,
-    transform 140ms var(--ease-out-strong);
+    border-color 150ms ease-out,
+    background 150ms ease-out,
+    box-shadow 150ms ease-out,
+    transform 150ms ease-out;
 }
 
 /* PR-UI-LAYOUT-15 fixup (@kenji review @msg 0e7482e5):
@@ -9187,17 +9187,17 @@ button:active {
 .modelTableRow {
   width: 100%;
   display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) auto auto;
+  grid-template-columns: 16px minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 10px;
-  padding: 7px 10px;
+  gap: 8px;
+  padding: 4px 8px;
   border: 1px solid transparent;
   border-radius: 8px;
   background: transparent;
   color: var(--foreground);
   text-align: left;
   cursor: pointer;
-  transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+  transition: background 150ms ease-out, border-color 150ms ease-out, box-shadow 150ms ease-out;
 }
 
 .modelTableRow:hover {
