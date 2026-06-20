@@ -89,6 +89,10 @@ class BaseInstalledAgent:
     def version(self):
         return "test"
 
+    async def exec_as_agent(self, environment, command, **kwargs):
+        environment.commands.append(command)
+        return types.SimpleNamespace(stdout="", stderr="", exit_code=0)
+
 class CliFlag:
     def __init__(self, *args, **kwargs):
         pass
@@ -146,8 +150,17 @@ utils_mod.format_trajectory_json = lambda value: json.dumps(value)
 
 sys.path.insert(0, str(root / "packages" / "headless" / "harbor"))
 from maka_agent import MakaAgent
+import asyncio
 
 with tempfile.TemporaryDirectory() as tmp:
+    install_agent = MakaAgent(Path(tmp))
+    install_agent._resolved_flags = {"maka_repo": "/opt/maka-agent"}
+    fake_environment = types.SimpleNamespace(commands=[])
+    asyncio.run(install_agent.install(fake_environment))
+    install_command = "\n".join(fake_environment.commands)
+    assert "nvm install 22" in install_command, install_command
+    assert "nvm.sh" in install_command, install_command
+
     agent = MakaAgent(Path(tmp))
     context = AgentContext()
     agent._apply_cell_output(context, {

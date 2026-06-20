@@ -66,6 +66,22 @@ class MakaAgent(BaseInstalledAgent):
         await self.exec_as_agent(
             environment,
             command=(
+                "set -euo pipefail; "
+                "NODE_MAJOR=$(node -p 'process.versions.node.split(\".\")[0]' 2>/dev/null || echo 0); "
+                "if [ \"$NODE_MAJOR\" -lt 22 ]; then "
+                "  if command -v apt-get >/dev/null 2>&1; then apt-get update && apt-get install -y curl ca-certificates; "
+                "  elif command -v yum >/dev/null 2>&1; then yum install -y curl ca-certificates; "
+                "  fi; "
+                "  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh | bash; "
+                "  export NVM_DIR=\"$HOME/.nvm\"; "
+                "  . \"$NVM_DIR/nvm.sh\"; "
+                "  nvm install 22; "
+                "  nvm alias default 22; "
+                "  for bin in node npm npx; do "
+                "    BIN_PATH=\"$(. \"$NVM_DIR/nvm.sh\" && which \"$bin\")\"; "
+                "    ln -sf \"$BIN_PATH\" \"/usr/local/bin/$bin\"; "
+                "  done; "
+                "fi; "
                 "node --version && "
                 f"test -f {shlex.quote(str(run_cell))} && "
                 f"test -f {shlex.quote(str(dist_index))}"
