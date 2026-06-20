@@ -2632,17 +2632,17 @@ button:active {
 .maka-plan-heading h2 {
   margin: 0;
   color: var(--foreground);
-  font-size: 28px;
+  font-size: 22px;
   font-weight: 650;
   letter-spacing: 0;
-  line-height: 1.15;
+  line-height: 1.2;
 }
 
 .maka-plan-heading p:last-child {
   margin: 0;
   color: var(--foreground-60);
-  font-size: 13px;
-  line-height: 1.65;
+  font-size: 12px;
+  line-height: 1.55;
 }
 
 .maka-plan-top-actions {
@@ -2684,39 +2684,39 @@ button:active {
 }
 
 .maka-plan-template-strip {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .maka-plan-template-card {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr) max-content;
-  gap: 12px;
+  gap: 10px;
   min-width: 0;
   height: auto;
-  min-height: 74px;
+  min-height: 0;
   justify-content: stretch;
-  border: 1px solid var(--border);
+  border: 0;
   border-radius: 6px;
-  background: var(--background);
+  background: transparent;
   color: var(--foreground);
-  padding: 13px 14px;
+  padding: 6px 8px;
   text-align: left;
 }
 
 .maka-plan-template-card:hover {
-  border-color: oklch(from var(--foreground) l c h / 0.18);
-  background: var(--foreground-2);
+  border-color: transparent;
+  background: oklch(from var(--foreground) l c h / 0.04);
 }
 
 .maka-plan-template-icon {
   display: inline-flex;
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: 4px;
   background: var(--foreground-3);
   color: var(--foreground-70);
 }
@@ -2729,21 +2729,19 @@ button:active {
 
 .maka-plan-template-title {
   color: var(--foreground);
-  font-size: 14px;
-  font-weight: 650;
+  font-size: 13px;
+  font-weight: 600;
   line-height: 1.3;
 }
 
 .maka-plan-template-note {
-  color: var(--foreground-60);
-  display: -webkit-box;
+  color: var(--foreground-55);
   overflow: hidden;
-  overflow-wrap: anywhere;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
   font-weight: 500;
-  line-height: 1.45;
+  line-height: 1.4;
 }
 
 .maka-plan-template-schedule {

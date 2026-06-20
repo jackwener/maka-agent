@@ -138,7 +138,7 @@ describe('Plan reminder MVP contract', () => {
     assert.match(ui, /SelectItem,[\s\S]*SelectPopup,[\s\S]*SelectPortal,[\s\S]*SelectPositioner,[\s\S]*SelectRoot,[\s\S]*SelectTrigger,[\s\S]*SelectValue,/, 'plan reminder selects must use shared Base UI Select imports');
     assert.match(css, /--color-info:\s*var\(--info\);[\s\S]*--color-warning-foreground:\s*var\(--warning-text\);/, 'shared primitive status color tokens must be mapped into Tailwind v4 theme variables');
     assert.match(css, /\.maka-plan-system-alert/, 'PlanReminderPanel shared primitive Alert must have a local product surface style hook');
-    assert.match(css, /\.maka-plan-template-strip[\s\S]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/, 'example templates must use the same two-column surface rhythm as reference implementation');
+    assert.match(css, /\.maka-plan-template-strip\s*\{[\s\S]*?display:\s*flex;[\s\S]*?flex-direction:\s*column/, 'example templates must stack as a single-column tight row list');
     assert.match(css, /\.maka-plan-template-card[\s\S]*border-radius:\s*6px/, 'example template cards must use the reference implementation 6px card radius');
     assert.match(css, /\.maka-plan-new-task-button[\s\S]*background:\s*#000/, 'primary plan CTA must be black, not the app accent color');
     assert.match(css, /\.maka-plan-card\s*\{[\s\S]*?border-radius:\s*6px/, 'plan cards must keep the 6px row radius');
