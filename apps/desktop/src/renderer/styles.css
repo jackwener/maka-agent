@@ -4865,9 +4865,9 @@ button:active {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
   color: var(--foreground-50);
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .toolItem {
@@ -4882,11 +4882,11 @@ button:active {
 }
 
 .maka-overlay-preview {
-  margin: 6px 0 0;
-  max-height: 200px;
+  margin: 5px 0 0;
+  max-height: 180px;
   overflow: auto;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10px;
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -4896,19 +4896,19 @@ button:active {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  min-height: 24px;
-  padding-inline: 8px;
+  min-height: 22px;
+  padding-inline: 7px;
 }
 
 .maka-load-tool-preview {
-  margin: 6px 0 0;
-  padding: 6px 10px;
+  margin: 5px 0 0;
+  padding: 5px 8px;
   display: grid;
-  gap: 3px;
+  gap: 2px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--background);
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .maka-load-tool-preview p {
@@ -4930,7 +4930,7 @@ button:active {
 
 .maka-load-tool-footer {
   color: var(--foreground-2);
-  font-size: 12px;
+  font-size: 11px;
 }
 
 /* File diff: each line tagged with data-line for add / del / hunk / meta /
@@ -4940,8 +4940,7 @@ button:active {
   display: grid;
   gap: 0;
   border: 1px solid var(--border);
-  /* PR-UI-LAYOUT-9: card radius family alignment (8 → 10). */
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--background);
   white-space: normal;
 }
@@ -4949,12 +4948,12 @@ button:active {
 .maka-tool-diff-paths {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  padding: 6px 10px;
+  gap: 6px;
+  padding: 5px 8px;
   border-bottom: 1px solid var(--border);
   background: var(--foreground-2);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .maka-tool-diff-paths code {
@@ -4964,11 +4963,11 @@ button:active {
 
 .maka-tool-diff-body {
   margin: 0;
-  padding: 6px 0;
-  max-height: 360px;
+  padding: 5px 0;
+  max-height: 320px;
   overflow: auto;
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: 11.5px;
   line-height: 1.45;
   white-space: pre;
   word-break: normal;
@@ -4976,7 +4975,7 @@ button:active {
 
 .maka-tool-diff-line {
   display: block;
-  padding: 0 10px;
+  padding: 0 8px;
   white-space: pre;
 }
 
@@ -5011,8 +5010,7 @@ button:active {
   display: grid;
   gap: 0;
   border: 1px solid var(--border);
-  /* PR-UI-LAYOUT-9: card radius family alignment (8 → 10). */
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--background);
   white-space: normal;
 }
@@ -5021,12 +5019,12 @@ button:active {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
+  gap: 6px;
+  padding: 5px 8px;
   border-bottom: 1px solid var(--border);
   background: var(--foreground-2);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .maka-tool-terminal-cwd {
@@ -5046,9 +5044,9 @@ button:active {
 }
 
 .maka-tool-terminal-exit {
-  padding: 1px 8px;
+  padding: 1px 6px;
   border-radius: 999px;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.04em;
   background: var(--foreground-5);
@@ -5067,20 +5065,20 @@ button:active {
 
 .maka-tool-terminal-empty {
   margin: 0;
-  padding: 10px;
+  padding: 8px;
   color: var(--foreground-50);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 11px;
   font-style: italic;
 }
 
 .maka-tool-terminal-stream {
   margin: 0;
-  padding: 8px 10px;
-  max-height: 200px;
+  padding: 6px 8px;
+  max-height: 180px;
   overflow: auto;
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: 11.5px;
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -5099,12 +5097,12 @@ button:active {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 8px 10px;
+  gap: 8px;
+  padding: 6px 8px;
   border-top: 1px solid var(--border);
   background: oklch(from var(--warning) l c h / 0.06);
   color: var(--foreground-70);
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.5;
 }
 
