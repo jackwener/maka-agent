@@ -14,6 +14,20 @@
 
 :root {
   --maka-titlebar-control-safe-left: 94px;
+  /* Vertical companion to --maka-titlebar-control-safe-left: the macOS
+     traffic-light vertical center in window space (main.ts
+     MAIN_WINDOW_TRAFFIC_LIGHT_POSITION.y = 14 + ~6px button radius).
+     The single baseline every titlebar-row icon cluster centers its
+     24px icon on, so the sidebar header strip, the collapsed strip, and
+     the workspace top-actions share ONE row regardless of which panel
+     hosts them — collapsing/expanding the sidebar can't move the row. */
+  --maka-titlebar-control-safe-top: 20px;
+  /* Top inset the detail panel adds over window space (its 4px margin +
+     1px border). Titlebar strips nested inside .maka-panel-detail
+     subtract this so their window-space center still lands on
+     --maka-titlebar-control-safe-top. Keep in sync with the
+     .maka-panel-detail.maka-floating-panel margin/border. */
+  --maka-detail-panel-inset-top: 5px;
 }
 
 @theme inline {
@@ -253,9 +267,11 @@ button:active {
 .maka-collapsed-drag-strip {
   min-height: 38px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
-  padding: 8px 12px 0 var(--maka-titlebar-control-safe-left);
+  /* Top padding lands the 24px icon's vertical center on the shared
+     titlebar baseline, minus this strip's own detail-panel inset. */
+  padding: calc(var(--maka-titlebar-control-safe-top) - var(--maka-detail-panel-inset-top) - 12px) 12px 0 var(--maka-titlebar-control-safe-left);
   -webkit-app-region: drag;
 }
 
@@ -364,7 +380,10 @@ button:active {
   -webkit-app-region: no-drag;
   position: absolute;
   z-index: 4;
-  top: 11px;
+  /* Shared titlebar baseline (see --maka-titlebar-control-safe-top).
+     Absolutely positioned within the detail panel, so it subtracts the
+     same detail-panel inset as the collapsed strip. */
+  top: calc(var(--maka-titlebar-control-safe-top) - var(--maka-detail-panel-inset-top) - 12px);
   right: 24px;
   display: inline-flex;
   align-items: center;
@@ -640,10 +659,15 @@ button:active {
 .maka-sidebar-drag-strip {
   min-height: 28px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 6px;
   box-sizing: border-box;
+  /* Same shared titlebar baseline as the collapsed strip + workspace
+     top-actions. This strip sits in the sidebar header (its 6px
+     padding-top), with no detail-panel inset, so it subtracts the
+     header pad inline instead of --maka-detail-panel-inset-top. */
+  padding-top: calc(var(--maka-titlebar-control-safe-top) - 6px - 12px);
   padding-left: calc(var(--maka-titlebar-control-safe-left) - 10px);
   -webkit-app-region: drag;
 }
