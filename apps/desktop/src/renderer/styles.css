@@ -465,7 +465,6 @@ button:active {
   border: 0;
   background: transparent;
   color: var(--foreground-60);
-  cursor: pointer;
   font-size: 16px;
   line-height: 1;
   border-radius: 6px;
@@ -589,7 +588,6 @@ button:active {
   background: transparent;
   color: var(--foreground);
   padding: 7px 10px;
-  cursor: pointer;
   transition: background 150ms ease-out;
 }
 .maka-search-modal-result:hover:not([disabled]) {
@@ -683,7 +681,6 @@ button:active {
   border-radius: 6px;
   background: transparent;
   color: var(--foreground-55);
-  cursor: pointer;
   transition: background 150ms ease-out, color 150ms ease-out, box-shadow 150ms ease-out;
 }
 
@@ -791,7 +788,6 @@ button:active {
   border-radius: 8px;
   background: transparent;
   color: var(--foreground);
-  cursor: pointer;
   padding: 3px 0;
   text-align: left;
 }
@@ -848,7 +844,6 @@ button:active {
   border-radius: 6px;
   background: transparent;
   color: var(--foreground-55);
-  cursor: pointer;
 }
 
 /* PR-UX-POLISH-1 commit 4 (WAWQAQ `e0dbad11` + kenji `2844f64f`):
@@ -899,7 +894,6 @@ button:active {
   background: transparent;
   box-shadow: none;
   color: var(--foreground-75);
-  cursor: pointer;
   font-size: 12px;
   font-weight: 500;
   text-align: left;
@@ -980,7 +974,6 @@ button:active {
   border-radius: 6px;
   background: transparent;
   color: var(--foreground-80);
-  cursor: pointer;
   -webkit-app-region: no-drag;
   padding: 3px 6px;
   text-align: left;
@@ -1255,7 +1248,6 @@ button:active {
   border: 0;
   background: transparent;
   color: inherit;
-  cursor: pointer;
   padding: 3px 8px 3px 10px;
   text-align: left;
 }
@@ -1346,7 +1338,6 @@ button:active {
   border-radius: 8px;
   background: transparent;
   color: var(--foreground-60);
-  cursor: pointer;
   transition: background 120ms ease, color 120ms ease, box-shadow 120ms ease;
 }
 
@@ -1456,7 +1447,6 @@ button:active {
   border-radius: 10px;
   background: transparent;
   color: var(--foreground);
-  cursor: pointer;
   padding: 10px 12px;
   text-align: left;
   transition:
@@ -1728,7 +1718,6 @@ button:active {
   border-radius: 6px;
   background: transparent;
   color: var(--foreground);
-  cursor: pointer;
   text-align: left;
   transition: background 150ms ease-out;
 }
@@ -1937,7 +1926,6 @@ button:active {
   border: 0;
   background: transparent;
   color: var(--foreground-60);
-  cursor: pointer;
   font-size: 12px;
   text-decoration: none;
   padding: 5px 8px;
@@ -2434,7 +2422,6 @@ button:active {
   padding: 0;
   background: transparent;
   border: 0;
-  cursor: pointer;
   text-align: left;
   font: inherit;
   color: inherit;
@@ -2948,7 +2935,6 @@ button:active {
   border-radius: 4px;
   background: transparent;
   color: var(--foreground-60);
-  cursor: pointer;
 }
 
 .maka-plan-card-menu-trigger:hover {
@@ -3562,7 +3548,6 @@ button:active {
   color: var(--foreground);
   white-space: normal !important;
   text-align: left;
-  cursor: pointer;
   transition:
     background-color 150ms ease-out,
     transform 180ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -3807,7 +3792,6 @@ button:active {
   border-radius: 6px;
   background: transparent;
   color: var(--foreground-50);
-  cursor: pointer;
   -webkit-app-region: no-drag;
   transition: background 120ms ease, color 120ms ease, box-shadow 120ms ease;
 }
@@ -3848,7 +3832,6 @@ button:active {
   padding: 1px 6px;
   font-size: 11px;
   font-weight: 600;
-  cursor: pointer;
   -webkit-app-region: no-drag;
   margin-right: 4px;
   margin-bottom: 3px;
@@ -3926,7 +3909,6 @@ button:active {
   color: var(--foreground);
   font-size: 11px;
   box-shadow: none;
-  cursor: pointer;
 }
 
 .maka-model-switcher-trigger:hover:not(:disabled):not([data-disabled]) {
@@ -4023,7 +4005,6 @@ button:active {
   white-space: nowrap;
   flex: 0 0 auto;
   -webkit-app-region: no-drag;
-  cursor: pointer;
   transition: transform 0.12s var(--ease-out-strong);
 }
 .maka-chat-header-alert:hover {
@@ -4129,7 +4110,6 @@ button:active {
   border-radius: 999px;
   background: transparent;
   color: var(--foreground-60);
-  cursor: pointer;
   padding: 3px 11px;
   font-size: 12px;
   font-weight: 500;
@@ -4247,7 +4227,6 @@ button:active {
   border-radius: 999px;
   background: var(--background);
   color: var(--foreground-70);
-  cursor: pointer;
   box-shadow: var(--shadow-medium);
   opacity: 1;
   transition:
@@ -4483,7 +4462,6 @@ button:active {
   border-radius: 5px;
   background: var(--background);
   color: var(--accent);
-  cursor: pointer;
   padding: 2px 7px;
   font-size: 10px;
   font-weight: 600;
@@ -4503,7 +4481,6 @@ button:active {
   border-radius: 4px;
   background: transparent;
   color: var(--foreground-50);
-  cursor: pointer;
   transition: background-color 150ms ease-out, color 150ms ease-out;
 }
 
@@ -4704,7 +4681,6 @@ button:active {
   border-radius: 6px;
   background: transparent;
   color: var(--foreground);
-  cursor: pointer;
   padding: 4px 8px;
   text-align: left;
   font-size: 11px;
@@ -5727,7 +5703,6 @@ button:active {
   border-radius: 6px;
   background: transparent;
   color: var(--foreground-60);
-  cursor: pointer;
   transition:
     background-color 150ms ease-out,
     color 150ms ease-out,
@@ -5827,7 +5802,6 @@ button:active {
   border-radius: 6px;
   background: transparent;
   color: var(--foreground-55);
-  cursor: pointer;
   font: inherit;
   font-size: 12px;
   line-height: 1.25;
@@ -6141,7 +6115,6 @@ button:active {
 }
 
 .maka-permission-raw > summary {
-  cursor: pointer;
   list-style: none;
   padding: 5px 10px;
   color: var(--foreground-60);
@@ -6417,7 +6390,6 @@ button:active {
   border-radius: 6px;
   background: transparent;
   color: var(--foreground-70);
-  cursor: pointer;
   padding: 3px 6px;
   text-align: left;
 }
@@ -6814,7 +6786,6 @@ button:active {
   border: 0;
   border-radius: 999px;
   background: var(--foreground-20);
-  cursor: pointer;
   padding: 2px;
   /* PR-UI-LAYOUT-35: smooth bg transition + focus ring (was
    * missing — keyboard users couldn't see the switch state
@@ -7071,7 +7042,6 @@ button:active {
   border-radius: 8px;
   background: var(--background-elevated);
   color: var(--foreground);
-  cursor: pointer;
   overflow: hidden;
   padding: 8px;
   text-align: left;
@@ -7266,7 +7236,6 @@ button:active {
   border-radius: 4px;
   background: transparent;
   color: var(--foreground-50);
-  cursor: pointer;
   transition: background 150ms ease-out, color 150ms ease-out;
 }
 .settingsPasswordToggle:hover {
@@ -7299,7 +7268,6 @@ button:active {
   color: var(--accent);
   font-size: 13px;
   font-weight: 500;
-  cursor: pointer;
   transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 .settingsBotAction:hover {
@@ -7435,7 +7403,6 @@ button:active {
   border: 0;
   background: transparent;
   color: var(--foreground-55);
-  cursor: pointer;
   padding: 4px 0;
   font-size: 12px;
   text-decoration: underline;
@@ -7506,7 +7473,6 @@ button:active {
   border-radius: 8px;
   background: transparent;
   color: var(--foreground-55);
-  cursor: pointer;
 }
 
 .settingsWechatQrClose:hover {
@@ -7590,7 +7556,6 @@ button:active {
   border-radius: 8px;
   background: var(--background);
   color: var(--accent);
-  cursor: pointer;
   padding: 0 12px;
   font-size: 12.5px;
   font-weight: 500;
@@ -7723,7 +7688,6 @@ button:active {
   border-radius: 12px;
   background: transparent;
   color: var(--foreground-70);
-  cursor: pointer;
   padding: 7px 10px;
   text-align: left;
 }
@@ -7998,7 +7962,6 @@ button:active {
   border-radius: 999px;
   background: transparent;
   color: var(--foreground-60);
-  cursor: pointer;
   padding: 0 8px;
   font-size: 11px;
 }
@@ -8101,7 +8064,6 @@ button:active {
   border-radius: 6px;
   background: transparent;
   color: var(--foreground-50);
-  cursor: pointer;
   line-height: 1;
 }
 
@@ -8150,7 +8112,6 @@ button:active {
   border-radius: 6px;
   background: transparent;
   color: var(--foreground-70);
-  cursor: pointer;
   padding: 4px 8px;
   text-align: left;
 }
@@ -8542,7 +8503,6 @@ button:active {
   background: transparent;
   color: var(--accent);
   font: inherit;
-  cursor: pointer;
 }
 
 .settingsInlineTextButton:hover {
@@ -8877,7 +8837,6 @@ button:active {
   color: var(--foreground);
   padding: 6px 8px;
   text-align: left;
-  cursor: pointer;
 }
 
 .catalogTab:hover {
@@ -8921,7 +8880,6 @@ button:active {
   color: var(--foreground);
   padding: 10px;
   text-align: left;
-  cursor: pointer;
   transition:
     border-color 150ms ease-out,
     background 150ms ease-out,
@@ -9261,7 +9219,6 @@ button:active {
   color: var(--foreground);
   font-size: 11px;
   line-height: 1.5;
-  cursor: pointer;
   width: 100%;
 }
 
@@ -9298,7 +9255,6 @@ button:active {
   background: transparent;
   color: var(--foreground);
   text-align: left;
-  cursor: pointer;
   transition: background 150ms ease-out, border-color 150ms ease-out, box-shadow 150ms ease-out;
 }
 
@@ -9553,7 +9509,6 @@ button:active {
   color: var(--foreground);
   padding: 10px 12px;
   text-align: left;
-  cursor: pointer;
 }
 
 .enabledProviderChip {
@@ -9904,7 +9859,6 @@ button:active {
   border-radius: 999px;
   background: transparent;
   color: var(--accent);
-  cursor: pointer;
   padding: 0 14px;
   font-size: 12px;
   font-weight: 700;
@@ -9945,7 +9899,6 @@ button:active {
   border-radius: 999px;
   background: var(--settings-surface-muted);
   color: var(--text-muted);
-  cursor: pointer;
 }
 
 .providerConfigSheetClose:hover {
@@ -10093,7 +10046,6 @@ button:active {
   background: transparent;
   color: var(--foreground-70);
   border-radius: 6px;
-  cursor: pointer;
   padding: 0;
   transition: background 120ms ease, color 120ms ease, box-shadow 120ms ease;
 }
@@ -10169,7 +10121,6 @@ button:active {
   background: var(--background);
   color: var(--foreground);
   font-size: 12px;
-  cursor: pointer;
 }
 
 .maka-artifact-error-retry:hover {
@@ -10220,7 +10171,6 @@ button:active {
   border-radius: 6px;
   background: transparent;
   color: var(--foreground);
-  cursor: pointer;
   text-align: left;
   font-size: 11px;
 }
@@ -10509,7 +10459,6 @@ button:active {
   border-radius: 6px;
   padding: 4px 8px;
   font-size: 11.5px;
-  cursor: pointer;
 }
 
 .maka-artifact-toolbar-button:hover {
@@ -10631,7 +10580,6 @@ button:active {
   background: transparent;
   color: var(--foreground-70);
   font-size: 12px;
-  cursor: pointer;
   transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
 }
 .maka-turn-footer-action:hover:not(:disabled) {
@@ -10761,7 +10709,6 @@ button:active {
   background: var(--foreground-5);
   color: var(--foreground-70);
   font-size: 10px;
-  cursor: pointer;
   transition: background 150ms ease-out, color 150ms ease-out;
 }
 .maka-turn-lineage-badge:hover {
@@ -10803,7 +10750,6 @@ button:active {
   color: var(--info-text);
   font-size: 11px;
   line-height: 1.4;
-  cursor: pointer;
   transition: background 150ms ease-out, color 150ms ease-out, border-color 150ms ease-out;
   align-self: flex-start;
 }
@@ -10865,7 +10811,6 @@ button:active {
 
 .maka-reasoning-panel-header {
   list-style: none;
-  cursor: pointer;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -11091,7 +11036,6 @@ button:active {
   padding: 4px 10px;
   color: var(--foreground-80);
   font-size: 0.8125rem;
-  cursor: pointer;
   transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 .settingsPermissionRefresh:hover {
@@ -11502,7 +11446,6 @@ button:active {
   padding: 4px 10px;
   color: var(--foreground-80);
   font-size: 0.8125rem;
-  cursor: pointer;
   transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 .settingsHealthRefresh:hover {
@@ -12597,7 +12540,6 @@ button:active {
   gap: 10px;
   width: 100%;
   text-align: left;
-  cursor: pointer;
   color: var(--foreground);
 }
 
@@ -12839,7 +12781,6 @@ button:active {
   color: var(--foreground);
   font: inherit;
   text-align: left;
-  cursor: pointer;
 }
 
 .maka-daily-review-session-button:disabled {
