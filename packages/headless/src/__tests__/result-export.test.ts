@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
-import { taskRunExportFromProjection, writeTaskRunExport } from '../result-export.js';
+import { renderTaskRunMarkdown, taskRunExportFromProjection, writeTaskRunExport } from '../result-export.js';
 import type { TaskEvent } from '../task-contracts.js';
 import { projectTaskRun } from '../task-run-store.js';
 
@@ -54,8 +54,40 @@ describe('task run export', () => {
           exitCode: 0,
           score: 1,
           maxScore: 1,
+          authority: { source: 'official_harbor_verifier', authoritative: true },
           submittedSnapshotId: 'snapshot-1',
           details: { adapter: 'terminal-bench', instanceId: 'tb-1' },
+        },
+      },
+      {
+        type: 'task_run_artifact_recorded',
+        id: 'e5a',
+        taskRunId: 'run-1',
+        ts: 4,
+        artifact: {
+          schemaVersion: 1,
+          artifactId: 'artifact-workspace',
+          taskRunId: 'run-1',
+          ts: 4,
+          kind: 'container_workspace',
+          workspacePath: '/app',
+          authority: { source: 'container_capture', authoritative: true },
+        },
+      },
+      {
+        type: 'task_run_artifact_recorded',
+        id: 'e5b',
+        taskRunId: 'run-1',
+        ts: 4,
+        artifact: {
+          schemaVersion: 1,
+          artifactId: 'artifact-diff',
+          taskRunId: 'run-1',
+          ts: 4,
+          kind: 'workspace_diff',
+          path: '/logs/artifacts/submission.diff',
+          workspacePath: '/app',
+          authority: { source: 'container_capture', authoritative: true },
         },
       },
       {
@@ -73,6 +105,7 @@ describe('task run export', () => {
           score: 1,
           maxScore: 1,
           taxonomy: 'passed',
+          authority: { source: 'official_harbor_verifier', authoritative: true },
           details: {
             runtimeRefs: { runtimeEventIds: ['runtime-1'] },
             budget: { totals: { total: 3 } },
@@ -89,11 +122,268 @@ describe('task run export', () => {
     assert.equal(exported.taskRun.taskRunId, 'run-1');
     assert.deepEqual(exported.runtime.trajectoryRefs.runtimeEventIds, ['runtime-1']);
     assert.deepEqual(exported.workspace.submittedSnapshot, { id: 'snapshot-1', manifestHash: 'sha256:abc' });
-    assert.equal(exported.workspace.diff.status, 'not_captured');
+    assert.equal(exported.workspace.primaryWorkspacePath, '/app');
+    assert.equal(exported.workspace.diff.status, 'present');
+    assert.equal(exported.workspace.diff.path, '/logs/artifacts/submission.diff');
+    assert.equal(exported.artifacts.primaryWorkspacePath, '/app');
+    assert.equal(exported.artifacts.byKind.workspace_diff?.[0]?.path, '/logs/artifacts/submission.diff');
     assert.equal(exported.verifier?.benchmark?.instanceId, 'tb-1');
     assert.deepEqual(exported.budget, { totals: { total: 3 } });
     assert.equal(exported.isolation.policy?.mode, 'inert_fake_backend');
     assert.equal(exported.taxonomy.value, 'passed');
+    assert.equal(exported.legacyResultRecord.passed, true);
+    const markdown = renderTaskRunMarkdown(exported);
+    assert.match(markdown, /verifier_authority: official_harbor_verifier authoritative=true/);
+    assert.match(markdown, /artifacts: 2/);
+    assert.match(markdown, /workspace_diff/);
+  });
+
+  test('exports official verifier truth over a non-authoritative placeholder result', async () => {
+    const events: TaskEvent[] = [
+      { type: 'task_run_created', id: 'e1', taskRunId: 'run-official', ts: 1, taskId: 'task-1', configId: 'cfg-1' },
+      {
+        type: 'verifier_result_recorded',
+        id: 'e2',
+        taskRunId: 'run-official',
+        ts: 2,
+        result: {
+          id: 'placeholder-verifier',
+          taskRunId: 'run-official',
+          ts: 2,
+          kind: 'terminal_bench',
+          passed: false,
+          exitCode: null,
+          errorClass: 'unsupported_adapter',
+          authority: { source: 'self_check', authoritative: false },
+          details: { verificationPlaceholder: true },
+        },
+      },
+      {
+        type: 'score_result_recorded',
+        id: 'e3',
+        taskRunId: 'run-official',
+        ts: 2,
+        result: {
+          id: 'placeholder-score',
+          taskRunId: 'run-official',
+          ts: 2,
+          passed: false,
+          scored: false,
+          eligible: false,
+          taxonomy: 'unsupported_adapter',
+          errorClass: 'unsupported_adapter',
+          authority: { source: 'self_check', authoritative: false },
+        },
+      },
+      { type: 'task_run_completed', id: 'e4', taskRunId: 'run-official', ts: 3, finishedAt: 3 },
+      {
+        type: 'verifier_result_recorded',
+        id: 'e5',
+        taskRunId: 'run-official',
+        ts: 4,
+        result: {
+          id: 'official-verifier',
+          taskRunId: 'run-official',
+          ts: 4,
+          kind: 'terminal_bench',
+          passed: true,
+          exitCode: 0,
+          score: 1,
+          maxScore: 1,
+          authority: { source: 'official_harbor_verifier', authoritative: true },
+          details: { source: 'harbor', official: true },
+        },
+      },
+      {
+        type: 'score_result_recorded',
+        id: 'e6',
+        taskRunId: 'run-official',
+        ts: 4,
+        result: {
+          id: 'official-score',
+          taskRunId: 'run-official',
+          ts: 4,
+          passed: true,
+          scored: true,
+          eligible: true,
+          score: 1,
+          maxScore: 1,
+          taxonomy: 'passed',
+          authority: { source: 'official_harbor_verifier', authoritative: true },
+        },
+      },
+    ];
+
+    const exported = taskRunExportFromProjection(projectTaskRun(events, 'run-official'));
+
+    assert.equal(exported.taxonomy.passed, true);
+    assert.equal(exported.verifier?.id, 'official-verifier');
+    assert.equal(exported.verifier?.authority?.source, 'official_harbor_verifier');
+    assert.equal(exported.legacyResultRecord.passed, true);
+    assert.equal(projectTaskRun(events, 'run-official').verifierResults[0]?.authority?.authoritative, false);
+
+    const dir = await mkdtemp(join(tmpdir(), 'maka-task-export-official-'));
+    try {
+      const written = await writeTaskRunExport(dir, projectTaskRun(events, 'run-official'));
+      const compact = JSON.parse(await readFile(written.files.resultJson, 'utf8'));
+      assert.equal(compact.verifier.authority.source, 'official_harbor_verifier');
+      assert.equal(compact.verifier.authority.authoritative, true);
+      const markdown = await readFile(written.files.resultMd, 'utf8');
+      assert.match(markdown, /verifier_authority: official_harbor_verifier authoritative=true/);
+      assert.match(markdown, /artifacts: 0/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('does not pair an official verifier with a stale placeholder score', () => {
+    const events: TaskEvent[] = [
+      { type: 'task_run_created', id: 'e1', taskRunId: 'run-verifier-only', ts: 1, taskId: 'task-1', configId: 'cfg-1' },
+      {
+        type: 'score_result_recorded',
+        id: 'e2',
+        taskRunId: 'run-verifier-only',
+        ts: 2,
+        result: {
+          id: 'placeholder-score',
+          taskRunId: 'run-verifier-only',
+          ts: 2,
+          passed: false,
+          scored: false,
+          eligible: false,
+          taxonomy: 'unsupported_adapter',
+          errorClass: 'unsupported_adapter',
+          authority: { source: 'self_check', authoritative: false },
+        },
+      },
+      { type: 'task_run_completed', id: 'e3', taskRunId: 'run-verifier-only', ts: 3, finishedAt: 3 },
+      {
+        type: 'verifier_result_recorded',
+        id: 'e4',
+        taskRunId: 'run-verifier-only',
+        ts: 4,
+        result: {
+          id: 'official-verifier',
+          taskRunId: 'run-verifier-only',
+          ts: 4,
+          kind: 'terminal_bench',
+          passed: true,
+          exitCode: 0,
+          score: 1,
+          maxScore: 1,
+          authority: { source: 'official_harbor_verifier', authoritative: true },
+          details: { source: 'harbor', official: true },
+        },
+      },
+    ];
+
+    const projection = projectTaskRun(events, 'run-verifier-only');
+    const exported = taskRunExportFromProjection(projection);
+
+    assert.equal(projection.latestVerifierResult?.id, 'official-verifier');
+    assert.equal(projection.latestScoreResult, undefined);
+    assert.equal(exported.score, undefined);
+    assert.equal(exported.taxonomy.value, 'passed');
+    assert.equal(exported.taxonomy.passed, true);
+    assert.equal(exported.legacyResultRecord.passed, true);
+  });
+
+  test('keeps official verifier truth when a later placeholder is recorded', () => {
+    const events: TaskEvent[] = [
+      { type: 'task_run_created', id: 'e1', taskRunId: 'run-reverse', ts: 1, taskId: 'task-1', configId: 'cfg-1' },
+      {
+        type: 'verifier_result_recorded',
+        id: 'e2',
+        taskRunId: 'run-reverse',
+        ts: 2,
+        result: {
+          id: 'official-verifier',
+          taskRunId: 'run-reverse',
+          ts: 2,
+          kind: 'terminal_bench',
+          passed: true,
+          exitCode: 0,
+          score: 1,
+          maxScore: 1,
+          authority: { source: 'official_harbor_verifier', authoritative: true },
+          details: { source: 'harbor', official: true },
+        },
+      },
+      {
+        type: 'score_result_recorded',
+        id: 'e3',
+        taskRunId: 'run-reverse',
+        ts: 2,
+        result: {
+          id: 'official-score',
+          taskRunId: 'run-reverse',
+          ts: 2,
+          passed: true,
+          scored: true,
+          eligible: true,
+          score: 1,
+          maxScore: 1,
+          taxonomy: 'passed',
+          authority: { source: 'official_harbor_verifier', authoritative: true },
+        },
+      },
+      {
+        type: 'task_run_completed',
+        id: 'e4',
+        taskRunId: 'run-reverse',
+        ts: 2,
+        finishedAt: 2,
+        result: {
+          passed: true,
+          taxonomy: 'passed',
+          verifierResultId: 'official-verifier',
+          scoreResultId: 'official-score',
+        },
+      },
+      {
+        type: 'verifier_result_recorded',
+        id: 'e5',
+        taskRunId: 'run-reverse',
+        ts: 3,
+        result: {
+          id: 'placeholder-verifier',
+          taskRunId: 'run-reverse',
+          ts: 3,
+          kind: 'terminal_bench',
+          passed: false,
+          exitCode: null,
+          errorClass: 'unsupported_adapter',
+          authority: { source: 'self_check', authoritative: false },
+          details: { verificationPlaceholder: true },
+        },
+      },
+      {
+        type: 'score_result_recorded',
+        id: 'e6',
+        taskRunId: 'run-reverse',
+        ts: 3,
+        result: {
+          id: 'placeholder-score',
+          taskRunId: 'run-reverse',
+          ts: 3,
+          passed: false,
+          scored: false,
+          eligible: false,
+          taxonomy: 'unsupported_adapter',
+          errorClass: 'unsupported_adapter',
+          authority: { source: 'self_check', authoritative: false },
+        },
+      },
+    ];
+
+    const projection = projectTaskRun(events, 'run-reverse');
+    const exported = taskRunExportFromProjection(projection);
+
+    assert.equal(projection.status, 'completed');
+    assert.equal(projection.latestVerifierResult?.id, 'official-verifier');
+    assert.equal(projection.latestScoreResult?.id, 'official-score');
+    assert.equal(exported.verifier?.id, 'official-verifier');
+    assert.equal(exported.taxonomy.passed, true);
     assert.equal(exported.legacyResultRecord.passed, true);
   });
 

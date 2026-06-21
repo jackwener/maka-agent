@@ -186,6 +186,53 @@ export interface AutonomousDecision {
   details?: Record<string, unknown>;
 }
 
+export type TaskRunArtifactKind =
+  | 'container_workspace'
+  | 'workspace_diff'
+  | 'source_code'
+  | 'generated_output'
+  | 'benchmark_manifest'
+  | 'benchmark_repro'
+  | 'submitted_snapshot'
+  | 'runtime_trace'
+  | 'other';
+
+export type TaskRunArtifactAuthoritySource =
+  | 'official_harbor_verifier'
+  | 'self_check'
+  | 'container_capture'
+  | 'runtime'
+  | 'system';
+
+export interface TaskRunArtifactAuthority {
+  source: TaskRunArtifactAuthoritySource;
+  authoritative: boolean;
+  label?: string;
+}
+
+export interface TaskRunArtifact {
+  schemaVersion: 1;
+  artifactId: string;
+  taskRunId: string;
+  attemptId?: string;
+  ts: number;
+  kind: TaskRunArtifactKind;
+  authority: TaskRunArtifactAuthority;
+  label?: string;
+  path?: string;
+  workspacePath?: string;
+  artifactRef?: string;
+  hash?: string;
+  mimeType?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export type TaskRunArtifactDescriptor = Omit<TaskRunArtifact, 'schemaVersion' | 'artifactId' | 'taskRunId' | 'ts'> & {
+  artifactId?: string;
+  taskRunId?: string;
+  ts?: number;
+};
+
 export interface VerifierResult {
   id: string;
   taskRunId: string;
@@ -203,6 +250,8 @@ export interface VerifierResult {
   errorClass?: string;
   score?: number;
   maxScore?: number;
+  authority?: TaskRunArtifactAuthority;
+  artifacts?: TaskRunArtifact[];
   details?: Record<string, unknown>;
   submittedSnapshotId?: string;
   scoringWorkspaceId?: string;
@@ -221,6 +270,7 @@ export interface ScoreResult {
   score?: number;
   maxScore?: number;
   taxonomy: AutonomousResultTaxonomy;
+  authority?: TaskRunArtifactAuthority;
   details?: Record<string, unknown>;
 }
 
@@ -406,6 +456,11 @@ export interface VerifierResultRecordedEvent extends BaseTaskEvent {
   result: VerifierResult;
 }
 
+export interface TaskRunArtifactRecordedEvent extends BaseTaskEvent {
+  type: 'task_run_artifact_recorded';
+  artifact: TaskRunArtifact;
+}
+
 export interface ScoreResultRecordedEvent extends BaseTaskEvent {
   type: 'score_result_recorded';
   result: ScoreResult;
@@ -537,6 +592,7 @@ export type TaskEvent =
   | FeedbackObservedEvent
   | AutonomousDecisionRecordedEvent
   | VerifierResultRecordedEvent
+  | TaskRunArtifactRecordedEvent
   | ScoreResultRecordedEvent
   | IsolationPolicyRecordedEvent
   | WorkspaceLeaseRecordedEvent

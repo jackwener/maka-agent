@@ -39,7 +39,13 @@ export interface TaskRunExport {
   workspace: {
     lease?: TaskRunProjection['workspaceLease'];
     submittedSnapshot?: unknown;
+    primaryWorkspacePath?: string;
     diff: { status: 'present' | 'not_captured'; artifactRef?: string; path?: string; hash?: string };
+  };
+  artifacts: {
+    primaryWorkspacePath?: string;
+    items: TaskRunProjection['artifacts'];
+    byKind: Record<string, TaskRunProjection['artifacts']>;
   };
   verifier?: VerifierResult & { benchmark?: Record<string, unknown> };
   score?: ScoreResult;
@@ -117,6 +123,7 @@ export function taskRunExportFromProjection(
   const runtimeEventIds = runtimeEventIdsFrom(runtimeRefs);
   const benchmark = verifierBenchmark(verifier);
   const taxonomy = score?.taxonomy ?? projection.result?.taxonomy ?? legacyResultRecord.errorClass ?? projection.status;
+  const primaryWorkspacePath = primaryWorkspacePathFromArtifacts(projection.artifacts);
 
   return {
     schemaVersion: 'maka.task_run_export.v1',
@@ -145,7 +152,13 @@ export function taskRunExportFromProjection(
     workspace: {
       lease: projection.workspaceLease,
       submittedSnapshot: scoreDetails.submittedSnapshot ?? submittedSnapshotRef(verifier),
-      diff: diffMetadata(scoreDetails),
+      ...(primaryWorkspacePath ? { primaryWorkspacePath } : {}),
+      diff: diffMetadata(scoreDetails, projection.artifacts),
+    },
+    artifacts: {
+      ...(primaryWorkspacePath ? { primaryWorkspacePath } : {}),
+      items: projection.artifacts,
+      byKind: artifactsByKind(projection.artifacts),
     },
     verifier: verifier
       ? {
@@ -196,10 +209,20 @@ export function renderTaskRunMarkdown(exported: TaskRunExport): string {
     `- verifier: ${verifier ? md(verifier.kind) : 'none'}`,
     `- verifier_exit_code: ${verifier?.exitCode ?? 'null'}`,
     `- score: ${scoreValue(score)}`,
+    `- verifier_authority: ${authorityValue(verifier?.authority)}`,
     `- submitted_snapshot: ${snapshotValue(exported.workspace.submittedSnapshot)}`,
     `- diff: ${exported.workspace.diff.status}`,
+    `- artifacts: ${exported.artifacts.items.length}`,
     '',
   ];
+  if (exported.artifacts.items.length > 0) {
+    lines.push(
+      '## artifacts',
+      '',
+      ...exported.artifacts.items.map((artifact) => `- ${md(artifact.kind)} ${md(artifact.workspacePath ?? artifact.path ?? artifact.artifactRef ?? artifact.artifactId)}`),
+      '',
+    );
+  }
   if (verifier?.stdout) {
     lines.push('## verifier_stdout', '', fence(verifier.stdout), '');
   }
@@ -224,11 +247,13 @@ function compactResultView(exported: TaskRunExport): Record<string, unknown> {
           passed: exported.verifier.passed,
           exitCode: exported.verifier.exitCode ?? null,
           errorClass: exported.verifier.errorClass,
+          authority: exported.verifier.authority,
           benchmark: exported.verifier.benchmark,
         }
       : undefined,
     score: exported.score,
     workspace: exported.workspace,
+    artifacts: exported.artifacts,
     legacyResultRecord: exported.legacyResultRecord,
   };
 }
@@ -246,15 +271,39 @@ function submittedSnapshotRef(verifier: VerifierResult | undefined): Record<stri
   return verifier?.submittedSnapshotId ? { id: verifier.submittedSnapshotId } : undefined;
 }
 
-function diffMetadata(details: Record<string, unknown>): TaskRunExport['workspace']['diff'] {
+function diffMetadata(
+  details: Record<string, unknown>,
+  artifacts: TaskRunProjection['artifacts'],
+): TaskRunExport['workspace']['diff'] {
   const diff = details.diff;
-  if (!recordValue(diff)) return { status: 'not_captured' };
+  if (!recordValue(diff)) {
+    const artifact = artifacts.find((item) => item.kind === 'workspace_diff');
+    if (!artifact) return { status: 'not_captured' };
+    return {
+      status: 'present',
+      ...(artifact.artifactRef ? { artifactRef: artifact.artifactRef } : {}),
+      ...(artifact.path ? { path: artifact.path } : {}),
+      ...(artifact.hash ? { hash: artifact.hash } : {}),
+    };
+  }
   return {
     status: 'present',
     ...(typeof diff.artifactRef === 'string' ? { artifactRef: diff.artifactRef } : {}),
     ...(typeof diff.path === 'string' ? { path: diff.path } : {}),
     ...(typeof diff.hash === 'string' ? { hash: diff.hash } : {}),
   };
+}
+
+function primaryWorkspacePathFromArtifacts(artifacts: TaskRunProjection['artifacts']): string | undefined {
+  return artifacts.find((artifact) => artifact.kind === 'container_workspace' && artifact.workspacePath)?.workspacePath;
+}
+
+function artifactsByKind(artifacts: TaskRunProjection['artifacts']): Record<string, TaskRunProjection['artifacts']> {
+  const grouped: Record<string, TaskRunProjection['artifacts']> = {};
+  for (const artifact of artifacts) {
+    grouped[artifact.kind] = [...(grouped[artifact.kind] ?? []), artifact];
+  }
+  return grouped;
 }
 
 function verifierBenchmark(verifier: VerifierResult | undefined): Record<string, unknown> | undefined {
@@ -275,6 +324,11 @@ function scoreValue(score: ScoreResult | undefined): string {
   if (!score) return 'none';
   if (score.score !== undefined || score.maxScore !== undefined) return `${score.score ?? 'unknown'}/${score.maxScore ?? 'unknown'}`;
   return score.passed ? 'pass' : 'fail';
+}
+
+function authorityValue(authority: VerifierResult['authority']): string {
+  if (!authority) return 'none';
+  return `${authority.source} authoritative=${authority.authoritative ? 'true' : 'false'}`;
 }
 
 function snapshotValue(value: unknown): string {

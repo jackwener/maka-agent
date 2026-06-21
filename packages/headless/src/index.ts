@@ -26,6 +26,14 @@ export {
   runHarborCellFromEnv,
 } from './harbor-cell.js';
 export type {
+  HarborOfficialArtifactInput,
+  ReadHarborOfficialArtifactInput,
+} from './harbor-official-artifacts.js';
+export {
+  harborOfficialVerifierOutputFromArtifacts,
+  readHarborOfficialVerifierOutput,
+} from './harbor-official-artifacts.js';
+export type {
   FixedPromptControllerStopReason,
   FixedPromptControllerResult,
   FixedPromptTask,
@@ -165,6 +173,12 @@ export type {
   TaskInboxKind,
   TaskInboxStatus,
   TaskInterventionPolicy,
+  TaskRunArtifact,
+  TaskRunArtifactAuthority,
+  TaskRunArtifactAuthoritySource,
+  TaskRunArtifactDescriptor,
+  TaskRunArtifactKind,
+  TaskRunArtifactRecordedEvent,
   TaskIsolationFacts,
   TaskPermissionGrant,
   TaskPermissionRequest,

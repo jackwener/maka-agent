@@ -346,6 +346,81 @@ describe('runTaskOnce', () => {
     });
   });
 
+  test('records official Harbor verifier result and container artifacts from benchmark adapter', async () => {
+    await withDirs(async (fixtureDir, storageRoot) => {
+      const task: Task = {
+        id: 'terminal-bench-official',
+        instruction: 'do the thing',
+        workspaceDir: fixtureDir,
+        verifier: {
+          kind: 'terminal_bench',
+          adapter: 'terminal-bench',
+          instanceId: 'terminal-bench/example',
+          protectedPaths: [],
+        },
+      };
+
+      const result = await runTaskOnce(fakeConfig, task, {
+        storageRoot,
+        registerBackends: registerFakeBackend,
+        benchmarkAdapters: {
+          'terminal-bench': {
+            name: 'terminal-bench',
+            runVerifier: () => ({
+              kind: 'terminal_bench',
+              passed: true,
+              exitCode: 0,
+              score: 1,
+              maxScore: 1,
+              authority: { source: 'official_harbor_verifier', authoritative: true },
+              details: { source: 'harbor', official: true, instanceId: 'terminal-bench/example' },
+              artifacts: [
+                {
+                  kind: 'container_workspace',
+                  workspacePath: '/app',
+                  authority: { source: 'container_capture', authoritative: true },
+                },
+                {
+                  kind: 'workspace_diff',
+                  path: '/logs/artifacts/submission.diff',
+                  workspacePath: '/app',
+                  authority: { source: 'container_capture', authoritative: true },
+                },
+                {
+                  kind: 'source_code',
+                  path: '/logs/artifacts/app/vm.js',
+                  workspacePath: '/app/vm.js',
+                  authority: { source: 'container_capture', authoritative: true },
+                },
+                {
+                  kind: 'generated_output',
+                  path: '/logs/artifacts/frame.bmp',
+                  workspacePath: '/app/frame.bmp',
+                  authority: { source: 'container_capture', authoritative: true },
+                },
+                {
+                  kind: 'benchmark_manifest',
+                  path: '/logs/artifacts/manifest.json',
+                  authority: { source: 'official_harbor_verifier', authoritative: true },
+                },
+              ],
+            }),
+          },
+        },
+      });
+
+      assert.equal(result.resultRecord.passed, true);
+      assert.equal(result.resultRecord.scored, true);
+      assert.equal(result.projection.latestVerifierResult?.authority?.source, 'official_harbor_verifier');
+      assert.equal(result.projection.latestScoreResult?.taxonomy, 'passed');
+      assert.equal(result.projection.artifacts.length, 5);
+      assert.equal(result.projection.artifacts[0]?.workspacePath, '/app');
+      assert.equal(result.projection.artifacts[2]?.workspacePath, '/app/vm.js');
+      assert.equal(result.projection.artifacts[3]?.path, '/logs/artifacts/frame.bmp');
+      assert.equal(result.projection.artifacts[4]?.kind, 'benchmark_manifest');
+    });
+  });
+
   test('freezes submitted workspace before restoring protected paths for verifier', async () => {
     await withDirs(async (fixtureDir, storageRoot) => {
       await writeFile(join(fixtureDir, 'src.mjs'), 'export const add = (a, b) => a - b;\n', 'utf8');

@@ -371,6 +371,7 @@ export async function runTaskOnce(
       ...(finalScore.errorClass ? { errorClass: finalScore.errorClass } : {}),
       ...(finalScore.excludedReason ? { excludedReason: finalScore.excludedReason } : {}),
       taxonomy,
+      ...(verifierResult.authority ? { authority: verifierResult.authority } : {}),
       details: {
         steps: resultRecord.steps,
         invocationStatus: invocation.status,
@@ -399,6 +400,15 @@ export async function runTaskOnce(
       ts: finishedAt,
       result: verifierResult,
     });
+    for (const artifact of verifierResult.artifacts ?? []) {
+      await appendTaskEvent(taskRunStore, taskRunId, {
+        type: 'task_run_artifact_recorded',
+        id: newId(),
+        taskRunId,
+        ts: artifact.ts,
+        artifact,
+      });
+    }
     await appendTaskEvent(taskRunStore, taskRunId, {
       type: 'score_result_recorded',
       id: newId(),

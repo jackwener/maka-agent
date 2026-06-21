@@ -42,7 +42,7 @@ describe('maka-headless CLI', () => {
       const outDir = join(dir, 'out');
 
       const run = await runCli(['eval', specPath, '--out', outDir]);
-      assert.equal(run.code, 0, run.stderr);
+      assert.equal(run.code, 0);
 
       const records = await readResults(join(outDir, 'results.jsonl'));
       assert.equal(records.length, 1);
@@ -187,12 +187,12 @@ describe('maka-headless CLI', () => {
         outDir,
         '--include-events',
       ]);
-      assert.equal(run.code, 0, run.stderr);
+      assert.equal(run.code, 1);
       assert.match(run.stdout, /taskRunId: task-run-1/);
 
       const inspect = await runCli(['task', 'inspect', 'task-run-1', '--store', join(outDir, 'runs'), '--json']);
       assert.equal(inspect.code, 0, inspect.stderr);
-      assert.equal(JSON.parse(inspect.stdout).taxonomy, 'passed');
+      assert.equal(JSON.parse(inspect.stdout).taxonomy, 'verification_failed');
 
       const exportDir = join(dir, 'manual-export');
       const exported = await runCli([
@@ -209,6 +209,8 @@ describe('maka-headless CLI', () => {
       const taskRunJson = JSON.parse(await readFile(join(exportDir, 'task-run.json'), 'utf8'));
       assert.equal(taskRunJson.verifier.kind, 'terminal_bench');
       assert.equal(taskRunJson.verifier.benchmark.instanceId, 'tb-local');
+      assert.equal(taskRunJson.verifier.authority.authoritative, false);
+      assert.equal(taskRunJson.verifier.benchmark.verificationPlaceholder, true);
       assert.match(await readFile(join(exportDir, 'events.jsonl'), 'utf8'), /verifier_result_recorded/);
     } finally {
       await rm(dir, { recursive: true, force: true });

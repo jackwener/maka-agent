@@ -14,7 +14,8 @@ export async function runTerminalBenchTestCommand(input: {
       exitCode: null,
       error: 'terminal_bench verifier adapter is not implemented',
       errorClass: 'unsupported_adapter',
-      details: terminalBenchDetails(input.verifier),
+      authority: { source: 'self_check', authoritative: false, label: 'unsupported local benchmark placeholder' },
+      details: { ...terminalBenchDetails(input.verifier), verificationPlaceholder: true },
     };
   }
 
@@ -36,10 +37,12 @@ export async function runTerminalBenchTestCommand(input: {
     ...(errorClass ? { errorClass } : {}),
     score: evaluation.passed ? 1 : 0,
     maxScore: 1,
+    authority: { source: 'self_check', authoritative: false, label: 'local Terminal-Bench testCommand self-check' },
     details: {
       ...terminalBenchDetails(input.verifier),
       testCommand: command,
       timedOut: evaluation.timedOut,
+      verificationPlaceholder: true,
     },
   };
 }

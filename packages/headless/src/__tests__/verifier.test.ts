@@ -60,6 +60,8 @@ describe('benchmark verifiers', () => {
       assert.equal(result.exitCode, 0);
       assert.equal(result.score, 1);
       assert.equal(result.maxScore, 1);
+      assert.equal(result.authority?.source, 'self_check');
+      assert.equal(result.authority?.authoritative, false);
       assert.equal(result.submittedSnapshotId, 'snapshot-1');
       assert.deepEqual(result.details, {
         adapter: 'terminal-bench',
@@ -67,6 +69,7 @@ describe('benchmark verifiers', () => {
         datasetPath: '/datasets/local',
         testCommand: 'test -f marker.txt',
         timedOut: false,
+        verificationPlaceholder: true,
       });
     } finally {
       await rm(dir, { recursive: true, force: true });
@@ -101,6 +104,75 @@ describe('benchmark verifiers', () => {
       assert.equal(result.passed, false);
       assert.equal(result.exitCode, null);
       assert.equal(result.errorClass, 'unsupported_adapter');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('rejects benchmark artifacts for a different task run or attempt', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'maka-tbench-verifier-'));
+    try {
+      await assert.rejects(
+        runVerifier({
+          verifier: { kind: 'terminal_bench', adapter: 'terminal-bench', instanceId: 'official' },
+          taskRunId: 'run-current',
+          attemptId: 'attempt-current',
+          ts: 100,
+          id: 'verifier-official',
+          workspaceDir: dir,
+          benchmarkAdapters: {
+            'terminal-bench': {
+              name: 'terminal-bench',
+              runVerifier: () => ({
+                kind: 'terminal_bench',
+                passed: true,
+                exitCode: 0,
+                authority: { source: 'official_harbor_verifier', authoritative: true },
+                artifacts: [
+                  {
+                    taskRunId: 'run-other',
+                    kind: 'container_workspace',
+                    workspacePath: '/app',
+                    authority: { source: 'container_capture', authoritative: true },
+                  },
+                ],
+              }),
+            },
+          },
+        }),
+        /taskRunId mismatch/,
+      );
+
+      await assert.rejects(
+        runVerifier({
+          verifier: { kind: 'terminal_bench', adapter: 'terminal-bench', instanceId: 'official' },
+          taskRunId: 'run-current',
+          attemptId: 'attempt-current',
+          ts: 100,
+          id: 'verifier-official',
+          workspaceDir: dir,
+          benchmarkAdapters: {
+            'terminal-bench': {
+              name: 'terminal-bench',
+              runVerifier: () => ({
+                kind: 'terminal_bench',
+                passed: true,
+                exitCode: 0,
+                authority: { source: 'official_harbor_verifier', authoritative: true },
+                artifacts: [
+                  {
+                    attemptId: 'attempt-other',
+                    kind: 'container_workspace',
+                    workspacePath: '/app',
+                    authority: { source: 'container_capture', authoritative: true },
+                  },
+                ],
+              }),
+            },
+          },
+        }),
+        /attemptId mismatch/,
+      );
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

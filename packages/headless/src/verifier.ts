@@ -1,7 +1,7 @@
 import { isAbsolute, join } from 'node:path';
 import type { Task, TaskVerification, VerifierSpec } from './contracts.js';
 import { runVerification, type EvaluationResult } from './evaluator.js';
-import type { VerifierResult } from './task-contracts.js';
+import type { TaskRunArtifact, TaskRunArtifactDescriptor, VerifierResult } from './task-contracts.js';
 import { resolveBenchmarkAdapter, type BenchmarkAdapterRegistry, type BenchmarkVerifierOutput } from './benchmark-adapters.js';
 import { runTerminalBenchTestCommand, terminalBenchDetails } from './terminal-bench-adapter.js';
 
@@ -96,7 +96,10 @@ export async function runVerifier(input: {
       exitCode: null,
       error: `${input.verifier.kind} verifier adapter is not implemented`,
       errorClass: 'unsupported_adapter',
-      details: input.verifier.kind === 'terminal_bench' ? terminalBenchDetails(input.verifier) : undefined,
+      authority: { source: 'self_check', authoritative: false, label: 'unsupported local benchmark placeholder' },
+      details: input.verifier.kind === 'terminal_bench'
+        ? { ...terminalBenchDetails(input.verifier), verificationPlaceholder: true }
+        : { verificationPlaceholder: true },
       submittedSnapshotId: input.submittedSnapshotId,
       scoringWorkspaceId: input.scoringWorkspaceId,
     };
@@ -147,10 +150,52 @@ function verifierResultFromBenchmarkOutput(input: {
     errorClass: input.output.errorClass,
     score: input.output.score,
     maxScore: input.output.maxScore,
+    authority: input.output.authority,
+    artifacts: materializeArtifacts({
+      descriptors: input.output.artifacts,
+      verifierResultId: input.id,
+      taskRunId: input.taskRunId,
+      attemptId: input.attemptId,
+      ts: input.ts,
+    }),
     details: input.output.details,
     submittedSnapshotId: input.submittedSnapshotId,
     scoringWorkspaceId: input.scoringWorkspaceId,
   };
+}
+
+function materializeArtifacts(input: {
+  descriptors: TaskRunArtifactDescriptor[] | undefined;
+  verifierResultId: string;
+  taskRunId: string;
+  attemptId?: string;
+  ts: number;
+}): TaskRunArtifact[] | undefined {
+  if (!input.descriptors || input.descriptors.length === 0) return undefined;
+  return input.descriptors.map((descriptor, index) => {
+    if (descriptor.taskRunId && descriptor.taskRunId !== input.taskRunId) {
+      throw new Error(`benchmark artifact taskRunId mismatch: ${descriptor.taskRunId} !== ${input.taskRunId}`);
+    }
+    if (descriptor.attemptId && descriptor.attemptId !== input.attemptId) {
+      throw new Error(`benchmark artifact attemptId mismatch: ${descriptor.attemptId} !== ${input.attemptId ?? '<none>'}`);
+    }
+    return {
+      schemaVersion: 1,
+      artifactId: descriptor.artifactId ?? `${input.verifierResultId}:artifact-${index + 1}`,
+      taskRunId: input.taskRunId,
+      ...(input.attemptId ? { attemptId: input.attemptId } : {}),
+      ts: descriptor.ts ?? input.ts,
+      kind: descriptor.kind,
+      authority: descriptor.authority,
+      ...(descriptor.label ? { label: descriptor.label } : {}),
+      ...(descriptor.path ? { path: descriptor.path } : {}),
+      ...(descriptor.workspacePath ? { workspacePath: descriptor.workspacePath } : {}),
+      ...(descriptor.artifactRef ? { artifactRef: descriptor.artifactRef } : {}),
+      ...(descriptor.hash ? { hash: descriptor.hash } : {}),
+      ...(descriptor.mimeType ? { mimeType: descriptor.mimeType } : {}),
+      ...(descriptor.metadata ? { metadata: descriptor.metadata } : {}),
+    };
+  });
 }
 
 export function verifierResultFromEvaluation(input: {

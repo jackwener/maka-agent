@@ -51,6 +51,21 @@ export const defaultFinalScorer: FinalScorer = (input) => {
     };
   }
 
+  if (verifier && verifier.kind !== 'command' && verifier.authority?.authoritative === false) {
+    return {
+      passed: false,
+      scored: false,
+      eligible: true,
+      taxonomy: 'verification_failed',
+      errorClass: 'non_authoritative_verifier',
+      excludedReason: 'official benchmark verifier result is missing',
+      details: {
+        verifierAuthority: verifier.authority,
+        verificationPlaceholder: verifier.details?.verificationPlaceholder === true,
+      },
+    };
+  }
+
   if (!verifier) {
     return {
       passed: false,

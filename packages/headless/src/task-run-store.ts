@@ -12,6 +12,7 @@ import type {
   ScoreResult,
   SelfCheckObservation,
   TaskAttempt,
+  TaskRunArtifact,
   TaskEvent,
   TaskRun,
   TaskRunError,
@@ -27,6 +28,7 @@ export interface TaskRunProjection extends TaskRun {
   selfChecks: SelfCheckObservation[];
   feedback: FeedbackObservation[];
   decisions: AutonomousDecision[];
+  artifacts: TaskRunArtifact[];
   verifierResults: VerifierResult[];
   scoreResults: ScoreResult[];
   toolExecutors: ToolExecutorIdentity[];
@@ -68,6 +70,7 @@ export function projectTaskRun(events: readonly TaskEvent[], taskRunId?: string)
     selfChecks: [],
     feedback: [],
     decisions: [],
+    artifacts: [],
     verifierResults: [],
     scoreResults: [],
     toolExecutors: [],
@@ -132,6 +135,9 @@ export function projectTaskRun(events: readonly TaskEvent[], taskRunId?: string)
       case 'verifier_result_recorded':
         projection.verifierResults.push(event.result);
         projection.latestVerifierResult = event.result;
+        break;
+      case 'task_run_artifact_recorded':
+        projection.artifacts.push(event.artifact);
         break;
       case 'score_result_recorded':
         projection.scoreResults.push(event.result);
@@ -254,6 +260,13 @@ export function projectTaskRun(events: readonly TaskEvent[], taskRunId?: string)
 
   projection.attempts = [...attempts.values()];
   projection.inboxItems = [...inboxItems.values()];
+  projection.latestVerifierResult = preferredVerifierResult(projection.verifierResults);
+  projection.latestScoreResult = preferredScoreResult(projection.scoreResults, projection.latestVerifierResult);
+  if (projection.latestScoreResult) {
+    projection.result = resultFromScore(projection.latestScoreResult, projection.latestVerifierResult);
+  } else if (projection.latestVerifierResult) {
+    projection.result = resultFromVerifier(projection.latestVerifierResult);
+  }
   return projection;
 }
 
@@ -368,6 +381,35 @@ function resultFromScore(score: ScoreResult | undefined, verifier: VerifierResul
     ...(verifier ? { verifierResultId: verifier.id } : {}),
     scoreResultId: score.id,
   };
+}
+
+function resultFromVerifier(verifier: VerifierResult): TaskRunResult {
+  return {
+    passed: verifier.passed,
+    taxonomy: verifier.passed ? 'passed' : 'verification_failed',
+    verifierResultId: verifier.id,
+  };
+}
+
+function preferredVerifierResult(results: readonly VerifierResult[]): VerifierResult | undefined {
+  return preferredByAuthority(results);
+}
+
+function preferredScoreResult(results: readonly ScoreResult[], verifier: VerifierResult | undefined): ScoreResult | undefined {
+  if (verifier?.authority?.authoritative === true && !results.some((result) => result.authority?.authoritative === true)) {
+    return undefined;
+  }
+  return preferredByAuthority(results);
+}
+
+function preferredByAuthority<T extends { authority?: { authoritative: boolean }; ts: number }>(
+  results: readonly T[],
+): T | undefined {
+  const authoritative = results.filter((result) => result.authority?.authoritative === true);
+  if (authoritative.length > 0) return authoritative[authoritative.length - 1];
+  const nonPlaceholder = results.filter((result) => result.authority?.authoritative !== false);
+  if (nonPlaceholder.length > 0) return nonPlaceholder[nonPlaceholder.length - 1];
+  return results[results.length - 1];
 }
 
 function applyTerminalEvent(projection: TaskRunProjection, terminalEvents: number): number {

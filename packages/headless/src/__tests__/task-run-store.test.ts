@@ -90,6 +90,31 @@ describe('TaskRunStore', () => {
     });
   });
 
+  test('projects first-class task-run artifacts', () => {
+    const projection = projectTaskRun([
+      { type: 'task_run_created', id: 'e-1', taskRunId: 'tr-artifact', ts: 1, taskId: 'task-1', configId: 'cfg-1' },
+      {
+        type: 'task_run_artifact_recorded',
+        id: 'e-2',
+        taskRunId: 'tr-artifact',
+        ts: 2,
+        artifact: {
+          schemaVersion: 1,
+          artifactId: 'artifact-workspace',
+          taskRunId: 'tr-artifact',
+          ts: 2,
+          kind: 'container_workspace',
+          workspacePath: '/app',
+          authority: { source: 'container_capture', authoritative: true },
+        },
+      },
+    ], 'tr-artifact');
+
+    assert.equal(projection.artifacts.length, 1);
+    assert.equal(projection.artifacts[0]?.workspacePath, '/app');
+    assert.equal(projection.artifacts[0]?.authority.source, 'container_capture');
+  });
+
   test('projects isolation, permission, inbox, and needs_approval facts', () => {
     const taskRunId = 'tr-approval';
     const request = {

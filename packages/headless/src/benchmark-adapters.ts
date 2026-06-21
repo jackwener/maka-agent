@@ -1,4 +1,5 @@
 import type { Task, VerifierSpec } from './contracts.js';
+import type { TaskRunArtifactAuthority, TaskRunArtifactDescriptor } from './task-contracts.js';
 
 export interface BenchmarkInstanceRef {
   adapter: string;
@@ -30,6 +31,8 @@ export interface BenchmarkVerifierOutput {
   errorClass?: string;
   score?: number;
   maxScore?: number;
+  authority?: TaskRunArtifactAuthority;
+  artifacts?: TaskRunArtifactDescriptor[];
   details?: Record<string, unknown>;
 }
 
