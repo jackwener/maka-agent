@@ -472,7 +472,6 @@ export function SessionListPanel(props: {
   const activePlanReminderCount = (props.planReminders ?? [])
     .filter((reminder) => reminder.status !== 'completed')
     .length;
-  const [extensionsExpanded, setExtensionsExpanded] = useState(true);
   function selectModule(id: ModuleNavId) {
     if (id === 'search') {
       props.onOpenSearchModal?.();
@@ -566,51 +565,16 @@ export function SessionListPanel(props: {
           <span>{MODULE_NAV_LABEL.search}</span>
         </button>
         <button
-          className="maka-nav-row maka-nav-row-parent"
+          className="maka-nav-row"
+          data-active={isModuleActive('skills')}
+          aria-current={isModuleActive('skills') ? 'page' : undefined}
+          aria-label={MODULE_NAV_LABEL.skills}
           type="button"
-          aria-expanded={extensionsExpanded}
-          aria-controls="maka-sidebar-extension-tree"
-          onClick={() => setExtensionsExpanded((value) => !value)}
+          onClick={() => selectModule('skills')}
         >
           <Sparkles className="maka-nav-icon" strokeWidth={1.5} aria-hidden="true" />
-          <span>扩展</span>
-          <ChevronRight className="maka-nav-disclosure" strokeWidth={1.75} aria-hidden="true" />
+          <span>{MODULE_NAV_LABEL.skills}</span>
         </button>
-        {extensionsExpanded && (
-          <div id="maka-sidebar-extension-tree" className="maka-nav-tree maka-sidebar-extension-tree">
-            <button
-              className="maka-nav-row maka-nav-row-sub"
-              data-active={isModuleActive('daily-review')}
-              aria-current={isModuleActive('daily-review') ? 'page' : undefined}
-              aria-label="专家套件"
-              type="button"
-              onClick={() => selectModule('daily-review')}
-            >
-              <BookOpen className="maka-nav-icon" strokeWidth={1.5} aria-hidden="true" />
-              <span>专家套件</span>
-            </button>
-            <button
-              className="maka-nav-row maka-nav-row-sub"
-              data-active={isModuleActive('skills')}
-              aria-current={isModuleActive('skills') ? 'page' : undefined}
-              aria-label={MODULE_NAV_LABEL.skills}
-              type="button"
-              onClick={() => selectModule('skills')}
-            >
-              <Sparkles className="maka-nav-icon" strokeWidth={1.5} aria-hidden="true" />
-              <span>{MODULE_NAV_LABEL.skills}</span>
-            </button>
-            <button
-              className="maka-nav-row maka-nav-row-sub"
-              type="button"
-              aria-label="连接器"
-              onClick={props.onOpenSettings}
-            >
-              <Globe className="maka-nav-icon" strokeWidth={1.5} aria-hidden="true" />
-              <span>连接器</span>
-            </button>
-          </div>
-        )}
         <button
           className="maka-nav-row"
           data-active={isModuleActive('automations')}

@@ -444,7 +444,10 @@ describe('localized main shell contract', () => {
     assert.match(components, /const isModuleActive = \(id: ModuleNavId\) => \{/);
     assert.match(components, /aria-current=\{isModuleActive\('sessions'\) \? 'page' : undefined\}/);
     assert.match(components, /aria-current=\{isModuleActive\('automations'\) \? 'page' : undefined\}/);
-    assert.match(components, /className="maka-nav-row maka-nav-row-parent"[\s\S]*aria-expanded=\{extensionsExpanded\}[\s\S]*<span>扩展<\/span>/);
+    assert.match(components, /aria-current=\{isModuleActive\('skills'\) \? 'page' : undefined\}/);
+    assert.doesNotMatch(components, /<span>扩展<\/span>/);
+    assert.doesNotMatch(components, /<span>专家套件<\/span>/);
+    assert.doesNotMatch(components, /<span>连接器<\/span>/);
 
     assert.match(main, /const \[sessionListCollapsed, setSessionListCollapsed\] = useState\(\(\) => readSessionListCollapsed\(\)\);/);
     assert.match(main, /localStorage\.setItem\('maka-chat-list-collapsed-v1', sessionListCollapsed \? 'true' : 'false'\)/);
@@ -538,8 +541,6 @@ describe('localized main shell contract', () => {
     assert.match(styles, /(?:^|\n)\.maka-nav-icon\s*\{[\s\S]*?width:\s*18px[\s\S]*?height:\s*18px/);
     assert.match(styles, /\.maka-sidebar-modules\b/);
     assert.doesNotMatch(styles, /\.maka-sidebar-module-hint\b/);
-    assert.match(components, /className="maka-nav-tree maka-sidebar-extension-tree"/);
-    assert.match(styles, /\.maka-nav-tree\b/);
     assert.match(styles, /\.maka-nav-row\b/);
     assert.match(styles, /\.maka-sidebar-search-button,\n\.maka-sidebar-toggle \{/);
     const detailWithArtifacts = extractCssRule(styles, '.maka-detail-with-artifacts');
