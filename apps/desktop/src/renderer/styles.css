@@ -5676,11 +5676,22 @@ button:active {
   background: #000;
   color: #fff;
   box-shadow: none;
+  transition:
+    background-color 150ms ease-out,
+    transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 220ms ease-out;
 }
 
 .maka-composer-send-button:hover:not(:disabled) {
   background: rgb(0 0 0 / 0.8);
   color: #fff;
+  transform: scale(1.06);
+  box-shadow: 0 4px 14px -6px oklch(from var(--accent) l c h / 0.45);
+}
+
+.maka-composer-send-button:active:not(:disabled) {
+  transform: scale(0.96);
+  box-shadow: none;
 }
 
 .maka-composer-send-button:disabled {
