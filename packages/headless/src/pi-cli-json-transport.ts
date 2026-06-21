@@ -63,13 +63,15 @@ export class PiCliJsonTransport implements PiAgentTransport {
     this.child = child;
     const close = childClose(child);
     const stderr = collectStderr(child.stderr);
+    let stdinError: Error | undefined;
     let rejectStdin: (error: Error) => void = () => {};
     const stdinFailed = new Promise<never>((_, reject) => {
       rejectStdin = reject;
     });
     stdinFailed.catch(() => undefined);
     const onStdinError = (error: Error) => {
-      rejectStdin(new Error(`pi stdin write failed: ${error.message}`));
+      stdinError = new Error(`pi stdin write failed: ${error.message}`);
+      rejectStdin(stdinError);
     };
     child.stdin.once('error', onStdinError);
     try {
@@ -99,6 +101,7 @@ export class PiCliJsonTransport implements PiAgentTransport {
 
       const result = await close;
       closed = true;
+      if (stdinError) throw stdinError;
       if (result.code !== 0) {
         const details = await stderr;
         throw new Error(`pi exited with code ${result.code ?? 'signal'}${details ? `: ${details}` : ''}`);

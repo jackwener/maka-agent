@@ -311,6 +311,31 @@ describe('PiCliJsonTransport', () => {
 
     assert.deepEqual(killSignals, ['SIGTERM']);
   });
+
+  test('fails when stdin errors after stdout ends but before close', async () => {
+    const stdout = new PassThrough();
+    const child = testChild(stdout);
+    const transport = new PiCliJsonTransport({
+      command: 'pi-test',
+      model: 'glm-5.2',
+      spawn: () => child,
+    });
+    const frames: unknown[] = [];
+    const done = (async () => {
+      for await (const frame of transport.send({ sessionId: 's1', turnId: 't1', cwd: '/tmp/task', text: 'solve it' })) {
+        frames.push(frame);
+      }
+    })();
+
+    stdout.write(`${agentEndLine()}\n`);
+    stdout.end();
+    await new Promise((resolve) => setImmediate(resolve));
+    child.stdin.emit('error', new Error('late broken pipe'));
+    child.emit('close', 0, null);
+
+    await assert.rejects(done, /pi stdin write failed: late broken pipe/);
+    assert.deepEqual(frames.map((frame) => (frame as { type?: string }).type), ['token_usage']);
+  });
 });
 
 type TestPiChild = EventEmitter & {
