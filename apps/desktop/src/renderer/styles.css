@@ -10577,9 +10577,9 @@ button:active {
   border: 1px solid var(--border);
   background: var(--foreground-5);
   color: var(--foreground-70);
-  font-size: 11px;
+  font-size: 10px;
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
+  transition: background 150ms ease-out, color 150ms ease-out;
 }
 .maka-turn-lineage-badge:hover {
   background: var(--foreground-10, oklch(from var(--foreground) l c h / 0.08));
@@ -10611,17 +10611,17 @@ button:active {
 .maka-session-branch-banner {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  margin: 8px 12px 4px;
+  gap: 5px;
+  padding: 3px 8px;
+  margin: 6px 12px 4px;
   border-radius: 999px;
-  border: 1px solid oklch(from var(--info) l c h / 0.24);
-  background: oklch(from var(--info) l c h / 0.08);
+  border: 1px solid oklch(from var(--info) l c h / 0.20);
+  background: oklch(from var(--info) l c h / 0.06);
   color: var(--info-text);
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.4;
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+  transition: background 150ms ease-out, color 150ms ease-out, border-color 150ms ease-out;
   align-self: flex-start;
 }
 .maka-session-branch-banner:hover {
@@ -10657,16 +10657,15 @@ button:active {
 ============================================================================= */
 
 .maka-reasoning-panel {
-  margin: 6px 0 10px;
-  border: 1px dashed oklch(from var(--info) l c h / 0.28);
-  border-radius: 10px;
-  background: oklch(from var(--info) l c h / 0.05);
+  margin: 4px 0 8px;
+  border: 1px solid oklch(from var(--info) l c h / 0.22);
+  border-radius: 8px;
+  background: oklch(from var(--info) l c h / 0.04);
   overflow: hidden;
 }
 
 .maka-reasoning-panel[data-live="true"] {
-  border-style: solid;
-  border-color: oklch(from var(--info) l c h / 0.36);
+  border-color: oklch(from var(--info) l c h / 0.32);
 }
 
 .maka-reasoning-panel-header {
@@ -10674,14 +10673,14 @@ button:active {
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  font-size: 12px;
+  gap: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.02em;
   color: var(--info-text);
   user-select: none;
-  transition: background 120ms ease;
+  transition: background 150ms ease-out;
 }
 .maka-reasoning-panel-header::-webkit-details-marker {
   display: none;
@@ -10699,8 +10698,8 @@ button:active {
 }
 
 .maka-reasoning-panel-dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: var(--info);
   /* Live pulse — collapses under prefers-reduced-motion via the rule below. */
@@ -10708,8 +10707,8 @@ button:active {
 }
 
 @keyframes maka-reasoning-panel-pulse {
-  0%, 100% { opacity: 0.55; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.18); }
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.15); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -10729,10 +10728,10 @@ button:active {
    dropped content. Same family as the A3 tool-output truncated
    pill: warning tone, rounded rect, cursor:help. */
 .maka-reasoning-panel-truncated[data-truncated="true"] {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--warning-text, var(--info-text));
-  border: 1px solid oklch(from var(--warning) l c h / 0.30);
-  background: oklch(from var(--warning) l c h / 0.06);
+  border: 1px solid oklch(from var(--warning) l c h / 0.24);
+  background: oklch(from var(--warning) l c h / 0.05);
   border-radius: 4px;
   padding: 0 4px;
   cursor: help;
@@ -10747,20 +10746,20 @@ button:active {
 .maka-bubble-truncated {
   display: inline-block;
   margin-top: 6px;
-  font-size: 11px;
+  font-size: 10px;
   color: var(--warning-text, var(--info-text));
-  border: 1px solid oklch(from var(--warning) l c h / 0.30);
-  background: oklch(from var(--warning) l c h / 0.06);
+  border: 1px solid oklch(from var(--warning) l c h / 0.24);
+  background: oklch(from var(--warning) l c h / 0.05);
   border-radius: 4px;
-  padding: 0 6px;
+  padding: 0 5px;
   cursor: help;
 }
 
 .maka-reasoning-panel-chevron {
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1;
   color: var(--foreground-50);
-  transition: transform 160ms var(--ease-out-strong);
+  transition: transform 150ms ease-out;
 }
 
 .maka-reasoning-panel[open] .maka-reasoning-panel-chevron {
@@ -10769,14 +10768,14 @@ button:active {
 
 .maka-reasoning-panel-body {
   margin: 0;
-  padding: 8px 12px 10px;
-  border-top: 1px dashed oklch(from var(--info) l c h / 0.20);
+  padding: 6px 10px 8px;
+  border-top: 1px solid oklch(from var(--info) l c h / 0.14);
   background: transparent;
   color: var(--foreground-70);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.55;
-  max-height: 320px;
+  max-height: 280px;
   overflow-y: auto;
   white-space: pre-wrap;
   word-break: break-word;
