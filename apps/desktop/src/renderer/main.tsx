@@ -994,7 +994,7 @@ function AppShell() {
         variant: 'info',
         duration: 8000,
         action: {
-          label: '查看计划',
+          label: '查看定时任务',
           onClick: () => setNavSelection({ section: 'automations' }),
         },
       });
@@ -1687,7 +1687,7 @@ function AppShell() {
     const reminder = planReminders.find((entry) => entry.id === id);
     const ok = await toastApi.confirm({
       title: `清空 "${reminder?.title ?? '计划提醒'}" 的执行记录`,
-      description: '计划本身会保留；只清空最近执行记录和最近状态。',
+      description: '定时任务本身会保留；只清空最近执行记录和最近状态。',
       confirmLabel: '清空记录',
       cancelLabel: '取消',
       destructive: true,
@@ -1699,7 +1699,7 @@ function AppShell() {
       if (isAutomationsSurfaceActive()) toastApi.success('已清空执行记录', reminder?.title);
     } catch (error) {
       if (isAutomationsSurfaceActive()) {
-        toastApi.error('清空记录失败', planActionErrorMessage(error, '清空计划记录失败，请稍后重试。'));
+        toastApi.error('清空记录失败', planActionErrorMessage(error, '清空定时任务记录失败，请稍后重试。'));
       }
     }
   }
@@ -2697,7 +2697,7 @@ function AppShell() {
   }, [hasModalOpen]);
 
   return (
-    <div className="appFrame agents-layout-root">
+    <div className="appFrame agents-layout-root" data-agents-page>
       <div
         className="app maka-shell-2col agents-layout-body"
         aria-hidden={hasModalOpen ? 'true' : undefined}
@@ -2729,8 +2729,7 @@ function AppShell() {
             statusGroups={sessionStatusGroups}
             onSelect={setNavSelection}
             onSelectSession={(sessionId) => {
-              setActiveId(sessionId);
-              setSearchScrollTarget(null);
+              openSessionInChat(sessionId);
             }}
             onOpenSettings={openSettings}
             userLabel={userLabel}
@@ -3039,6 +3038,11 @@ function AppShell() {
                   ?? defaultConnectionEntry?.models?.[0]?.id
                   ?? undefined
                 }
+                activeSession={activeSessionForView}
+                activeModelLabel={activeModelLabel}
+                modelChoices={chatModelChoices}
+                modelChangePending={activeId ? pendingSessionModelBySession[activeId] === true : false}
+                onModelChange={(input) => setSessionModel(input)}
                 workspacePicker={{
                   label: appInfo ? basenameFromPath(appInfo.projectPath) : undefined,
                   branch: appInfo?.projectGit.branch,
@@ -3654,8 +3658,8 @@ function clampSessionListWidth(value: number): number {
 }
 
 function filterSessions(sessions: SessionSummary[], selection: NavSelection): SessionSummary[] {
-  if (selection.section !== 'sessions') return [];
-  switch (selection.filter) {
+  const filter = selection.section === 'sessions' ? selection.filter : 'chats';
+  switch (filter) {
     case 'flagged':
       return sessions.filter((session) => session.isFlagged && !session.isArchived && session.lastMessageAt);
     case 'archived':

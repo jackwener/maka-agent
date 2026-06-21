@@ -16,7 +16,6 @@ import {
   ShieldCheck,
   Sparkles,
   User,
-  UserCircle,
   Volume2,
   X,
   type LucideProps,
@@ -112,8 +111,6 @@ import {
 } from '../connection-status';
 import {
   NAV_GROUP_ORDER,
-  deriveNavGroupSummary,
-  type NavGroupSummary,
   type SettingsNavGroup,
 } from './nav-group-summary';
 import { nextRadioId } from './model-table-keyboard';
@@ -219,9 +216,8 @@ export const SETTINGS_NAV: SettingsNavItem[] = [
   // local-content search UI.
   { id: 'search', label: '联网搜索', Icon: Search, enabled: true, group: '集成' },
   { id: 'network', label: '网络', Icon: Globe, enabled: true, group: '集成' },
-  // Group 4: 数据与账号
-  { id: 'data', label: '数据', Icon: Database, enabled: true, group: '数据与账号' },
-  { id: 'account', label: '账号', Icon: UserCircle, enabled: true, group: '数据与账号' },
+  // Group 4: 数据
+  { id: 'data', label: '数据', Icon: Database, enabled: true, group: '数据' },
   // Group 5: 其他
   { id: 'permissions', label: '权限与能力', Icon: ShieldCheck, enabled: true, group: '其他' },
   { id: 'health', label: '健康', Icon: Activity, enabled: true, group: '其他' },
@@ -240,13 +236,6 @@ function groupedNav(): Array<{ group: SettingsNavGroup; items: SettingsNavItem[]
     return items && items.length > 0 ? [{ group, items }] : [];
   });
 }
-
-// `navGroupSummary` + its return type extracted to
-// `./nav-group-summary.ts` (PR-HEALTH-1, msg `e4887ffd`). The renderer
-// uses the imported `deriveNavGroupSummary` below; the H1/H2 assertions
-// are pinned in `apps/desktop/src/main/__tests__/nav-group-summary.test.ts`.
-const navGroupSummary = deriveNavGroupSummary;
-export type { NavGroupSummary };
 
 /**
  * PR-BOT-SETTINGS-UI-0 (WAWQAQ msg `51c7b4ff`): per-platform brand
@@ -808,7 +797,8 @@ export function SettingsModal(props: {
       ref={pageRef}
       role="region"
       aria-label="设置"
-      className="settingsModal settingsPage"
+      className="settingsModal settingsPage agents-layout-root"
+      data-agents-page
     >
       <SettingsSurface
         connections={props.connections}
@@ -966,51 +956,40 @@ function SettingsSurface(props: {
   const activeItem = SETTINGS_NAV.find((item) => item.id === section) ?? SETTINGS_NAV[0];
 
   return (
-    <main className="settingsSurface" data-modal="true" aria-label="设置内容">
-      <aside className="settingsSidebar" aria-label="设置侧栏">
-        <header>
-          <span>设置</span>
-        </header>
-        <nav aria-label="设置分组">
-          {groupedNav().map(({ group, items }) => {
-            const summary = navGroupSummary({
-              group,
-              connections: props.connections,
-              defaultSlug: props.defaultSlug,
-              settings,
-            });
-            return (
-              <div key={group} className="settingsNavGroup" role="group" aria-label={group}>
-                <div className="settingsNavGroupLabel">{group}</div>
-                {summary && (
-                  <div className="settingsNavGroupSummary" data-tone={summary.tone ?? 'neutral'}>
-                    {summary.text}
-                  </div>
-                )}
-                {items.map((item) => (
-                  <Button
-                    key={item.id}
-                    className="settingsNavItem"
-                    data-active={section === item.id}
-                    aria-current={section === item.id ? 'page' : undefined}
-                    type="button"
-                    ref={section === item.id ? props.initialFocusRef : undefined}
-                    disabled={!item.enabled}
-                    onClick={() => setSection(item.id)}
-                  >
-                    <span className="settingsNavGlyph" aria-hidden="true">
-                      <item.Icon size={16} strokeWidth={1.5} />
-                    </span>
-                    <strong>{item.label}</strong>
-                  </Button>
-                ))}
-              </div>
-            );
-          })}
-        </nav>
+    <main className="settingsSurface agents-layout-body" data-modal="true" aria-label="设置内容">
+      <aside className="settingsSidebar agents-sidebar" data-settings-nav-column aria-label="设置侧栏">
+        <div className="settingsSidebarInner">
+          <header>
+            <span>设置</span>
+          </header>
+          <nav aria-label="设置分组">
+            {groupedNav().map(({ group, items }) => (
+                <div key={group} className="settingsNavGroup" role="group" aria-label={group}>
+                  <div className="settingsNavGroupLabel">{group}</div>
+                  {items.map((item) => (
+                    <button
+                      key={item.id}
+                      className="settingsNavItem"
+                      data-active={section === item.id}
+                      aria-current={section === item.id ? 'page' : undefined}
+                      type="button"
+                      ref={section === item.id ? props.initialFocusRef : undefined}
+                      disabled={!item.enabled}
+                      onClick={() => setSection(item.id)}
+                    >
+                      <span className="settingsNavGlyph" aria-hidden="true">
+                        <item.Icon size={16} strokeWidth={1.5} />
+                      </span>
+                      <strong>{item.label}</strong>
+                    </button>
+                  ))}
+                </div>
+              ))}
+          </nav>
+        </div>
       </aside>
 
-      <section className="settingsMainPane">
+      <section className="settingsMainPane agents-content-area" data-agents-view="settings">
         <header className="settingsPageHeader">
           <h2>{activeItem.label}</h2>
           <Button className="settingsCloseButton" variant="quiet" size="icon-sm" type="button" aria-label="关闭设置" onClick={props.onClose}>

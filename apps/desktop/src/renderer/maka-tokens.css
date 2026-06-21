@@ -51,21 +51,18 @@
        --color-fill-tertiary (chip)      : #f9f9f9 light gray
        --color-border-tertiary           : #e6e6e6
        --color-text                      : #141414 near-black
-     The user's intent reads as: the shell behind everything is a
-     gray plate, the cards lift off it as pure white. We translate to
-     oklch with hue 0 (no chroma, neutral gray). `--surface-canvas`
-     sits visibly darker than `--background` so the hierarchy reads
-     as plate-vs-card, not flat-on-flat.
+     The user's intent now reads as: the shell behind everything is a
+     near-white glass plate, the cards lift off it as pure white. We
+     translate to oklch with a tiny warm chroma so the sidebar reads
+     more like 参考实现's translucent macOS surface than a flat gray slab.
 
      `--surface-canvas` is the shell-level background (what `.appFrame`
      paints behind everything); `--background` is what cards paint. */
   --background: oklch(1.000 0 0);
-  /* PR-GRAY-CARD-LIFT-6 (WAWQAQ msg `d4277aba` round 12): the plate
-     at 0.955 (≈ #f0f0f0) was so subtle that on commodity displays
-     the gray-plate / white-card lift was barely perceptible. Push
-     the shell down to 0.935 (≈ #ebebeb) — still calm and neutral,
-     but now clearly distinct from the white cards floating on it. */
-  --surface-canvas: oklch(0.935 0 0);
+  /* PR-UI-FRAME-4 (2026-06-22): pull back from the heavy gray plate.
+     参考实现's sidebar is a light glass-like near-white gradient, with
+     depth coming from translucent overlays and active rows, not a dark slab. */
+  --surface-canvas: oklch(0.976 0.003 95);
   /* PR-GRAY-CARD-LIFT-3 (WAWQAQ msg `053ca971`): in the new
      gray-plate / white-card hierarchy, "elevated" cards live on the
      same pure white as base content cards — the lift comes from the
@@ -74,12 +71,19 @@
      which read as a faint gray on the new shell. Pinning it to the
      same `--background` keeps card surfaces consistently white. */
   --background-elevated: var(--background);
-  --foreground: oklch(0.18 0 0);
+  /* PR-UI-ALIGN-0: warm near-black (#141414-like) at a faint warm hue, so
+     ALL derived grays (#636261/#838280-like) pick up the reference's warm cast
+     instead of reading as cold neutral. */
+  --foreground: oklch(0.17 0.005 75);
   --foreground-dimmed: color-mix(in srgb, var(--foreground) 80%, var(--background));
-  --foreground-rgb: 36, 40, 48; /* light-mode RGB triplet used by shadow rings */
+  --foreground-rgb: 32, 31, 30; /* light-mode RGB triplet used by shadow rings */
 
-  --accent: oklch(0.62 0.13 293);       /* purple — brand, "execute" mode */
-  --accent-rgb: 104, 78, 133;
+  /* PR-UI-ALIGN-0: brand accent is now 参考实现 SAGE GREEN (#5cb870), not
+     purple — the single biggest reason maka didn't *feel* like the reference.
+     Green is used as a garnish (live dot, focus ring, active accents); hovers
+     stay neutral gray per the reference's restraint. */
+  --accent: oklch(0.70 0.135 152);
+  --accent-rgb: 92, 184, 112;
   --info: oklch(0.75 0.16 70);          /* amber — "ask" mode, warnings */
   --info-rgb: 180, 120, 40;
   --success: oklch(0.55 0.17 145);      /* green — connected, ok */
@@ -110,6 +114,7 @@
   --foreground-2:  color-mix(in oklch, var(--foreground) 2%,  var(--background));
   --foreground-3:  color-mix(in oklch, var(--foreground) 3%,  var(--background));
   --foreground-5:  color-mix(in oklch, var(--foreground) 5%,  var(--background));
+  --foreground-8:  color-mix(in oklch, var(--foreground) 8%,  var(--background));
   --foreground-10: color-mix(in oklch, var(--foreground) 10%, var(--background));
   --foreground-20: color-mix(in oklch, var(--foreground) 20%, var(--background));
   --foreground-30: color-mix(in oklch, var(--foreground) 30%, var(--background));
@@ -124,8 +129,11 @@
   /* === alpha overlays via oklch(from ...) ===
      Use these when stacking on a tinted surface (e.g. a card on background-elevated).
      border / muted / ring all derive from foreground at low alpha. */
-  --border:        oklch(from var(--foreground) l c h / 0.05);
-  --border-strong: oklch(from var(--foreground) l c h / 0.10);
+  /* PR-UI-ALIGN-0: visible hairline borders (≈#e6e6e6) like the reference's
+     card/container outlines — maka's 5% was nearly invisible, which flattened
+     the floating-card hierarchy. */
+  --border:        oklch(from var(--foreground) l c h / 0.10);
+  --border-strong: oklch(from var(--foreground) l c h / 0.16);
   --muted:         oklch(from var(--foreground) l c h / 0.05);
   --muted-foreground: var(--foreground-50);
   --ring:          oklch(from var(--foreground) l c h / 0.25);
@@ -200,7 +208,11 @@
    * CJK falls back to the platform's preferred Chinese face. This is
    * critical on Win/Linux where system-ui can fall back to a serif
    * for CJK without explicit handling. */
-  --font-sans: "Geist Variable", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Microsoft YaHei UI", "Noto Sans CJK SC", "Noto Sans SC", "WenQuanYi Micro Hei", "Source Han Sans SC", sans-serif;
+  /* PR-UI-ALIGN-0 (2026-06-21): 参考实现's "clean native" feel comes from
+     the SYSTEM font (SF Pro on macOS), not a bundled geometric face. Lead with
+     the system stack; CJK falls back to the platform Chinese face as before.
+     (Geist kept only as a late fallback.) */
+  --font-sans: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Microsoft YaHei UI", "Noto Sans CJK SC", "Noto Sans SC", "WenQuanYi Micro Hei", "Source Han Sans SC", "Geist Variable", sans-serif;
   --font-mono: "Geist Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   --font-default: var(--font-sans);
 
@@ -218,12 +230,12 @@
      are too weak to feel intentional. Use --ease-out-strong for UI
      entrance/feedback, --ease-in-out-strong for on-screen movement,
      --ease-drawer for iOS-style drawer/sheet motion. */
-  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-out-strong: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out-strong: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 
   /* sidebar / pane widths (use as max-inline-size on resizable panels) */
-  --w-sidebar: 260px;
+  --w-sidebar: 240px;
   --w-rail: 240px;
   --h-titlebar: 36px;
   --h-toolbar: 40px;
@@ -266,14 +278,16 @@
   /* PR-GRAY-CARD-LIFT-0: dark mode follows the same neutral gray
    * (hue 0, no chroma) hierarchy. Lightness anchors keep existing
    * contrast tuning. */
-  --background: oklch(0.21 0 0);
-  --surface-canvas: oklch(0.13 0 0);
+  /* PR-UI-ALIGN-0: dark mode follows the reference's warm-neutral grays +
+     sage-green accent (matches the reference dark theme's #5cb870 family). */
+  --background: oklch(0.205 0.004 75);
+  --surface-canvas: oklch(0.14 0.004 75);
   --background-elevated: color-mix(in srgb, var(--foreground) 2%, var(--background));
-  --foreground: oklch(0.92 0 0);
-  --foreground-rgb: 222, 224, 230;
+  --foreground: oklch(0.92 0.004 75);
+  --foreground-rgb: 224, 222, 218;
 
-  --accent: oklch(0.65 0.20 293);
-  --accent-rgb: 118, 92, 147;
+  --accent: oklch(0.74 0.15 152);
+  --accent-rgb: 140, 229, 161;
   --info: oklch(0.70 0.16 70);
   --info-rgb: 200, 140, 60;
   --success: oklch(0.60 0.17 145);
@@ -603,16 +617,20 @@
    * theme in styles.css. */
   * {
     scrollbar-width: thin;
-    scrollbar-color: var(--border) transparent;
+    scrollbar-color: transparent transparent;
   }
   ::-webkit-scrollbar        { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track  { background: transparent; }
   ::-webkit-scrollbar-thumb  {
-    background: var(--border);
+    background: transparent;
     border-radius: 4px;
     transition: background 120ms ease;
   }
-  ::-webkit-scrollbar-thumb:hover { background: var(--foreground-30); }
+  *:hover {
+    scrollbar-color: oklch(from var(--foreground) l c h / 0.18) transparent;
+  }
+  *:hover::-webkit-scrollbar-thumb { background: oklch(from var(--foreground) l c h / 0.18); }
+  ::-webkit-scrollbar-thumb:hover { background: oklch(from var(--foreground) l c h / 0.28); }
   ::-webkit-scrollbar-corner { background: transparent; }
 
   ::selection { background: var(--selection); }

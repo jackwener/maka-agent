@@ -16,13 +16,13 @@
 
 import type { AppSettings, LlmConnection } from '@maka/core';
 
-export type SettingsNavGroup = '基础' | 'AI' | '集成' | '数据与账号' | '其他';
+export type SettingsNavGroup = '基础' | 'AI' | '集成' | '数据' | '其他';
 
 /**
  * The render order used by the Settings modal sidebar. Lives here so the
  * nav-group enum and its presentation order stay in one place.
  */
-export const NAV_GROUP_ORDER: SettingsNavGroup[] = ['基础', 'AI', '集成', '数据与账号', '其他'];
+export const NAV_GROUP_ORDER: SettingsNavGroup[] = ['基础', 'AI', '集成', '数据', '其他'];
 
 export interface NavGroupSummary {
   /** Short text rendered next to the group label, e.g. "3 verified · 1 needs reauth". */
@@ -53,8 +53,7 @@ export function deriveNavGroupSummary(input: NavGroupSummaryInput): NavGroupSumm
       return summarizeAi(input.connections, input.defaultSlug);
     case '集成':
       return summarizeIntegrations(input.connections, input.settings);
-    case '数据与账号':
-      return summarizeDataAccount(input.connections);
+    case '数据':
     case '基础':
     case '其他':
       return undefined;
@@ -106,25 +105,4 @@ function summarizeIntegrations(connections: LlmConnection[], settings: AppSettin
   return {
     text: `${proxyOn ? '代理已开' : '直连'} · ${enabledBots} 个已启用机器人`,
   };
-}
-
-function summarizeDataAccount(connections: LlmConnection[]): NavGroupSummary | undefined {
-  const errored = connections.filter((c) => c.enabled && c.lastTestStatus === 'error').length;
-  const needsReauth = connections.filter((c) => c.enabled && c.lastTestStatus === 'needs_reauth').length;
-  if (errored + needsReauth > 0) {
-    return {
-      text: `${errored + needsReauth} 个凭据需处理`,
-      tone: errored > 0 ? 'destructive' : 'warning',
-    };
-  }
-  // PR-HEALTH-1 (xuan msg e4887ffd, I5): the prior fallback
-  // `'凭据本地加密'` was a static reassurance shown even when no
-  // connections exist — implying credentials were stored when none
-  // were. Reflect the fact: only claim local encryption when there
-  // ARE connections to encrypt for; otherwise tell the user the
-  // group is empty.
-  if (connections.length === 0) {
-    return { text: '尚无凭据', tone: 'info' };
-  }
-  return { text: '凭据本地加密' };
 }

@@ -15,8 +15,9 @@ const DEFAULT_OVERLAY_SCROLL_OPTIONS: PartialOptions = {
   scrollbars: {
     theme: 'os-theme-maka',
     autoHide: 'move',
-    autoHideDelay: 450,
-    clickScroll: true,
+    autoHideDelay: 650,
+    autoHideSuspend: true,
+    clickScroll: false,
   },
   overflow: {
     x: 'hidden',

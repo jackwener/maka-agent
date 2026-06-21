@@ -87,19 +87,19 @@ body {
 }
 
 .os-theme-maka {
-  --os-size: 8px;
-  --os-padding-perpendicular: 2px;
+  --os-size: 6px;
+  --os-padding-perpendicular: 1px;
   --os-padding-axis: 2px;
   --os-track-border-radius: 8px;
   --os-track-bg: transparent;
-  --os-track-bg-hover: oklch(from var(--foreground) l c h / 0.04);
-  --os-track-bg-active: oklch(from var(--foreground) l c h / 0.06);
+  --os-track-bg-hover: transparent;
+  --os-track-bg-active: transparent;
   --os-handle-border-radius: 6px;
-  --os-handle-bg: var(--border);
-  --os-handle-bg-hover: var(--foreground-30);
-  --os-handle-bg-active: var(--foreground-40);
-  --os-handle-interactive-area-offset: 4px;
-  --os-handle-min-size: 32px;
+  --os-handle-bg: oklch(from var(--foreground) l c h / 0.14);
+  --os-handle-bg-hover: oklch(from var(--foreground) l c h / 0.22);
+  --os-handle-bg-active: oklch(from var(--foreground) l c h / 0.30);
+  --os-handle-interactive-area-offset: 6px;
+  --os-handle-min-size: 40px;
   box-sizing: border-box;
 }
 
@@ -109,6 +109,11 @@ body {
 
 .os-theme-maka.os-scrollbar-horizontal {
   height: var(--os-size);
+}
+
+.maka-overlay-scrollarea-viewport:focus-visible {
+  outline: none;
+  box-shadow: none;
 }
 
 button,
@@ -186,13 +191,11 @@ button:active {
 .appFrame {
   height: 100dvh;
   padding: 0;
-  /* PR-UI-LAYOUT-1: shell canvas is now the warm-cream
-   * `--surface-canvas` (defined in maka-tokens.css). Sidebar + main
-   * floating panels use `--background` which is slightly lighter so
-   * the canvas-vs-card separation comes from this subtle delta plus
-   * the hairline border, instead of the previous heavy
-   * `--foreground-5` shell behind near-white cards. */
-  background: var(--surface-canvas);
+  /* Direct 参考实现 layer model:
+     layout background carries the near-white gradient, sidebar stays
+     transparent, content area paints the white surface. */
+  background:
+    linear-gradient(172deg, var(--foreground-3, #f9f9f9) 19.61%, var(--background, #fff) 81.35%);
   color: var(--foreground);
   font-size: var(--font-size-base);
   box-sizing: border-box;
@@ -211,7 +214,8 @@ button:active {
   align-items: stretch;
   gap: 0;
   overflow: hidden;
-  background: var(--surface-canvas);
+  background:
+    linear-gradient(172deg, var(--foreground-3, #f9f9f9) 19.61%, var(--background, #fff) 81.35%);
 }
 
 .maka-panel {
@@ -238,7 +242,7 @@ button:active {
      sidebar stays flat. Keep this at the shell boundary so chat,
      modules, and artifact panes share one workspace surface.
      gap/radius match reference layout-derived values (4px/6px)
-     per WAWQAQ ef6b2852. */
+  per WAWQAQ ef6b2852. */
   margin: 4px 4px 4px 0;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -375,6 +379,12 @@ button:active {
   align-items: center;
   gap: 6px;
   color: var(--foreground-60);
+}
+
+.maka-panel-detail[data-agents-view="skills"] .maka-workspace-top-actions,
+.maka-panel-detail[data-agents-view="cron"] .maka-workspace-top-actions,
+.maka-panel-detail[data-agents-view="daily-review"] .maka-workspace-top-actions {
+  display: none;
 }
 
 .maka-workspace-feedback-action,
@@ -599,7 +609,7 @@ button:active {
 }
 .maka-search-modal-result-meta {
   font-size: 10px;
-  color: var(--foreground-45);
+  color: var(--foreground-40);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -631,14 +641,14 @@ button:active {
 
 .maka-session-panel-header {
   display: grid;
-  gap: 6px;
-  padding: 6px 10px 8px;
-  border-bottom: 1px solid var(--border);
+  gap: 5px;
+  padding: 6px 6px 7px;
+  border-bottom: 0;
   -webkit-app-region: drag;
 }
 
 .maka-sidebar-drag-strip {
-  min-height: 28px;
+  min-height: 34px;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -666,7 +676,7 @@ button:active {
 
 .maka-sidebar-search-button:hover,
 .maka-sidebar-toggle:hover {
-  background: var(--foreground-3);
+  background: oklch(from var(--foreground) l c h / 0.06);
   color: var(--foreground);
 }
 
@@ -691,11 +701,20 @@ button:active {
   padding-inline: 8px;
 }
 
+.maka-session-panel[data-collapsed="true"] .maka-sidebar-settings-button {
+  width: 32px;
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.maka-session-panel[data-collapsed="true"] .maka-sidebar-settings-button span {
+  display: none;
+}
+
 .maka-session-panel[data-collapsed="true"] .maka-session-list {
   border-top: 0;
 }
 
-.maka-session-panel[data-collapsed="true"] .maka-session-list-title,
 .maka-session-panel[data-collapsed="true"] .maka-list-stack,
 .maka-session-panel[data-collapsed="true"] .maka-empty-state {
   display: none !important;
@@ -734,96 +753,43 @@ button:active {
   overflow: hidden;
   border-top: 0;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-}
-
-.maka-session-list-title {
-  height: 20px;
-  display: flex;
-  align-items: center;
-  padding: 0 10px;
-  color: var(--foreground-35);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0;
-  text-transform: none;
+  grid-template-rows: minmax(0, 1fr);
+  padding-top: 5px;
 }
 
 .maka-session-panel-footer {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 24px;
+  display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px 8px;
+  padding: 8px 8px 8px;
   border-top: 0;
 }
 
-.maka-sidebar-account {
-  min-width: 0;
-  display: grid;
-  grid-template-columns: 24px minmax(0, 1fr);
+.maka-sidebar-settings-button {
+  width: 100%;
+  min-height: 32px;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   border: 0;
   border-radius: 8px;
   background: transparent;
-  color: var(--foreground);
-  padding: 3px 0;
+  color: var(--foreground-70);
+  cursor: pointer;
+  padding: 5px 8px;
   text-align: left;
-}
-
-.maka-sidebar-account:hover,
-.maka-sidebar-account-settings:hover {
-  background: var(--foreground-2);
-}
-
-.maka-sidebar-account-avatar {
-  width: 24px;
-  height: 24px;
-  display: inline-grid;
-  place-items: center;
-  border: 1px solid oklch(from var(--accent) l c h / 0.14);
-  border-radius: 999px;
-  background: oklch(0.92 0.06 340);
-  color: oklch(0.58 0.19 340);
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.maka-sidebar-account-copy {
-  min-width: 0;
-  display: grid;
-  gap: 2px;
-}
-
-.maka-sidebar-account-copy strong,
-.maka-sidebar-account-copy small {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.maka-sidebar-account-copy strong {
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.maka-sidebar-account-copy small {
-  color: var(--foreground-45);
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 500;
 }
 
-.maka-sidebar-account-settings {
-  width: 24px;
-  height: 24px;
-  display: inline-grid;
-  place-items: center;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--foreground-55);
+.maka-sidebar-settings-button:hover {
+  background: oklch(from var(--foreground) l c h / 0.06);
+  color: var(--foreground);
+}
+
+.maka-sidebar-settings-button .maka-nav-icon {
+  width: 18px;
+  height: 18px;
+  color: currentColor;
 }
 
 /* PR-UX-POLISH-1 commit 4 (WAWQAQ `e0dbad11` + kenji `2844f64f`):
@@ -873,7 +839,7 @@ button:active {
   border-radius: 6px;
   background: transparent;
   box-shadow: none;
-  color: var(--foreground-75);
+  color: var(--foreground-70);
   font-size: 12px;
   font-weight: 500;
   text-align: left;
@@ -917,7 +883,7 @@ button:active {
 }
 
 .maka-session-panel[data-collapsed="true"] .maka-nav-primary {
-  background: var(--foreground-4);
+  background: var(--foreground-5);
 }
 
 .maka-nav-icon {
@@ -938,18 +904,18 @@ button:active {
   align-self: start;
   align-content: start;
   display: grid;
-  gap: 2px;
+  gap: 1px;
   padding: 4px 6px;
 }
 
 .maka-nav-row {
   width: calc(100% - 12px);
   margin-inline: 6px;
-  min-height: 0;
+  min-height: 30px;
   display: grid;
   grid-template-columns: var(--icon-size) minmax(0, 1fr) auto;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   border: 0;
   border-radius: 6px;
   background: transparent;
@@ -984,7 +950,7 @@ button:active {
 .maka-nav-row:hover {
   /* PR-GRAY-CARD-LIFT-4 (WAWQAQ msg `d4277aba` round 2): hover bg
      was `--foreground-3` (3% mix into background = ~oklch(0.97 0 0)),
-     which on the new `--surface-canvas` (oklch(0.955 0 0)) was almost
+     which on the new `--surface-canvas` (oklch(0.935 0 0)) was almost
      invisible. Switch to alpha overlay so the hover state lifts
      consistently regardless of the plate tone behind it. */
   background: oklch(from var(--foreground) l c h / 0.06);
@@ -999,6 +965,15 @@ button:active {
 }
 .maka-nav-row[data-active="true"] .maka-nav-icon {
   color: var(--foreground);
+}
+
+.maka-nav-new-task {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.maka-nav-new-task .maka-nav-icon {
+  color: var(--foreground-70);
 }
 
 .maka-nav-row[aria-disabled="true"],
@@ -1145,7 +1120,7 @@ button:active {
   align-content: start;
   display: grid;
   gap: 1px;
-  padding: 2px 6px 6px;
+  padding: 2px 8px 6px;
 }
 
 .maka-list-group {
@@ -1194,7 +1169,7 @@ button:active {
   display: flex;
   align-items: stretch;
   border: 0;
-  border-radius: 5px;
+  border-radius: 6px;
   background: transparent;
   color: var(--foreground);
   overflow: hidden;
@@ -1202,11 +1177,13 @@ button:active {
 }
 
 .maka-list-row:hover {
-  background: var(--foreground-2);
+  background: oklch(from var(--foreground) l c h / 0.06);
 }
 
+/* PR-UI-PIXEL-6 (2026-06-21): selected session row uses a clearly readable
+   neutral gray (≈#efefef), still flat and accent-free like 参考实现. */
 .maka-list-row[data-active="true"] {
-  background: var(--foreground-4);
+  background: oklch(from var(--foreground) l c h / 0.06);
 }
 
 .maka-list-row[data-active="true"] .maka-list-row-name {
@@ -1423,7 +1400,7 @@ button:active {
    * less card-like. Border drops to hairline `--border`,
    * background to transparent (inherits warm panel bg) — accent
    * tint only appears on hover. */
-  border: 1px solid var(--border);
+  border: 1px solid var(--foreground-8);
   border-radius: 10px;
   background: transparent;
   color: var(--foreground);
@@ -2491,6 +2468,33 @@ button:active {
   text-wrap: pretty;
 }
 
+.maka-session-list .maka-session-empty-state {
+  width: calc(100% - 42px);
+  top: 34%;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  color: var(--foreground-45);
+}
+
+.maka-session-list .maka-session-empty-state .maka-empty-state-media {
+  display: none;
+}
+
+.maka-session-list .maka-session-empty-state .maka-empty-state-title {
+  color: var(--foreground-55);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.maka-session-list .maka-session-empty-state .maka-empty-state-body {
+  max-width: 22ch;
+  color: var(--foreground-40);
+  font-size: 11px;
+}
+
 .maka-empty-state-code {
   font-family: var(--font-mono);
   font-size: 12px;
@@ -2516,7 +2520,7 @@ button:active {
   overflow: auto;
   display: grid;
   align-content: start;
-  padding: 8px;
+  padding: 0;
 }
 
 .maka-module-main .maka-plan-panel {
@@ -2524,18 +2528,18 @@ button:active {
   width: 100%;
 }
 
+/* PR-UI-ALIGN-2 (2026-06-21): the page content is NOT a nested card — it
+   fills the one floating content-area card directly, exactly like 参考实现's
+   定时任务 page (header → banner → tabs → grid sit straight on the white card).
+   Removed the inner border/radius/shadow/1080-center so there's no card-in-card,
+   and opened up the padding so the page breathes like the reference. */
 .maka-plan-shell {
-  width: min(100%, 1080px);
-  margin: 0 auto;
+  width: min(100%, 900px);
+  margin-inline: auto;
   display: grid;
-  gap: 12px;
-  padding: clamp(16px, 3vh, 24px) 18px 18px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--background);
-  box-shadow:
-    0 1px 2px oklch(from var(--foreground) l c h / 0.04),
-    0 8px 24px -16px oklch(from var(--foreground) l c h / 0.10);
+  gap: 18px;
+  padding: 0;
+  background: transparent;
   animation: maka-page-shell-enter 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
@@ -2563,7 +2567,7 @@ button:active {
 .maka-plan-heading h2 {
   margin: 0;
   color: var(--foreground);
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 650;
   letter-spacing: 0;
   line-height: 1.2;
@@ -2572,7 +2576,7 @@ button:active {
 .maka-plan-heading p:last-child {
   margin: 0;
   color: var(--foreground-60);
-  font-size: 11px;
+  font-size: 13.5px;
   line-height: 1.45;
 }
 
@@ -2594,19 +2598,24 @@ button:active {
   font-weight: 600;
 }
 
+/* PR-UI-PIXEL-3: signature black CTA, matching the reference's restrained
+   primary command treatment without using the app accent. */
 .maka-plan-new-task-button {
   gap: 4px;
-  border-color: #000;
+  border-color: #151515;
   border-radius: 999px;
   background: #000;
+  box-shadow:
+    inset 0 1px 0 #ffffff26,
+    0 1px 2px #0c0c0d1a;
   color: #fff;
   font-size: 11px;
   font-weight: 600;
 }
 
 .maka-plan-new-task-button:hover {
-  border-color: #111;
-  background: #111;
+  border-color: #1f1f1f;
+  background: #1f1f1f;
   color: #fff;
 }
 
@@ -2618,6 +2627,12 @@ button:active {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.maka-plan-template-strip[data-layout="cards"] {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .maka-plan-template-card {
@@ -2636,9 +2651,39 @@ button:active {
   text-align: left;
 }
 
+.maka-plan-template-strip[data-layout="cards"] .maka-plan-template-card {
+  min-height: 134px;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--background);
+  box-shadow: none;
+  padding: 12px;
+}
+
 .maka-plan-template-card:hover {
   border-color: transparent;
   background: oklch(from var(--foreground) l c h / 0.04);
+}
+
+.maka-plan-template-strip[data-layout="cards"] .maka-plan-template-card:hover {
+  border-color: var(--border);
+  background: var(--background);
+  box-shadow: 0 4px 14px -12px oklch(from var(--foreground) l c h / 0.22);
+}
+
+.maka-plan-template-strip[data-layout="cards"] .maka-plan-template-card::after {
+  content: "•••";
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  color: var(--foreground-45);
+  font-size: 14px;
+  letter-spacing: 1px;
+  line-height: 20px;
 }
 
 .maka-plan-template-icon {
@@ -2652,10 +2697,44 @@ button:active {
   color: var(--foreground-70);
 }
 
+.maka-plan-template-strip[data-layout="cards"] .maka-plan-template-icon {
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  background: oklch(from var(--foreground) l c h / 0.16);
+  color: transparent;
+}
+
+.maka-plan-template-switch {
+  position: relative;
+  display: inline-flex;
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  background: oklch(from var(--foreground) l c h / 0.16);
+}
+
+.maka-plan-template-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--background);
+  box-shadow: 0 1px 2px oklch(from var(--foreground) l c h / 0.22);
+}
+
 .maka-plan-template-main {
   display: grid;
   min-width: 0;
   gap: 2px;
+}
+
+.maka-plan-template-strip[data-layout="cards"] .maka-plan-template-main {
+  grid-column: 1 / -1;
+  gap: 7px;
 }
 
 .maka-plan-template-title {
@@ -2663,6 +2742,11 @@ button:active {
   font-size: 12px;
   font-weight: 600;
   line-height: 1.2;
+}
+
+.maka-plan-template-strip[data-layout="cards"] .maka-plan-template-title {
+  font-size: 15px;
+  line-height: 1.3;
 }
 
 .maka-plan-template-note {
@@ -2673,6 +2757,16 @@ button:active {
   font-size: 10px;
   font-weight: 500;
   line-height: 1.35;
+}
+
+.maka-plan-template-strip[data-layout="cards"] .maka-plan-template-note {
+  color: var(--foreground-60);
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .maka-plan-template-schedule {
@@ -2691,17 +2785,40 @@ button:active {
   white-space: nowrap;
 }
 
+.maka-plan-template-strip[data-layout="cards"] .maka-plan-template-schedule {
+  grid-column: 1 / -1;
+  width: 100%;
+  margin-top: auto;
+  border: 0;
+  border-top: 1px dashed var(--border);
+  border-radius: 0;
+  background: transparent;
+  color: var(--foreground-60);
+  padding: 11px 0 0;
+}
+
+.maka-plan-template-strip[data-layout="cards"] .maka-plan-template-schedule::before {
+  content: "";
+}
+
+.maka-plan-template-strip[data-layout="cards"] .maka-plan-template-schedule > svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* PR-UI-PIXEL-2: reference's info strip is a calm, roomy blue banner
+   (≈#e6f7ff bg / #b0e3ff border, r8, 12×16 padding) — not a tight chip. */
 .maka-plan-system-alert {
   display: flex;
-  min-height: 36px;
+  min-height: 48px;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   border-color: oklch(0.90 0.04 240);
-  border-radius: 6px;
+  border-radius: 7px;
   background: oklch(0.965 0.035 235);
   color: oklch(0.50 0.13 245);
-  padding: 6px 10px;
+  padding: 12px 16px;
 }
 
 .maka-plan-system-alert [class*="lucide"] {
@@ -2772,12 +2889,12 @@ button:active {
   position: relative;
   gap: 6px;
   min-width: 0;
-  height: 28px;
+  height: 30px;
   padding: 0;
   border-radius: 0;
   background: transparent;
   color: var(--foreground-45);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
 }
 
@@ -2787,6 +2904,9 @@ button:active {
   box-shadow: none;
 }
 
+/* PR-UI-PIXEL-2 (2026-06-21): reference keeps the active-tab under-bar
+   NEUTRAL (the text/foreground color), not a brand tint — structural chrome
+   stays calm, brand color is reserved as a garnish (study §4 rule 2/3). */
 .maka-plan-tab[data-state="active"]::after {
   content: "";
   position: absolute;
@@ -2795,7 +2915,7 @@ button:active {
   bottom: 0;
   height: 2px;
   border-radius: 999px;
-  background: var(--accent);
+  background: var(--foreground);
 }
 
 .maka-plan-tab span {
@@ -2821,10 +2941,12 @@ button:active {
   gap: 10px;
 }
 
+/* PR-UI-PIXEL-1: reference lays scheduled tasks out in a responsive card
+   grid (~2-up), not a single vertical column of rows. */
 .maka-plan-card-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .maka-plan-card-grid > article {
@@ -2851,21 +2973,30 @@ button:active {
   padding: 16px;
 }
 
+/* PR-UI-PIXEL-1 (2026-06-21): scheduled-task cards rebuilt to match the
+   reference's roomy vertical card (study §3.3): switch top-left + ⋯ top-right,
+   title, 2-line note, dashed divider, clock pill footer — laid out in a
+   responsive 2-up grid instead of the previous compact horizontal rows. */
 .maka-plan-card {
-  display: grid;
-  grid-template-columns: max-content minmax(0, 1fr) max-content;
-  align-items: center;
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   position: relative;
-  border: 0;
+  border: 1px solid var(--foreground-8);
   border-radius: 6px;
-  background: transparent;
-  padding: 5px 8px;
-  transition: background 120ms ease;
+  background: var(--background);
+  padding: 14px 16px 13px;
+  min-height: 148px;
+  transition:
+    border-color 150ms ease-out,
+    box-shadow 150ms ease-out,
+    transform 150ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .maka-plan-card:hover {
-  background: oklch(from var(--foreground) l c h / 0.04);
+  border-color: oklch(from var(--foreground) l c h / 0.13);
+  box-shadow: 0 10px 22px -22px oklch(from var(--foreground) l c h / 0.32);
+  transform: translateY(-1px);
 }
 
 .maka-plan-card[data-status="completed"] {
@@ -2889,19 +3020,17 @@ button:active {
   min-width: 0;
 }
 
-.maka-plan-card-chrome {
-  order: 3;
-  gap: 4px;
-  opacity: 0;
-  transition: opacity 150ms ease-out, transform 150ms ease-out;
-  transform: scale(0.95);
-  pointer-events: none;
+.maka-plan-card-title-row > span {
+  display: none;
 }
 
-.maka-plan-card:hover .maka-plan-card-chrome,
-.maka-plan-card:focus-within .maka-plan-card-chrome {
+/* PR-UI-PIXEL-1: switch + ⋯ menu now sit persistently at the top of the
+   card (reference shows the on/off switch at all times), spread to opposite
+   corners by the shared `justify-content: space-between`. */
+.maka-plan-card-chrome {
+  order: 1;
+  gap: 4px;
   opacity: 1;
-  transform: scale(1);
   pointer-events: auto;
 }
 
@@ -3050,15 +3179,36 @@ button:active {
 }
 
 .maka-plan-search {
-  width: min(240px, 34vw);
+  width: min(200px, 28vw);
 }
 
 .maka-plan-compact-select {
-  width: 160px;
+  width: 124px;
 }
 
 .maka-plan-sort-select {
-  width: 190px;
+  width: 168px;
+}
+
+/* PR-UI-ALIGN-1 (2026-06-21): the reference's task toolbar is a single bare
+   sort control on the right of the tabs — not a form. Hide the stacked field
+   labels (排序 / 搜索计划提醒 / 状态) so the controls read as light inline chips,
+   and let the bar sit on the tabs row instead of wrapping to its own block. */
+.maka-plan-toolbar label > span:first-child {
+  display: none;
+}
+
+.maka-panel-detail[data-agents-view="cron"] .maka-plan-tabs-bar .maka-plan-search,
+.maka-panel-detail[data-agents-view="cron"] .maka-plan-tabs-bar .maka-plan-compact-select:not(.maka-plan-sort-select) {
+  display: none;
+}
+
+.maka-plan-compact-select {
+  gap: 0;
+}
+.maka-plan-tabs-bar {
+  flex-wrap: wrap;
+  row-gap: 10px;
 }
 
 .maka-plan-search input {
@@ -3111,9 +3261,15 @@ button:active {
   padding: 16px 10px;
 }
 
-.maka-plan-card-main {
+.maka-plan-empty-wrap[data-mode="starter-cards"] {
   display: grid;
-  gap: 2px;
+  gap: 12px;
+}
+
+.maka-plan-card-main {
+  order: 2;
+  display: grid;
+  gap: 6px;
   min-width: 0;
 }
 
@@ -3121,9 +3277,9 @@ button:active {
   margin: 0;
   min-width: 0;
   color: var(--foreground);
-  font-size: 13px;
+  font-size: 15.5px;
   font-weight: 600;
-  line-height: 1.35;
+  line-height: 1.3;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3136,33 +3292,42 @@ button:active {
 }
 
 .maka-plan-card-run {
-  color: var(--foreground-50);
-  font-size: 10px;
-  line-height: 1.35;
+  display: none;
 }
 
+/* PR-UI-PIXEL-1: footer drops to the card bottom behind a dashed divider
+   (reference §3.3), holding the clock schedule pill left-aligned. */
 .maka-plan-card-footer {
-  order: 2;
-  justify-content: flex-end;
+  order: 3;
+  margin-top: auto;
+  padding-top: 11px;
+  border-top: 1px dashed var(--border);
+  justify-content: flex-start;
   flex-wrap: nowrap;
   gap: 4px;
   white-space: nowrap;
 }
 
+/* PR-UI-PIXEL-1: schedule pill gets a filled tint (reference uses
+   fill-tertiary, not an outline) so it reads as a metadata chip. */
 .maka-plan-card-chip {
   display: inline-flex;
   max-width: 100%;
-  min-height: 20px;
+  min-height: 21px;
   align-items: center;
-  gap: 4px;
-  border: 1px solid var(--border);
+  gap: 5px;
+  border: 0;
   border-radius: 999px;
-  background: transparent;
+  background: oklch(from var(--foreground) l c h / 0.05);
   color: var(--foreground-60);
-  font-size: 10px;
+  font-size: 10.5px;
   font-weight: 600;
   line-height: 1;
-  padding: 2px 6px;
+  padding: 3px 8px;
+}
+
+.maka-plan-card-chip + .maka-plan-card-chip {
+  display: none;
 }
 
 .maka-plan-card-recurrence {
@@ -3184,15 +3349,18 @@ button:active {
   letter-spacing: 0;
 }
 
+/* PR-UI-PIXEL-1: note clamps to two lines (reference cards show a 2-line
+   description), replacing the single-line ellipsis used by the old row layout. */
 .maka-plan-card-note {
-  color: var(--foreground-55);
-  font-size: 10px;
-  line-height: 1.35;
+  color: var(--foreground-60);
+  font-size: 12.5px;
+  line-height: 1.5;
   margin: 0;
   padding: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .maka-plan-run-list {
@@ -3314,36 +3482,45 @@ button:active {
   overflow: hidden;
 }
 
+/* PR-UI-ALIGN-2: the module pages (技能 / 定时任务 / 每日回顾) breathe with a
+   single generous padding layer on the content-area card — ~24px like 参考实现,
+   not the old cramped 12px. Inner wrappers (plan-shell etc.) no longer re-pad. */
 .maka-module-main {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  gap: 10px;
-  padding: 12px;
+  gap: 18px;
+  padding: 64px 26px 26px;
   overflow: auto;
 }
 
 .maka-module-main-header {
+  width: min(100%, 900px);
+  margin-inline: auto;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border);
+  padding-bottom: 0;
+  border-bottom: 0;
 }
 
+/* PR-UI-PIXEL-1: module page titles match the reference's ~24px page H1
+   (study §2.2) instead of reading like a small section label, and the subtitle
+   lifts from a cramped 11px to a legible 13px secondary line. */
 .maka-module-main-header h2 {
   margin: 0;
   color: var(--foreground);
-  font-size: 16px;
+  font-size: 24px;
   font-weight: 650;
   letter-spacing: 0;
+  line-height: 1.2;
 }
 
 .maka-module-main-header p {
-  margin: 2px 0 0;
+  margin: 4px 0 0;
   color: var(--foreground-60);
-  font-size: 11px;
-  line-height: 1.4;
+  font-size: 13.5px;
+  line-height: 1.45;
 }
 
 .maka-module-main-actions {
@@ -3354,19 +3531,76 @@ button:active {
   flex-wrap: wrap;
 }
 
+.maka-panel-detail[data-agents-view="skills"] .maka-module-main-actions > .maka-button-ghost:not(.maka-skill-add-button) {
+  display: none;
+}
+
+.maka-skill-search {
+  width: min(280px, 30vw);
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--foreground-50);
+  padding: 0 10px;
+}
+
+.maka-skill-search input {
+  min-width: 0;
+  width: 100%;
+  height: 30px;
+  border: 0;
+  background: transparent;
+  color: var(--foreground);
+  outline: none;
+  padding: 0;
+  font-size: 13px;
+}
+
+.maka-skill-search input::placeholder {
+  color: var(--foreground-40);
+}
+
+.maka-skill-search:focus-within {
+  border-color: oklch(from var(--foreground) l c h / 0.16);
+  box-shadow: 0 0 0 2px oklch(from var(--foreground) l c h / 0.055);
+}
+
+.maka-skill-add-button {
+  gap: 5px;
+  border-color: #151515;
+  border-radius: 999px;
+  background: linear-gradient(#333, #151515);
+  box-shadow:
+    inset 0 1px 0 #ffffff26,
+    0 1px 2px #0c0c0d1a;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.maka-skill-add-button:hover {
+  border-color: #1f1f1f;
+  background: linear-gradient(#3e3e3e, #1f1f1f);
+  color: #fff;
+}
+
 .maka-skill-library {
+  width: min(100%, 900px);
+  margin-inline: auto;
   min-height: 0;
   overflow: auto;
   display: grid;
   align-content: start;
-  gap: 14px;
-  padding: 16px 18px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--background);
-  box-shadow:
-    0 1px 2px oklch(from var(--foreground) l c h / 0.04),
-    0 8px 24px -16px oklch(from var(--foreground) l c h / 0.10);
+  gap: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
   animation: maka-page-shell-enter 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
@@ -3390,8 +3624,312 @@ button:active {
   animation: none;
 }
 
+[data-maka-visual-smoke="true"] .maka-plan-card-grid > article,
+[data-maka-visual-smoke="true"] .maka-plan-template-strip[data-layout="cards"] .maka-plan-template-card {
+  animation: none;
+  opacity: 1;
+  transform: none;
+}
+
 .maka-skill-tool-summary-hidden {
   display: none;
+}
+
+.maka-skill-featured-banner {
+  position: relative;
+  min-height: 128px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  overflow: hidden;
+  border: 1px solid oklch(88% 0.035 224 / 0.72);
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 80% 50%, oklch(100% 0 0 / 0.44) 0 24%, transparent 25%),
+    linear-gradient(100deg, oklch(92.5% 0.035 222) 0%, oklch(93.5% 0.045 205) 56%, oklch(88.8% 0.052 199) 100%);
+  box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.65);
+  padding: 26px 34px;
+}
+
+.maka-skill-featured-banner h3 {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.maka-skill-featured-banner p {
+  max-width: 540px;
+  margin: 10px 0 0;
+  color: var(--foreground-65);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.maka-skill-featured-art {
+  position: relative;
+  align-self: stretch;
+  width: min(38%, 310px);
+  min-width: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: -18px 2px -20px 0;
+}
+
+.maka-skill-featured-art span {
+  position: absolute;
+  width: 94px;
+  height: 112px;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border: 1px solid oklch(from var(--foreground) l c h / 0.07);
+  border-radius: 6px;
+  background:
+    linear-gradient(180deg, oklch(100% 0 0), oklch(98.2% 0.006 96)),
+    var(--background);
+  color: var(--foreground-60);
+  box-shadow:
+    0 12px 24px -20px oklch(from var(--foreground) l c h / 0.32),
+    0 1px 2px oklch(from var(--foreground) l c h / 0.06);
+}
+
+.maka-skill-featured-art strong {
+  color: var(--foreground-70);
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1.1;
+}
+
+.maka-skill-featured-art small {
+  color: var(--foreground-45);
+  font-size: 8px;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.maka-skill-featured-art span:first-child {
+  left: 14px;
+  top: 28px;
+  transform: rotate(-14deg);
+  color: oklch(64% 0.15 154);
+}
+
+.maka-skill-featured-art span:nth-child(2) {
+  left: 92px;
+  top: 4px;
+  z-index: 2;
+  width: 104px;
+  height: 122px;
+  transform: rotate(10deg);
+  color: oklch(54% 0.10 236);
+}
+
+.maka-skill-featured-art span:nth-child(3) {
+  right: 4px;
+  top: 34px;
+  width: 88px;
+  height: 104px;
+  transform: rotate(7deg);
+  color: oklch(58% 0.18 32);
+}
+
+.maka-skill-tabs-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.maka-skill-tabs {
+  display: flex;
+  gap: 18px;
+  border-bottom: 0;
+}
+
+.maka-skill-tab {
+  position: relative;
+  display: inline-flex;
+  height: 32px;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--foreground-55);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 0 1px;
+}
+
+.maka-skill-tab[data-state="active"] {
+  color: var(--foreground);
+  font-weight: 650;
+}
+
+.maka-skill-tab[data-state="active"]::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--foreground);
+}
+
+.maka-skill-tab span {
+  min-width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: oklch(from var(--foreground) l c h / 0.06);
+  color: var(--foreground-55);
+  font-size: 11px;
+  font-weight: 650;
+  padding: 0 5px;
+}
+
+.maka-skill-filter-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 6px;
+}
+
+.maka-skill-filter-pill {
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--background);
+  color: var(--foreground-70);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0 12px;
+  opacity: 1;
+}
+
+.maka-skill-market {
+  display: grid;
+  gap: 12px;
+}
+
+.maka-skill-section-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.maka-skill-section-row small {
+  color: var(--foreground-45);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.maka-skill-market-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.maka-skill-market-card {
+  min-width: 0;
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid var(--foreground-8);
+  border-radius: 6px;
+  background: var(--background);
+  padding: 16px;
+  transition:
+    border-color 150ms ease-out,
+    box-shadow 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.maka-skill-market-card:hover {
+  border-color: oklch(from var(--foreground) l c h / 0.14);
+  box-shadow: 0 10px 22px -22px oklch(from var(--foreground) l c h / 0.30);
+  transform: translateY(-1px);
+}
+
+.maka-skill-market-card-head {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+}
+
+.maka-skill-market-card h3 {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.maka-skill-market-card small,
+.maka-skill-market-card-foot span {
+  color: var(--foreground-45);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.maka-skill-market-card p {
+  min-height: 40px;
+  margin: 0;
+  color: var(--foreground-60);
+  font-size: 12.5px;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.maka-skill-market-icon {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--foreground-65);
+  box-shadow: 0 1px 2px oklch(from var(--foreground) l c h / 0.05);
+}
+
+.maka-skill-market-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.maka-skill-market-install {
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--background);
+  color: var(--foreground-45);
+  cursor: not-allowed;
+  font-size: 12px;
+  font-weight: 650;
+  padding: 0 14px;
 }
 
 .maka-skill-examples,
@@ -3466,16 +4004,16 @@ button:active {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--foreground);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  line-height: 1.25;
+  line-height: 1.3;
 }
 
 .maka-skill-template-copy span {
   min-width: 0;
   color: var(--foreground-60);
-  font-size: 10px;
-  line-height: 1.35;
+  font-size: 11px;
+  line-height: 1.45;
 }
 
 .maka-skill-template-row small {
@@ -3499,7 +4037,7 @@ button:active {
   align-content: start;
   gap: 0;
   border: 1px solid var(--foreground-8);
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--background);
 }
 
@@ -3515,13 +4053,13 @@ button:active {
   appearance: none;
   width: 100%;
   height: auto !important;
-  min-height: 38px;
+  min-height: 58px;
   display: grid;
-  grid-template-columns: 20px minmax(140px, 0.32fr) minmax(180px, 1fr) 44px;
+  grid-template-columns: 34px minmax(180px, 1fr) minmax(72px, max-content) 40px 36px;
   align-items: center;
   justify-content: stretch !important;
-  gap: 8px;
-  padding: 5px 8px;
+  gap: 10px;
+  padding: 10px 14px;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -3533,9 +4071,13 @@ button:active {
     transform 180ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* PR-UI-PIXEL-0 (2026-06-21): reference rule #2 — hover/selected states are
+   NEUTRAL gray (#efefef ≈ foreground/0.06), never tinted with the brand color.
+   The purple-tinted row hover read as "themed"; neutral reads calmer/native.
+   See notes/近期 UI study §1.4, §4. */
 .maka-skill-library-row:hover {
-  background: oklch(from var(--accent) l c h / 0.055);
-  transform: translateX(2px);
+  background: oklch(from var(--foreground) l c h / 0.06);
+  transform: translateX(1px);
 }
 
 .maka-skill-library-row:active {
@@ -3547,21 +4089,28 @@ button:active {
   outline-offset: 2px;
 }
 
+/* PR-UI-PIXEL-1: skill rows are anchored by a reference-style icon tile —
+   a 38px rounded white square with a hairline + ultra-soft shadow holding the
+   glyph (study §3.2), instead of the previous flat 20px chip. */
 .maka-skill-library-status {
-  width: 20px;
-  height: 20px;
+  width: 34px;
+  height: 34px;
   display: inline-grid;
   place-items: center;
-  border-radius: 5px;
-  background: var(--foreground-4);
-  color: var(--foreground-50);
+  border-radius: 8px;
+  border: 1px solid var(--foreground-8);
+  background: var(--background);
+  box-shadow: 0 1px 2px oklch(from var(--foreground) l c h / 0.05);
+  color: var(--foreground-55);
   transition: background-color 150ms ease-out, color 150ms ease-out;
 }
 
+/* PR-UI-PIXEL-1: tile stays white on hover (reference keeps icon tiles
+   neutral); only the glyph deepens. */
 .maka-skill-library-row:hover .maka-skill-library-status,
 .maka-skill-library-row:focus-visible .maka-skill-library-status {
-  background: oklch(from var(--accent) l c h / 0.1);
-  color: var(--accent);
+  background: var(--background);
+  color: var(--foreground);
 }
 
 .maka-skill-library-copy {
@@ -3570,12 +4119,15 @@ button:active {
   gap: 3px;
 }
 
+/* PR-UI-PIXEL-4 (2026-06-21): reference's built-in skill rows use a 14px/600
+   name + 12px description (study §3.2). maka's 12/11 read cramped — bump to the
+   reference scale so the skills list feels as comfortable as 参考实现's. */
 .maka-skill-library-name {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
 }
 
@@ -3585,12 +4137,13 @@ button:active {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--foreground-60);
-  font-size: 11px;
-  line-height: 1.3;
+  font-size: 11.5px;
+  line-height: 1.45;
 }
 
 .maka-skill-library-meta {
   display: inline-flex;
+  justify-self: end;
   align-items: center;
   gap: 6px;
   color: var(--foreground-50);
@@ -3600,23 +4153,35 @@ button:active {
   overflow: hidden;
 }
 
+/* PR-UI-PIXEL-3: the skill id reads as a soft monospace metadata pill
+   (reference treats ids/counts/sources as filled fill-tertiary pills, §4 rule 8)
+   instead of loose gray text. */
 .maka-skill-library-meta > span:first-child {
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 100%;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: oklch(from var(--foreground) l c h / 0.05);
+  color: var(--foreground-55);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 10px;
+  letter-spacing: -0.01em;
 }
 
 .maka-skill-library-action {
   justify-self: end;
   min-width: 40px;
-  padding: 3px 7px;
-  border-radius: 5px;
-  background: var(--foreground-5);
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--background);
   color: var(--foreground-55);
   font-size: 11px;
   font-weight: 600;
   text-align: center;
-  opacity: 0;
-  transform: translateX(4px);
+  opacity: 1;
+  transform: none;
   transition: opacity 150ms ease-out, transform 150ms ease-out, background-color 150ms ease-out, color 150ms ease-out;
 }
 
@@ -3624,8 +4189,30 @@ button:active {
 .maka-skill-library-row:focus-visible .maka-skill-library-action {
   opacity: 1;
   transform: translateX(0);
-  background: var(--foreground);
-  color: var(--background);
+  background: oklch(from var(--foreground) l c h / 0.06);
+  color: var(--foreground);
+}
+
+.maka-skill-library-switch {
+  position: relative;
+  justify-self: end;
+  width: 34px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: inset 0 0 0 1px oklch(from var(--foreground) l c h / 0.05);
+}
+
+.maka-skill-library-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 18px;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--background);
+  box-shadow: 0 1px 2px oklch(from var(--foreground) l c h / 0.22);
 }
 
 .maka-skill-installed-empty {
@@ -3645,6 +4232,10 @@ button:active {
     justify-content: flex-start;
   }
 
+  .maka-skill-search {
+    width: min(100%, 280px);
+  }
+
   .maka-skill-library {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -3661,7 +4252,7 @@ button:active {
   }
 
   .maka-skill-library-row {
-    grid-template-columns: 24px minmax(0, 1fr);
+    grid-template-columns: 38px minmax(0, 1fr) max-content;
     gap: 6px;
   }
 
@@ -3676,6 +4267,11 @@ button:active {
     justify-self: start;
     opacity: 1;
     transform: none;
+  }
+
+  .maka-skill-library-switch {
+    grid-column: 3;
+    grid-row: 1;
   }
 }
 
@@ -4744,10 +5340,10 @@ button:active {
   margin: auto;
   padding: 0;
   display: grid;
-  justify-items: start;
-  gap: 28px;
+  justify-items: center;
+  gap: 26px;
   color: var(--foreground);
-  text-align: left;
+  text-align: center;
   animation: maka-hero-enter 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
@@ -4775,6 +5371,70 @@ button:active {
 .maka-hero-empty-chat header {
   display: grid;
   gap: 10px;
+  justify-items: center;
+}
+
+.maka-hero-visual {
+  position: relative;
+  width: min(520px, 62vw);
+  height: 130px;
+  margin-bottom: 4px;
+}
+
+.maka-hero-bubble {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  border-radius: 12px;
+  background: var(--foreground-3);
+  color: var(--foreground-55);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  padding: 0 14px;
+}
+
+.maka-hero-bubble-primary {
+  left: 38px;
+  top: 16px;
+  background: oklch(from var(--accent) l c h / 0.10);
+  color: var(--accent);
+}
+
+.maka-hero-bubble-secondary {
+  right: 22px;
+  top: 42px;
+}
+
+.maka-hero-avatar {
+  position: absolute;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  box-shadow: 0 6px 18px -14px oklch(from var(--foreground) l c h / 0.32);
+}
+
+.maka-hero-avatar-maka {
+  left: calc(50% - 48px);
+  top: 42px;
+  width: 66px;
+  height: 66px;
+  background: oklch(from var(--accent) l c h / 0.18);
+  color: var(--accent);
+}
+
+.maka-hero-avatar-user {
+  left: calc(50% + 4px);
+  top: 52px;
+  width: 62px;
+  height: 62px;
+  border: 4px solid oklch(from var(--accent) l c h / 0.12);
+  background: oklch(0.93 0.035 70);
+  color: var(--foreground);
+  font-size: 22px;
+  font-weight: 700;
 }
 
 .maka-hero-eyebrow,
@@ -4797,7 +5457,7 @@ button:active {
 .maka-hero h1,
 .emptyChat h1 {
   margin: 0;
-  max-width: 30ch;
+  max-width: 34ch;
   font-size: 28px;
   font-weight: 600;
   line-height: 1.12;
@@ -4812,6 +5472,26 @@ button:active {
   font-size: 14px;
   line-height: 1.5;
   text-wrap: pretty;
+}
+
+@media (max-width: 820px) {
+  .maka-hero-visual {
+    width: min(420px, 84vw);
+    height: 112px;
+  }
+
+  .maka-hero-bubble {
+    font-size: 11px;
+    padding-inline: 10px;
+  }
+
+  .maka-hero-bubble-primary {
+    left: 0;
+  }
+
+  .maka-hero-bubble-secondary {
+    right: 0;
+  }
 }
 
 /* Chat message mount entrance — opacity 0 + translateY(6px) -> 0, ported
@@ -5506,55 +6186,39 @@ button:active {
   max-width: 680px;
   margin-inline: auto;
   box-sizing: border-box;
-  border-radius: 10px;
+  /* PR-UI-PIXEL-3: reference composer is rounder (~12px) and floats on a
+     soft hairline ring, not a hard border (study §3.1). */
+  border-radius: 12px;
   padding: 10px 12px;
   background: var(--background);
-  box-shadow: 0 0 0 1px oklch(from var(--foreground) l c h / 0.06);
-  transition: box-shadow 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow:
+    0 0 0 1px oklch(from var(--foreground) l c h / 0.035),
+    0 1px 3px oklch(from var(--foreground) l c h / 0.025);
+  transition:
+    border-color 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .composer .maka-composer-inner::before,
 .composer .maka-composer-inner::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  will-change: opacity;
-  animation: maka-composer-glow-pulse 4.8s ease-in-out infinite;
+  content: none;
 }
 
 .composer .maka-composer-inner::before {
-  box-shadow:
-    0 10px 30px -14px oklch(from var(--accent) l c h / 0.20),
-    -18px 0 42px -24px oklch(from var(--accent) l c h / 0.16),
-    18px 0 42px -24px oklch(from var(--accent) l c h / 0.16);
-  animation-direction: normal;
+  box-shadow: none;
 }
 
 .composer .maka-composer-inner::after {
-  box-shadow:
-    0 12px 34px -12px oklch(from var(--accent) l c h / 0.24),
-    20px 0 48px -22px oklch(from var(--accent) l c h / 0.18),
-    -20px 0 48px -22px oklch(from var(--accent) l c h / 0.18);
-  animation-direction: reverse;
+  box-shadow: none;
 }
 
-@keyframes maka-composer-glow-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .composer .maka-composer-inner::before,
-  .composer .maka-composer-inner::after {
-    animation: none;
-    opacity: 0.4;
-  }
-}
-
+/* PR-UI-PIXEL-3: on focus the composer gains a soft lift (ring + faint
+   drop glow), so the input feels alive — the reference's composer breathes
+   rather than sitting flat (study §8.1, §8.4). */
 .composer .maka-composer-inner:focus-within {
-  box-shadow: 0 0 0 1px oklch(from var(--foreground) l c h / 0.16);
+  box-shadow:
+    0 0 0 1px oklch(from var(--foreground) l c h / 0.07),
+    0 2px 8px -6px oklch(from var(--foreground) l c h / 0.16);
 }
 
 .composer textarea {
@@ -5567,10 +6231,36 @@ button:active {
   overflow-y: auto;
 }
 
+.composer .maka-composer-textarea {
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-height: var(--h-composer-min, 84px);
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: 0 !important;
+  padding: 0 !important;
+  color: var(--foreground);
+  font-family: var(--font-default);
+  font-size: 14px;
+  line-height: 24px;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+}
+
 .composer textarea:focus {
   /* The focus ring lives on the wrapper (.maka-composer-inner:focus-within).
      The textarea itself stays clean — no double ring. */
   outline: 0;
+  box-shadow: none !important;
+}
+
+.composer textarea:focus-visible,
+.composer .maka-composer-textarea:focus-visible {
+  outline: 0;
+  box-shadow: none !important;
 }
 
 .maka-composer-streaming-hint .maka-shortcut-kbd {
@@ -5658,6 +6348,40 @@ button:active {
   max-width: min(190px, 30vw);
 }
 
+.maka-composer-right-controls .maka-model-switcher {
+  margin: 0;
+  max-width: min(190px, 30vw);
+  font-size: 11px;
+}
+
+.maka-composer-right-controls .maka-model-switcher-trigger {
+  min-width: 108px;
+  max-width: min(190px, 30vw);
+  height: 24px;
+  gap: 4px;
+  padding: 0 8px;
+  border-color: var(--color-border-tertiary);
+  background: var(--background);
+  color: var(--foreground-65);
+}
+
+.maka-composer-right-controls .maka-model-switcher-trigger:hover:not(:disabled):not([data-disabled]) {
+  background: var(--foreground-3);
+  color: var(--foreground);
+  border-color: oklch(from var(--foreground) l c h / 0.16);
+}
+
+.maka-composer-right-controls .maka-model-switcher-label {
+  display: none;
+}
+
+.maka-composer-right-controls .maka-model-switcher-value {
+  max-width: 138px;
+  color: inherit;
+  font-size: 11px;
+  font-weight: 500;
+}
+
 .maka-composer-model-chip-text {
   min-width: 0;
   overflow: hidden;
@@ -5726,13 +6450,16 @@ button:active {
   opacity: 1;
 }
 
+/* PR-UI-PIXEL-3 (2026-06-21): reference's round send button is a black-pill
+   gradient (#222→#000) with a 1px inner top highlight — a tiny physical sheen,
+   not flat black (study §2.3). */
 .maka-composer-send-button {
   width: 28px;
   height: 28px;
   border-radius: 999px;
-  background: #000;
+  background: linear-gradient(#222, #000);
   color: #fff;
-  box-shadow: none;
+  box-shadow: inset 0 1px 0 #ffffff26;
   transition:
     background-color 150ms ease-out,
     transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
@@ -5740,10 +6467,12 @@ button:active {
 }
 
 .maka-composer-send-button:hover:not(:disabled) {
-  background: rgb(0 0 0 / 0.8);
+  background: linear-gradient(#3a3a3a, #1a1a1a);
   color: #fff;
   transform: scale(1.06);
-  box-shadow: 0 4px 14px -6px oklch(from var(--accent) l c h / 0.45);
+  box-shadow:
+    inset 0 1px 0 #ffffff26,
+    0 4px 14px -8px oklch(from var(--foreground) l c h / 0.34);
 }
 
 .maka-composer-send-button:active:not(:disabled) {
@@ -6207,7 +6936,7 @@ button:active {
   border: 0;
   border-radius: 0;
   box-shadow: none;
-  background: var(--background);
+  background: var(--agents-layout-bg);
   z-index: 35;
   overflow: hidden;
   transform: none;
@@ -6223,33 +6952,42 @@ button:active {
 
 .settingsSurface[data-modal="true"] {
   position: relative;
-  background: var(--background);
-  grid-template-columns: 196px minmax(0, 1fr);
+  background: transparent;
+  grid-template-columns: 240px minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
+  gap: 0;
 }
 
 .settingsSidebar {
   min-height: 0;
+  width: var(--sidebar-width, 240px);
+  display: grid;
+  padding: 0;
+  background: transparent;
+}
+
+.settingsSidebarInner {
+  min-height: 0;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  padding: 12px 6px 12px 12px;
-  background: var(--background);
+  padding: 22px 10px 12px 14px;
+  background: transparent;
 }
 
 .settingsSidebar header {
-  min-height: 32px;
+  min-height: 36px;
   display: flex;
   align-items: center;
-  padding: 0 6px;
+  padding: 0 10px;
 }
 
 .settingsSidebar header span {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: var(--foreground-50);
-  font-size: 11px;
-  font-weight: 600;
+  color: var(--foreground);
+  font-size: 18px;
+  font-weight: 700;
 }
 
 .settingsSidebar header .maka-shortcut-kbd {
@@ -6263,141 +7001,71 @@ button:active {
   align-content: start;
   gap: 10px;
   overflow: auto;
-  padding-right: 2px;
+  padding: 8px 0 0;
 }
 
-/* Each Settings nav group: tight cluster of buttons under a small uppercase
- * heading. Visually breaks the 14-item list into 5 scannable chunks. */
 .settingsNavGroup {
   display: grid;
-  gap: 4px;
+  gap: 2px;
 }
 
 .settingsNavGroupLabel {
-  /* PR-UI-11 (@yuejing 2026-05-22): group label polish — bump
-   * letter-spacing for SECTION feel, slightly bolder, faint divider
-   * line on the bottom so the 4 groups read as clearly separated
-   * chunks rather than just "uppercase text".
-   *
-   * PR-UI-LAYOUT-3 (@yuejing 2026-05-22 night, per @WAWQAQ the reference design
-   * comparison): softened the label so it doesn't dominate the
-   * sidebar visual. The reference design has no group labels at all; we keep them
-   * for @kenji's review-gate ("nav doubles as map") but pull
-   * weight/letter-spacing down so they read as labels, not headings. */
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 9.5px;
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.10em;
-  text-transform: uppercase;
-  color: var(--foreground-40);
-  padding: 6px 6px 2px;
-  margin-bottom: 0;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--foreground-45);
+  padding: 7px 10px 3px;
 }
 
 .settingsNavGroupLabel::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: var(--border);
-  /* Subtle gradient fade — divider doesn't continue forever, just hints
-   * at section boundary. */
-  background: linear-gradient(
-    to right,
-    var(--border) 0%,
-    transparent 60%
-  );
-}
-
-/* Per @kenji's PR75 review: group labels should also act as navigation
- * summaries (live state, not just visual dividers). Single short line in
- * the foreground-60 default, tinted info/warning/destructive when the
- * group has actionable state.
- *
- * PR-UI-LAYOUT-3: summary is now collapsed by default (kept in DOM for
- * screen readers) and reveals on hover/focus-within the group so the
- * sidebar stays calm at rest. @kenji's "nav as map" intent is preserved
- * for keyboard users (focus reveals it) and for any group with a
- * destructive tone (always visible — see below). */
-.settingsNavGroupSummary {
-  font-size: 11px;
-  line-height: 1.4;
-  color: var(--foreground-60);
-  padding: 0 6px 2px;
-  max-height: 0;
-  opacity: 0;
-  overflow: hidden;
-  transition: max-height 160ms ease, opacity 120ms ease, padding 160ms ease;
-}
-
-.settingsNavGroup:hover .settingsNavGroupSummary,
-.settingsNavGroup:focus-within .settingsNavGroupSummary,
-.settingsNavGroupSummary[data-tone="destructive"],
-.settingsNavGroupSummary[data-tone="warning"] {
-  max-height: 32px;
-  opacity: 1;
-  padding-bottom: 4px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .settingsNavGroupSummary {
-    transition: none;
-  }
-}
-
-.settingsNavGroupSummary[data-tone="info"] {
-  color: var(--info-text);
-}
-
-.settingsNavGroupSummary[data-tone="warning"] {
-  color: var(--info-text);
-  font-weight: 600;
-}
-
-.settingsNavGroupSummary[data-tone="destructive"] {
-  color: var(--destructive);
-  font-weight: 600;
+  content: none;
 }
 
 .settingsNavItem {
-  min-height: 28px;
+  width: calc(100% - 8px);
+  height: 32px;
+  min-height: 32px;
   display: grid;
   grid-template-columns: 20px minmax(0, 1fr);
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   border: 0;
   border-radius: 6px;
   background: transparent;
+  box-shadow: none;
   color: var(--foreground-70);
-  padding: 3px 6px;
+  cursor: pointer;
+  margin-inline: 4px;
+  padding: 4px 8px;
   text-align: left;
+  justify-content: initial;
+  transition: background-color 150ms ease-out, color 150ms ease-out;
+}
+
+.settingsSidebar .settingsNavItem,
+.settingsSidebar .settingsNavItem[data-active="true"],
+.settingsSidebar .settingsNavItem:hover {
+  border: 0;
+  box-shadow: none !important;
+  transform: none;
 }
 
 .settingsNavItem:hover {
-  background: var(--hover);
+  background: var(--foreground-5);
   color: var(--foreground);
 }
 
 .settingsNavItem[data-active="true"] {
-  /* PR-UI-LAYOUT-6: after LAYOUT-1 shifted the canvas to warm cream
-   * and the modal bg matches `--background`, the previous active
-   * state (background `--background` + inset border) lost contrast
-   * because surround ≈ active. Switch to a subtle accent-tinted
-   * background so the selection reads at a glance, matching the
-   * "active glyph accent" PR-UI-11 introduced. */
-  background: oklch(from var(--accent) l c h / 0.06);
+  background: var(--settings-nav-row-selected-bg);
   color: var(--foreground);
-  box-shadow:
-    0 1px 0 oklch(0 0 0 / 0.03),
-    inset 0 0 0 1px oklch(from var(--accent) l c h / 0.18);
+  box-shadow: none !important;
 }
 
-/* PR-UI-11: active nav item glyph picks up accent tint so the
- * selection is visible even when the user is scrolling past — eye
- * lands on the accented icon faster than on the small text. */
 .settingsNavItem[data-active="true"] .settingsNavGlyph {
-  color: var(--accent);
+  color: var(--foreground);
 }
 
 .settingsNavItem:disabled {
@@ -6661,18 +7329,19 @@ button:active {
   min-height: 0;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  background: var(--background);
-  /* PR-UI-LAYOUT-36: equalize horizontal padding (was asymmetric
-   * 34 right / 20 left, content used to drift toward the left
-   * edge of the main pane). 26px both sides matches the reference design
-   * settings interior spacing in screenshots 2/3/4. */
-  padding: 22px 26px 26px;
+  margin: var(--agents-content-area-gap) var(--agents-content-area-gap) var(--agents-content-area-gap) 0;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--agents-content-area-radius);
+  background: var(--agents-content-area-bg);
+  box-shadow: none;
+  overflow: hidden;
+  padding: 26px 34px 30px;
 }
 
 .settingsPageHeader {
-  min-height: 40px;
+  min-height: 36px;
   display: flex;
-  align-items: start;
+  align-items: center;
   justify-content: space-between;
   gap: 18px;
 }
@@ -6680,7 +7349,7 @@ button:active {
 .settingsPageHeader h2 {
   margin: 0;
   color: var(--foreground);
-  font-size: 20px;
+  font-size: 28px;
   font-weight: 700;
 }
 
@@ -6695,7 +7364,8 @@ button:active {
 }
 
 .settingsPageContentInner {
-  padding-top: 16px;
+  padding-top: 22px;
+  padding-bottom: 8px;
 }
 
 .settingsStructuredPage {
@@ -7153,7 +7823,7 @@ button:active {
   border: 2px solid var(--border);
   box-shadow: inset 0 0 0 2px oklch(1 0 0 / 0.25);
 }
-.settingsPaletteSwatch-default { background: oklch(0.55 0.18 285); }
+.settingsPaletteSwatch-default { background: oklch(0.70 0.135 152); }
 .settingsPaletteSwatch-onedark { background: oklch(0.55 0.14 250); }
 .settingsPaletteSwatch-catppuccin-mocha { background: oklch(0.66 0.15 310); }
 .settingsPaletteSwatch-tokyo-night { background: oklch(0.55 0.17 265); }
@@ -8539,9 +9209,9 @@ button:active {
 .settingsRow small {
   display: block;
   margin-top: 2px;
-  color: var(--foreground-50);
-  font-size: 11px;
-  line-height: 1.35;
+  color: var(--foreground-55);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .providerEmpty {
@@ -10550,15 +11220,18 @@ button:active {
   padding: 0;
   flex-wrap: wrap;
 }
+/* PR-UI-PIXEL-6 (2026-06-21): turn-footer actions read as subtle borderless
+   ghost buttons (reference's footer is icon-light, no bordered pills) — the
+   border only appears implicitly via the hover fill. */
 .maka-turn-footer-action {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   padding: 4px 8px;
   border-radius: 6px;
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   background: transparent;
-  color: var(--foreground-70);
+  color: var(--foreground-60);
   font-size: 12px;
   transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
 }

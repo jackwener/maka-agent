@@ -511,6 +511,9 @@ export async function seedVisualSmokeFixture(input: {
  * registered in one place. Mirrors `TURN_CONTROL_SCENARIOS`.
  */
 const LONG_SIDEBAR_SCENARIOS = new Set<VisualSmokeScenario>([
+  'module-skills',
+  'module-daily-review',
+  'plan-reminders',
   'sidebar-long-sessions',
   'sidebar-search-modal-open',
   'command-palette-open',
@@ -596,6 +599,20 @@ async function writePlanReminders(workspaceRoot: string, now: number): Promise<v
       enabled: false,
       createdAt: now - 3 * 60 * 60_000,
       updatedAt: now - 30 * 60_000,
+      runs: [],
+      runCount: 0,
+    },
+    {
+      id: 'visual-plan-reminder-weekly-review',
+      title: '每周竞品动态追踪',
+      note: '汇总同类 AI 工具的近期产品变化，提醒我复盘可对标的交互。',
+      schedule: { kind: 'cron', expression: '0 10 * * 1', startAt: now - 3.5 * 60 * 60_000 },
+      delivery: { channel: 'local' },
+      status: 'scheduled',
+      enabled: true,
+      createdAt: now - 3.5 * 60 * 60_000,
+      updatedAt: now - 35 * 60_000,
+      nextRunAt: Date.UTC(2026, 11, 21, 2, 0, 0),
       runs: [],
       runCount: 0,
     },

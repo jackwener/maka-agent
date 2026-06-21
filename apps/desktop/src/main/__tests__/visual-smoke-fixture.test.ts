@@ -542,6 +542,7 @@ describe('visual smoke fixture mode', () => {
       assert.deepEqual(reminders.map((reminder) => reminder.id), [
         'visual-plan-reminder-standup',
         'visual-plan-reminder-paused',
+        'visual-plan-reminder-weekly-review',
         'visual-plan-reminder-completed',
       ]);
       assert.equal(reminders[0]?.status, 'scheduled');
@@ -549,9 +550,11 @@ describe('visual smoke fixture mode', () => {
       assert.equal(typeof reminders[0]?.nextRunAt, 'number');
       assert.equal(reminders[1]?.status, 'paused');
       assert.equal(reminders[1]?.enabled, false);
-      assert.equal(reminders[2]?.status, 'completed');
-      assert.equal(reminders[2]?.lastRun?.status, 'triggered');
-      assert.match(reminders[2]?.lastRun?.message ?? '', /计划提醒/);
+      assert.equal(reminders[2]?.status, 'scheduled');
+      assert.equal(reminders[2]?.enabled, true);
+      assert.equal(reminders[3]?.status, 'completed');
+      assert.equal(reminders[3]?.lastRun?.status, 'triggered');
+      assert.match(reminders[3]?.lastRun?.message ?? '', /计划提醒/);
     } finally {
       await rm(workspaceRoot, { recursive: true, force: true });
     }

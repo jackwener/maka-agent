@@ -278,10 +278,10 @@ export function buildCommandList(args: {
     cmds.push({
       id: 'nav:automations',
       kind: 'action',
-      label: '侧栏 · 计划',
+      label: '侧栏 · 定时任务',
       group: '导航',
       Icon: Clock,
-      keywords: ['automations', 'plan', 'reminder', '计划', '提醒'],
+      keywords: ['automations', 'plan', 'reminder', 'schedule', 'cron', '定时任务', '计划', '提醒'],
       run: () => select({ section: 'automations' }),
     });
     cmds.push({

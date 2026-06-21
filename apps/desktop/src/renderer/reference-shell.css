@@ -16,18 +16,37 @@
   --color-text-on-primary: #fff;
   --color-border: var(--border);
   --color-border-secondary: var(--border);
-  --color-border-tertiary: color-mix(in srgb, var(--border) 60%, transparent);
+  --color-fill: var(--foreground-8);
+  --color-fill-secondary: var(--foreground-10);
+  --color-fill-tertiary: var(--foreground-3);
+  --color-fill-quaternary: var(--foreground-2);
+  /* PR-UI-ALIGN-2 (2026-06-21): card/container hairlines must be clearly
+     visible (≈#e6e6e6) so the floating content card, skill list and task cards
+     read as distinct surfaces like 参考实现 — the old 60% washed them out. */
+  --color-border-tertiary: color-mix(in srgb, var(--border) 92%, transparent);
+  --agents-layout-bg: linear-gradient(
+    172deg,
+    var(--color-fill-tertiary, #f9f9f9) 19.61%,
+    var(--color-bg-container, #fff) 81.35%
+  );
   --agents-content-area-bg: var(--color-bg-container);
+  --agents-fade-bg: var(--agents-content-area-bg);
   /* reference layout-derived values (2026-06-20 WAWQAQ ef6b2852).
      The original 8px/12px we shipped at 7013f0f read too loose vs the
      real bundle's 4px gap + 6px radius. */
   --agents-content-area-gap: 4px;
   --agents-content-area-radius: 6px;
+  --settings-nav-row-selected-bg: var(--color-fill-secondary);
+}
+
+[data-agents-page] {
+  --sidebar-width: 240px;
+  position: relative;
 }
 
 .agents-layout-root {
   height: 100dvh;
-  background: var(--color-bg-layout);
+  background: var(--agents-layout-bg);
 }
 
 .agents-layout-body {
@@ -46,6 +65,10 @@
 
 .agents-sidebar[data-resizing="true"] {
   box-shadow: none !important;
+}
+
+.agents-layout-root aside[data-settings-nav-column].agents-sidebar > div {
+  background: transparent;
 }
 
 .maka-session-panel.agents-sidebar {
@@ -79,14 +102,16 @@
 .composer .maka-composer-inner.agents-parchment-paper-surface {
   border: 1px solid var(--color-border-tertiary);
   background-color: var(--agents-content-area-bg);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  box-shadow:
+    0 0 0 1px oklch(from var(--foreground) l c h / 0.035),
+    0 1px 3px rgba(0, 0, 0, 0.025);
 }
 
 .composer .maka-composer-inner.agents-parchment-paper-surface:focus-within {
-  border-color: oklch(from var(--foreground) l c h / 0.16);
+  border-color: var(--color-border-tertiary);
   box-shadow:
-    0 0 0 1px oklch(from var(--foreground) l c h / 0.055),
-    0 1px 3px rgba(0, 0, 0, 0.03);
+    0 0 0 1px oklch(from var(--foreground) l c h / 0.07),
+    0 2px 8px -6px rgba(0, 0, 0, 0.16);
 }
 
 .agents-chat-panel {
