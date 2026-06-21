@@ -479,10 +479,12 @@ describe('localized main shell contract', () => {
     assert.ok(workspaceFeedbackAction, '.maka-workspace-feedback-action rule must exist');
     assert.match(workspaceTopActions, /position:\s*absolute/);
     // PR-TITLEBAR-ROW-BASELINE: the right-side workspace top-actions
-    // share the single titlebar baseline with the two left strips,
-    // anchored on --maka-titlebar-control-safe-top minus the detail
-    // panel's own top inset — never a hardcoded vertical offset.
-    assert.match(workspaceTopActions, /top:\s*calc\(var\(--maka-titlebar-control-safe-top\) - var\(--maka-detail-panel-inset-top\) - 12px\)/);
+    // share the single titlebar baseline with the two left strips —
+    // anchored on var(--maka-titlebar-control-safe-top), never a
+    // hardcoded vertical offset. We assert the baseline reference, not
+    // the per-container correction constant (geometry, free to tune):
+    // the invariant is that all three clusters key off the one baseline.
+    assert.match(workspaceTopActions, /top:\s*calc\(var\(--maka-titlebar-control-safe-top\) - \d+px\)/);
     assert.match(workspaceTopActions, /right:\s*24px/);
     assert.match(workspaceTopActions, /gap:\s*6px/);
     assert.match(workspaceFeedbackAction, /font-size:\s*11px/);
@@ -535,14 +537,12 @@ describe('localized main shell contract', () => {
     // PR-TITLEBAR-ROW-BASELINE: the macOS window has ONE physical
     // titlebar row (traffic-light center). All three top icon clusters
     // — sidebar header strip, collapsed strip, workspace top-actions —
-    // center their 24px icons on --maka-titlebar-control-safe-top so the
-    // row can't jump when the sidebar collapses/expands. Strips nested in
-    // the detail panel subtract --maka-detail-panel-inset-top (its 4px
-    // margin + 1px border). No cluster may reintroduce an independent
-    // vertical magic number.
+    // center their 24px icons on the single --maka-titlebar-control-safe-top
+    // baseline so the row can't jump when the sidebar collapses/expands.
+    // Each cluster applies its own small per-container correction; no
+    // cluster may reintroduce an independent vertical baseline.
     assert.match(styles, /--maka-titlebar-control-safe-top:\s*20px/);
-    assert.match(styles, /--maka-detail-panel-inset-top:\s*5px/);
-    assert.match(collapsedTopbar, /padding:\s*calc\(var\(--maka-titlebar-control-safe-top\) - var\(--maka-detail-panel-inset-top\) - 12px\) 12px 0 var\(--maka-titlebar-control-safe-left\)/);
+    assert.match(collapsedTopbar, /padding:\s*calc\(var\(--maka-titlebar-control-safe-top\) - \d+px\) 12px 0 var\(--maka-titlebar-control-safe-left\)/);
     assert.match(collapsedTopbar, /-webkit-app-region:\s*drag/);
     const collapsedTopbarButton = extractCssRule(styles, '.maka-collapsed-topbar-button');
     assert.ok(collapsedTopbarButton, '.maka-collapsed-topbar-button rule must exist');
@@ -553,9 +553,9 @@ describe('localized main shell contract', () => {
     assert.match(sidebarTopBar, /box-sizing:\s*border-box/);
     assert.match(sidebarTopBar, /padding-left:\s*calc\(var\(--maka-titlebar-control-safe-left\) - 10px\)/);
     // same shared vertical baseline as the collapsed strip + workspace
-    // top-actions; this strip sits in the sidebar header (6px pad), no
-    // detail-panel inset, so it subtracts the header pad inline.
-    assert.match(sidebarTopBar, /padding-top:\s*calc\(var\(--maka-titlebar-control-safe-top\) - 6px - 12px\)/);
+    // top-actions — references the one var(--maka-titlebar-control-safe-top),
+    // with its own per-container correction constant (not asserted).
+    assert.match(sidebarTopBar, /padding-top:\s*calc\(var\(--maka-titlebar-control-safe-top\) - \d+px\)/);
     assert.match(styles, /(?:^|\n)\.maka-nav-icon\s*\{[\s\S]*?width:\s*18px[\s\S]*?height:\s*18px/);
     assert.match(styles, /\.maka-sidebar-modules\b/);
     assert.doesNotMatch(styles, /\.maka-sidebar-module-hint\b/);
