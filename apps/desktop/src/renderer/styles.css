@@ -14,12 +14,8 @@
 
 :root {
   --maka-titlebar-control-safe-left: 94px;
-  /* The single titlebar baseline: the macOS traffic-light vertical center
-     in window space (main.ts MAIN_WINDOW_TRAFFIC_LIGHT_POSITION.y + button
-     radius). Every titlebar-row icon cluster anchors to this, so the
-     sidebar header strip, the collapsed strip, and the workspace
-     top-actions share ONE row — collapsing/expanding the sidebar can't
-     move it. Each cluster subtracts a small per-container correction. */
+  /* Shared titlebar baseline = macOS traffic-light vertical center; every icon
+     cluster anchors here, each subtracting a small per-container correction. */
   --maka-titlebar-control-safe-top: 20px;
 }
 
@@ -262,8 +258,7 @@ button:active {
   display: flex;
   align-items: flex-start;
   gap: 6px;
-  /* Centers the 24px icon on the shared titlebar baseline. Correction =
-     12px half-icon + 5px detail-panel inset. */
+  /* 17px correction = 12px half-icon + 5px detail-panel inset. */
   padding: calc(var(--maka-titlebar-control-safe-top) - 17px) 12px 0 var(--maka-titlebar-control-safe-left);
   -webkit-app-region: drag;
 }
@@ -373,8 +368,7 @@ button:active {
   -webkit-app-region: no-drag;
   position: absolute;
   z-index: 4;
-  /* Shared titlebar baseline; same 17px correction as the collapsed strip
-     (12px half-icon + 5px detail-panel inset). */
+  /* Same baseline; 17px correction = 12px half-icon + 5px detail-panel inset. */
   top: calc(var(--maka-titlebar-control-safe-top) - 17px);
   right: 24px;
   display: inline-flex;
@@ -653,8 +647,7 @@ button:active {
   justify-content: space-between;
   gap: 6px;
   box-sizing: border-box;
-  /* Same shared titlebar baseline; 18px correction = 12px half-icon +
-     6px sidebar-header pad (no detail-panel inset here). */
+  /* Same baseline; 18px correction = 12px half-icon + 6px sidebar-header pad. */
   padding-top: calc(var(--maka-titlebar-control-safe-top) - 18px);
   padding-left: calc(var(--maka-titlebar-control-safe-left) - 10px);
   -webkit-app-region: drag;
