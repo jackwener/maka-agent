@@ -3364,44 +3364,13 @@ button:active {
   min-height: 0;
   overflow: auto;
   display: grid;
-  grid-template-columns: minmax(190px, 0.28fr) minmax(0, 1fr);
   align-content: start;
-  align-items: start;
-  gap: 14px;
+  gap: 12px;
   padding-right: 2px;
 }
 
-.maka-skill-workbench-rail {
-  position: sticky;
-  top: 0;
-  min-width: 0;
-  display: grid;
-  gap: 10px;
-}
-
-.maka-skill-workbench-summary {
-  min-width: 0;
-  display: grid;
-  gap: 3px;
-  padding: 8px 10px;
-  border: 1px solid var(--foreground-8);
-  border-radius: 6px;
-  background: var(--foreground-2);
-}
-
-.maka-skill-workbench-summary strong {
-  min-width: 0;
-  color: var(--foreground);
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.2;
-}
-
-.maka-skill-workbench-summary span:not(.maka-skill-section-label) {
-  min-width: 0;
-  color: var(--foreground-55);
-  font-size: 11px;
-  line-height: 1.4;
+.maka-skill-tool-summary-hidden {
+  display: none;
 }
 
 .maka-skill-examples,

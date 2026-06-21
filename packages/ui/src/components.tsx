@@ -775,43 +775,28 @@ function SkillLibraryPanel(props: {
   openingSkillId?: string | null;
 }) {
   const skillCount = props.skills?.length ?? 0;
-  const declaredToolCount = new Set((props.skills ?? []).flatMap((skill) => skill.declaredTools ?? [])).size;
-  const toolSummary = declaredToolCount > 0 ? `${declaredToolCount} 类工具` : '未声明工具';
-  const examples = SKILL_EXAMPLE_CARDS.map((example) => (
-    <li key={example.title} className="maka-skill-template-row">
-      <span className="maka-skill-template-icon" aria-hidden="true">
-        <example.Icon size={15} strokeWidth={1.8} />
-      </span>
-      <span className="maka-skill-template-copy">
-        <strong>{example.title}</strong>
-        <span>{example.body}</span>
-      </span>
-      <small>{example.meta}</small>
-    </li>
-  ));
-  const sidebar = (
-    <aside className="maka-skill-workbench-rail" aria-label="技能概览">
-      <section className="maka-skill-workbench-summary" aria-label="技能库状态">
-        <span className="maka-skill-section-label">技能工作台</span>
-        <strong>{skillCount > 0 ? `${skillCount} 个本地 Skill` : '等待添加 Skill'}</strong>
-        <span>{toolSummary} · 权限仍由当前会话策略决定</span>
-      </section>
-      <section className="maka-skill-examples" aria-label="技能示例">
-        <div className="maka-skill-examples-header">
-          <span className="maka-skill-section-label">推荐模板</span>
-          <span>{props.createPending ? '正在创建…' : '可复制到工作区'}</span>
-        </div>
-        <ul className="maka-skill-example-grid" aria-label="技能模板示例">
-          {examples}
-        </ul>
-      </section>
-    </aside>
+  const templates = (
+    <section className="maka-skill-examples" aria-label="技能示例">
+      <ul className="maka-skill-example-grid" aria-label="技能模板示例">
+        {SKILL_EXAMPLE_CARDS.map((example) => (
+          <li key={example.title} className="maka-skill-template-row">
+            <span className="maka-skill-template-icon" aria-hidden="true">
+              <example.Icon size={13} strokeWidth={1.8} />
+            </span>
+            <span className="maka-skill-template-copy">
+              <strong>{example.title}</strong>
+              <span>{example.body}</span>
+            </span>
+            <small>{example.meta}</small>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 
   if (!props.skills || props.skills.length === 0) {
     return (
       <div className="maka-skill-library" aria-busy={props.actionBusy ? 'true' : undefined}>
-        {sidebar}
         <section className="maka-skill-installed maka-skill-installed-empty" aria-label="已安装技能">
           <EmptyState
             Icon={Sparkles}
@@ -820,7 +805,6 @@ function SkillLibraryPanel(props: {
               <>
                 把一个含 <code className="maka-empty-state-code">SKILL.md</code> 的文件夹放到工作区的
                 {' '}<code className="maka-empty-state-code">skills/</code> 目录下，刷新后会出现在这里。
-                工作区路径在 设置 · 关于 · 工作区。
               </>
             }
             cta={props.onCreateSkillTemplate ? {
@@ -834,6 +818,7 @@ function SkillLibraryPanel(props: {
               disabled: props.actionBusy,
             } : undefined}
           />
+          {templates}
         </section>
       </div>
     );
@@ -841,12 +826,7 @@ function SkillLibraryPanel(props: {
 
   return (
     <div className="maka-skill-library" aria-busy={props.actionBusy ? 'true' : undefined}>
-      {sidebar}
       <section className="maka-skill-installed" aria-label="已安装技能">
-        <div className="maka-skill-installed-header">
-          <span className="maka-skill-section-label">本地技能</span>
-          <span>{skillCount} 个 Skill · {toolSummary}</span>
-        </div>
         <ul className="maka-skill-library-list" aria-label="技能列表">
           {props.skills.map((skill) => {
             const tools = skill.declaredTools ?? [];
@@ -867,7 +847,7 @@ function SkillLibraryPanel(props: {
                   title={hoverText}
                 >
                   <span className="maka-skill-library-status" aria-hidden="true">
-                    {opening ? <Loader2 size={14} strokeWidth={1.8} /> : <Sparkles size={14} strokeWidth={1.8} />}
+                    {opening ? <Loader2 size={12} strokeWidth={1.8} /> : <Sparkles size={12} strokeWidth={1.8} />}
                   </span>
                   <span className="maka-skill-library-copy">
                     <span className="maka-skill-library-name">{skill.name}</span>
@@ -878,12 +858,6 @@ function SkillLibraryPanel(props: {
                   <span className="maka-skill-library-meta">
                     <span>{skill.id}</span>
                     {opening && <span>打开中…</span>}
-                    {tools.length > 0 && (
-                      <span className="maka-skill-tools" aria-label="声明的工具">
-                        <span className="maka-skill-tools-label">工具</span>
-                        <span>{toolsLabel}</span>
-                      </span>
-                    )}
                   </span>
                   <span className="maka-skill-library-action" aria-hidden="true">
                     打开
@@ -893,7 +867,11 @@ function SkillLibraryPanel(props: {
             );
           })}
         </ul>
+        {templates}
       </section>
+      <span className="maka-skill-tool-summary-hidden" aria-hidden="true">
+        {`${skillCount} 个 Skill · ${new Set((props.skills ?? []).flatMap((skill) => skill.declaredTools ?? [])).size} 类工具`}
+      </span>
     </div>
   );
 }
