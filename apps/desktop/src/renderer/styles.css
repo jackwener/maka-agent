@@ -4776,6 +4776,29 @@ button:active {
   text-wrap: pretty;
 }
 
+/* Chat message mount entrance — opacity 0 + translateY(6px) -> 0, ported
+   from the upstream reference design's agents-slide-up keyframe. Every
+   message slides up gently when it lands, including streaming deltas and
+   session-switch loads. Honored by prefers-reduced-motion below. */
+.maka-message-row {
+  animation: maka-message-row-enter 220ms ease-out both;
+}
+
+@keyframes maka-message-row-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .maka-message-row {
+    animation: none;
+  }
+}
+
+[data-maka-visual-smoke="true"] .maka-message-row {
+  animation: none;
+}
+
 .message > span {
   display: block;
   margin-bottom: 6px;
