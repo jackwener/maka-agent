@@ -11,6 +11,8 @@ import { exec, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { glob as nodeGlob } from 'node:fs/promises'; // Node 22+ stable glob
 import { dirname, isAbsolute, relative, resolve } from 'node:path';
+import { truncateToolOutput } from './tool-output.js';
+import { BashTailBuffer } from './bash-tail-buffer.js';
 
 // Single source of truth for tool shape. AiSdkBackend exports them; we just
 // re-export here for back-compat with external callers that imported from
@@ -19,7 +21,11 @@ import type { MakaTool, MakaToolContext } from './ai-sdk-backend.js';
 export type { MakaTool, MakaToolContext };
 
 const execAsync = promisify(exec);
-const BASH_MAX_OUTPUT_BYTES = 10 * 1024 * 1024;
+// Per-stream cap on the output retained in memory for the result. A runaway
+// command no longer fails (the old behavior discarded ALL output past 10MB);
+// instead we keep the last ~1MB and let truncateToolOutput trim that to the
+// model budget. The full stream is still emitted live via emitOutput.
+const BASH_MAX_RETAINED_CHARS = 1024 * 1024;
 
 export function buildBuiltinTools(): MakaTool[] {
   return [
@@ -43,8 +49,8 @@ export function buildBuiltinTools(): MakaTool[] {
           cwd,
           cmd: command,
           exitCode: result.exitCode,
-          stdout: result.stdout,
-          stderr: result.stderr,
+          stdout: truncateToolOutput(result.stdout, { direction: 'tail' }).content,
+          stderr: truncateToolOutput(result.stderr, { direction: 'tail' }).content,
         };
       },
     },
@@ -167,9 +173,8 @@ async function runStreamingShell(
       shell: true,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
-    let stdout = '';
-    let stderr = '';
-    let outputBytes = 0;
+    const stdoutBuf = new BashTailBuffer(BASH_MAX_RETAINED_CHARS);
+    const stderrBuf = new BashTailBuffer(BASH_MAX_RETAINED_CHARS);
     let settled = false;
 
     const timer = setTimeout(() => {
@@ -193,6 +198,8 @@ async function runStreamingShell(
       if (settled) return;
       cleanup();
       const exitCode = code ?? (signal ? 128 : 1);
+      const stdout = stdoutBuf.value();
+      const stderr = stderrBuf.value();
       if (exitCode !== 0) {
         const error = new Error(`Command failed with exit code ${exitCode}`);
         Object.assign(error, { stdout, stderr, code: exitCode });
@@ -205,14 +212,8 @@ async function runStreamingShell(
     });
 
     function append(stream: 'stdout' | 'stderr', chunk: string): void {
-      outputBytes += Buffer.byteLength(chunk, 'utf8');
-      if (outputBytes > BASH_MAX_OUTPUT_BYTES) {
-        child.kill('SIGTERM');
-        rejectOnce(new Error(`Command output exceeded ${BASH_MAX_OUTPUT_BYTES} bytes`));
-        return;
-      }
-      if (stream === 'stdout') stdout += chunk;
-      else stderr += chunk;
+      if (stream === 'stdout') stdoutBuf.push(chunk);
+      else stderrBuf.push(chunk);
       options.emitOutput(stream, chunk);
     }
 

@@ -52,6 +52,36 @@ describe('isolated headless tools', () => {
     });
   });
 
+  test('Bash bounds large executor output for the model but emits the full stream', async () => {
+    const big = Array.from({ length: 5000 }, (_, i) => `line${i + 1}`).join('\n') + '\n';
+    const emitted: Array<{ stream: string; chunk: string }> = [];
+    const bash = buildIsolatedBashTool({
+      async exec() {
+        return { exitCode: 0, stdout: big, stderr: '' };
+      },
+    });
+
+    const result = await bash.impl(
+      { command: 'noisy' },
+      {
+        sessionId: 's',
+        turnId: 't',
+        cwd: '/workspace',
+        toolCallId: 'tool-1',
+        abortSignal: new AbortController().signal,
+        emitOutput: (stream, chunk) => emitted.push({ stream, chunk }),
+      },
+    ) as { stdout: string };
+
+    // The full stream is still surfaced live (history / UI), unbounded.
+    assert.equal(emitted.find((event) => event.stream === 'stdout')?.chunk, big);
+    // The model-facing result is bounded: tail kept, marker present, smaller.
+    assert.ok(result.stdout.includes('line5000'));
+    assert.ok(result.stdout.includes('truncated'));
+    assert.ok(!result.stdout.includes('line1\n'));
+    assert.ok(result.stdout.length < big.length);
+  });
+
   test('standard isolated tool surface exposes externalized file tools to local-read children', () => {
     const tools = buildIsolatedHeadlessTools({
       async exec() {

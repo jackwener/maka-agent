@@ -2,6 +2,7 @@ import type { MakaTool, ToolAvailabilityConfig } from '@maka/runtime';
 import {
   buildSubagentProjectionTools,
   buildSubagentSpawnTool,
+  truncateToolOutput,
 } from '@maka/runtime';
 import { posix as pathPosix } from 'node:path';
 import { z } from 'zod';
@@ -53,13 +54,15 @@ export function buildIsolatedBashTool(executor: IsolatedToolExecutor): MakaTool 
       });
       if (result.stdout) emitOutput('stdout', result.stdout);
       if (result.stderr) emitOutput('stderr', result.stderr);
+      // Bound what the model sees: a chatty command's full output would flood
+      // the context. The full stream is still emitted live via emitOutput above.
       return {
         kind: 'terminal',
         cwd,
         cmd: command,
         exitCode: result.exitCode,
-        stdout: result.stdout,
-        stderr: result.stderr,
+        stdout: truncateToolOutput(result.stdout, { direction: 'tail' }).content,
+        stderr: truncateToolOutput(result.stderr, { direction: 'tail' }).content,
       };
     },
   };

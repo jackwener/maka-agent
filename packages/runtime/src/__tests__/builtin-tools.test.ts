@@ -66,6 +66,56 @@ describe('builtin Bash streaming output', () => {
     await expectRejects(Promise.resolve(run), /Command aborted/);
     expect(events.some((event) => event.stream === 'stdout' && event.chunk.includes('started'))).toBe(true);
   });
+
+  test('large output is bounded to a tail instead of being discarded', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'maka-bash-'));
+    const bash = buildBuiltinTools().find((tool) => tool.name === 'Bash');
+    if (!bash) throw new Error('Bash tool missing');
+
+    const result = await bash.impl(
+      { command: "awk 'BEGIN{for(i=1;i<=5000;i++)print \"line\"i}'", timeout_ms: 10_000 },
+      {
+        sessionId: 'session-1',
+        turnId: 'turn-1',
+        cwd,
+        toolCallId: 'tool-1',
+        abortSignal: new AbortController().signal,
+        emitOutput: () => {},
+      },
+    ) as { exitCode: number; stdout: string };
+
+    expect(result.exitCode).toBe(0); // no reject — the old code threw away everything past the cap
+    expect(result.stdout.includes('line5000')).toBe(true); // tail preserved
+    expect(result.stdout.includes('truncated')).toBe(true); // truncation marker present
+    expect(result.stdout.includes('line1\n')).toBe(false); // head dropped, not the whole output
+  });
+
+  test('a failing command surfaces stdout/stderr on the rejection error', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'maka-bash-'));
+    const bash = buildBuiltinTools().find((tool) => tool.name === 'Bash');
+    if (!bash) throw new Error('Bash tool missing');
+
+    let err: { code?: number; stdout?: string; stderr?: string } | null = null;
+    try {
+      await bash.impl(
+        { command: 'printf "out-data"; printf "err-data" >&2; exit 3', timeout_ms: 5_000 },
+        {
+          sessionId: 'session-1',
+          turnId: 'turn-1',
+          cwd,
+          toolCallId: 'tool-1',
+          abortSignal: new AbortController().signal,
+          emitOutput: () => {},
+        },
+      );
+    } catch (e: unknown) {
+      err = e as { code?: number; stdout?: string; stderr?: string };
+    }
+
+    expect(err?.code).toBe(3);
+    expect(err?.stdout).toBe('out-data');
+    expect(err?.stderr).toBe('err-data');
+  });
 });
 
 describe('builtin read tools path containment', () => {
