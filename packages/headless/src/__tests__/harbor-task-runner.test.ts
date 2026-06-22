@@ -256,6 +256,23 @@ describe('createHarborTaskRunner timeout', () => {
     });
   });
 
+  test('puts the adapter dir on PYTHONPATH so harbor can import maka_agent', async () => {
+    await withRun(async ({ jobsDir, repo }) => {
+      let seenEnv: Record<string, string> | undefined;
+      const runner = createHarborTaskRunner({
+        makaRepoPath: repo,
+        jobsDir,
+        model: 'deepseek/deepseek-v4-flash',
+        runHarbor: async (request) => {
+          seenEnv = request.env;
+          return fakeRunner({ reward: '1\n' })(request);
+        },
+      });
+      await runner(runInput());
+      assert.ok(seenEnv?.PYTHONPATH?.startsWith(join(repo, 'packages', 'headless', 'harbor')));
+    });
+  });
+
   test('forwards an explicit harborTimeoutMs override', async () => {
     await withRun(async ({ jobsDir, repo }) => {
       let seenTimeout: number | undefined;

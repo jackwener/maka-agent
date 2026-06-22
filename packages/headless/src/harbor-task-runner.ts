@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
 import { mkdir, readFile, readdir, rm } from 'node:fs/promises';
 import { writeFile } from 'node:fs/promises';
-import { basename, join } from 'node:path';
+import { basename, delimiter, join } from 'node:path';
 import { promisify } from 'node:util';
 import { validateHarborCellOutput, type HarborCellOutput } from './cell-output.js';
 import type {
@@ -74,6 +74,8 @@ export interface HarborRunRequest {
   cwd: string;
   /** Wall-clock ceiling in ms; the default runner kills harbor past this. */
   timeoutMs?: number;
+  /** Env overlaid onto the harbor process (e.g. PYTHONPATH for the adapter). */
+  env?: Record<string, string>;
 }
 
 const DEFAULT_HARBOR_TIMEOUT_MS = 45 * 60_000;
@@ -98,6 +100,11 @@ const PROVIDER_KEY_FILE_ENV: Record<string, string> = {
 export function createHarborTaskRunner(options: HarborTaskRunnerOptions): HarborTaskRunner {
   const runHarbor = options.runHarbor ?? defaultHarborProcessRunner;
   const harborBin = options.harborBin ?? 'harbor';
+  // The bare `maka_agent:MakaAgent` import path resolves only when the adapter
+  // directory is on harbor's PYTHONPATH; harbor is a uv-installed tool, so its cwd
+  // is not enough. Prepend it (keeping any inherited PYTHONPATH).
+  const harborAdapterDir = join(options.makaRepoPath, 'packages', 'headless', 'harbor');
+  const pythonPath = [harborAdapterDir, process.env.PYTHONPATH].filter(Boolean).join(delimiter);
 
   return async (input: HarborTaskRunInput): Promise<HarborTaskRunOutput> => {
     const jobsDir = join(
@@ -128,6 +135,7 @@ export function createHarborTaskRunner(options: HarborTaskRunnerOptions): Harbor
         args,
         cwd: options.makaRepoPath,
         timeoutMs: options.harborTimeoutMs ?? DEFAULT_HARBOR_TIMEOUT_MS,
+        env: { PYTHONPATH: pythonPath },
       });
     } catch (error) {
       throw new HarborInfraError(`harbor run failed to launch for task ${input.task.id}`, errorText(error));
@@ -288,6 +296,7 @@ const defaultHarborProcessRunner: HarborProcessRunner = async (request) => {
       cwd: request.cwd,
       maxBuffer: 64 * 1024 * 1024,
       ...(request.timeoutMs !== undefined ? { timeout: request.timeoutMs, killSignal: 'SIGKILL' as const } : {}),
+      ...(request.env ? { env: { ...process.env, ...request.env } } : {}),
     });
     return { exitCode: 0, stdout, stderr };
   } catch (error) {
