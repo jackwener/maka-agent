@@ -91,6 +91,14 @@ export interface PromptOptimizationLoopInput {
    * round (fail-loud). */
   rewardHackVerifierPatternsByTaskId?: Readonly<Record<string, readonly string[]>>;
 
+  /** Abort if fewer than this many held-in tasks complete (scored + eligible)
+   * across every baseline sweep (default 1). A floor above 1 guards against
+   * calibrating on an unrepresentative subset after a harness/cache regression
+   * silently drops most tasks. */
+  minStableHeldInTasks?: number;
+  /** Same floor for the held-out partition (default 1). */
+  minStableHeldOutTasks?: number;
+
   /** Stop the loop once cumulative task cost reaches this (checked per round). */
   costCeilingUsd?: number;
   /** Stop the loop once the cumulative infra-failure rate exceeds this. */
@@ -238,11 +246,19 @@ export async function runPromptOptimizationLoop(
     baselineRuns: baselineRunsData.map((run) => run.heldOutEvents),
     maxPassRateSpread: 1,
   });
-  if (heldInStable.selectedTaskIds.length === 0) {
-    throw new Error('no held-in task completed across all baseline sweeps');
+  const minStableHeldIn = input.minStableHeldInTasks ?? 1;
+  const minStableHeldOut = input.minStableHeldOutTasks ?? 1;
+  if (heldInStable.selectedTaskIds.length < minStableHeldIn) {
+    throw new Error(
+      `held-in stable task count ${heldInStable.selectedTaskIds.length} is below the minimum ${minStableHeldIn} `
+      + `(${heldInTaskIds.length} configured, ${heldInStable.rejectedTaskIds.length} dropped across baseline sweeps)`,
+    );
   }
-  if (heldOutStable.selectedTaskIds.length === 0) {
-    throw new Error('no held-out task completed across all baseline sweeps');
+  if (heldOutStable.selectedTaskIds.length < minStableHeldOut) {
+    throw new Error(
+      `held-out stable task count ${heldOutStable.selectedTaskIds.length} is below the minimum ${minStableHeldOut} `
+      + `(${heldOutTaskIds.length} configured, ${heldOutStable.rejectedTaskIds.length} dropped across baseline sweeps)`,
+    );
   }
   const stableHeldInTaskIds = heldInStable.selectedTaskIds;
   const stableHeldOutTaskIds = heldOutStable.selectedTaskIds;

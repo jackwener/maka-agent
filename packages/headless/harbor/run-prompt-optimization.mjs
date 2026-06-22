@@ -61,8 +61,11 @@ function envIds(name) {
   return ids.length > 0 ? ids : undefined;
 }
 
-// Pick tasks by explicit id, preserving the requested order; throw on any miss.
+// Pick tasks by explicit id, preserving the requested order; throw on a
+// duplicate (would double-weight a task) or any unknown id.
 function selectTasksByIds(allTasks, ids) {
+  const duplicates = [...new Set(ids.filter((id, index) => ids.indexOf(id) !== index))];
+  if (duplicates.length > 0) throw new Error(`duplicate task id(s): ${duplicates.join(', ')}`);
   const byId = new Map(allTasks.map((t) => [t.id, t]));
   const missing = ids.filter((id) => !byId.has(id));
   if (missing.length > 0) throw new Error(`unknown task id(s): ${missing.join(', ')}`);
@@ -92,6 +95,8 @@ async function main() {
   const runId = process.env.MAKA_PROMPT_RUN_ID || `prompt-opt-${Date.now()}`;
   const costCeilingUsd = process.env.MAKA_PROMPT_COST_CEILING ? Number(process.env.MAKA_PROMPT_COST_CEILING) : undefined;
   const maxConcurrency = process.env.MAKA_PROMPT_MAX_CONCURRENCY ? Number(process.env.MAKA_PROMPT_MAX_CONCURRENCY) : undefined;
+  const minStableHeldInTasks = envInt('MAKA_PROMPT_MIN_STABLE_HELD_IN', 1);
+  const minStableHeldOutTasks = envInt('MAKA_PROMPT_MIN_STABLE_HELD_OUT', 1);
 
   // Verify the key file exists before spending Docker time (never print it).
   await readFile(keyFile, 'utf8');
@@ -175,6 +180,8 @@ async function main() {
     jobsDir,
     agentEnv: { DEEPSEEK_BASE_URL: baseUrl },
     rewardHackVerifierPatternsByTaskId,
+    minStableHeldInTasks,
+    minStableHeldOutTasks,
     ...(costCeilingUsd !== undefined ? { costCeilingUsd } : {}),
     ...(maxConcurrency !== undefined ? { maxConcurrency } : {}),
   });

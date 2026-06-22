@@ -186,7 +186,26 @@ describe('runPromptOptimizationLoop', () => {
           rounds: 1,
           baselineRuns: 1,
         }),
-        /no held-in task completed across all baseline sweeps/,
+        /held-in stable task count 0 is below the minimum 1/,
+      );
+    });
+  });
+
+  test('aborts when too few held-in tasks survive the minimum-stable floor', async () => {
+    await withHarness(async (harness) => {
+      await assert.rejects(
+        runLoop(harness, {
+          heldInTasks: makeTasks('hin', 4),
+          heldOutTasks: makeTasks('hout', 2),
+          rewardFor: () => 1,
+          // Only hin-0 survives; the floor of 3 is not met, so the run fails loud
+          // rather than calibrating on an unrepresentative single task.
+          shouldFail: (_roundId, taskId) => taskId.startsWith('hin-') && taskId !== 'hin-0',
+          minStableHeldInTasks: 3,
+          rounds: 1,
+          baselineRuns: 1,
+        }),
+        /held-in stable task count 1 is below the minimum 3 \(4 configured, 3 dropped/,
       );
     });
   });
@@ -213,6 +232,7 @@ interface RunLoopOptions {
   baselineRuns: number;
   costCeilingUsd?: number;
   heldOutResultsTsvPath?: string;
+  minStableHeldInTasks?: number;
   /** When it returns true, the runner emits a non-completed (unscored) cell for
    * that task — used to exercise the baseline stability filter. */
   shouldFail?: (roundId: string, taskId: string) => boolean;
@@ -243,6 +263,7 @@ async function runLoop(harness: Harness, options: RunLoopOptions) {
     originalCommitSha: harness.originalCommitSha,
     rewardHackVerifierPatternsByTaskId,
     ...(options.costCeilingUsd !== undefined ? { costCeilingUsd: options.costCeilingUsd } : {}),
+    ...(options.minStableHeldInTasks !== undefined ? { minStableHeldInTasks: options.minStableHeldInTasks } : {}),
     now: () => (clock += 1),
     newId: nextId,
   };
