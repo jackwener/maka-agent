@@ -567,3 +567,163 @@ Phase 2C (next big PR): wire the deep findings into code.
      + data model, out of pure-UI scope.
 - i) Wrap streamed Markdown tokens in `.streaming-token-fade-in` (needs
      renderer surgery; the CSS lands in 2C so future wiring is one-line).
+
+---
+
+## 13. Deep-RE Round 3 — Sidebar, Composer, Banners, Resize Handle
+
+Follow-up after WAWQAQ msg f31b4611 ("还是多研究 qoderwork 的代码 和前端
+设计，一定要深入挖掘他们的设计和代码"). Three days into the RE program
+and most surface-level patterns are caught (atlas §1–§12). This round
+focuses on the structural state machines and the smaller specialized
+chrome we haven't yet decoded.
+
+### 13.1 Sidebar — two-mode chrome system
+
+The reference sidebar has two distinct visual modes the renderer
+swaps between at run-time:
+
+- **Standard / glass-vibrancy mode (default in glass themes):**
+  the sidebar renders edge-to-edge against the OS vibrancy material.
+  CSS rules under `[data-agents-page] [data-resizable-sidebar].agents-sidebar`
+  set `contain: layout paint style` for performance isolation.
+- **`agents-sidebar-floating-glass` mode (parchment themes):**
+  opaque `--color-bg-container` background + 1px `--color-border-tertiary`
+  border + `box-shadow: none` + `-webkit-backdrop-filter: none`. This is
+  the "card-style sidebar" pattern — sidebar reads as a lifted card on
+  the warm parchment canvas, not a translucent panel.
+
+This is the answer to "how to support warm parchment themes alongside
+glass themes": the SAME sidebar component conditionally applies
+`.agents-sidebar-floating-glass` based on `data-theme=light-parchment` /
+`dark-parchment`. The class lights up via CSS theme matching, not
+runtime branching.
+
+Sidebar resize: rendered via the `react-resizable-panels` library
+(`[role=separator]` + `data-resize-handle-active`).
+
+- `[role=separator]` always has `background-color: transparent !important`
+  and `box-shadow: none / outline: none` on `:focus-visible`. The
+  resize affordance lives in JS hit-region, not visible chrome — the
+  user only sees the column edge.
+- `[data-resizing=true]` on the sidebar drops `box-shadow` while
+  dragging so the "lift" doesn't get janky during column drag.
+
+`.sidebar-section-title` (the small group label inside the sidebar)
+uses `var(--color-text-quaternary)` (a faint 4th-tier text color that
+maka doesn't have). In `color-mix` browsers it gets 90% of that token
++ 10% transparent, so the label fades slightly into the chrome.
+
+### 13.2 Composer — primary glow + 3-layer wing pattern (verified)
+
+`.chat-input-primary-glow` is the composer hero card. Two pseudo-
+elements (`::before` and `::after`) each carry a 3-layer wing glow:
+
+- **`::before`** (forward animation):
+  - `0 10px 30px -14px var(--color-primary)` (bottom drop, primary)
+  - `-18px 0 42px -24px var(--color-primary-hover)` (left wing)
+  - `+18px 0 42px -24px var(--color-primary-border)` (right wing)
+- **`::after`** (reverse animation):
+  - `0 12px 34px -12px var(--color-primary)` (deeper drop)
+  - `+20px 0 48px -22px var(--color-primary-hover)` (right wing)
+  - `-20px 0 48px -22px var(--color-primary-border)` (left wing)
+
+Both run the `chat-input-glow-pulse` keyframe at 4.8s ease-in-out
+infinite. Maka has the same glow ported as `maka-composer-glow-pulse`
+(2 layers via `::before` and `::after`); the wing-direction
+alternation is the magic that makes the composer feel "alive" rather
+than "blinking". Verifying maka's port — it uses the SAME pattern
+already (looked back at styles.css), with the `--accent` token in
+place of `--color-primary`. Good parity.
+
+Composer in parchment theme has its own glow palette via:
+- `--chat-input-parchment-glow` = primary glow color
+- `--chat-input-parchment-halo` = mid-range halo (uses `--color-warning`
+  in parchment, so the glow reads as warm amber, not cold blue)
+- `--chat-input-parchment-edge` = far-wing edge (uses `--color-link`)
+
+Maka doesn't have a parchment-specific composer palette — the
+composer glow uses `--accent` regardless of theme. If we adopt the
+parchment theme later, the composer should get warm-amber glow
+overrides per the reference.
+
+### 13.3 Banners — three animated mascot families
+
+Three distinct banner families, each with their own mascot animation:
+
+- **`[data-skills-banner]`** — Skills page hero. In parchment themes:
+  `background-color: var(--color-fill-tertiary)` (subtle warm wash).
+  Hosts the `.animate-pointer-poke` SVG mascot (4s linear infinite
+  micro-shake — atlas §6 keyframe).
+  - Inner SVG attribute rewrites in parchment theme:
+    `[data-banner-logo], [data-skill-deco-cover]` get
+    `[fill*=color-primary]` → `var(--color-fill-secondary)` and
+    `[stroke*=color-primary-border]` → `var(--color-border-tertiary)`.
+    This neutralizes the brand-blue to a parchment-friendly neutral.
+- **`[data-connectors-banner-visual]`** — Connectors page hero. Has
+  `[data-connectors-lightning]` SVG inside it pulsing on the
+  `connectors-lightning-pulse` keyframe (1.4s ease-in-out infinite).
+  Same parchment color rewrite pattern.
+- **`[data-plugins-banner]`** — Plugins page hero with multi-part
+  mascot: `[data-plugins-banner-mascot-body]`,
+  `[data-plugins-banner-mascot-hand]`, `[data-plugins-banner-tags-layer]`,
+  `[data-plugins-banner-dynamic-visual]`. Each animates independently
+  for a layered character animation. Could not extract exact specs in
+  this pass; complex enough to deserve a dedicated note PR.
+
+Maka has no equivalent banner mascots. They are a meaningful visual
+hook the reference uses on hero pages; porting one (e.g., a Skills
+mascot) would close a real "delight" gap, but requires custom SVG
+illustration assets the maka team would need to commission.
+
+### 13.4 Theme-tinted brand motion (`[data-parchment-brand-motion]`)
+
+A specific attribute on any element that does its own brand motion
+animation (Lottie / SVG): in parchment themes, get
+`filter: hue-rotate(-85deg) saturate(.65)`; in dark themes (dark,
+dark-glass, classic-dark), get `filter: brightness(.8)`. This is how
+the reference's mascots stay on-palette across all 8 themes without
+the Lottie author hand-tinting every variant.
+
+Maka could adopt: any third-party brand motion (e.g., the loader.gif
+under `apps/desktop/assets/`) could pick up a `data-brand-motion`
+attribute and these filter rules so it auto-tints with theme. Tiny
+patch, high payback if we adopt mascots later.
+
+### 13.5 Selectable text marker
+
+`.allow-text-selection { user-select: text !important }` — explicit
+class for surfaces where the user must be allowed to text-select
+(e.g., assistant Markdown body). Maka mostly defaults to selectable;
+the reference flips the default to "non-selectable" globally
+(probably for the chrome) and opts in with `.allow-text-selection`.
+This is the reverse policy from Maka but probably worth aligning on
+the chrome side (sidebar / nav rows / chips) since `user-select: none`
+on those would prevent accidental text-select on click-drag.
+
+### 13.6 Settings sidebar slot `.agents-settings-wide-content`
+
+`.agents-settings-wide-content { background: var(--agents-content-area-bg);
+margin: var(--agents-content-area-gap) var(--agents-content-area-gap)
+var(--agents-content-area-gap) 0 }` — the content slot inside Settings
+that holds each sub-page (Profile / General / Preferences / etc.).
+The margins use the `--agents-content-area-gap` (4px) token so the
+content slot has a 4px gap on top/bottom/right (left is 0, the nav
+column is flush). This is the "Settings tab content fits inside the
+page card" pattern — exactly what maka should adopt when it does the
+Phase 2C Settings inline restructure.
+
+### 13.7 Updated defer list (post-§13)
+
+Items to consider for a Phase 3 PR after WAWQAQ verdict:
+- Adopt `.agents-sidebar-floating-glass` pattern for parchment-mode
+  sidebar (opaque card variant) — pure CSS + a `data-theme` selector.
+- Adopt `[data-parchment-brand-motion]` theme-tint pattern for any
+  loader / mascot we ship later — 4 lines of CSS, no JS.
+- Port the `[data-banner-logo]` SVG color-rewrite pattern for any
+  brand-colored SVG so it auto-neutralizes in parchment themes.
+- Adopt the `.allow-text-selection` opt-in policy on chrome surfaces
+  so click-drag on a nav row doesn't begin a text selection.
+- Use `--agents-content-area-gap` (4px) consistently for Plan/Skills
+  sub-section gaps (we currently use 14px; the reference's 4px reads
+  much tighter, matching the dense-cockpit aesthetic).
