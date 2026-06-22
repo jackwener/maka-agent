@@ -1,4 +1,5 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { exec as nodeExec } from 'node:child_process';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
@@ -533,30 +534,42 @@ function providerBaseUrl(provider: ProviderType, env: RunHarborCellEnv): string 
 function apiKeyFromEnv(provider: ProviderType, env: RunHarborCellEnv): string {
   switch (provider) {
     case 'deepseek':
-      return env.DEEPSEEK_API_KEY
-        ?? env.OPENAI_API_KEY
-        ?? '';
+      return resolveApiKey(env, ['DEEPSEEK_API_KEY', 'OPENAI_API_KEY']);
     case 'openai':
     case 'openai-compatible':
-      return env.OPENAI_API_KEY ?? '';
+      return resolveApiKey(env, ['OPENAI_API_KEY']);
     case 'moonshot':
-      return env.MOONSHOT_API_KEY
-        ?? env.OPENAI_API_KEY
-        ?? '';
+      return resolveApiKey(env, ['MOONSHOT_API_KEY', 'OPENAI_API_KEY']);
     case 'zai-coding-plan':
-      return env.ZAI_API_KEY
-        ?? env.ZAI_CODING_CN_API_KEY
-        ?? env.OPENAI_API_KEY
-        ?? '';
+      return resolveApiKey(env, ['ZAI_API_KEY', 'ZAI_CODING_CN_API_KEY', 'OPENAI_API_KEY']);
     case 'google':
-      return env.GOOGLE_API_KEY ?? '';
+      return resolveApiKey(env, ['GOOGLE_API_KEY']);
     case 'anthropic':
     case 'kimi-coding-plan':
     case 'claude-subscription':
-      return env.ANTHROPIC_API_KEY ?? '';
+      return resolveApiKey(env, ['ANTHROPIC_API_KEY']);
     default:
-      return env.OPENAI_API_KEY ?? '';
+      return resolveApiKey(env, ['OPENAI_API_KEY']);
   }
+}
+
+// Resolve an API key from either the raw env var or its `<NAME>_FILE` companion.
+// The file path is what travels through the Harbor CLI / job config, so the secret
+// itself stays in a mounted file — never on a command line or in config.json.
+function resolveApiKey(env: RunHarborCellEnv, names: readonly string[]): string {
+  for (const name of names) {
+    const raw = env[name];
+    if (raw) return raw;
+    const filePath = env[`${name}_FILE`];
+    if (filePath) {
+      try {
+        return readFileSync(filePath, 'utf8').trim();
+      } catch {
+        // Fall through to the next candidate (or empty) when the file is unreadable.
+      }
+    }
+  }
+  return '';
 }
 
 function runtimeEventsJsonl(invocation: InvocationResult): string {

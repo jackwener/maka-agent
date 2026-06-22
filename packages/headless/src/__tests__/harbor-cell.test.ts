@@ -806,6 +806,32 @@ setTimeout(() => {
     assert.equal(deepseek.connection.baseUrl, 'https://fallback.example/v1');
   });
 
+  test('resolves ai-sdk api key from a *_API_KEY_FILE without exposing the secret on argv', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'maka-cell-key-'));
+    try {
+      const keyFile = join(dir, 'deepseek-key');
+      await writeFile(keyFile, 'sk-secret-from-file\n', 'utf8');
+      const resolved = resolveHarborCellAiSdkEnv({
+        provider: 'deepseek',
+        model: 'deepseek-v4-flash',
+        env: { DEEPSEEK_API_KEY_FILE: keyFile },
+        ts: 1,
+      });
+      assert.equal(resolved.apiKey, 'sk-secret-from-file');
+
+      // A raw key still wins over the file companion.
+      const rawWins = resolveHarborCellAiSdkEnv({
+        provider: 'deepseek',
+        model: 'deepseek-v4-flash',
+        env: { DEEPSEEK_API_KEY: 'sk-raw', DEEPSEEK_API_KEY_FILE: keyFile },
+        ts: 1,
+      });
+      assert.equal(rawWins.apiKey, 'sk-raw');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
 });
 
 function fakeToolExecutor(): IsolatedToolExecutor {
