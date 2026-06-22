@@ -585,11 +585,14 @@ button:active {
   border-radius: 6px;
   background: transparent;
   color: var(--foreground);
-  padding: 7px 10px;
-  transition: background 150ms var(--ease-out-strong);
+  padding: 6px 10px;
+  transition:
+    background 150ms var(--ease-out-strong),
+    transform 180ms var(--ease-out-strong);
 }
 .maka-search-modal-result:hover:not([disabled]) {
-  background: oklch(from var(--foreground) l c h / 0.04);
+  background: oklch(from var(--foreground) l c h / 0.05);
+  transform: translateX(1px);
 }
 .maka-search-modal-result[data-active="true"]:not([disabled]) {
   background: oklch(from var(--accent) l c h / 0.08);
@@ -1714,7 +1717,10 @@ button:active {
   background: transparent;
   color: var(--foreground);
   text-align: left;
-  transition: background 150ms var(--ease-out-strong);
+  transition:
+    background 150ms var(--ease-out-strong),
+    transform 180ms var(--ease-out-strong),
+    box-shadow 220ms var(--ease-out-strong);
 }
 
 .maka-onboarding-card:hover {
@@ -4011,7 +4017,9 @@ button:active {
 .maka-skill-examples,
 .maka-skill-installed {
   display: grid;
-  gap: 6px;
+  /* Atlas §14.6 quick-win — section internal gap aligned to reference's
+     `--agents-content-area-gap: 4px` cadence; was 6px. */
+  gap: 4px;
   min-width: 0;
 }
 
@@ -4021,15 +4029,20 @@ button:active {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  color: var(--foreground-55);
-  font-size: 10px;
+  color: var(--foreground-50);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   line-height: 1.35;
 }
 
 .maka-skill-section-label {
-  color: var(--foreground);
-  font-size: 11px;
+  color: var(--foreground-65);
+  font-size: 9.5px;
   font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .maka-skill-example-grid {

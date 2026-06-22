@@ -25,6 +25,7 @@ import {
   HelpCircle,
   Hourglass,
   Info,
+  LineChart,
   Loader2,
   MessageSquare,
   MoreHorizontal,
@@ -535,6 +536,17 @@ export function SessionListPanel(props: {
             the sidebar header (`.maka-sidebar-search-button`) and ⌘K, so a
             second entry point was redundant. The `search` module id + label
             are kept for those triggers. */}
+        <button
+          className="maka-nav-row"
+          data-active={isModuleActive('daily-review')}
+          aria-current={isModuleActive('daily-review') ? 'page' : undefined}
+          aria-label={MODULE_NAV_LABEL['daily-review']}
+          type="button"
+          onClick={() => selectModule('daily-review')}
+        >
+          <LineChart className="maka-nav-icon" strokeWidth={1.5} aria-hidden="true" />
+          <span>{MODULE_NAV_LABEL['daily-review']}</span>
+        </button>
         <button
           className="maka-nav-row"
           data-active={isModuleActive('skills')}
