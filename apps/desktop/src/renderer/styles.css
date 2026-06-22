@@ -3569,6 +3569,11 @@ button:active {
   overflow: auto;
 }
 
+.maka-module-main[data-module="daily-review"] {
+  grid-template-rows: auto auto;
+  align-content: start;
+}
+
 .maka-module-main-header {
   width: min(100%, 900px);
   margin-inline: auto;
@@ -3697,14 +3702,20 @@ button:active {
 
 @media (prefers-reduced-motion: reduce) {
   .maka-skill-library,
-  .maka-plan-shell {
+  .maka-plan-shell,
+  .maka-module-main .maka-daily-review-panel,
+  .maka-daily-review-panel {
     animation: none;
   }
 }
 
 [data-maka-visual-smoke="true"] .maka-skill-library,
-[data-maka-visual-smoke="true"] .maka-plan-shell {
+[data-maka-visual-smoke="true"] .maka-plan-shell,
+[data-maka-visual-smoke="true"] .maka-module-main .maka-daily-review-panel,
+[data-maka-visual-smoke="true"] .maka-daily-review-panel {
   animation: none;
+  opacity: 1;
+  transform: none;
 }
 
 [data-maka-visual-smoke="true"] .maka-plan-card-grid > article,
@@ -13567,6 +13578,179 @@ button:active {
   opacity: 0.7;
 }
 
+.maka-daily-review-archives {
+  display: grid;
+  gap: 6px;
+  padding: 8px 0 10px;
+  border-bottom: 1px solid var(--foreground-10);
+}
+
+.maka-daily-review-archives-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.maka-daily-review-archive-count {
+  font-size: 11px;
+  color: var(--foreground-45);
+  font-variant-numeric: tabular-nums;
+}
+
+.maka-daily-review-archive-layout {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.34fr) minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.maka-daily-review-archive-list {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.maka-daily-review-archive-row {
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  padding: 6px 8px;
+  text-align: left;
+  transition:
+    background 120ms var(--ease-out-strong),
+    border-color 120ms var(--ease-out-strong);
+}
+
+.maka-daily-review-archive-row:hover {
+  background: oklch(from var(--foreground) l c h / 0.04);
+}
+
+.maka-daily-review-archive-row[data-active="true"] {
+  background: oklch(from var(--accent) l c h / 0.10);
+  border-color: oklch(from var(--accent) l c h / 0.18);
+}
+
+.maka-daily-review-archive-row-title {
+  color: var(--foreground);
+  font-size: 12px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.maka-daily-review-archive-row-meta {
+  color: var(--foreground-50);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.maka-daily-review-archive-body {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--card-border-color);
+  border-radius: var(--card-radius);
+  background: oklch(from var(--foreground) l c h / 0.025);
+  box-shadow: var(--card-highlight);
+}
+
+.maka-daily-review-archive-body[data-empty="true"],
+.maka-daily-review-archive-empty {
+  color: var(--foreground-50);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.maka-daily-review-archive-body-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.maka-daily-review-archive-body-header h4 {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.maka-daily-review-archive-body-header p {
+  margin: 2px 0 0;
+  color: var(--foreground-50);
+  font-size: 11px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.maka-daily-review-archive-status {
+  flex: none;
+  border: 1px solid var(--foreground-10);
+  border-radius: 999px;
+  color: var(--foreground-55);
+  font-size: 11px;
+  line-height: 1;
+  padding: 4px 7px;
+  white-space: nowrap;
+}
+
+.maka-daily-review-archive-status[data-status="ok"] {
+  border-color: oklch(from var(--success, var(--accent)) l c h / 0.26);
+  color: var(--success, var(--accent));
+}
+
+.maka-daily-review-archive-status[data-status="failed"],
+.maka-daily-review-archive-status[data-status="no_model"] {
+  border-color: oklch(from var(--destructive, var(--warning, var(--info))) l c h / 0.30);
+  color: var(--destructive, var(--warning, var(--foreground)));
+}
+
+.maka-daily-review-archive-error {
+  margin: 0;
+  color: var(--destructive, var(--foreground));
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.maka-daily-review-archive-sections {
+  display: grid;
+  gap: 8px;
+}
+
+.maka-daily-review-archive-section {
+  display: grid;
+  gap: 3px;
+}
+
+.maka-daily-review-archive-section h5 {
+  margin: 0;
+  color: var(--foreground-55);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.maka-daily-review-archive-section p {
+  margin: 0;
+  color: var(--foreground-80);
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
 .maka-daily-review-day {
   text-align: center;
   font-weight: 600;
@@ -13637,6 +13821,10 @@ button:active {
 
 @media (max-width: 720px) {
   .maka-daily-review-range {
+    grid-template-columns: 1fr;
+  }
+
+  .maka-daily-review-archive-layout {
     grid-template-columns: 1fr;
   }
 }
@@ -13767,6 +13955,16 @@ button:active {
   display: grid;
   gap: 8px;
   padding: 8px 4px;
+}
+
+.maka-daily-review-summary-empty {
+  position: static;
+  left: auto;
+  top: auto;
+  width: 100%;
+  transform: none;
+  min-height: 120px;
+  align-content: center;
 }
 
 /* =============================================================================

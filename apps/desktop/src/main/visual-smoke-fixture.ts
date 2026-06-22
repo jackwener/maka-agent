@@ -2,6 +2,7 @@ import { mkdir, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import type {
   ArtifactRecord,
+  DailyReviewArchive,
   LlmConnection,
   PermissionRequestEvent,
   PlanReminder,
@@ -503,6 +504,9 @@ export async function seedVisualSmokeFixture(input: {
   if (input.fixture.scenario === 'plan-reminders') {
     await writePlanReminders(input.workspaceRoot, now);
   }
+  if (input.fixture.scenario === 'module-daily-review' || input.fixture.scenario === 'settings-daily-review') {
+    await writeDailyReviewArchives(input.workspaceRoot, now);
+  }
 }
 
 /**
@@ -644,6 +648,58 @@ async function writePlanReminders(workspaceRoot: string, now: number): Promise<v
     },
   ];
   await writeJson(join(workspaceRoot, 'plan-reminders.json'), reminders);
+}
+
+async function writeDailyReviewArchives(workspaceRoot: string, now: number): Promise<void> {
+  const dayFromMs = Date.UTC(2026, 4, 21, 0, 0, 0);
+  const dayToMs = Date.UTC(2026, 4, 22, 0, 0, 0);
+  const daily: DailyReviewArchive = {
+    id: '2026-05-21-daily',
+    day: { fromMs: dayFromMs, toMs: dayToMs },
+    mode: 'daily',
+    status: 'ok',
+    generatedAt: now - 10 * 60_000,
+    trigger: 'manual',
+    modelKey: 'zai-live::glm-4.5',
+    totals: {
+      sessionCount: 8,
+      requestCount: 34,
+      totalTokens: 128_640,
+      costUsd: 1.82,
+      errorCount: 1,
+    },
+    sections: {
+      summary: '今天主要围绕 Maka 桌面端的侧边栏、权限中心和每日回顾展开，重点是把入口、报告保存和设置项接到真实运行链路。',
+      gaps: '权限中心按钮已经接入系统设置跳转；每日回顾外部通知仍缺少报告自动推送运行时，需要保持不可用状态而不是展示假开关。',
+      usage: '模型请求集中在 UI 逆向与合约验证，工具调用以文件检索、构建和截图 smoke 为主。',
+      code: '建议继续收敛 Settings 与模块页的 shared page shell，减少同类 surface 在 styles.css 里的重复规则。',
+    },
+  };
+  const deep: DailyReviewArchive = {
+    ...daily,
+    id: '2026-05-21-deep',
+    mode: 'deep',
+    generatedAt: now - 5 * 60_000,
+    trigger: 'cron',
+    totals: {
+      ...daily.totals,
+      sessionCount: 12,
+      requestCount: 58,
+      totalTokens: 211_300,
+      costUsd: 3.94,
+      errorCount: 1,
+    },
+    sections: {
+      summary: '深度分析覆盖最近一轮 Maka UI 打磨：QoderWork 参考学习、权限中心重画、Daily Review 从聚合面板走向可保存报告。',
+      gaps: '第一性原理层面需要把“模块页 shell / Settings row / 状态 pill / 操作按钮”抽成真实组件，否则后续仍会在 CSS 中继续堆叠局部规则。',
+      usage: '高频动作是读取源码、运行 contract、构建 renderer、生成 visual-smoke 截图。失败成本主要来自多处页面壳层行为不统一。',
+      code: '下一步优先建立模块页 PageShell、SettingsActionRow 和 StatusPill primitives，再迁移 Daily Review、权限中心、计划任务和技能页。',
+    },
+  };
+  const archiveDir = join(workspaceRoot, 'daily-reviews', 'archive');
+  await mkdir(archiveDir, { recursive: true });
+  await writeJson(join(archiveDir, `${daily.id}.json`), daily);
+  await writeJson(join(archiveDir, `${deep.id}.json`), deep);
 }
 
 async function writeSettings(workspaceRoot: string): Promise<void> {

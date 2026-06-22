@@ -81,7 +81,7 @@ import {
   webSearchCredentialStatusFromResponse,
 } from '@maka/core';
 import { BOT_PROVIDERS, MAX_ALLOWED_USER_IDS, createDefaultSettings, parseAllowedUserIdsFromText } from '@maka/core/settings';
-import { PROVIDER_DEFAULTS } from '@maka/core/llm-connections';
+import { CODEX_SUBSCRIPTION_UNSUPPORTED_CHATGPT_MODELS, PROVIDER_DEFAULTS } from '@maka/core/llm-connections';
 import {
   Button,
   DialogContent,
@@ -1370,6 +1370,63 @@ const DAILY_REVIEW_SECTION_LABELS: ReadonlyArray<{
   { key: 'code', title: '代码建议', detail: '基于对话中的代码讨论，给出优化建议。' },
 ];
 
+const DAILY_REVIEW_DEFAULT_MODEL_VALUE = '__maka_daily_review_default_model__';
+
+function buildDailyReviewModelOptions(
+  connections: readonly LlmConnection[],
+  defaultConnectionSlug: string | null,
+  currentModelKey: string,
+): Array<readonly [string, string]> {
+  const defaultConnection = defaultConnectionSlug
+    ? connections.find((connection) => connection.slug === defaultConnectionSlug)
+    : null;
+  const options: Array<readonly [string, string]> = [
+    [
+      DAILY_REVIEW_DEFAULT_MODEL_VALUE,
+      defaultConnection
+        ? `使用对话默认模型（${defaultConnection.name} · ${defaultConnection.defaultModel || '默认模型'}）`
+        : '使用对话默认模型',
+    ],
+  ];
+  const seenKeys = new Set<string>();
+  for (const connection of connections) {
+    const defaults = PROVIDER_DEFAULTS[connection.providerType];
+    if (!connection.enabled || defaults.backendKind !== 'ai-sdk') continue;
+    if (
+      defaults.authKind === 'oauth_token' &&
+      connection.providerType !== 'claude-subscription' &&
+      connection.providerType !== 'codex-subscription'
+    ) {
+      continue;
+    }
+    const rawModels = connection.models?.length
+      ? connection.models.map((model) => model.id)
+      : connection.defaultModel
+        ? [connection.defaultModel]
+        : defaults.fallbackModels;
+    const safeModels = connection.providerType === 'codex-subscription'
+      ? rawModels.filter((model) => !CODEX_SUBSCRIPTION_UNSUPPORTED_CHATGPT_MODELS.has(model.trim()))
+      : rawModels;
+    for (const rawModel of safeModels) {
+      const model = rawModel.trim();
+      if (!model) continue;
+      const key = `${connection.slug}::${model}`;
+      if (seenKeys.has(key)) continue;
+      seenKeys.add(key);
+      options.push([key, `${connection.name} · ${model}`]);
+    }
+  }
+  const trimmedCurrent = currentModelKey.trim();
+  if (
+    trimmedCurrent &&
+    trimmedCurrent !== DAILY_REVIEW_DEFAULT_MODEL_VALUE &&
+    !options.some(([value]) => value === trimmedCurrent)
+  ) {
+    options.push([trimmedCurrent, `当前自定义模型：${trimmedCurrent}`]);
+  }
+  return options;
+}
+
 function DailyReviewSettingsPage(props: { onOpenDailyReview?: () => void }) {
   const toast = useToast();
   const dailyReviewIpc = window.maka.dailyReview;
@@ -1381,6 +1438,9 @@ function DailyReviewSettingsPage(props: { onOpenDailyReview?: () => void }) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [runningMode, setRunningMode] = useState<DailyReviewMode | null>(null);
+  const [modelConnections, setModelConnections] = useState<LlmConnection[]>([]);
+  const [defaultConnectionSlug, setDefaultConnectionSlug] = useState<string | null>(null);
+  const [modelLoadError, setModelLoadError] = useState<string | null>(null);
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -1418,6 +1478,33 @@ function DailyReviewSettingsPage(props: { onOpenDailyReview?: () => void }) {
     };
   }, [hasConfigIpc, dailyReviewIpc]);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function reloadModelConnections() {
+      try {
+        const [connections, defaultSlug] = await Promise.all([
+          window.maka.connections.list(),
+          window.maka.connections.getDefault(),
+        ]);
+        if (cancelled || !mountedRef.current) return;
+        setModelConnections(connections);
+        setDefaultConnectionSlug(defaultSlug);
+        setModelLoadError(null);
+      } catch (err) {
+        if (cancelled || !mountedRef.current) return;
+        setModelLoadError(settingsActionErrorMessage(err));
+      }
+    }
+    void reloadModelConnections();
+    const unsubscribe = window.maka.connections.subscribeEvents(() => {
+      void reloadModelConnections();
+    });
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, []);
+
   async function patchConfig(key: string, patch: Partial<DailyReviewConfig>) {
     if (!dailyReviewIpc.setConfig || !config) return;
     setSavingKey(key);
@@ -1446,6 +1533,13 @@ function DailyReviewSettingsPage(props: { onOpenDailyReview?: () => void }) {
 
   const effectiveConfig = config;
   const formDisabled = !hasConfigIpc || loading || Boolean(loadError) || !effectiveConfig;
+  const modelOptions = useMemo(
+    () => buildDailyReviewModelOptions(modelConnections, defaultConnectionSlug, effectiveConfig?.modelKey ?? ''),
+    [defaultConnectionSlug, effectiveConfig?.modelKey, modelConnections],
+  );
+  const selectedModelValue = effectiveConfig?.modelKey?.trim()
+    ? effectiveConfig.modelKey.trim()
+    : DAILY_REVIEW_DEFAULT_MODEL_VALUE;
 
   return (
     <section className="settingsFeatureStatusPage" aria-label="每日回顾">
@@ -1563,20 +1657,21 @@ function DailyReviewSettingsPage(props: { onOpenDailyReview?: () => void }) {
         <div className="settingsRow">
           <div>
             <strong>分析模型</strong>
-            <small>用于生成回顾和分析的模型连接。留空使用对话默认模型。</small>
+            <small>
+              用于生成回顾和分析的模型连接；默认跟随当前对话默认模型。
+              {modelLoadError ? ` 模型列表读取失败：${modelLoadError}` : ''}
+            </small>
           </div>
-          <Input
-            type="text"
-            aria-label="分析模型连接"
-            className="settingsTimeInput"
-            placeholder="留空 = 使用默认"
-            value={effectiveConfig?.modelKey ?? ''}
-            disabled={formDisabled || savingKey === 'modelKey'}
-            onChange={(event) => {
-              const value = event.target.value;
-              void patchConfig('modelKey', { modelKey: value });
+          <SettingsSelect
+            value={selectedModelValue}
+            ariaLabel="分析模型连接"
+            options={modelOptions}
+            disabled={formDisabled || savingKey === 'modelKey' || modelOptions.length === 0}
+            onChange={(value) => {
+              void patchConfig('modelKey', {
+                modelKey: value === DAILY_REVIEW_DEFAULT_MODEL_VALUE ? '' : value,
+              });
             }}
-            style={{ minWidth: 160 }}
           />
         </div>
 
@@ -1596,20 +1691,15 @@ function DailyReviewSettingsPage(props: { onOpenDailyReview?: () => void }) {
         <div className="settingsRow">
           <div>
             <strong>生成后发送外部通知</strong>
-            <small>通过已配置的机器人对话（飞书 / 企微等）推送回顾报告。</small>
+            <small>
+              当前运行时尚未接入报告自动推送。机器人通道可以在「机器人对话」里配置，但每日回顾不会假装已发送。
+            </small>
           </div>
           <Switch
             ariaLabel="生成后发送外部通知"
-            checked={effectiveConfig?.externalNotify.enabled ?? false}
-            disabled={formDisabled || savingKey === 'externalNotify'}
-            onChange={(enabled) =>
-              void patchConfig('externalNotify', {
-                externalNotify: {
-                  ...(effectiveConfig?.externalNotify ?? { enabled: false }),
-                  enabled,
-                },
-              })
-            }
+            checked={false}
+            disabled={true}
+            onChange={() => undefined}
           />
         </div>
       </div>

@@ -1230,6 +1230,27 @@ type DailyReviewMarkdownActionInput = {
   label: string;
   summary: DailyReviewSummary;
 };
+type DailyReviewArchiveSectionKey = keyof DailyReviewArchive['sections'];
+
+const DAILY_REVIEW_ARCHIVE_SECTION_LABEL: Record<DailyReviewArchiveSectionKey, string> = {
+  summary: '对话摘要',
+  gaps: '遗漏提醒',
+  usage: '使用洞察',
+  code: '代码建议',
+};
+
+const DAILY_REVIEW_ARCHIVE_STATUS_LABEL: Record<DailyReviewArchive['status'], string> = {
+  ok: '已生成',
+  no_model: '缺少模型',
+  no_data: '无数据',
+  failed: '生成失败',
+  skipped: '已跳过',
+};
+
+const DAILY_REVIEW_ARCHIVE_TRIGGER_LABEL: Record<DailyReviewArchive['trigger'], string> = {
+  cron: '定时',
+  manual: '手动',
+};
 
 function dailyReviewScopeKey(offsetDays: number, range: DailyReviewRange): string {
   return `${offsetDays}:${range}`;
@@ -1253,11 +1274,18 @@ function DailyReviewPanel(props: {
   const [loading, setLoading] = useState(true);
   const [reloadToken, setReloadToken] = useState(0);
   const [pendingDailyReviewAction, setPendingDailyReviewAction] = useState<string | null>(null);
+  const [archives, setArchives] = useState<DailyReviewArchiveSummary[]>([]);
+  const [selectedArchiveId, setSelectedArchiveId] = useState<string | null>(null);
+  const [selectedArchive, setSelectedArchive] = useState<DailyReviewArchive | null>(null);
+  const [archiveLoading, setArchiveLoading] = useState(false);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
+  const [archiveReloadToken, setArchiveReloadToken] = useState(0);
   const dailyReviewMountedRef = useRef(true);
   const summaryScopeKeyRef = useRef<string | null>(null);
   const pendingDailyReviewActionRef = useRef<string | null>(null);
   const currentSummaryScopeKey = dailyReviewScopeKey(offsetDays, range);
   const visibleSummary = summaryScopeKey === currentSummaryScopeKey ? summary : null;
+  const canLoadArchives = Boolean(props.bridge.listArchives && props.bridge.getArchive);
 
   useEffect(() => {
     dailyReviewMountedRef.current = true;
@@ -1295,6 +1323,61 @@ function DailyReviewPanel(props: {
       cancelled = true;
     };
   }, [offsetDays, range, reloadToken, props.bridge]);
+
+  useEffect(() => {
+    const listArchives = props.bridge.listArchives;
+    if (!listArchives) {
+      setArchives([]);
+      setSelectedArchiveId(null);
+      setSelectedArchive(null);
+      return;
+    }
+    let cancelled = false;
+    setArchiveError(null);
+    listArchives()
+      .then((next) => {
+        if (cancelled) return;
+        setArchives(next);
+        setSelectedArchiveId((current) => {
+          if (current && next.some((archive) => archive.id === current)) return current;
+          return next[0]?.id ?? null;
+        });
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setArchiveError(dailyReviewPanelErrorMessage(err));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [archiveReloadToken, props.bridge]);
+
+  useEffect(() => {
+    const getArchive = props.bridge.getArchive;
+    if (!getArchive || !selectedArchiveId) {
+      setSelectedArchive(null);
+      setArchiveLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setArchiveLoading(true);
+    setArchiveError(null);
+    getArchive(selectedArchiveId)
+      .then((next) => {
+        if (cancelled) return;
+        setSelectedArchive(next);
+        setArchiveLoading(false);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setSelectedArchive(null);
+        setArchiveError(dailyReviewPanelErrorMessage(err));
+        setArchiveLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [archiveReloadToken, selectedArchiveId, props.bridge]);
 
   const dayLabel = (() => {
     if (range === 1) {
@@ -1340,7 +1423,9 @@ function DailyReviewPanel(props: {
     if (!runOnce) return;
     await runDailyReviewAction(`run:${mode}`, async () => {
       try {
-        await runOnce({ mode });
+        const result = await runOnce({ mode });
+        setSelectedArchiveId(result.archiveId);
+        setArchiveReloadToken((n) => n + 1);
         setReloadToken((n) => n + 1);
       } catch (err) {
         setError(dailyReviewPanelErrorMessage(err));
@@ -1412,6 +1497,59 @@ function DailyReviewPanel(props: {
             {pendingDailyReviewAction === 'run:deep' ? '生成中…' : '生成深度分析'}
           </UiButton>
         </div>
+      )}
+      {canLoadArchives && (
+        <section className="maka-daily-review-archives" aria-label="已生成报告">
+          <div className="maka-daily-review-archives-header">
+            <h4 className="maka-daily-review-section-title">已生成报告</h4>
+            <span className="maka-daily-review-archive-count">{archives.length} 份</span>
+          </div>
+          {archiveError && (
+            <Alert variant="warning" className="maka-daily-review-alert">
+              <AlertDescription>回顾报告读取失败：{archiveError}</AlertDescription>
+              <AlertAction>
+                <UiButton
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="maka-daily-review-alert-retry"
+                  onClick={() => setArchiveReloadToken((n) => n + 1)}
+                  disabled={archiveLoading}
+                >
+                  重试
+                </UiButton>
+              </AlertAction>
+            </Alert>
+          )}
+          {archives.length === 0 && !archiveError ? (
+            <p className="maka-daily-review-archive-empty">
+              还没有生成报告。点击上方按钮后，报告会保存到本机并显示在这里。
+            </p>
+          ) : (
+            <div className="maka-daily-review-archive-layout">
+              <div className="maka-daily-review-archive-list" role="list" aria-label="回顾报告历史">
+                {archives.map((archive) => (
+                  <button
+                    key={archive.id}
+                    type="button"
+                    className="maka-daily-review-archive-row"
+                    data-active={selectedArchiveId === archive.id ? 'true' : undefined}
+                    onClick={() => setSelectedArchiveId(archive.id)}
+                    role="listitem"
+                  >
+                    <span className="maka-daily-review-archive-row-title">
+                      {formatDailyReviewArchiveTitle(archive)}
+                    </span>
+                    <span className="maka-daily-review-archive-row-meta">
+                      {DAILY_REVIEW_ARCHIVE_STATUS_LABEL[archive.status]} · {archive.totals.sessionCount} 对话 · {formatDailyReviewArchiveGeneratedAt(archive.generatedAt)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <DailyReviewArchiveBody archive={selectedArchive} loading={archiveLoading} />
+            </div>
+          )}
+        </section>
       )}
       <nav className="maka-daily-review-range" aria-label="时间范围切换">
         <div className="maka-daily-review-range-tabs">
@@ -1517,6 +1655,7 @@ function DailyReviewPanel(props: {
           title="读取失败"
           body={error}
           cta={{ label: '重试', onClick: () => setReloadToken((n) => n + 1) }}
+          extraClassName="maka-daily-review-summary-empty"
         />
       ) : !visibleSummary ? (
         <div className="maka-daily-review-loading" aria-busy="true">
@@ -1529,6 +1668,7 @@ function DailyReviewPanel(props: {
           Icon={CalendarDays}
           title={emptyActivityTitle}
           body={emptyActivityBody}
+          extraClassName="maka-daily-review-summary-empty"
         />
       ) : (
         <>
@@ -1596,6 +1736,80 @@ function DailyReviewPanel(props: {
 
 function dailyReviewPanelErrorMessage(error: unknown): string {
   return generalizedErrorMessageChinese(error, '每日回顾暂时不可用，请稍后重试。');
+}
+
+function DailyReviewArchiveBody(props: { archive: DailyReviewArchive | null; loading: boolean }) {
+  if (props.loading) {
+    return (
+      <div className="maka-daily-review-archive-body" aria-busy="true">
+        <div className="maka-skeleton maka-skeleton-line" style={{ width: '58%' }} />
+        <div className="maka-skeleton maka-skeleton-line" style={{ width: '92%' }} />
+        <div className="maka-skeleton maka-skeleton-line" style={{ width: '74%' }} />
+      </div>
+    );
+  }
+  if (!props.archive) {
+    return (
+      <div className="maka-daily-review-archive-body" data-empty="true">
+        选择一份报告查看生成内容。
+      </div>
+    );
+  }
+  const archive = props.archive;
+  const sections = (Object.keys(DAILY_REVIEW_ARCHIVE_SECTION_LABEL) as DailyReviewArchiveSectionKey[])
+    .map((key) => {
+      const content = archive.sections[key]?.trim();
+      return content ? { key, content } : null;
+    })
+    .filter((entry): entry is { key: DailyReviewArchiveSectionKey; content: string } => entry !== null);
+  return (
+    <article className="maka-daily-review-archive-body" aria-label={formatDailyReviewArchiveTitle(archive)}>
+      <header className="maka-daily-review-archive-body-header">
+        <div>
+          <h4>{formatDailyReviewArchiveTitle(archive)}</h4>
+          <p>
+            {DAILY_REVIEW_ARCHIVE_TRIGGER_LABEL[archive.trigger]}生成 · {formatDailyReviewArchiveGeneratedAt(archive.generatedAt)}
+            {archive.modelKey ? ` · ${archive.modelKey}` : ' · 默认对话模型'}
+          </p>
+        </div>
+        <span className="maka-daily-review-archive-status" data-status={archive.status}>
+          {DAILY_REVIEW_ARCHIVE_STATUS_LABEL[archive.status]}
+        </span>
+      </header>
+      {archive.errorMessage && (
+        <p className="maka-daily-review-archive-error">{archive.errorMessage}</p>
+      )}
+      {sections.length > 0 ? (
+        <div className="maka-daily-review-archive-sections">
+          {sections.map((section) => (
+            <section key={section.key} className="maka-daily-review-archive-section">
+              <h5>{DAILY_REVIEW_ARCHIVE_SECTION_LABEL[section.key]}</h5>
+              <p>{section.content}</p>
+            </section>
+          ))}
+        </div>
+      ) : (
+        <p className="maka-daily-review-archive-empty">
+          这份报告没有生成正文内容。
+        </p>
+      )}
+    </article>
+  );
+}
+
+function formatDailyReviewArchiveTitle(archive: DailyReviewArchive | DailyReviewArchiveSummary): string {
+  const d = new Date(archive.day.fromMs);
+  const date = d.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
+  return `${date} · ${archive.mode === 'deep' ? '深度分析' : '每日回顾'}`;
+}
+
+function formatDailyReviewArchiveGeneratedAt(generatedAt: number): string {
+  return new Date(generatedAt).toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 /**
@@ -4089,7 +4303,11 @@ export function ChatView(props: {
 
   if (props.mode === 'daily-review') {
     return (
-      <main className="maka-main detailPane maka-module-main agents-chat-panel" aria-label="每日回顾">
+      <main
+        className="maka-main detailPane maka-module-main agents-chat-panel"
+        data-module="daily-review"
+        aria-label="每日回顾"
+      >
         <header className="maka-module-main-header">
           <div>
             <h2>每日回顾</h2>
