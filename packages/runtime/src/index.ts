@@ -68,6 +68,8 @@ export { buildBuiltinTools } from './builtin-tools.js';
 export type { MakaTool as BuiltinMakaTool, MakaToolContext as BuiltinMakaToolContext } from './builtin-tools.js';
 export { computeEditedSource, COMPUTE_EDITED_SOURCE_FN_SOURCE } from './edit-replace.js';
 export type { EditMatch, EditMatchStrategy } from './edit-replace.js';
+export { truncateToolOutput } from './tool-output.js';
+export type { TruncateToolOutputOptions, TruncatedToolOutput } from './tool-output.js';
 export {
   AGENT_CONTEXT_ISOLATED,
   AGENT_INVOCATION_FOREGROUND,
