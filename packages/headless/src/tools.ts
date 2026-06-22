@@ -2,6 +2,7 @@ import type { MakaTool, ToolAvailabilityConfig } from '@maka/runtime';
 import {
   buildSubagentProjectionTools,
   buildSubagentSpawnTool,
+  COMPUTE_EDITED_SOURCE_FN_SOURCE,
 } from '@maka/runtime';
 import { posix as pathPosix } from 'node:path';
 import { z } from 'zod';
@@ -304,16 +305,14 @@ fs.writeFileSync(target, Buffer.from(contentBase64, 'base64'));
 `;
 
 const EDIT_SCRIPT = `${COMMON_NODE_HELPERS}
+const computeEditedSource = ${COMPUTE_EDITED_SOURCE_FN_SOURCE};
 const [inputPath, oldBase64, nextBase64] = process.argv.slice(1);
 const root = workspaceRoot();
 const target = existingTarget(root, inputPath, 'Edit path');
 const oldString = Buffer.from(oldBase64, 'base64').toString('utf8');
 const newString = Buffer.from(nextBase64, 'base64').toString('utf8');
 const current = fs.readFileSync(target, 'utf8');
-const count = current.split(oldString).length - 1;
-if (count === 0) throw new Error('old_string not found in ' + inputPath);
-if (count > 1) throw new Error('old_string is not unique in ' + inputPath + ' (' + count + ' matches)');
-fs.writeFileSync(target, current.replace(oldString, newString), 'utf8');
+fs.writeFileSync(target, computeEditedSource(current, oldString, newString, inputPath), 'utf8');
 `;
 
 const GLOB_SCRIPT = `${COMMON_NODE_HELPERS}
