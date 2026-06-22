@@ -26,6 +26,7 @@ import {
 } from './tool-artifacts.js';
 import { createToolOutputDeltaEmitter } from './tool-output-delta.js';
 import { truncateToolOutput } from './tool-output.js';
+import { stableHash } from './request-shape.js';
 import type { RunTraceLike } from './run-trace.js';
 
 export interface MakaTool<P = any, R = unknown> {
@@ -84,6 +85,16 @@ export const TOOL_ERROR_RESULT_MAX_CHARS = 4000;
 export const MAX_ACTIVE_SUBAGENT_TOOLS_PER_TURN = 5;
 export const DEFAULT_PERMISSION_TIMEOUT_MS = 300_000;
 
+/**
+ * Loop-gate: block a tool call once this many byte-identical calls (same tool +
+ * same args) have happened back-to-back with nothing different in between.
+ * Mirrors opencode's doom-loop threshold. Any different tool or different args
+ * breaks the streak, so iterate-then-retry (edit a file, re-run the same test)
+ * never trips it — only a true no-progress loop does.
+ */
+export const LOOP_GATE_IDENTICAL_THRESHOLD = 3;
+const LOOP_GATE_HISTORY_MAX = 8;
+
 const SUBAGENT_TOOL_LIMIT_MESSAGE = '只读探索并发过多：同一轮最多 5 个子代理。请等待已有探索完成后再继续。';
 
 export interface ToolRuntimeInput {
@@ -119,6 +130,11 @@ export class ToolRuntime {
    * off / no hidden groups) — the guard is then fully inert.
    */
   private gating?: ToolGating;
+  /**
+   * Recent tool-call signatures this turn (tool name + canonical args), newest
+   * last, capped. Drives the loop-gate; reset each turn.
+   */
+  private recentToolCallSignatures: string[] = [];
 
   constructor(private readonly input: ToolRuntimeInput) {}
 
@@ -146,6 +162,7 @@ export class ToolRuntime {
   resetTurnState(): void {
     this.activeSubagentToolCount = 0;
     this.gating = undefined;
+    this.recentToolCallSignatures = [];
   }
 
   async writeSyntheticToolResult(
@@ -218,6 +235,18 @@ export class ToolRuntime {
       ...(tool.categoryHint !== undefined ? { categoryHint: tool.categoryHint } : {}),
     });
 
+    // Loop-gate bookkeeping: record every attempt's signature (tool + canonical
+    // args) up front — before the guards below that can early-return — so that
+    // any different tool or args, even a guard-rejected one, breaks an
+    // identical-call streak. The block decision happens after the guards, so a
+    // not-yet-loaded or gated tool gets its own (more actionable) message first.
+    const callSignature = `${tool.name} ${loopGateArgsKey(args, toolUseId)}`;
+    const trailingIdentical = countTrailingEqual(this.recentToolCallSignatures, callSignature);
+    this.recentToolCallSignatures.push(callSignature);
+    if (this.recentToolCallSignatures.length > LOOP_GATE_HISTORY_MAX) {
+      this.recentToolCallSignatures.shift();
+    }
+
     // Tool-availability execute-boundary guard (Codex Δ5). Uses the step-start
     // snapshot, NOT a cumulative loaded-set: if one step emits `load_tools(g)`
     // and a tool from group `g` in parallel, that tool is not yet active (it
@@ -233,6 +262,23 @@ export class ToolRuntime {
         toolName: tool.name,
         status: 'error',
         errorClass: 'DeferredNotLoaded',
+      });
+      return this.errorReturn(reason);
+    }
+
+    // Loop-gate: block a back-to-back run of byte-identical calls (same tool +
+    // args) — re-running it cannot change the result. A different tool or args
+    // (recorded above, even for a guard-rejected call) breaks the streak, so
+    // iterate-then-retry (edit a file, then re-run the same test) is never gated.
+    // Recoverable: the model is told to change its approach.
+    if (trailingIdentical >= LOOP_GATE_IDENTICAL_THRESHOLD - 1) {
+      const reason = formatLoopGateText(tool.name);
+      await this.writeSyntheticToolResult(toolUseId, turnId, reason, queue);
+      trace?.emit('tool', 'tool_failed', 'Loop-gate blocked a repeated identical call', {
+        toolUseId,
+        toolName: tool.name,
+        status: 'error',
+        errorClass: 'LoopGate',
       });
       return this.errorReturn(reason);
     }
@@ -604,6 +650,42 @@ export function formatDeferredNotLoadedText(toolName: string): string {
   return (
     `Tool "${toolName}" is available but not loaded yet. ` +
     `Call load_tools to load its group first, then call "${toolName}" on a later step.`
+  );
+}
+
+/**
+ * Canonical key for a tool call's args; order-independent so identical calls
+ * match. Hashed, not the raw args, so large Write/Edit payloads are not retained
+ * (the signature history keeps the last few of these per turn). Args that cannot
+ * be canonicalized (cyclic / throwing getters — impossible for JSON tool args,
+ * but be safe) fall back to the unique call id, so distinct calls never collapse
+ * into one signature and trip a false block, and no raw args are retained.
+ */
+function loopGateArgsKey(args: unknown, callId: string): string {
+  try {
+    return stableHash(args ?? null);
+  } catch {
+    return `unhashable:${callId}`;
+  }
+}
+
+/** How many of the most recent history entries equal `value` (counting from the end). */
+function countTrailingEqual(history: readonly string[], value: string): number {
+  let count = 0;
+  for (let i = history.length - 1; i >= 0 && history[i] === value; i--) count++;
+  return count;
+}
+
+/**
+ * Recoverable message returned when the loop-gate blocks a repeated identical
+ * call. Tells the model the retry is pointless and to change its approach.
+ */
+export function formatLoopGateText(toolName: string): string {
+  return (
+    `Blocked: this exact ${toolName} call (identical arguments) is being repeated ` +
+    `with no change between attempts, so it was not run again — the result would be ` +
+    `the same. Change the arguments or take a different step (for example Read the ` +
+    `file or inspect the relevant state) before retrying.`
   );
 }
 
