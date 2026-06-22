@@ -78,7 +78,7 @@ describe('renderer startup fail-soft contract', () => {
     assert.doesNotMatch(refreshConnections, /toastApi\.error\('刷新模型连接失败', cleanErrorMessage\(error\)\)/);
     assert.match(
       refreshPlanReminders,
-      /try \{[\s\S]*window\.maka\.plans\.list\(\)[\s\S]*setPlanReminders\(next\)[\s\S]*\} catch \(error\) \{[\s\S]*if \(options\.shouldShowError\?\.\(\) \?\? true\) \{[\s\S]*toastApi\.error\('刷新计划失败', planActionErrorMessage\(error, '刷新计划提醒失败，请稍后重试。'\)\);[\s\S]*\}/,
+      /try \{[\s\S]*window\.maka\.plans\.list\(\)[\s\S]*setPlanReminders\(next\)[\s\S]*\} catch \(error\) \{[\s\S]*if \(options\.shouldShowError\?\.\(\) \?\? true\) \{[\s\S]*toastApi\.error\('刷新计划失败', generalizedErrorMessageChinese\(error, '刷新计划提醒失败，请稍后重试。'\)\);[\s\S]*\}/,
       'plan reminder refresh failures must be visible and must preserve the existing list',
     );
     assert.doesNotMatch(

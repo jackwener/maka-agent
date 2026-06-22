@@ -602,6 +602,7 @@ function AppShell() {
   async function runSessionRowAction(
     sessionId: string,
     actionId: 'flag' | 'archive' | 'rename' | 'delete',
+    errorTitle: string,
     action: () => Promise<void>,
   ): Promise<void> {
     const sessionPrefix = `${sessionId}:`;
@@ -610,6 +611,8 @@ function AppShell() {
     pendingSessionRowActionsRef.current.add(key);
     try {
       await action();
+    } catch (error) {
+      toastApi.error(errorTitle, sessionRowActionErrorMessage(error));
     } finally {
       pendingSessionRowActionsRef.current.delete(key);
     }
@@ -1470,48 +1473,32 @@ function AppShell() {
   // corresponding IPC and then refreshes the session list so the sidebar
   // reflects the new state immediately.
   async function flagSession(sessionId: string, flagged: boolean) {
-    await runSessionRowAction(sessionId, 'flag', async () => {
-      try {
-        await window.maka.sessions.setFlagged(sessionId, flagged);
-        await refreshSessions();
-      } catch (error) {
-        toastApi.error(flagged ? '标记会话失败' : '取消标记失败', sessionRowActionErrorMessage(error));
-      }
+    await runSessionRowAction(sessionId, 'flag', flagged ? '标记会话失败' : '取消标记失败', async () => {
+      await window.maka.sessions.setFlagged(sessionId, flagged);
+      await refreshSessions();
     });
   }
   async function archiveSession(sessionId: string) {
-    await runSessionRowAction(sessionId, 'archive', async () => {
-      try {
-        await window.maka.sessions.archive(sessionId);
-        if (activeIdRef.current === sessionId) {
-          setActiveId(undefined);
-          setMessages([]);
-          clearSessionRendererState(sessionId);
-        }
-        await refreshSessions();
-      } catch (error) {
-        toastApi.error('归档会话失败', sessionRowActionErrorMessage(error));
+    await runSessionRowAction(sessionId, 'archive', '归档会话失败', async () => {
+      await window.maka.sessions.archive(sessionId);
+      if (activeIdRef.current === sessionId) {
+        setActiveId(undefined);
+        setMessages([]);
+        clearSessionRendererState(sessionId);
       }
+      await refreshSessions();
     });
   }
   async function unarchiveSession(sessionId: string) {
-    await runSessionRowAction(sessionId, 'archive', async () => {
-      try {
-        await window.maka.sessions.unarchive(sessionId);
-        await refreshSessions();
-      } catch (error) {
-        toastApi.error('恢复会话失败', sessionRowActionErrorMessage(error));
-      }
+    await runSessionRowAction(sessionId, 'archive', '恢复会话失败', async () => {
+      await window.maka.sessions.unarchive(sessionId);
+      await refreshSessions();
     });
   }
   async function renameSession(sessionId: string, name: string) {
-    await runSessionRowAction(sessionId, 'rename', async () => {
-      try {
-        await window.maka.sessions.rename(sessionId, name);
-        await refreshSessions();
-      } catch (error) {
-        toastApi.error('重命名会话失败', sessionRowActionErrorMessage(error));
-      }
+    await runSessionRowAction(sessionId, 'rename', '重命名会话失败', async () => {
+      await window.maka.sessions.rename(sessionId, name);
+      await refreshSessions();
     });
   }
   async function setPermissionMode(mode: PermissionMode) {
@@ -1585,7 +1572,7 @@ function AppShell() {
   }
 
   async function deleteSession(sessionId: string) {
-    await runSessionRowAction(sessionId, 'delete', async () => {
+    await runSessionRowAction(sessionId, 'delete', '删除会话失败', async () => {
       const session = sessionsRef.current.find((entry) => entry.id === sessionId);
       const name = session?.name ?? '当前会话';
       const ok = await toastApi.confirm({
@@ -1596,18 +1583,14 @@ function AppShell() {
         destructive: true,
       });
       if (!ok) return;
-      try {
-        await window.maka.sessions.remove(sessionId);
-        if (activeIdRef.current === sessionId) {
-          setActiveId(undefined);
-          setMessages([]);
-        }
-        clearSessionRendererState(sessionId);
-        await refreshSessions();
-        toastApi.success(`已删除 ${name}`);
-      } catch (error) {
-        toastApi.error('删除会话失败', sessionRowActionErrorMessage(error));
+      await window.maka.sessions.remove(sessionId);
+      if (activeIdRef.current === sessionId) {
+        setActiveId(undefined);
+        setMessages([]);
       }
+      clearSessionRendererState(sessionId);
+      await refreshSessions();
+      toastApi.success(`已删除 ${name}`);
     });
   }
 
@@ -1655,75 +1638,82 @@ function AppShell() {
       setPlanReminders(next);
     } catch (error) {
       if (options.shouldShowError?.() ?? true) {
-        toastApi.error('刷新计划失败', planActionErrorMessage(error, '刷新计划提醒失败，请稍后重试。'));
+        toastApi.error('刷新计划失败', generalizedErrorMessageChinese(error, '刷新计划提醒失败，请稍后重试。'));
       }
+    }
+  }
+
+  async function runPlanReminderMutation(options: {
+    run: () => Promise<unknown>;
+    successTitle?: string;
+    successDetail?: string;
+    errorTitle: string;
+    errorFallback: string;
+  }): Promise<boolean> {
+    try {
+      await options.run();
+      await refreshPlanReminders({ shouldShowError: isAutomationsSurfaceActive });
+      if (options.successTitle && isAutomationsSurfaceActive()) {
+        toastApi.success(options.successTitle, options.successDetail);
+      }
+      return true;
+    } catch (error) {
+      if (isAutomationsSurfaceActive()) {
+        toastApi.error(options.errorTitle, generalizedErrorMessageChinese(error, options.errorFallback));
+      }
+      return false;
     }
   }
 
   async function createPlanReminder(input: { title: string; note?: string; runAt: number; recurrence?: PlanReminderRecurrence; cronExpression?: string; delivery?: PlanReminderDeliveryTarget }) {
-    try {
-      await window.maka.plans.create(input);
-      await refreshPlanReminders({ shouldShowError: isAutomationsSurfaceActive });
-      if (isAutomationsSurfaceActive()) toastApi.success('已创建计划提醒', input.title);
-      return true;
-    } catch (error) {
-      if (isAutomationsSurfaceActive()) {
-        toastApi.error('创建计划失败', planActionErrorMessage(error, '创建计划提醒失败，请稍后重试。'));
-      }
-      return false;
-    }
+    return runPlanReminderMutation({
+      run: () => window.maka.plans.create(input),
+      successTitle: '已创建计划提醒',
+      successDetail: input.title,
+      errorTitle: '创建计划失败',
+      errorFallback: '创建计划提醒失败，请稍后重试。',
+    });
   }
 
   async function updatePlanReminder(id: string, patch: { title?: string; note?: string; runAt?: number; recurrence?: PlanReminderRecurrence; cronExpression?: string; delivery?: PlanReminderDeliveryTarget; enabled?: boolean }) {
-    try {
-      await window.maka.plans.update(id, patch);
-      await refreshPlanReminders({ shouldShowError: isAutomationsSurfaceActive });
-      if (isAutomationsSurfaceActive()) toastApi.success('已保存计划提醒', patch.title);
-      return true;
-    } catch (error) {
-      if (isAutomationsSurfaceActive()) {
-        toastApi.error('保存计划失败', planActionErrorMessage(error, '保存计划提醒失败，请稍后重试。'));
-      }
-      return false;
-    }
+    return runPlanReminderMutation({
+      run: () => window.maka.plans.update(id, patch),
+      successTitle: '已保存计划提醒',
+      successDetail: patch.title,
+      errorTitle: '保存计划失败',
+      errorFallback: '保存计划提醒失败，请稍后重试。',
+    });
   }
 
   async function togglePlanReminder(id: string, enabled: boolean) {
-    try {
-      await window.maka.plans.setEnabled(id, enabled);
-      await refreshPlanReminders({ shouldShowError: isAutomationsSurfaceActive });
-      if (isAutomationsSurfaceActive()) toastApi.success(enabled ? '已启用提醒' : '已暂停提醒');
-    } catch (error) {
-      if (isAutomationsSurfaceActive()) {
-        toastApi.error('更新计划失败', planActionErrorMessage(error, '更新计划提醒失败，请稍后重试。'));
-      }
-    }
+    await runPlanReminderMutation({
+      run: () => window.maka.plans.setEnabled(id, enabled),
+      successTitle: enabled ? '已启用提醒' : '已暂停提醒',
+      errorTitle: '更新计划失败',
+      errorFallback: '更新计划提醒失败，请稍后重试。',
+    });
   }
 
   async function triggerPlanReminderNow(id: string) {
     const reminder = planReminders.find((entry) => entry.id === id);
-    try {
-      await window.maka.plans.triggerNow(id);
-      await refreshPlanReminders({ shouldShowError: isAutomationsSurfaceActive });
-      if (isAutomationsSurfaceActive()) toastApi.success('已触发计划提醒', reminder?.title);
-    } catch (error) {
-      if (isAutomationsSurfaceActive()) {
-        toastApi.error('触发计划失败', planActionErrorMessage(error, '触发计划提醒失败，请稍后重试。'));
-      }
-    }
+    await runPlanReminderMutation({
+      run: () => window.maka.plans.triggerNow(id),
+      successTitle: '已触发计划提醒',
+      successDetail: reminder?.title,
+      errorTitle: '触发计划失败',
+      errorFallback: '触发计划提醒失败，请稍后重试。',
+    });
   }
 
   async function snoozePlanReminder(id: string) {
     const reminder = planReminders.find((entry) => entry.id === id);
-    try {
-      await window.maka.plans.snooze(id);
-      await refreshPlanReminders({ shouldShowError: isAutomationsSurfaceActive });
-      if (isAutomationsSurfaceActive()) toastApi.success('已延后 10 分钟', reminder?.title);
-    } catch (error) {
-      if (isAutomationsSurfaceActive()) {
-        toastApi.error('延后计划失败', planActionErrorMessage(error, '延后计划提醒失败，请稍后重试。'));
-      }
-    }
+    await runPlanReminderMutation({
+      run: () => window.maka.plans.snooze(id),
+      successTitle: '已延后 10 分钟',
+      successDetail: reminder?.title,
+      errorTitle: '延后计划失败',
+      errorFallback: '延后计划提醒失败，请稍后重试。',
+    });
   }
 
   async function clearPlanReminderRunHistory(id: string) {
@@ -1736,15 +1726,13 @@ function AppShell() {
       destructive: true,
     });
     if (!ok) return;
-    try {
-      await window.maka.plans.clearRunHistory(id);
-      await refreshPlanReminders({ shouldShowError: isAutomationsSurfaceActive });
-      if (isAutomationsSurfaceActive()) toastApi.success('已清空执行记录', reminder?.title);
-    } catch (error) {
-      if (isAutomationsSurfaceActive()) {
-        toastApi.error('清空记录失败', planActionErrorMessage(error, '清空定时任务记录失败，请稍后重试。'));
-      }
-    }
+    await runPlanReminderMutation({
+      run: () => window.maka.plans.clearRunHistory(id),
+      successTitle: '已清空执行记录',
+      successDetail: reminder?.title,
+      errorTitle: '清空记录失败',
+      errorFallback: '清空定时任务记录失败，请稍后重试。',
+    });
   }
 
   async function deletePlanReminder(id: string) {
@@ -1757,15 +1745,12 @@ function AppShell() {
       destructive: true,
     });
     if (!ok) return;
-    try {
-      await window.maka.plans.delete(id);
-      await refreshPlanReminders({ shouldShowError: isAutomationsSurfaceActive });
-      if (isAutomationsSurfaceActive()) toastApi.success('已删除计划提醒');
-    } catch (error) {
-      if (isAutomationsSurfaceActive()) {
-        toastApi.error('删除计划失败', planActionErrorMessage(error, '删除计划提醒失败，请稍后重试。'));
-      }
-    }
+    await runPlanReminderMutation({
+      run: () => window.maka.plans.delete(id),
+      successTitle: '已删除计划提醒',
+      errorTitle: '删除计划失败',
+      errorFallback: '删除计划提醒失败，请稍后重试。',
+    });
   }
 
   async function createSession() {
@@ -3648,10 +3633,6 @@ function firstRunSuggestionActionErrorMessage(error: unknown, fallback: string):
 }
 
 function skillsActionErrorMessage(error: unknown, fallback: string): string {
-  return generalizedErrorMessageChinese(error, fallback);
-}
-
-function planActionErrorMessage(error: unknown, fallback: string): string {
   return generalizedErrorMessageChinese(error, fallback);
 }
 
