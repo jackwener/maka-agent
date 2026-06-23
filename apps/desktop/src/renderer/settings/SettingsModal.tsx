@@ -2518,8 +2518,14 @@ function PersonalizationSettingsPage(props: {
 
   return (
     <div className="settingsStructuredPage">
-      <label className="settingsField">
+      {/* PR-S2 (2026-06-23): single-control rows use the
+          reference-style horizontal layout — label + description on
+          the left, control aligned right, 1 px hairline between
+          rows. Vertical layout is reserved for full-width controls
+          like the Textarea below. */}
+      <label className="settingsField" data-orient="horizontal">
         <span>显示名称</span>
+        <small>Maka 在聊天里会以这个名字称呼你。留空就用默认的「你」。</small>
         <Input
           type="text"
           value={displayName}
@@ -2531,7 +2537,6 @@ function PersonalizationSettingsPage(props: {
           disabled={saving}
           aria-label="显示名称"
         />
-        <small>Maka 在聊天里会以这个名字称呼你。留空就用默认的「你」。</small>
       </label>
 
       {/*
@@ -2540,8 +2545,9 @@ function PersonalizationSettingsPage(props: {
         choice wins over navigator.language; visual-smoke override
         wins over both (deterministic baselines).
       */}
-      <div className="settingsField">
+      <div className="settingsField" data-orient="horizontal">
         <span>界面语言</span>
+        <small>选择 Maka 界面的显示语言。保存后立即生效，重启后保持。</small>
         <Segmented
           value={uiLocale}
           options={[
@@ -2553,7 +2559,6 @@ function PersonalizationSettingsPage(props: {
           ariaLabel="界面语言"
           disabled={saving}
         />
-        <small>选择 Maka 界面的显示语言。保存后立即生效，重启后保持。</small>
       </div>
 
       <label className="settingsField">

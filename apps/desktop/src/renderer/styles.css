@@ -7271,6 +7271,53 @@ button:active {
   gap: 4px;
 }
 
+/* PR-S2 (2026-06-23): reference-style horizontal Settings row — label
+   stack on the left (title + description), control aligned right. Use
+   `<div className="settingsField" data-orient="horizontal">` on rows
+   whose control is a single inline element (Input, Switch, Segmented,
+   Select). Leave the default vertical stack for full-width controls
+   (Textarea, multi-line forms). The 1px hairline divider between rows
+   pulls the look closer to reference's flat divider list and away from
+   the previous "each row in its own implicit card" feel. */
+.settingsField[data-orient="horizontal"] {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "label control"
+    "hint  control";
+  column-gap: 16px;
+  row-gap: 2px;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.settingsField[data-orient="horizontal"] > span {
+  grid-area: label;
+  align-self: end;
+}
+.settingsField[data-orient="horizontal"] > small {
+  grid-area: hint;
+  margin-top: 0;
+  align-self: start;
+}
+.settingsField[data-orient="horizontal"] > :not(span):not(small) {
+  grid-area: control;
+  justify-self: end;
+  align-self: center;
+  min-width: 0;
+}
+/* Allow inputs to take a comfortable cap width on horizontal rows so
+   the description column has space to breathe. */
+.settingsField[data-orient="horizontal"] > input,
+.settingsField[data-orient="horizontal"] > .settingsBaseSelectTrigger {
+  max-width: 280px;
+}
+/* The horizontal row above the first one shouldn't carry a top border;
+   below the last one the section footer takes over. The default
+   border-bottom is fine for the inter-row hairlines. */
+.settingsField[data-orient="horizontal"] + .settingsField[data-orient="horizontal"] {
+  border-top: 0;
+}
+
 .settingsField input,
 .settingsField textarea,
 .settingsFormGrid input,
