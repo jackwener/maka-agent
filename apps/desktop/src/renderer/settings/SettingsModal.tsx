@@ -52,7 +52,6 @@ import type {
   SettingsSection,
   ThemePalette,
   ThemePreference,
-  UiDensity,
   UpdateAppSettingsResult,
   UsageRange,
   UsageStats,
@@ -753,8 +752,6 @@ export function SettingsModal(props: {
   onClose(): void;
   themePref: ThemePreference;
   onThemeChange(pref: ThemePreference): void;
-  density: UiDensity;
-  onDensityChange(density: UiDensity): void;
   /**
    * PR-THEME-APPLY-AND-DONE-POLISH-0 (WAWQAQ msg `dec85e5b`): current
    * palette + live setter. Click handler calls `onThemePaletteChange(next)`
@@ -809,8 +806,6 @@ export function SettingsModal(props: {
         onClose={props.onClose}
         themePref={props.themePref}
         onThemeChange={props.onThemeChange}
-        density={props.density}
-        onDensityChange={props.onDensityChange}
         themePalette={props.themePalette}
         onThemePaletteChange={props.onThemePaletteChange}
         onUserLabelChange={props.onUserLabelChange}
@@ -830,8 +825,6 @@ function SettingsSurface(props: {
   onClose(): void;
   themePref: ThemePreference;
   onThemeChange(pref: ThemePreference): void;
-  density: UiDensity;
-  onDensityChange(density: UiDensity): void;
   themePalette: ThemePalette;
   onThemePaletteChange(palette: ThemePalette): void;
   onUserLabelChange?(label: string): void;
@@ -1017,14 +1010,12 @@ function SettingsSurface(props: {
               connections={props.connections}
               defaultSlug={props.defaultSlug}
               themePref={props.themePref}
-              density={props.density}
               themePalette={props.themePalette}
               onRefreshConnections={props.onRefresh}
               onUpdateSettings={updateSettings}
               onReloadSettings={reloadSettings}
               onReloadUsage={reloadUsage}
               onThemeChange={props.onThemeChange}
-              onDensityChange={props.onDensityChange}
               onThemePaletteChange={props.onThemePaletteChange}
               onOpenDailyReview={props.onOpenDailyReview}
               onOpenSession={props.onOpenSession}
@@ -1043,14 +1034,12 @@ function SettingsPage(props: {
   connections: LlmConnection[];
   defaultSlug: string | null;
   themePref: ThemePreference;
-  density: UiDensity;
   themePalette: ThemePalette;
   onRefreshConnections(): Promise<void>;
   onUpdateSettings(patch: Parameters<typeof window.maka.settings.update>[0]): Promise<UpdateAppSettingsResult>;
   onReloadSettings(): Promise<void>;
   onReloadUsage(range?: UsageRange): Promise<void>;
   onThemeChange(pref: ThemePreference): void;
-  onDensityChange(density: UiDensity): void;
   onThemePaletteChange(palette: ThemePalette): void;
   onOpenDailyReview?(): void;
   onOpenSession?(sessionId: string): void;
@@ -1129,12 +1118,10 @@ function SettingsPage(props: {
           <h2 className="settingsSectionHeading">主题</h2>
           <ThemeSettingsPage
             themePref={props.themePref}
-            density={props.density}
             themePalette={props.themePalette}
             settings={props.settings}
             onUpdate={props.onUpdateSettings}
             onThemeChange={props.onThemeChange}
-            onDensityChange={props.onDensityChange}
             onThemePaletteChange={props.onThemePaletteChange}
           />
         </div>
@@ -2634,12 +2621,6 @@ function collectPersonalizationWarningCopy(warnings: PersonalizationSettingsWarn
   return warnings.map((warning) => copy[warning]).join('\n');
 }
 
-const DENSITY_OPTIONS: Array<{ value: UiDensity; label: string; help: string }> = [
-  { value: 'compact', label: '紧凑', help: '减小行间距与控件高度，更接近专业编辑器风格。' },
-  { value: 'comfortable', label: '舒适', help: '默认。平衡阅读和密度。' },
-  { value: 'spacious', label: '宽松', help: '更大留白，适合长会话沉浸阅读。' },
-];
-
 /**
  * Mini chat-surface mockup rendered inside each theme radio tile. Replaces
  * the generic gradient swatch with a representative preview so the user
@@ -2726,12 +2707,10 @@ const PALETTE_GROUPS: ReadonlyArray<{ id: string; label: string; palettes: Reado
 
 function ThemeSettingsPage(props: {
   themePref: ThemePreference;
-  density: UiDensity;
   themePalette: ThemePalette;
   settings: AppSettings;
   onUpdate(patch: Parameters<typeof window.maka.settings.update>[0]): Promise<UpdateAppSettingsResult>;
   onThemeChange(pref: ThemePreference): void;
-  onDensityChange(density: UiDensity): void;
   onThemePaletteChange(palette: ThemePalette): void;
 }) {
   const toast = useToast();
@@ -2765,15 +2744,10 @@ function ThemeSettingsPage(props: {
     await persistAppearance({ theme: next });
   }
 
-  async function setDensity(next: UiDensity) {
-    props.onDensityChange(next);
-    await persistAppearance({ density: next });
-  }
-
   // PR-THEME-PRODUCT-PALETTES-0 (WAWQAQ msg `4472ee95`) + PR-THEME-APPLY-
   // AND-DONE-POLISH-0 (WAWQAQ msg `dec85e5b`): apply the palette
   // synchronously on click for instant feedback, then persist. Same
-  // pattern as setTheme/setDensity above. The original comment claimed
+  // pattern as setTheme above. The original comment claimed
   // the IPC round-trip would re-apply on its own, but main.tsx had no
   // listener for palette changes — only ran applyThemePalette once at
   // mount — so switches were invisible until the next app start.
@@ -2869,42 +2843,6 @@ function ThemeSettingsPage(props: {
           </div>
         </div>
       ))}
-
-      <h3 className="settingsSubheading">界面密度</h3>
-      <div
-        className="settingsThemeOptions settingsDensityOptions"
-        role="radiogroup"
-        aria-label="界面密度"
-        onKeyDown={(event) => onSettingsRadioGroupKeyDown(
-          event,
-          DENSITY_OPTIONS.map((option) => option.value),
-          props.density,
-          (next) => void setDensity(next),
-        )}
-      >
-        {DENSITY_OPTIONS.map((option) => (
-          // Native <button>: same reason as the theme/palette pickers above.
-          <button
-            key={option.value}
-            type="button"
-            role="radio"
-            aria-checked={props.density === option.value}
-            data-active={props.density === option.value}
-            data-radio-value={option.value}
-            tabIndex={radioTabIndex(option.value, props.density, DENSITY_OPTIONS.map((item) => item.value))}
-            className="settingsThemeOption"
-            onClick={() => void setDensity(option.value)}
-          >
-            <span className={`settingsDensitySwatch settingsDensitySwatch-${option.value}`} aria-hidden="true">
-              <span /><span /><span />
-            </span>
-            <span className="settingsThemeLabel">
-              <strong>{option.label}</strong>
-              <small>{option.help}</small>
-            </span>
-          </button>
-        ))}
-      </div>
 
       <p className="settingsHelpText">
         切换会立即生效，并保存在本地外观设置里下次启动延续。通知统一显示在屏幕右下角。

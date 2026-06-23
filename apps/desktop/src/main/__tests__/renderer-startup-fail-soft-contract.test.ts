@@ -41,14 +41,14 @@ describe('renderer startup fail-soft contract', () => {
     assert.match(mountEffect, /void refreshShellSettings\(\)/);
     assert.match(
       refreshShellSettings,
-      /try \{[\s\S]*window\.maka\.settings\.get\(\)[\s\S]*applyUiLocale\(uiLocale\)[\s\S]*applyTheme\(pref\)[\s\S]*applyDensity\(den\)[\s\S]*applyThemePalette\(palette\)[\s\S]*\} catch \(error\) \{[\s\S]*toastApi\.error\('载入外观设置失败', generalizedErrorMessageChinese\(error, '外观设置暂时无法载入，请稍后重试。'\)\)/,
+      /try \{[\s\S]*window\.maka\.settings\.get\(\)[\s\S]*applyUiLocale\(uiLocale\)[\s\S]*applyTheme\(pref\)[\s\S]*applyThemePalette\(palette\)[\s\S]*\} catch \(error\) \{[\s\S]*toastApi\.error\('载入外观设置失败', generalizedErrorMessageChinese\(error, '外观设置暂时无法载入，请稍后重试。'\)\)/,
       'startup shell settings load failures must surface visibly without exposing raw storage/system details',
     );
     assert.doesNotMatch(refreshShellSettings, /toastApi\.error\('载入外观设置失败', cleanErrorMessage\(error\)\)/);
     assert.doesNotMatch(
       refreshShellSettings,
-      /catch \(error\) \{[\s\S]*applyUiLocale\('auto'\)|catch \(error\) \{[\s\S]*applyTheme\('auto'\)|catch \(error\) \{[\s\S]*applyDensity\('comfortable'\)|catch \(error\) \{[\s\S]*applyThemePalette\('default'\)/,
-      'startup shell settings failures must not force default language/theme/density/palette over unknown persisted settings',
+      /catch \(error\) \{[\s\S]*applyUiLocale\('auto'\)|catch \(error\) \{[\s\S]*applyTheme\('auto'\)|catch \(error\) \{[\s\S]*applyThemePalette\('default'\)/,
+      'startup shell settings failures must not force default language/theme/palette over unknown persisted settings',
     );
     assert.match(
       refreshConnections,

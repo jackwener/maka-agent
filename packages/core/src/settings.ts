@@ -140,7 +140,6 @@ export interface UsageSettings {
 }
 
 export type ThemePreference = 'light' | 'dark' | 'auto';
-export type UiDensity = 'compact' | 'comfortable' | 'spacious';
 
 /**
  * PR-UI-2 (@yuejing 2026-05-22): base46 palette catalog. Each value
@@ -177,7 +176,6 @@ export function isThemePalette(value: unknown): value is ThemePalette {
 
 export interface AppearanceSettings {
   theme: ThemePreference;
-  density: UiDensity;
   /**
    * PR-UI-2: optional base46 palette override. When omitted or `default`,
    * Maka renders the original purple-accent palette. Older settings.json
@@ -435,7 +433,6 @@ export function createDefaultSettings(): AppSettings {
     },
     appearance: {
       theme: 'auto',
-      density: 'comfortable',
       palette: 'default',
     },
     personalization: {
@@ -620,7 +617,11 @@ export function normalizeSettings(input: unknown): AppSettings {
     rawOnboarding && typeof rawOnboarding === 'object'
       ? (rawOnboarding as { milestones?: unknown }).milestones
       : undefined;
-  const { toastPosition: _legacyToastPosition, ...appearanceWithoutLegacyToastPosition } =
+  const {
+    toastPosition: _legacyToastPosition,
+    density: _legacyDensity,
+    ...appearanceWithoutLegacyFields
+  } =
     base.appearance as AppearanceSettings & Record<string, unknown>;
   return {
     ...base,
@@ -634,14 +635,13 @@ export function normalizeSettings(input: unknown): AppSettings {
     // non-string, unknown string).
     //
     // Critical: this MUST NOT silently reset other appearance fields
-    // (theme / density). We only override palette when it fails the
-    // type guard; everything else keeps mergeSettings's behavior.
-    // Legacy `appearance.toastPosition` is intentionally stripped here.
-    // Toasts are fixed to one app-wide position; keeping the old
-    // persisted setting would make the removed picker a hidden behavior
-    // surface.
+    // (theme). We only override palette when it fails the type guard;
+    // everything else keeps mergeSettings's behavior.
+    // Legacy `appearance.toastPosition` and `appearance.density` are
+    // intentionally stripped here. Toasts are fixed to one app-wide
+    // position; UI density is no longer a product setting.
     appearance: {
-      ...appearanceWithoutLegacyToastPosition,
+      ...appearanceWithoutLegacyFields,
       palette: isThemePalette(base.appearance.palette) ? base.appearance.palette : 'default',
     },
     // PR-LANG-PREF-0: closed-enum fail-closed for the new

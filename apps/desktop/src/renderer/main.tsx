@@ -24,7 +24,6 @@ import type {
   TextFileImportPreflightFailureReason,
   ThemePalette,
   ThemePreference,
-  UiDensity,
 } from '@maka/core';
 import {
   CODEX_SUBSCRIPTION_UNSUPPORTED_CHATGPT_MODELS,
@@ -94,7 +93,7 @@ import {
 import { deriveTurnFooterActions } from './turn-footer-actions';
 import { readScrollMotionBehavior } from './scroll-motion-policy';
 import { deriveBranchBanner } from './branch-banner';
-import { applyDensity, applyTheme, applyThemePalette, applyUiLocale } from './theme';
+import { applyTheme, applyThemePalette, applyUiLocale } from './theme';
 import { openPathActionLabel, openPathFailureCopy } from './open-path';
 import {
   createSessionEventStreamSubscription,
@@ -330,7 +329,6 @@ function AppShell() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsRequestedSection, setSettingsRequestedSection] = useState<SettingsSection | undefined>(undefined);
   const [themePref, setThemePref] = useState<ThemePreference>('auto');
-  const [density, setDensity] = useState<UiDensity>('comfortable');
   const [themePalette, setThemePalette] = useState<ThemePalette>('default');
   const [userLabel, setUserLabel] = useState<string>('');
   const [skills, setSkills] = useState<SkillEntry[]>([]);
@@ -1059,10 +1057,6 @@ function AppShell() {
     return unsubscribe;
   }, [themePref]);
 
-  useEffect(() => {
-    applyDensity(density);
-  }, [density]);
-
   // PR-THEME-APPLY-AND-DONE-POLISH-0 (WAWQAQ msg `dec85e5b`): re-apply the
   // palette data attribute whenever the persisted setting changes, so
   // switching themes in Settings is immediately visible. Previously the
@@ -1189,7 +1183,6 @@ function AppShell() {
     try {
       const next = await window.maka.settings.get();
       const pref = next.appearance?.theme ?? 'auto';
-      const den = next.appearance?.density ?? 'comfortable';
       const palette = next.appearance?.palette ?? 'default';
       const name = next.personalization?.displayName ?? '';
       // PR-LANG-PREF-0: apply persisted UI locale preference to
@@ -1199,11 +1192,9 @@ function AppShell() {
       const uiLocale = next.personalization?.uiLocale ?? 'auto';
       applyUiLocale(uiLocale);
       setThemePref(pref);
-      setDensity(den);
       setThemePalette(palette);
       setUserLabel(name);
       applyTheme(pref);
-      applyDensity(den);
       applyThemePalette(palette);
     } catch (error) {
       toastApi.error('载入外观设置失败', generalizedErrorMessageChinese(error, '外观设置暂时无法载入，请稍后重试。'));
@@ -3080,8 +3071,6 @@ function AppShell() {
           onClose={closeSettings}
           themePref={themePref}
           onThemeChange={setThemePref}
-          density={density}
-          onDensityChange={setDensity}
           themePalette={themePalette}
           onThemePaletteChange={setThemePalette}
           onUserLabelChange={setUserLabel}

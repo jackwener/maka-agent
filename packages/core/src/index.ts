@@ -642,7 +642,6 @@ export type {
   PersonalizationSettingsWarning,
   ThemePalette,
   ThemePreference,
-  UiDensity,
   UpdateAppSettingsInput,
   UpdateAppSettingsResult,
   UpdateAppSettingsWarnings,

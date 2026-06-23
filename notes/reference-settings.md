@@ -372,7 +372,7 @@ section. Concrete proposal:
 | Group       | Item        | Holds                                                      |
 |-------------|-------------|------------------------------------------------------------|
 | 基础         | 通用         | Aggregator: 隐身模式, 启动行为, 新对话模式, 默认模型, 通知, 网络代理, 保持唤醒, 自动更新, 关闭窗口行为 |
-| 基础         | 外观         | Theme + density + palette + font (merge 主题 + 个性化)        |
+| 基础         | 外观         | 个性化 + theme + palette + font (merge 主题 + 个性化)          |
 | AI          | 模型         | Provider connections + OAuth + per-model config            |
 | AI          | 记忆与回顾    | Merge `记忆` + `每日回顾`                                     |
 | AI          | 语音与网关    | Merge `语音模型` + `开放网关`                                  |

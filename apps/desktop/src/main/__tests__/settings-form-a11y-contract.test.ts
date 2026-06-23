@@ -111,9 +111,9 @@ describe('Settings form accessibility labels', () => {
     assert.match(settings, /function SettingsSelect<T extends string>/);
     assert.match(settings, /<SelectPositioner alignItemWithTrigger=\{false\} sideOffset=\{6\}>/);
 
-    // ThemeSettingsPage uses native <button> on purpose for the 3 radio-card
-    // pickers (mode / palette / density): the cards are a custom grid with a
-    // preview tile + label, and the shared <Button>'s baked-in Tailwind
+    // ThemeSettingsPage uses native <button> on purpose for the radio-card
+    // pickers (mode / palette): the cards are a custom grid with a preview
+    // tile + label, and the shared <Button>'s baked-in Tailwind
     // utilities (`h-9 inline-flex bg-primary text-primary-foreground`) collapse
     // the card to a 36px-tall black pill. See `settings-theme-contract.test.ts`
     // which pins the inverse direction (radio cards must stay native).
