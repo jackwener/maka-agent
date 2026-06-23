@@ -7253,43 +7253,42 @@ button:active {
   overscroll-behavior: contain;
 }
 
-.settingsPageContentInner {
-  padding-top: 22px;
-  padding-bottom: 8px;
-}
+/* PR-SETTINGS-SHELL-OWNS-LAYOUT-0 (2026-06-23, WAWQAQ msg `70c224f4`):
+   the page chrome (max-width column + side padding + top/bottom gutter)
+   used to live on each sub-page's own wrapper (settingsStructuredPage,
+   settingsAboutPage, settingsPermissionPage, settingsHealthPage…),
+   forcing per-page CSS edits whenever the chrome shifts. The shell
+   now owns it via `.settingsPageContentInner` — the single
+   OverlayScrollArea inner div every page renders through. Sub-pages
+   only manage their own row stack.
 
-/* PR-SETTINGS-PAGE-BODY-0 (2026-06-23, WAWQAQ msg `2c810f2d`): bring
-   Settings page body to reference's recipe. Two visible problems before:
-   (a) content surface had no left/right whitespace — rows stretched
-   edge-to-edge of the right pane. Reference uses a `max-w-3xl` (768px)
-   centered column with generous side padding. (b) per-row chrome was
-   bordered + tinted plates with shadows; reference uses flat rows with
-   spacing-only separation. */
-.settingsStructuredPage {
-  display: grid;
-  align-content: start;
-  gap: 0;
+   WAWQAQ msg `eafc18a1` correction: reference rows DO have 1px borders
+   + small radius, not flat. Earlier flat-row recipe (PR-PAGE-BODY-0)
+   was wrong; this PR reinstates per-row borders with the reference
+   recipe — 1px subtle border, 8px radius, white-ish bg, 8px gap. */
+.settingsPageContentInner {
   max-width: 768px;
   margin: 0 auto;
   padding: 40px 24px 64px;
 }
 
-/* PR-SETTINGS-SWEEP-0 (2026-06-23, WAWQAQ msg `59a55bdf`): when a
-   merged section stacks two sub-pages (外观 = 主题 + 个性化, etc.),
-   the inner pages each own their own `settingsStructuredPage` wrapper.
-   Without this rule, every inner wrapper would re-center and re-pad,
-   doubling the side gutters. Let the OUTER wrapper own the chrome; the
-   nested ones become visual passthroughs. */
+.settingsStructuredPage {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+/* When a merged section stacks two sub-pages (外观 = 主题 + 个性化),
+   the inner pages still each own their own `settingsStructuredPage`.
+   They become layout-passthroughs: just keep the grid + gap. */
 .settingsStructuredPage .settingsStructuredPage {
-  max-width: none;
-  margin: 0;
-  padding: 0;
+  gap: 8px;
 }
 
 /* PR-SETTINGS-SWEEP-0: section heading for merged pages. Mirrors
    reference's small uppercase sub-section tag. */
 .settingsSectionHeading {
-  margin: 24px 20px 8px;
+  margin: 24px 4px 8px;
   color: var(--foreground-50);
   font-size: 11px;
   font-weight: 600;
@@ -7321,10 +7320,9 @@ button:active {
   font-size: 13px;
 }
 
-/* PR-SETTINGS-PAGE-BODY-0: reference rows are flat — no border-bottom
-   between rows, spacing-only separation. Padding tightens vertically to
-   16/20 (was 6/0). Label / sub-text bumped to 14/12 from 12/11 to match
-   reference's `text-sm font-medium` + `text-xs text-text-quaternary`. */
+/* PR-SETTINGS-SHELL-OWNS-LAYOUT-0 correction (WAWQAQ msg `eafc18a1`):
+   reference rows have 1px borders + 8px radius + light bg, not flat
+   rows. Reverting the PR-SETTINGS-PAGE-BODY-0 flatness. */
 .settingsFormRow {
   min-height: 56px;
   display: flex;
@@ -7332,12 +7330,14 @@ button:active {
   justify-content: space-between;
   gap: 16px;
   padding: 16px 20px;
+  border: 1px solid var(--border);
   border-radius: 8px;
-  transition: background 150ms var(--ease-out-strong);
+  background: var(--background, var(--foreground-2));
+  transition: background 150ms var(--ease-out-strong), border-color 150ms var(--ease-out-strong);
 }
 
 .settingsFormRow:hover {
-  background: oklch(from var(--foreground) l c h / 0.03);
+  border-color: oklch(from var(--foreground) l c h / 0.18);
 }
 
 .settingsFormRow strong,
@@ -7495,20 +7495,13 @@ button:active {
   gap: 10px;
 }
 
-/* PR-SETTINGS-SWEEP-1 (2026-06-23): About page was using its own
-   chrome (bordered hero plate + green-tinted privacy panel) that
-   conflicted with the reference-style flat row recipe. Bring it into
-   the same `max-w-3xl` centered column as every other Settings page,
-   strip the hero plate background (the logo + version chip are
-   inline content, not a card), keep the privacy panel as a subtle
-   tinted callout but tighten its weight. */
+/* PR-SETTINGS-SHELL-OWNS-LAYOUT-0: shell now owns max-width + page
+   padding via `.settingsPageContentInner`. About page just manages
+   its own internal block stack. */
 .settingsAboutPage {
   display: grid;
   align-content: start;
-  gap: 24px;
-  max-width: 768px;
-  margin: 0 auto;
-  padding: 40px 24px 64px;
+  gap: 16px;
 }
 
 .settingsAboutHero {
@@ -9014,22 +9007,24 @@ button:active {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
 }
 
-/* PR-SETTINGS-PAGE-BODY-0 (2026-06-23): `.settingsRow` was sharing the
-   bordered/tinted-plate chrome with `.providerCard`; reference uses
-   flat rows with no border or background plate. Provider cards keep
-   their chrome (they ARE cards) — only `.settingsRow` flattens. */
+/* PR-SETTINGS-SHELL-OWNS-LAYOUT-0 correction (WAWQAQ msg `eafc18a1`):
+   reference rows are bordered cards (1px border, 8px radius), so put
+   back the per-row chrome — but flat-tinted, NOT the heavy lifted
+   provider-card chrome. */
 .settingsRow {
   display: grid;
   grid-template-columns: minmax(150px, 0.36fr) minmax(0, 1fr);
   align-items: center;
   gap: 16px;
   padding: 16px 20px;
+  border: 1px solid var(--border);
   border-radius: 8px;
-  transition: background 150ms var(--ease-out-strong);
+  background: var(--background, var(--foreground-2));
+  transition: background 150ms var(--ease-out-strong), border-color 150ms var(--ease-out-strong);
 }
 
 .settingsRow:hover {
-  background: oklch(from var(--foreground) l c h / 0.03);
+  border-color: oklch(from var(--foreground) l c h / 0.18);
 }
 
 .settingsRow > div {
