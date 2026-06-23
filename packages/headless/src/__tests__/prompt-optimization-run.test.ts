@@ -5,8 +5,6 @@ import { join } from 'node:path';
 import { describe, test } from 'node:test';
 import type { FixedPromptTask } from '../fixed-prompt-controller.js';
 import {
-  DEEPSEEK_V4_FLASH_PRICING,
-  DEEPSEEK_V4_PRO_PRICING,
   buildRewardHackVerifierPatterns,
   discoverCachedHarborTasks,
   extractRewardHackVerifierPatterns,
@@ -42,24 +40,6 @@ describe('partitionPromptTasks', () => {
       () => partitionPromptTasks(tasks, { heldInCount: 3, heldOutCount: 3 }),
       /not enough tasks: need 6, have 4/,
     );
-  });
-});
-
-describe('DeepSeek pricing constants', () => {
-  test('v4-flash matches the published per-1M USD rates', () => {
-    assert.deepEqual(DEEPSEEK_V4_FLASH_PRICING, {
-      inputUsdPer1M: 0.145,
-      outputUsdPer1M: 0.29,
-      cacheReadUsdPer1M: 0.0029,
-      cacheWriteUsdPer1M: 0,
-      source: 'deepseek-v4-flash',
-    });
-  });
-
-  test('v4-pro is 3x flash on input/output with its own cache-read rate', () => {
-    assert.equal(DEEPSEEK_V4_PRO_PRICING.inputUsdPer1M, 0.435);
-    assert.equal(DEEPSEEK_V4_PRO_PRICING.outputUsdPer1M, 0.87);
-    assert.equal(DEEPSEEK_V4_PRO_PRICING.cacheReadUsdPer1M, 0.003625);
   });
 });
 

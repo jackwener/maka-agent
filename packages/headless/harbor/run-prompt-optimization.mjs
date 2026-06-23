@@ -21,7 +21,6 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import {
   BENCHMARK_BASE_SYSTEM_PROMPT,
-  DEEPSEEK_V4_FLASH_PRICING,
   buildRewardHackVerifierPatterns,
   discoverCachedHarborTasks,
   envFinitePositiveNumber,
@@ -35,6 +34,18 @@ import {
 } from '@maka/headless';
 
 const execFileAsync = promisify(execFile);
+
+// DeepSeek per-1M USD pricing (0.145 USD/CNY). "input" is the cache-miss rate;
+// cache writes carry no separate charge, so cacheWriteUsdPer1M is 0. Vendor
+// pricing lives here in the runner, not in @maka/headless: it is run config, not
+// part of the package's generic public API.
+const DEEPSEEK_V4_FLASH_PRICING = {
+  inputUsdPer1M: 0.145,
+  outputUsdPer1M: 0.29,
+  cacheReadUsdPer1M: 0.0029,
+  cacheWriteUsdPer1M: 0,
+  source: 'deepseek-v4-flash',
+};
 
 const PROGRAM = `You are improving ONE system prompt for autonomous Terminal-Bench coding agents.
 Given the current prompt, the latest held-in results, and recent failure digests,

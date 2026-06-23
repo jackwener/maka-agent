@@ -24,24 +24,6 @@ const execFileAsync = promisify(execFile);
  * injectable so the composition is testable without Docker or the network.
  */
 
-/** DeepSeek per-1M USD pricing (0.145 USD/CNY). "input" is the cache-miss rate;
- * cache writes carry no separate charge, so cacheWriteUsdPer1M is 0. */
-export const DEEPSEEK_V4_FLASH_PRICING: HarborTaskPricing = {
-  inputUsdPer1M: 0.145,
-  outputUsdPer1M: 0.29,
-  cacheReadUsdPer1M: 0.0029,
-  cacheWriteUsdPer1M: 0,
-  source: 'deepseek-v4-flash',
-};
-
-export const DEEPSEEK_V4_PRO_PRICING: HarborTaskPricing = {
-  inputUsdPer1M: 0.435,
-  outputUsdPer1M: 0.87,
-  cacheReadUsdPer1M: 0.003625,
-  cacheWriteUsdPer1M: 0,
-  source: 'deepseek-v4-pro',
-};
-
 export interface PromptTaskPartition {
   heldInTasks: FixedPromptTask[];
   heldOutTasks: FixedPromptTask[];

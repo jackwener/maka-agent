@@ -117,8 +117,6 @@ export type {
   PromptOptimizationLoopStopReason,
 } from './prompt-optimization-loop.js';
 export {
-  DEEPSEEK_V4_FLASH_PRICING,
-  DEEPSEEK_V4_PRO_PRICING,
   buildRewardHackVerifierPatterns,
   discoverCachedHarborTasks,
   extractRewardHackVerifierPatterns,
