@@ -840,6 +840,31 @@ describe('prompt candidate loop', () => {
     });
   });
 
+  test('keeps trajectory digest usable when optional trace events are unavailable', async () => {
+    await withDir(async (dir) => {
+      const runtimeEventsPath = join(dir, 'runtime-events.jsonl');
+      await writeFile(runtimeEventsPath, [
+        JSON.stringify(runtimeEvent('call-1', 'Bash', { command: 'pytest -q' })),
+        '',
+      ].join('\n'), 'utf8');
+
+      const digest = await extractTrajectoryDigest({
+        taskId: 'task-a',
+        errorClass: 'runtime_error',
+        runtimeEventsPath,
+        traceEventsPath: join(dir, 'missing-events.jsonl'),
+        verifierSummary: 'status=failed',
+      });
+
+      assert.deepEqual(digest, {
+        taskId: 'task-a',
+        errorClass: 'runtime_error',
+        summary: 'status=failed',
+        recentToolCalls: [{ name: 'Bash', argsPreview: 'command' }],
+      });
+    });
+  });
+
   test('quarantines function calls containing verifier expected output', async () => {
     await withDir(async (dir) => {
       const runtimeEventsPath = join(dir, 'runtime-events.jsonl');

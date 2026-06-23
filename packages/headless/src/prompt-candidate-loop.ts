@@ -643,7 +643,12 @@ async function extractToolFailureDigests(
   traceEventsPath: string,
   callsById: ReadonlyMap<string, TrajectoryToolCallDigest>,
 ): Promise<TrajectoryToolFailureDigest[]> {
-  const events = await readRuntimeEventsJsonl(traceEventsPath);
+  let events: unknown[];
+  try {
+    events = await readRuntimeEventsJsonl(traceEventsPath);
+  } catch {
+    return [];
+  }
   const failures = new Map<string, TrajectoryToolFailureDigest>();
   for (const event of events) {
     const failure = toolFailureDigest(event, callsById);
