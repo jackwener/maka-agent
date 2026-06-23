@@ -6997,13 +6997,12 @@ button:active {
 
 .settingsNavItem {
   /* PR-SETTINGS-SIDEBAR-SPACIOUS-0: roomier nav row matching reference.
-     Height 32→38, icon column 20→24, label gap 8→12, side padding
-     8→12, label font 13→14. */
+     PR-SETTINGS-NAV-REGROUP-0: 3rd grid column for optional Beta badge. */
   width: calc(100% - 8px);
   height: 38px;
   min-height: 38px;
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr);
+  grid-template-columns: 24px minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   border: 0;
@@ -7017,6 +7016,24 @@ button:active {
   justify-content: initial;
   font-size: 14px;
   transition: background-color 150ms var(--ease-out-strong), color 150ms var(--ease-out-strong);
+}
+
+/* PR-SETTINGS-NAV-REGROUP-0 (WAWQAQ msg `a9ef0d5d`): small chip on nav
+   items that are still in beta — matches reference's pattern of
+   surfacing maturity inline rather than relegating to a separate
+   release notes view. */
+.settingsNavBadge {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: oklch(from var(--accent) l c h / 0.12);
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: none;
 }
 
 .settingsSidebar .settingsNavItem,

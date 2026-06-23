@@ -27,7 +27,11 @@ describe('Settings coming-soon cleanup contract', () => {
     const styles = await readRepo('apps/desktop/src/renderer/styles.css');
     const providerCatalog = await readRepo('packages/core/src/llm-connections.ts');
     assert.doesNotMatch(settings, /comingSoon\??:/, 'Settings nav items must not carry stale comingSoon flags');
-    assert.doesNotMatch(settings, /settingsNavBadge/, 'Settings nav must not render stale Roadmap badges');
+    // PR-SETTINGS-NAV-REGROUP-0 (WAWQAQ msg `a9ef0d5d`): `settingsNavBadge`
+    // is now legitimately reused as a Beta chip on shipping features.
+    // The earlier blanket ban on the class name is dropped; the other
+    // copy-level assertions in this block (e.g. command palette `即将推出`
+    // ban below) still guard the original intent.
     assert.doesNotMatch(palette, /即将推出/, 'Command palette settings entries must not advertise dead coming-soon hints');
     assert.doesNotMatch(palette, /comingSoon/, 'Command palette must not read removed nav comingSoon flags');
     assert.doesNotMatch(providers, /即将支持的 OAuth 订阅登录/, 'Providers header must not advertise future OAuth login as a model-provider affordance');
@@ -37,6 +41,9 @@ describe('Settings coming-soon cleanup contract', () => {
     assert.doesNotMatch(providers, /还没有供应商/, 'ProvidersPanel empty state should not read like unfinished product setup');
     assert.doesNotMatch(providerCatalog, /catalogBadge:\s*'Soon'|future phase/, 'provider catalog metadata must not keep soon/future-phase copy');
     assert.doesNotMatch(styles, /ComingSoonPage|roadmap banner|providerComingSoon|providerCatalogSoon/, 'Settings CSS must not keep stale coming-soon/provider-roadmap naming');
+    // PR-SETTINGS-NAV-REGROUP-0: `.settingsNavBadge` is reused as the Beta
+    // chip primitive. Lock it down so we don't lose it accidentally.
+    assert.match(styles, /\.settingsNavBadge\s*\{/);
   });
 
   it('keeps feature status pages product-scoped instead of demo-version or future-roadmap copy', async () => {
