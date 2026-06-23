@@ -141,15 +141,12 @@ export function buildIsolatedEditTool(executor: IsolatedToolExecutor): MakaTool 
     permissionRequired: true,
     impl: async ({ path, old_string, new_string }, { cwd }) => {
       const normalizedPath = normalizeWorkspacePath(path, cwd, 'Edit path');
-      if (executor.editFile) {
-        return await executor.editFile({ cwd, path: normalizedPath, oldString: old_string, newString: new_string });
-      }
-      // Edit is the one file tool whose matching logic is non-trivial and must
-      // stay byte-identical to the in-process builtin Edit. Rather than keep a
-      // second (perl) matcher, it runs the SHARED computeEditedSource via
-      // `node -e` (node is guaranteed in the headless/Harbor environment); the
-      // other file tools stay on the POSIX-sh scripts. old/new are base64-encoded
-      // so arbitrary content survives argv transport unchanged.
+      // Edit ALWAYS runs the shared computeEditedSource — unlike Read/Write/Glob/
+      // Grep it has NO native-executor fast path, because its matching logic is
+      // non-trivial and must stay the single source of truth with the in-process
+      // builtin Edit. It runs via `node -e` (node is guaranteed in the headless/
+      // Harbor environment); the other file tools stay on the POSIX-sh scripts.
+      // old/new are base64-encoded so arbitrary content survives argv transport.
       const editStdout = await execFileCommand(executor, cwd, nodeFileCommand(EDIT_SCRIPT, [
         normalizedPath,
         Buffer.from(old_string, 'utf8').toString('base64'),

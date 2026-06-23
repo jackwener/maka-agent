@@ -43,19 +43,6 @@ export interface IsolatedWriteFileResult {
   bytes: number;
 }
 
-export interface IsolatedEditFileInput {
-  cwd: string;
-  path: string;
-  oldString: string;
-  newString: string;
-}
-
-export interface IsolatedEditFileResult {
-  ok: boolean;
-  path: string;
-  replacements: number;
-}
-
 export interface IsolatedGlobInput {
   cwd: string;
   pattern: string;
@@ -95,10 +82,14 @@ export interface IsolatedToolExecutor {
    * external workspace without shelling through exec. If omitted,
    * buildIsolatedHeadlessTools falls back to command-backed operations inside
    * the isolated boundary.
+   *
+   * Edit deliberately has NO native hook: its matching logic is non-trivial and
+   * must stay the single source of truth with the in-process builtin Edit, so it
+   * always runs the shared computeEditedSource via `node -e` (see
+   * buildIsolatedEditTool) regardless of which native ops an executor provides.
    */
   readFile?(input: IsolatedReadFileInput): Promise<IsolatedReadFileResult>;
   writeFile?(input: IsolatedWriteFileInput): Promise<IsolatedWriteFileResult>;
-  editFile?(input: IsolatedEditFileInput): Promise<IsolatedEditFileResult>;
   globFiles?(input: IsolatedGlobInput): Promise<IsolatedGlobResult>;
   grepFiles?(input: IsolatedGrepInput): Promise<IsolatedGrepResult>;
 }

@@ -134,7 +134,7 @@ describe('isolated headless tools', () => {
     assert.ok(names.includes('self_check_submit'));
   });
 
-  test('Read, Write, Edit, Glob, and Grep delegate to native isolated executor methods', async () => {
+  test('Read, Write, Glob, and Grep delegate to native isolated executor methods', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'maka-headless-tools-host-'));
     await writeFile(join(cwd, 'target.txt'), 'host\n', 'utf8');
     const calls: Array<{ name: string; input: unknown }> = [];
@@ -149,10 +149,6 @@ describe('isolated headless tools', () => {
       async writeFile(input) {
         calls.push({ name: 'Write', input });
         return { ok: true, path: input.path, bytes: Buffer.byteLength(input.content, 'utf8') };
-      },
-      async editFile(input) {
-        calls.push({ name: 'Edit', input });
-        return { ok: true, path: input.path, replacements: 1 };
       },
       async globFiles(input) {
         calls.push({ name: 'Glob', input });
@@ -172,14 +168,6 @@ describe('isolated headless tools', () => {
       path: 'target.txt',
       bytes: 9,
     });
-    assert.deepEqual(
-      await tool(tools, 'Edit').impl({
-        path: join(cwd, 'target.txt'),
-        old_string: 'host',
-        new_string: 'external',
-      }, toolCtx(cwd)),
-      { ok: true, path: 'target.txt', replacements: 1 },
-    );
     assert.deepEqual(await tool(tools, 'Glob').impl({ pattern: `${cwd}/*.txt`, cwd: join(cwd, 'src') }, toolCtx(cwd)), {
       files: ['container.txt'],
     });
@@ -195,10 +183,50 @@ describe('isolated headless tools', () => {
     assert.deepEqual(calls, [
       { name: 'Read', input: { cwd, path: 'target.txt', offset: 1, limit: 2 } },
       { name: 'Write', input: { cwd, path: 'target.txt', content: 'external\n' } },
-      { name: 'Edit', input: { cwd, path: 'target.txt', oldString: 'host', newString: 'external' } },
       { name: 'Glob', input: { cwd, pattern: '*.txt', searchCwd: 'src' } },
       { name: 'Grep', input: { cwd, pattern: 'needle', path: 'src', glob: '*.txt' } },
     ]);
+  });
+
+  test('Edit ignores native file ops and always runs the shared replacer', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'maka-headless-tools-edit-native-'));
+    await mkdir(join(cwd, 'src'));
+    const file = join(cwd, 'src', 'f.ts');
+    await writeFile(file, 'function f() {\n    return 1;\n}\n', 'utf8');
+    const nativeCalls: string[] = [];
+    // A fully native-capable executor: Edit must STILL bypass these and run the
+    // shared computeEditedSource via node -e (there is no native Edit hook).
+    const tools = buildIsolatedHeadlessTools({
+      async exec(input) {
+        try {
+          const { stdout, stderr } = await execAsync(input.command, { cwd: input.cwd, maxBuffer: 1024 * 1024 });
+          return { exitCode: 0, stdout, stderr };
+        } catch (error: any) {
+          return {
+            exitCode: typeof error?.code === 'number' ? error.code : 1,
+            stdout: typeof error?.stdout === 'string' ? error.stdout : '',
+            stderr: typeof error?.stderr === 'string' ? error.stderr : String(error),
+          };
+        }
+      },
+      async readFile() { nativeCalls.push('readFile'); return { content: '' }; },
+      async writeFile(input) { nativeCalls.push('writeFile'); return { ok: true, path: input.path, bytes: 0 }; },
+      async globFiles() { nativeCalls.push('globFiles'); return { files: [] }; },
+      async grepFiles() { nativeCalls.push('grepFiles'); return { matches: [] }; },
+    });
+
+    // The fuzzy match works and returns the shared-replacer metadata
+    // (matchedVia/startLine/endLine) — proof it went through computeEditedSource,
+    // not a native shortcut — and no native file op was consulted for Edit.
+    assert.deepEqual(
+      await tool(tools, 'Edit').impl(
+        { path: 'src/f.ts', old_string: 'function f() {\n  return 1;\n}', new_string: 'function f() {\n    return 2;\n}' },
+        toolCtx(cwd),
+      ),
+      { ok: true, path: 'src/f.ts', replacements: 1, matchedVia: 'line-trimmed', startLine: 1, endLine: 3 },
+    );
+    assert.equal(await readFile(file, 'utf8'), 'function f() {\n    return 2;\n}\n');
+    assert.deepEqual(nativeCalls, []);
   });
 
   test('sh-backed file tools fall back to command-backed isolated operations', async () => {
