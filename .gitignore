@@ -3,6 +3,8 @@ dist
 .DS_Store
 *.log
 *.tsbuildinfo
+__pycache__/
+*.pyc
 .agents-workspace-data
 .agents
 skills-lock.json
