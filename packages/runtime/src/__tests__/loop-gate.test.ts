@@ -106,6 +106,29 @@ function makeFlakyTool(name: string, impl: string[], box: { fail: boolean }, mes
   };
 }
 
+// A tool that RETURNS a terminal result (the headless Bash shape) instead of
+// throwing. A non-zero exitCode must be classified as a failure by
+// deriveToolResultStatus() for the loop-gate to see it.
+function makeTerminalTool(name: string, impl: string[], exitCode: number): MakaTool {
+  return {
+    name,
+    description: name,
+    parameters: z.object({}).passthrough(),
+    permissionRequired: false,
+    impl: (args) => {
+      impl.push(`${name}:${JSON.stringify(args)}`);
+      return {
+        kind: 'terminal',
+        cwd: '/tmp/maka',
+        cmd: 'cmd',
+        exitCode,
+        stdout: '',
+        stderr: exitCode === 0 ? '' : 'boom\n',
+      };
+    },
+  };
+}
+
 let callSeq = 0;
 function call(h: Harness, t: MakaTool, args: unknown, turnId = 'turn-1'): Promise<unknown> {
   const exec = h.runtime.wrapToolExecute(t, turnId, { push: (e) => h.pushed.push(e) });
@@ -256,5 +279,33 @@ describe('loop-gate for repeated identical FAILING tool calls', () => {
     const afterReset = await call(h, t, args, 'turn-3');
     assert.deepEqual(afterReset, { error: 'boom' }, 'after the per-turn reset the identical call runs again');
     assert.equal(h.impl.length, 3, 'the post-reset call ran');
+  });
+
+  // Headless Bash returns a terminal result instead of throwing, so its failure
+  // is only counted if deriveToolResultStatus() classifies the terminal exitCode.
+  test('a returned terminal result with a non-zero exit counts as a failure', async () => {
+    const h = makeHarness();
+    const t = makeTerminalTool('Bash', h.impl, 1);
+    const args = { command: 'npm test' };
+
+    const results: unknown[] = [];
+    for (let i = 0; i < LOOP_GATE_IDENTICAL_THRESHOLD; i++) results.push(await call(h, t, args));
+
+    assert.equal(h.impl.length, LOOP_GATE_IDENTICAL_THRESHOLD - 1, 'impl ran only before the gate fired');
+    for (let i = 0; i < LOOP_GATE_IDENTICAL_THRESHOLD - 1; i++) {
+      assert.equal((results[i] as { kind?: string }).kind, 'terminal', 'failing runs still return their terminal output');
+    }
+    assert.deepEqual(results[LOOP_GATE_IDENTICAL_THRESHOLD - 1], { error: formatLoopGateText('Bash') }, 'the Nth identical failure is gated');
+  });
+
+  test('a returned terminal result with exit 0 is a success — polling is not gated', async () => {
+    const h = makeHarness();
+    const t = makeTerminalTool('Bash', h.impl, 0);
+    const args = { command: 'git status --porcelain' };
+
+    const runs = LOOP_GATE_IDENTICAL_THRESHOLD + 2;
+    for (let i = 0; i < runs; i++) await call(h, t, args);
+
+    assert.equal(h.impl.length, runs, 'every exit-0 poll ran — none was gated');
   });
 });
