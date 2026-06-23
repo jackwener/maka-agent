@@ -299,23 +299,22 @@ async function captureSingle(scenario, variant) {
 }
 
 async function resolveElectronBin() {
-  // Use the locally-resolved electron binary so we don't depend on a
-  // global install.
-  const electronModule = join(REPO_ROOT, 'node_modules', 'electron');
-  if (!existsSync(electronModule)) {
-    console.error('[capture-screenshots] electron not installed; run `npm install` first.');
-    process.exit(2);
-  }
-  // Node's `require.resolve('electron')` returns a string with the path
-  // to the binary; we read package.json + use main field.
+  // Resolve the electron binary via Node's module resolution, which walks
+  // up the directory tree from this script. A git worktree's node_modules
+  // holds only the workspace's own @maka/* packages, so electron lives in
+  // the parent checkout's node_modules — the upward walk finds it there.
+  // We intentionally do NOT hard-require `REPO_ROOT/node_modules/electron`,
+  // which a worktree legitimately lacks; `import('electron')` returns the
+  // resolved binary path string regardless of which ancestor provides it.
   try {
     const exportPath = (await import('electron')).default;
     if (typeof exportPath === 'string') return exportPath;
+    console.error('[capture-screenshots] electron resolved but exposed no binary path; run `npm install`.');
+    process.exit(2);
   } catch (err) {
-    console.error('[capture-screenshots] failed to resolve electron:', err);
+    console.error('[capture-screenshots] electron not resolvable (run `npm install` in the repo root):', err);
     process.exit(2);
   }
-  return null;
 }
 
 async function main() {

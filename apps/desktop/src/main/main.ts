@@ -245,15 +245,31 @@ import type { BrowserViewRect } from './browser/logic.js';
 
 const buildInfo = resolveBuildInfo(app.isPackaged, app.getAppPath());
 
-const visualSmokeFixture = resolveVisualSmokeFixture(
-  process.env.MAKA_VISUAL_SMOKE_FIXTURE,
-  app.isPackaged,
-  process.env.MAKA_VISUAL_SMOKE_REDUCED_MOTION,
-  process.env.MAKA_VISUAL_SMOKE_AUTO_CAPTURE,
-  process.env.MAKA_VISUAL_SMOKE_THEME,
-  process.env.MAKA_VISUAL_SMOKE_LOCALE,
-  process.env.MAKA_VISUAL_SMOKE_TIMEZONE,
-);
+// PR-VISUAL-SMOKE-HEADLESS: resolve the fixture defensively. An unknown
+// scenario (e.g. the capture script's list got ahead of a stale build, or
+// a typo'd MAKA_VISUAL_SMOKE_FIXTURE) throws here during top-level module
+// evaluation. Left uncaught it surfaces a blocking native error dialog and
+// the capture driver waits out its full marker timeout (~60s). In capture
+// mode we instead log a parseable line and exit fast so the run fails in
+// milliseconds with no dialog. Outside capture mode the throw is rethrown.
+let visualSmokeFixture: ReturnType<typeof resolveVisualSmokeFixture>;
+try {
+  visualSmokeFixture = resolveVisualSmokeFixture(
+    process.env.MAKA_VISUAL_SMOKE_FIXTURE,
+    app.isPackaged,
+    process.env.MAKA_VISUAL_SMOKE_REDUCED_MOTION,
+    process.env.MAKA_VISUAL_SMOKE_AUTO_CAPTURE,
+    process.env.MAKA_VISUAL_SMOKE_THEME,
+    process.env.MAKA_VISUAL_SMOKE_LOCALE,
+    process.env.MAKA_VISUAL_SMOKE_TIMEZONE,
+  );
+} catch (error) {
+  if (process.env.MAKA_VISUAL_SMOKE_FIXTURE) {
+    console.error(`[visual-smoke] fatal: ${error instanceof Error ? error.message : String(error)}`);
+    process.exit(1);
+  }
+  throw error;
+}
 const workspaceRoot = join(app.getPath('userData'), 'workspaces', visualSmokeFixture?.workspaceName ?? 'default');
 const store = createSessionStore(workspaceRoot);
 const runStore = createAgentRunStore(workspaceRoot);
@@ -1708,6 +1724,13 @@ async function createWindow(): Promise<void> {
     // renderer side of the same gate.
     resizable: true,
     backgroundColor: initialBg,
+    // PR-VISUAL-SMOKE-HEADLESS: under visual-smoke capture, never show the
+    // window or let the app take foreground — captures run while the
+    // developer keeps working in another app. `webContents.capturePage()`
+    // still returns a painted frame on a hidden window because
+    // `paintWhenInitiallyHidden` defaults to true. Real runs keep the
+    // default `show: true`.
+    ...(process.env.MAKA_VISUAL_SMOKE_FIXTURE ? { show: false } : {}),
     // Glass material — reference-atlas §1 + §12.1 documents the upstream
     // reference layout's `light-glass` / `dark-glass` themes that paint
     // the sidebar against native macOS vibrancy material. Enabling
@@ -4509,11 +4532,19 @@ app.whenReady().then(async () => {
   // builds get the icon via .app bundle Info.plist; this covers the
   // dev path.
   if (process.platform === 'darwin' && app.dock) {
-    try {
-      const iconPath = join(import.meta.dirname, '..', '..', 'assets', 'icon.png');
-      app.dock.setIcon(nativeImage.createFromPath(iconPath));
-    } catch (error) {
-      console.error('[icon] failed to set dock icon:', error);
+    if (process.env.MAKA_VISUAL_SMOKE_FIXTURE) {
+      // PR-VISUAL-SMOKE-HEADLESS: hide the dock icon so the spawned
+      // Electron runs as an accessory app — no dock bounce, and it
+      // never becomes frontmost / steals focus from the developer's
+      // active window during a capture run.
+      app.dock.hide();
+    } else {
+      try {
+        const iconPath = join(import.meta.dirname, '..', '..', 'assets', 'icon.png');
+        app.dock.setIcon(nativeImage.createFromPath(iconPath));
+      } catch (error) {
+        console.error('[icon] failed to set dock icon:', error);
+      }
     }
   }
 
