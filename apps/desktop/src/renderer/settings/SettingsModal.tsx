@@ -3095,33 +3095,42 @@ function WebSearchSettingsPage(props: {
 
   return (
     <div className="settingsStructuredPage">
-      <div className="settingsFormRow">
-        <div>
-          <strong>启用联网搜索</strong>
-          <small>开关启用后，界面里显式触发的查询才会真的请求 Tavily。模型不会自动调用。</small>
+      <div className="settingsRows settingsWebSearchCredentialCard">
+        <div className="settingsRow settingsWebSearchEnableRow">
+          <div>
+            <strong>启用联网搜索</strong>
+            <small>开关启用后，界面里显式触发的查询才会真的请求 Tavily。模型不会自动调用。</small>
+          </div>
+          <div className="settingsWebSearchControlCluster">
+            <div className="settingsWebSearchStatusCluster" role="group" aria-label="联网搜索凭据状态">
+              <span className="settingsConnectionBadge" data-tone={statusCopy.tone}>
+                {statusCopy.label}
+              </span>
+              {hasCheckedAt && (
+                <small>
+                  最近测试 <RelativeTime ts={checkedAtMs} />
+                </small>
+              )}
+              <small>{presentWebSearchCredentialSource(credentialSource, hasStoredKey)}</small>
+            </div>
+            <Switch
+              ariaLabel="启用联网搜索"
+              checked={webSearch.enabled}
+              disabled={!hasUsableKey}
+              onChange={(enabled) => void setEnabled(enabled)}
+            />
+          </div>
         </div>
-        <div className="settingsWebSearchStatusCluster" role="group" aria-label="联网搜索凭据状态">
-          <span className="settingsConnectionBadge" data-tone={statusCopy.tone}>
-            {statusCopy.label}
-          </span>
-          {hasCheckedAt && (
-            <small>
-              最近测试 <RelativeTime ts={checkedAtMs} />
-            </small>
-          )}
-          <small>{presentWebSearchCredentialSource(credentialSource, hasStoredKey)}</small>
-        </div>
-        <Switch
-          ariaLabel="启用联网搜索"
-          checked={webSearch.enabled}
-          disabled={!hasUsableKey}
-          onChange={(enabled) => void setEnabled(enabled)}
-        />
-      </div>
 
-      <div className="settingsFormGrid">
-        <label>
-          <span>Tavily 密钥</span>
+        <div className="settingsRow settingsWebSearchKeyRow">
+          <div>
+            <strong>Tavily 密钥</strong>
+            <small>
+              {usingEnvKey
+                ? '当前使用环境变量 TAVILY_API_KEY / MAKA_TAVILY_API_KEY；如需改用保存的密钥，请移除环境变量后重启。'
+                : <>保存在主进程设置中，渲染器永远看不到明文。在 <a href="https://tavily.com" target="_blank" rel="noreferrer">tavily.com</a> 申请。</>}
+            </small>
+          </div>
           <PasswordInput
             value={draftKey}
             onChange={setDraftKey}
@@ -3129,51 +3138,55 @@ function WebSearchSettingsPage(props: {
             placeholder={usingEnvKey ? '由环境变量提供' : hasStoredKey ? '已保存（输入新密钥可替换）' : 'tvly-xxxxxxxx'}
             ariaLabel="Tavily 密钥"
           />
-          <small>
-            {usingEnvKey
-              ? '当前使用环境变量 TAVILY_API_KEY / MAKA_TAVILY_API_KEY；如需改用保存的密钥，请移除环境变量后重启。'
-              : <>保存在主进程设置中，渲染器永远看不到明文。在 <a href="https://tavily.com" target="_blank" rel="noreferrer">tavily.com</a> 申请。</>}
-          </small>
-        </label>
-      </div>
+        </div>
 
-      <div className="settingsFormRow" style={{ gap: 8, flexWrap: 'wrap' }}>
-        <Button
-          type="button"
-          disabled={credentialActionBusy || usingEnvKey || draftKey.length === 0}
-          onClick={() => void saveDraftKey()}
-        >
-          {pendingCredentialAction === 'save' ? '保存中…' : '保存密钥'}
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          disabled={credentialActionBusy || (draftKey.length === 0 && !hasUsableKey)}
-          onClick={() => void runTest()}
-        >
-          {testing ? '测试中…' : '测试凭据'}
-        </Button>
-        {hasStoredKey && (
-          <Button
-            type="button"
-            variant="ghost"
-            disabled={credentialActionBusy}
-            onClick={() => void clearKey()}
-          >
-            {pendingCredentialAction === 'clear' ? '清空中…' : '清空密钥'}
-          </Button>
-        )}
-      </div>
-
-      <div className="settingsFormRow">
-        <div style={{ flex: 1 }}>
-          <strong>真实查询验证</strong>
-          <small>直接发一条真实查询，看到 Tavily 返回的标题 / 摘要 / 来源域名。结果只显示在此页面，不写入会话也不写入遥测。</small>
+        <div className="settingsRow settingsWebSearchCredentialActionRow">
+          <div>
+            <strong>凭据操作</strong>
+            <small>保存后可以测试一次真实请求；清空凭据会同步关闭联网搜索。</small>
+          </div>
+          <div className="settingsActionRow settingsWebSearchActionButtons">
+            <Button
+              type="button"
+              disabled={credentialActionBusy || usingEnvKey || draftKey.length === 0}
+              onClick={() => void saveDraftKey()}
+            >
+              {pendingCredentialAction === 'save' ? '保存中…' : '保存密钥'}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={credentialActionBusy || (draftKey.length === 0 && !hasUsableKey)}
+              onClick={() => void runTest()}
+            >
+              {testing ? '测试中…' : '测试凭据'}
+            </Button>
+            {hasStoredKey && (
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={credentialActionBusy}
+                onClick={() => void clearKey()}
+              >
+                {pendingCredentialAction === 'clear' ? '清空中…' : '清空密钥'}
+              </Button>
+            )}
+          </div>
         </div>
       </div>
-      <div className="settingsFormGrid">
-        <label>
-          <span>查询</span>
+
+      <div className="settingsRows settingsWebSearchQueryCard">
+        <div className="settingsRow settingsWebSearchQueryIntroRow">
+          <div>
+            <strong>真实查询验证</strong>
+            <small>直接发一条真实查询，看到 Tavily 返回的标题 / 摘要 / 来源域名。结果只显示在此页面，不写入会话也不写入遥测。</small>
+          </div>
+        </div>
+        <div className="settingsRow settingsWebSearchQueryInputRow">
+          <div>
+            <strong>查询</strong>
+            <small>输入一条用于验证联网搜索配置的真实请求。</small>
+          </div>
           <Input
             value={liveQuery}
             onChange={(event) => setLiveQuery(event.currentTarget.value)}
@@ -3186,21 +3199,27 @@ function WebSearchSettingsPage(props: {
               }
             }}
           />
-        </label>
-      </div>
-      <div>
-        <Button
-          type="button"
-          disabled={liveQueryRunning || queryDisabledReason !== null}
-          onClick={() => void runLiveQuery()}
-        >
-          {liveQueryRunning ? '搜索中…' : '搜索'}
-        </Button>
-        {!liveQueryRunning && queryDisabledReason && (
-          <small style={{ marginLeft: 12, color: 'var(--foreground-50)' }}>
-            {queryDisabledReason}
-          </small>
-        )}
+        </div>
+        <div className="settingsRow settingsWebSearchSearchRow">
+          <div>
+            <strong>执行查询</strong>
+            <small>按钮可用时会走主进程 Tavily 请求并刷新下方结果。</small>
+          </div>
+          <div className="settingsWebSearchSearchControls">
+            <Button
+              type="button"
+              disabled={liveQueryRunning || queryDisabledReason !== null}
+              onClick={() => void runLiveQuery()}
+            >
+              {liveQueryRunning ? '搜索中…' : '搜索'}
+            </Button>
+            {!liveQueryRunning && queryDisabledReason && (
+              <small className="settingsWebSearchDisabledReason">
+                {queryDisabledReason}
+              </small>
+            )}
+          </div>
+        </div>
       </div>
 
       {liveQueryError && (

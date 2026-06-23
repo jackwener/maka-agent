@@ -281,6 +281,44 @@ describe('web-search renderer boundary (PR-WEB-SEARCH-TAVILY-0)', () => {
     );
   });
 
+  it('Settings web-search simple controls use grouped Settings row cards instead of naked form blocks', async () => {
+    const settings = await readFile(join(REPO_ROOT, 'apps/desktop/src/renderer/settings/SettingsModal.tsx'), 'utf8');
+    const styles = await readFile(join(REPO_ROOT, 'apps/desktop/src/renderer/styles.css'), 'utf8');
+    const page = settings.match(/function WebSearchSettingsPage[\s\S]*?function webSearchQueryDisabledReason/);
+
+    assert.ok(page, 'Web search settings page block must exist');
+    assert.match(
+      page![0],
+      /<div className="settingsRows settingsWebSearchCredentialCard">/,
+      'Web search credential controls should sit in the shared grouped Settings card primitive',
+    );
+    assert.match(
+      page![0],
+      /<div className="settingsRows settingsWebSearchQueryCard">/,
+      'Web search live-query controls should sit in the shared grouped Settings card primitive',
+    );
+    for (const rowClass of [
+      'settingsRow settingsWebSearchEnableRow',
+      'settingsRow settingsWebSearchKeyRow',
+      'settingsRow settingsWebSearchCredentialActionRow',
+      'settingsRow settingsWebSearchQueryIntroRow',
+      'settingsRow settingsWebSearchQueryInputRow',
+      'settingsRow settingsWebSearchSearchRow',
+    ]) {
+      assert.match(page![0], new RegExp(`className="${rowClass}"`), `Web search Settings must keep ${rowClass} inside grouped rows`);
+    }
+    assert.match(page![0], /className="settingsWebSearchDisabledReason"/);
+    assert.match(page![0], /<ul className="settingsWebSearchResults" aria-label="联网搜索真实查询结果">/);
+    assert.doesNotMatch(
+      page![0],
+      /settingsFormRow|settingsFormGrid|style=\{\{/,
+      'Web search Settings must not regress to naked form rows/grids or inline layout styles',
+    );
+    assert.match(styles, /\.settingsWebSearchKeyRow > \.settingsPasswordField/);
+    assert.match(styles, /\.settingsWebSearchQueryIntroRow\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\);/);
+    assert.match(styles, /\.settingsWebSearchDisabledReason\s*\{[\s\S]*?color:\s*var\(--foreground-50\);/);
+  });
+
   it('Settings credential badge uses waiting-state copy instead of raw missing configuration copy', async () => {
     const settings = await readFile(join(REPO_ROOT, 'apps/desktop/src/renderer/settings/SettingsModal.tsx'), 'utf8');
     const page = settings.match(/function WebSearchSettingsPage[\s\S]*?function webSearchQueryDisabledReason/);

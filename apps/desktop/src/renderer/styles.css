@@ -12612,6 +12612,16 @@ button:active {
   gap: 10px;
 }
 
+.settingsWebSearchControlCluster,
+.settingsWebSearchSearchControls {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .settingsWebSearchStatusCluster {
   display: inline-flex;
   flex-wrap: wrap;
@@ -12623,9 +12633,30 @@ button:active {
 
 .settingsWebSearchStatusCluster small {
   color: var(--foreground-50);
-  font-size: 11px;
+  font-size: 12px;
   font-family: var(--font-mono);
   white-space: nowrap;
+}
+
+.settingsWebSearchKeyRow > .settingsPasswordField,
+.settingsWebSearchQueryInputRow > input {
+  width: min(100%, 360px);
+  justify-self: end;
+}
+
+.settingsWebSearchActionButtons {
+  justify-content: flex-end;
+}
+
+.settingsWebSearchQueryIntroRow {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.settingsWebSearchDisabledReason {
+  color: var(--foreground-50);
+  font-size: 12px;
+  line-height: 1.45;
+  text-align: right;
 }
 
 .settingsWebSearchResult {
@@ -12661,6 +12692,37 @@ button:active {
   line-height: 1.45;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+@media (max-width: 720px) {
+  .settingsWebSearchEnableRow,
+  .settingsWebSearchKeyRow,
+  .settingsWebSearchCredentialActionRow,
+  .settingsWebSearchQueryInputRow,
+  .settingsWebSearchSearchRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settingsWebSearchControlCluster,
+  .settingsWebSearchSearchControls,
+  .settingsWebSearchActionButtons {
+    justify-content: flex-start;
+  }
+
+  .settingsWebSearchStatusCluster {
+    justify-content: flex-start;
+    margin-left: 0;
+  }
+
+  .settingsWebSearchKeyRow > .settingsPasswordField,
+  .settingsWebSearchQueryInputRow > input {
+    width: 100%;
+    justify-self: stretch;
+  }
+
+  .settingsWebSearchDisabledReason {
+    text-align: left;
+  }
 }
 
 /* ────────────────────────────────────────────────────────────────
