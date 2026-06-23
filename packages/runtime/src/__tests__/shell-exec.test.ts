@@ -71,6 +71,28 @@ describe('runShellWithBoundedTail', () => {
     }
   });
 
+  test('on timeout, kills the whole process tree so a child holding the pipe cannot hang the runner', async () => {
+    // The shell spawns a grandchild (node) that inherits stdout and never exits.
+    // Killing only the shell PID would leave it holding the pipe, so 'close'
+    // would never fire and this test would HANG. Killing the process group lets
+    // 'close' fire and the grandchild is actually gone.
+    const dir = await fs.mkdtemp(join(tmpdir(), 'shell-exec-tree-'));
+    const pidFile = join(dir, 'child.pid');
+    const cmd =
+      `node -e 'require("fs").writeFileSync(${JSON.stringify(pidFile)}, String(process.pid)); setInterval(() => {}, 1000)'`;
+    try {
+      const r = await runShellWithBoundedTail(cmd, base({ timeoutMs: 200, killGraceMs: 150 }));
+      assert.equal(r.timedOut, true);
+      assert.equal(r.exitCode, 124);
+      await delay(150); // let the OS reap the killed tree
+      const childPid = Number((await fs.readFile(pidFile, 'utf8')).trim());
+      assert.ok(Number.isInteger(childPid) && childPid > 0, 'grandchild recorded its pid');
+      assert.throws(() => process.kill(childPid, 0), /ESRCH/, 'grandchild was killed with the tree');
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+
   test('surfaces a safety marker (not bare empty) when an oversized no-newline line is dropped', async () => {
     // One 500-char line with no newline, cap 50: BashTailBuffer drops it whole
     // (no safe truncation boundary), so without a marker the result would look

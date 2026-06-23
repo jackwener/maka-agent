@@ -114,6 +114,13 @@ export function runShellWithBoundedTail(
       env: options.env,
       shell: true,
       stdio: ['ignore', 'pipe', 'pipe'],
+      // POSIX: make the shell its own process-group leader (setsid) so we can
+      // signal the WHOLE tree on timeout/abort. Killing only the shell PID would
+      // leave its children running — and if one keeps the stdout/stderr pipe
+      // open, 'close' never fires and the runner hangs. Not unref'd: we keep
+      // tracking it until it exits. Windows has no process groups; we use
+      // taskkill /T instead (see terminateTree).
+      detached: process.platform !== 'win32',
     });
     const stdoutBuf = new BashTailBuffer(cap);
     const stderrBuf = new BashTailBuffer(cap);
@@ -184,8 +191,30 @@ export function runShellWithBoundedTail(
     function beginTermination(reason: { timedOut?: boolean; aborted?: boolean }): void {
       if (termination || settled) return;
       termination = reason;
-      child.kill('SIGTERM');
-      killTimer = setTimeout(() => child.kill('SIGKILL'), graceMs);
+      terminateTree('SIGTERM');
+      killTimer = setTimeout(() => terminateTree('SIGKILL'), graceMs);
+    }
+
+    // Signal the shell AND every process it launched. POSIX: the shell is a
+    // process-group leader (detached above), so a negative PID targets the whole
+    // group. Windows: no groups/SIGTERM — taskkill /T /F force-kills the tree in
+    // one shot (the later SIGKILL call is then a harmless no-op on a dead PID).
+    function terminateTree(signal: 'SIGTERM' | 'SIGKILL'): void {
+      const pid = child.pid;
+      if (!pid) return;
+      if (process.platform === 'win32') {
+        try {
+          spawn('taskkill', ['/pid', String(pid), '/t', '/f'], { stdio: 'ignore' });
+        } catch { /* nothing more we can do */ }
+        return;
+      }
+      try {
+        process.kill(-pid, signal); // negative PID → the child's process group
+      } catch {
+        // Group already gone, or it never became a group leader — fall back to
+        // the single PID so we at least signal the shell itself.
+        try { child.kill(signal); } catch { /* already exited */ }
+      }
     }
 
     // Settle once, on 'close'. exitCode reflects how we terminated: 124 timeout,
