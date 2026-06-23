@@ -16,19 +16,28 @@ import {
 } from './web-search.js';
 import { defaultLocalMemorySettings, normalizeLocalMemorySettings } from './local-memory.js';
 
+/**
+ * PR-SETTINGS-IA-CONSOLIDATE-0 (2026-06-23, WAWQAQ msg `d93fe001`):
+ * 4 single-purpose pages merged into broader containers to mirror the
+ * reference Settings shape (one big Preferences page + a small set of
+ * narrow tabs). Mapping from the old set:
+ *
+ *   - `network`                       → `general` (proxy block lives at the bottom)
+ *   - `personalization` + `theme`     → `appearance`
+ *   - `memory` + `daily-review`       → `memory-review`
+ *   - `voice-models` + `open-gateway` → `voice-gateway`
+ *
+ * 16 visible sections → 12. See notes/reference-settings.md §7.
+ */
 export type SettingsSection =
   | 'general'
-  | 'personalization'
-  | 'theme'
-  | 'daily-review'
-  | 'memory'
+  | 'appearance'
+  | 'memory-review'
   | 'models'
   | 'usage'
-  | 'voice-models'
-  | 'open-gateway'
+  | 'voice-gateway'
   | 'bot-chat'
   | 'search'
-  | 'network'
   | 'data'
   | 'account'
   | 'permissions'

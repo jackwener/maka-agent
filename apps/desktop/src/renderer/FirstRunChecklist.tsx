@@ -149,7 +149,7 @@ export function FirstRunChecklist(props: FirstRunChecklistProps) {
         title: '告诉我们怎么称呼你',
         reason: '消息行就不会再把你显示成默认的「你」。',
         done: personalization.displayName.trim().length > 0,
-        onClick: () => props.onOpenSettingsSection('personalization'),
+        onClick: () => props.onOpenSettingsSection('appearance'),
       },
       {
         id: 'web-search',
@@ -190,7 +190,7 @@ export function FirstRunChecklist(props: FirstRunChecklistProps) {
           : '项目指令状态暂时没刷新成功，打开记忆设置可查看。',
         done: workspaceInstructionStatusKnown && workspaceInstructionCount > 0,
         trackCompletion: workspaceInstructionStatusKnown,
-        onClick: () => props.onOpenSettingsSection('memory'),
+        onClick: () => props.onOpenSettingsSection('memory-review'),
       },
       {
         // xuan c06e13f transparent MEMORY.md MVP + my
@@ -205,7 +205,7 @@ export function FirstRunChecklist(props: FirstRunChecklistProps) {
         done:
           settings.localMemory.enabled
           && settings.localMemory.agentReadEnabled,
-        onClick: () => props.onOpenSettingsSection('memory'),
+        onClick: () => props.onOpenSettingsSection('memory-review'),
       },
       {
         // xuan d91422d PR-VOICE-CAPTURE-SMOKE-0: Settings → 语音模型
@@ -220,7 +220,7 @@ export function FirstRunChecklist(props: FirstRunChecklistProps) {
         reason: '请求麦克风权限、录 2 秒本地样本，确认采集链路通；不上传、不保存、不写记忆。',
         done: false,
         trackCompletion: false,
-        onClick: () => props.onOpenSettingsSection('voice-models'),
+        onClick: () => props.onOpenSettingsSection('voice-gateway'),
       },
     ];
   }, [settings, planReminders, workspaceInstructionCount, props]);

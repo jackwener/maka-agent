@@ -71,18 +71,21 @@ describe('parseMakaUri — settings', () => {
   it('accepts every known SettingsSection', () => {
     // The full SettingsSection enum, locked here so a section
     // removal in core trips this test.
+    // PR-SETTINGS-IA-CONSOLIDATE-0 (2026-06-23, WAWQAQ msg `d93fe001`):
+    // 16 → 12 sections. Mapping:
+    //   network                       → general (proxy folded in)
+    //   personalization + theme       → appearance
+    //   memory + daily-review         → memory-review
+    //   voice-models + open-gateway   → voice-gateway
     const sections = [
       'general',
-      'personalization',
-      'theme',
-      'daily-review',
+      'appearance',
+      'memory-review',
       'models',
       'usage',
-      'voice-models',
-      'open-gateway',
+      'voice-gateway',
       'bot-chat',
       'search',
-      'network',
       'data',
       'account',
       'permissions',

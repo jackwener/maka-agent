@@ -15,12 +15,14 @@ export type VisualSmokeScenario =
   | 'permission-destructive'
   | 'stale-sessions'
   | 'settings-data'
-  | 'settings-personalization'
-  | 'settings-network'
+  // PR-SETTINGS-IA-CONSOLIDATE-0 (2026-06-23): personalization + theme
+  // merged into 'appearance', daily-review + memory merged into
+  // 'memory-review', network (proxy) folded back into general.
+  | 'settings-appearance'
   | 'settings-bots'
   | 'settings-about'
-  | 'settings-theme'
-  | 'settings-daily-review'
+  | 'settings-general'
+  | 'settings-memory-review'
   | 'module-skills'
   | 'module-daily-review'
   | 'workstation-statuses'

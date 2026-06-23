@@ -35,12 +35,14 @@ const VISUAL_SMOKE_SCENARIOS = new Set<VisualSmokeScenario>([
   // assistantTone, network proxy, etc. — already comes from the
   // default settings.json seed.)
   'settings-data',
-  'settings-personalization',
-  'settings-network',
+  // PR-SETTINGS-IA-CONSOLIDATE-0 (2026-06-23, WAWQAQ msg `d93fe001`):
+  // settings nav consolidation. `personalization + theme` → appearance;
+  // `daily-review + memory` → memory-review; `network` (proxy) → general.
+  'settings-appearance',
   'settings-bots',
   'settings-about',
-  'settings-theme',
-  'settings-daily-review',
+  'settings-general',
+  'settings-memory-review',
   'module-skills',
   'module-daily-review',
   // PR109b: workstation-statuses — seed one session per SessionStatus
@@ -327,18 +329,18 @@ export function getVisualSmokeState(fixture: VisualSmokeFixture | null): VisualS
     // surface behind the modal shows a realistic context.
     case 'settings-data':
       return { ...state, activeSessionId: TURN_SESSION_ID, openSettingsSection: 'data' };
-    case 'settings-personalization':
-      return { ...state, activeSessionId: TURN_SESSION_ID, openSettingsSection: 'personalization' };
-    case 'settings-network':
-      return { ...state, activeSessionId: TURN_SESSION_ID, openSettingsSection: 'network' };
+    case 'settings-appearance':
+      return { ...state, activeSessionId: TURN_SESSION_ID, openSettingsSection: 'appearance' };
     case 'settings-bots':
       return { ...state, activeSessionId: TURN_SESSION_ID, openSettingsSection: 'bot-chat' };
     case 'settings-about':
       return { ...state, activeSessionId: TURN_SESSION_ID, openSettingsSection: 'about' };
-    case 'settings-theme':
-      return { ...state, activeSessionId: TURN_SESSION_ID, openSettingsSection: 'theme' };
-    case 'settings-daily-review':
-      return { ...state, activeSessionId: TURN_SESSION_ID, openSettingsSection: 'daily-review' };
+    case 'settings-general':
+      // PR-SETTINGS-IA-CONSOLIDATE-0: 通用 now also hosts the proxy
+      // block that used to live on its own 网络 page.
+      return { ...state, activeSessionId: TURN_SESSION_ID, openSettingsSection: 'general' };
+    case 'settings-memory-review':
+      return { ...state, activeSessionId: TURN_SESSION_ID, openSettingsSection: 'memory-review' };
     case 'module-skills':
       return { ...state, activeSessionId: TURN_SESSION_ID, sidebarSection: 'skills', sidebarCollapsed: false };
     case 'module-daily-review':
@@ -504,7 +506,7 @@ export async function seedVisualSmokeFixture(input: {
   if (input.fixture.scenario === 'plan-reminders') {
     await writePlanReminders(input.workspaceRoot, now);
   }
-  if (input.fixture.scenario === 'module-daily-review' || input.fixture.scenario === 'settings-daily-review') {
+  if (input.fixture.scenario === 'module-daily-review' || input.fixture.scenario === 'settings-memory-review') {
     await writeDailyReviewArchives(input.workspaceRoot, now);
   }
 }

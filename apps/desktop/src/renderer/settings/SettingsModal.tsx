@@ -9,7 +9,6 @@ import {
   CalendarDays,
   Cpu,
   Database,
-  Globe,
   Info,
   Mic,
   Monitor,
@@ -20,7 +19,6 @@ import {
   Settings as SettingsIcon,
   ShieldCheck,
   Sparkles,
-  User,
   Volume2,
   X,
   type LucideProps,
@@ -203,29 +201,23 @@ function SettingsSelect<T extends string>(props: {
 // node:test without a DOM / React.
 export type { SettingsNavGroup };
 
+// PR-SETTINGS-IA-CONSOLIDATE-0 (2026-06-23, WAWQAQ msg `d93fe001`):
+// 16 → 12 visible sections. Single-purpose pages folded back into
+// broader containers to mirror reference's nav shape (one big
+// Preferences + a small set of narrow tabs). See
+// `notes/reference-settings.md` §7 for the mapping.
 export const SETTINGS_NAV: SettingsNavItem[] = [
-  // Group 1: 基础 — 通用偏好、个性化、主题
+  // Group 1: 基础 — 通用 (kitchen sink) + 外观 (theme + personalization merged)
   { id: 'general', label: '通用', Icon: SettingsIcon, enabled: true, group: '基础' },
-  { id: 'personalization', label: '个性化', Icon: User, enabled: true, group: '基础' },
-  { id: 'theme', label: '主题', Icon: Palette, enabled: true, group: '基础' },
-  // Group 2: AI — 模型、使用、语音、回顾、网关
+  { id: 'appearance', label: '外观', Icon: Palette, enabled: true, group: '基础' },
+  // Group 2: AI — models, usage, memory+review, voice+gateway merged
   { id: 'models', label: '模型', Icon: Cpu, enabled: true, group: 'AI' },
   { id: 'usage', label: '使用统计', Icon: BarChart3, enabled: true, group: 'AI' },
-  { id: 'daily-review', label: '每日回顾', Icon: CalendarDays, enabled: true, group: 'AI' },
-  { id: 'memory', label: '记忆', Icon: Brain, enabled: true, group: 'AI' },
-  { id: 'voice-models', label: '语音模型', Icon: Volume2, enabled: true, group: 'AI' },
-  { id: 'open-gateway', label: '开放网关', Icon: Sparkles, enabled: true, group: 'AI' },
-  // Group 3: 集成 — bot、搜索、网络
+  { id: 'memory-review', label: '记忆与回顾', Icon: Brain, enabled: true, group: 'AI' },
+  { id: 'voice-gateway', label: '语音与网关', Icon: Volume2, enabled: true, group: 'AI' },
+  // Group 3: 集成 — bot、搜索 (network/proxy now lives inside 通用)
   { id: 'bot-chat', label: '机器人对话', Icon: Bot, enabled: true, group: '集成' },
-  // PR-UX-POLISH-1 commit 2 (yuejing UX audit msg `9c779b56`):
-  // renamed `搜索服务` → `联网搜索` so it doesn't collide semantically
-  // with the sidebar's local-content search modal (which is a
-  // completely different feature — search across thread / session
-  // text, not web). Future Settings page wires per-engine credentials
-  // for web-search providers; the sidebar's modal stays the
-  // local-content search UI.
   { id: 'search', label: '联网搜索', Icon: Search, enabled: true, group: '集成' },
-  { id: 'network', label: '网络', Icon: Globe, enabled: true, group: '集成' },
   // Group 4: 数据
   { id: 'data', label: '数据', Icon: Database, enabled: true, group: '数据' },
   // Group 5: 其他
@@ -1085,13 +1077,11 @@ function SettingsPage(props: {
           onReload={props.onReloadSettings}
         />
       );
-    case 'network':
-      return <NetworkSettingsPage settings={props.settings} onUpdate={props.onUpdateSettings} />;
-    case 'open-gateway':
-      return <OpenGatewaySettingsPage settings={props.settings} onUpdate={props.onUpdateSettings} />;
     case 'about':
       return <AboutSettingsPage />;
     case 'general':
+      // PR-SETTINGS-IA-CONSOLIDATE-0: 通用 now also hosts the proxy
+      // block that used to live on its own 网络 page.
       return (
         <div className="settingsStructuredPage">
           <div className="settingsFormRow">
@@ -1110,23 +1100,26 @@ function SettingsPage(props: {
             <SettingRow title="新对话模式" detail="新对话默认从确认模式开始。" value="确认" />
             <SettingRow title="默认模型" detail="新对话默认使用的模型连接。" value={props.defaultSlug ?? '未设置'} />
           </SettingsRows>
+          <NetworkProxySection settings={props.settings} onUpdate={props.onUpdateSettings} />
         </div>
       );
-    case 'theme':
+    case 'appearance':
+      // PR-SETTINGS-IA-CONSOLIDATE-0: 主题 + 个性化 → 外观.
       return (
-        <ThemeSettingsPage
-          themePref={props.themePref}
-          density={props.density}
-          themePalette={props.themePalette}
-          settings={props.settings}
-          onUpdate={props.onUpdateSettings}
-          onThemeChange={props.onThemeChange}
-          onDensityChange={props.onDensityChange}
-          onThemePaletteChange={props.onThemePaletteChange}
-        />
+        <div className="settingsStructuredPage">
+          <ThemeSettingsPage
+            themePref={props.themePref}
+            density={props.density}
+            themePalette={props.themePalette}
+            settings={props.settings}
+            onUpdate={props.onUpdateSettings}
+            onThemeChange={props.onThemeChange}
+            onDensityChange={props.onDensityChange}
+            onThemePaletteChange={props.onThemePaletteChange}
+          />
+          <PersonalizationSettingsPage settings={props.settings} onUpdate={props.onUpdateSettings} />
+        </div>
       );
-    case 'personalization':
-      return <PersonalizationSettingsPage settings={props.settings} onUpdate={props.onUpdateSettings} />;
     case 'data':
       return <DataSettingsPage />;
     case 'account':
@@ -1141,18 +1134,26 @@ function SettingsPage(props: {
       return <PermissionCenterPage />;
     case 'health':
       return <HealthCenterPage />;
-    case 'daily-review':
-      return <DailyReviewSettingsPage onOpenDailyReview={props.onOpenDailyReview} />;
-    case 'memory':
+    case 'memory-review':
+      // PR-SETTINGS-IA-CONSOLIDATE-0: 记忆 + 每日回顾 → 记忆与回顾.
       return (
-        <MemorySettingsPage
-          settings={props.settings}
-          onUpdate={props.onUpdateSettings}
-          onReloadSettings={props.onReloadSettings}
-        />
+        <div className="settingsStructuredPage">
+          <MemorySettingsPage
+            settings={props.settings}
+            onUpdate={props.onUpdateSettings}
+            onReloadSettings={props.onReloadSettings}
+          />
+          <DailyReviewSettingsPage onOpenDailyReview={props.onOpenDailyReview} />
+        </div>
       );
-    case 'voice-models':
-      return <VoiceModelsSettingsPage />;
+    case 'voice-gateway':
+      // PR-SETTINGS-IA-CONSOLIDATE-0: 语音模型 + 开放网关 → 语音与网关.
+      return (
+        <div className="settingsStructuredPage">
+          <VoiceModelsSettingsPage />
+          <OpenGatewaySettingsPage settings={props.settings} onUpdate={props.onUpdateSettings} />
+        </div>
+      );
     case 'search':
       return (
         <WebSearchSettingsPage
@@ -4477,7 +4478,11 @@ function settingsActionErrorMessage(error: unknown): string {
   return '未知错误，请稍后重试。';
 }
 
-function NetworkSettingsPage(props: {
+// PR-SETTINGS-IA-CONSOLIDATE-0 (2026-06-23): the standalone `网络` page
+// was deleted (a single proxy block does not warrant its own nav row).
+// This section is embedded at the bottom of the 通用 page, so it does
+// NOT wrap itself in `settingsStructuredPage` — the parent already does.
+function NetworkProxySection(props: {
   settings: AppSettings;
   onUpdate(patch: Parameters<typeof window.maka.settings.update>[0]): Promise<UpdateAppSettingsResult>;
 }) {
@@ -4559,7 +4564,7 @@ function NetworkSettingsPage(props: {
   }
 
   return (
-    <div className="settingsStructuredPage">
+    <>
       <div className="settingsFormRow">
         <div>
           <strong>代理服务器</strong>
@@ -4651,7 +4656,7 @@ function NetworkSettingsPage(props: {
           </div>
         </>
       )}
-    </div>
+    </>
   );
 }
 
