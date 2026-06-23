@@ -84,6 +84,21 @@ describe('Harbor adapter contract', () => {
     assert.doesNotMatch(source, /DEEPSEEK_API_KEY[^_]/);
   });
 
+  test('run-prompt-ab.mjs wires calibration and A/B comparison with a key file', async () => {
+    const source = await readRepoFile('packages/headless/harbor/run-prompt-ab.mjs');
+    assert.match(source, /runPromptAbConcurrencyCalibration/);
+    assert.match(source, /runPromptAbComparison/);
+    assert.match(source, /renderPromptAbComparisonMarkdown/);
+    assert.match(source, /discoverCachedHarborTasks/);
+    assert.match(source, /partitionPromptTasks/);
+    assert.match(source, /createHarborTaskRunner/);
+    assert.match(source, /apiKeyFile: keyFile/);
+    assert.match(source, /MAKA_PROMPT_AB_CANDIDATE_PROMPT_PATH/);
+    assert.match(source, /from '#prompt-ab-run'/);
+    assert.match(source, /from '#harbor-task-runner'/);
+    assert.doesNotMatch(source, /DEEPSEEK_API_KEY[^_]/);
+  });
+
   test('the public headless barrel does not expose prompt-runner internals added for PR 149', async () => {
     const source = await readRepoFile('packages/headless/src/index.ts');
     assert.doesNotMatch(source, /RunHarborCell|runHarborCell|buildAiSdkCellBackendRegistration|createHarborCellLocalToolExecutor/);
@@ -91,6 +106,7 @@ describe('Harbor adapter contract', () => {
     assert.doesNotMatch(source, /runPromptCandidateRound|createCliPromptCandidateGit|MetaAgentCompletion|PromptCandidateRoundResult/);
     assert.doesNotMatch(source, /decidePromptAcceptance|calibratePromptAcceptanceBaseline|PromptAcceptanceDecision/);
     assert.doesNotMatch(source, /promptStructuralSmokeReport|renderPromptStructuralSmokeMarkdown/);
+    assert.doesNotMatch(source, /runPromptAbComparison|runPromptAbConcurrencyCalibration|renderPromptAbComparisonMarkdown/);
     assert.doesNotMatch(source, /createHarborTaskRunner|HarborTaskRunnerOptions|HarborProcessRunner/);
     assert.doesNotMatch(source, /createAiSdkMetaAgent|createAiSdkMetaAgentCompletion|CreateAiSdkMetaAgentInput/);
     assert.doesNotMatch(source, /runPromptOptimizationLoop|PromptOptimizationLoopInput/);
