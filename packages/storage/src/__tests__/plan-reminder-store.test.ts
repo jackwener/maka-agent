@@ -327,6 +327,24 @@ describe('PlanReminderStore', () => {
     assert.equal((await store.list()).find((entry) => entry.id === reminder.id)?.lastRun?.id, 'run-1');
   });
 
+  it('rejects wrong top-level reminder files instead of overwriting them as empty', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'maka-plan-reminders-'));
+    const filePath = join(root, 'plan-reminders.json');
+    const invalid = JSON.stringify({ reminders: [] }, null, 2) + '\n';
+    await writeFile(filePath, invalid, 'utf8');
+
+    const store = createPlanReminderStore(root);
+    await assert.rejects(
+      () => store.list(),
+      /expected an array/,
+    );
+    await assert.rejects(
+      () => store.create({ title: '新提醒', runAt: Date.now() + 60_000 }),
+      /expected an array/,
+    );
+    assert.equal(await readFile(filePath, 'utf8'), invalid);
+  });
+
   it('rejects invalid creates before writing', async () => {
     const root = await mkdtemp(join(tmpdir(), 'maka-plan-reminders-'));
     const store = createPlanReminderStore(root);

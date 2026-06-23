@@ -233,7 +233,9 @@ class FilePlanReminderStore implements PlanReminderStore {
     try {
       const text = await readFile(this.filePath, 'utf8');
       const parsed = JSON.parse(text) as unknown;
-      if (!Array.isArray(parsed)) return [];
+      if (!Array.isArray(parsed)) {
+        throw new Error('Invalid plan reminders file: expected an array');
+      }
       return parsed
         .map(normalizePersistedPlanReminder)
         .filter((reminder): reminder is PlanReminder => Boolean(reminder));
