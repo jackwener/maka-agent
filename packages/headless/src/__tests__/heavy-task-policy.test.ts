@@ -126,7 +126,10 @@ describe('heavy-task policy', () => {
     assert.match(prompt, /inspect public task files/);
     assert.match(prompt, /inventory_submit/);
     assert.match(prompt, /todo_update/);
+    assert.match(prompt, /engineering_record/);
+    assert.match(prompt, /check_record/);
     assert.match(prompt, /self_check_submit/);
+    assert.match(prompt, /inventory -> hypothesize -> patch -> targeted_check -> repair -> semantic_self_check -> finish_or_continue/);
     assert.match(prompt, /public, task-derived semantic self-check evidence/);
     assert.match(prompt, /agent-owned public self-check plan before broad implementation/);
     assert.match(prompt, /Derive the plan only from visible task\/workspace evidence/);
@@ -171,6 +174,17 @@ describe('heavy-task policy', () => {
     assert.doesNotMatch(policy, /(?:from|using|based on|derived from) hidden/i);
     assert.doesNotMatch(policy, /(?:from|using|based on|derived from) private/i);
     assert.doesNotMatch(policy, /(?:from|using|based on|derived from) evaluator/i);
+  });
+
+  test('benchmark complexity signals can enable heavy-task mode when config is silent', () => {
+    const selection = resolveHeavyTaskMode(baseConfig, {
+      ...baseTask,
+      benchmark: { metadata: { taskComplexity: 'heavy' } },
+    });
+
+    assert.equal(selection.enabled, true);
+    assert.equal(selection.triggerSource, 'task_metadata');
+    assert.match(selection.triggerReason, /task complexity signal: heavy/);
   });
 });
 
