@@ -468,21 +468,28 @@ if [ "\${nul:-0}" -gt 0 ]; then
   exit 0
 fi
 # cat -n style: each line carries its absolute 1-based number; over-long lines are
-# clipped; at most "limit" lines from "offset" are shown, with a hint when more
-# remain so the model knows to continue with a larger offset.
+# clipped at maxcol bytes. Output stops at the line cap ("limit" lines from
+# "offset") OR a ~50KB byte budget, whichever comes first — both keep a large file
+# from flooding the model's context (#92) — with a hint giving the offset to resume.
 # LC_ALL=C so awk treats the file as bytes and never aborts on invalid UTF-8 in a
-# non-NUL file; line content is emitted byte-for-byte, length()/maxcol count bytes.
+# non-NUL file; line content is byte-for-byte and length()/maxcol/maxbytes count bytes.
 LC_ALL=C awk -v start="$offset" -v limit="$limit" '
-  BEGIN { first = start + 1; last = start + limit; maxcol = 2000 }
+  BEGIN { first = start + 1; last = start + limit; maxcol = 2000; maxbytes = 51200 }
   NR < first { next }
-  NR <= last {
+  {
+    if (NR > last) { stopped = 1; exit }
     line = $0
     if (length(line) > maxcol) line = substr(line, 1, maxcol) "... [line truncated]"
-    printf "%6d\\t%s\\n", NR, line
-    next
+    out = sprintf("%6d\\t%s\\n", NR, line)
+    # Always emit at least one line (shown > 0 guard); otherwise stop before the
+    # budget is exceeded so total output stays under maxbytes.
+    if (shown > 0 && bytes + length(out) > maxbytes) { stopped = 1; exit }
+    printf "%s", out
+    bytes += length(out)
+    shown += 1
+    lastline = NR
   }
-  { more = 1; exit }
-  END { if (more) printf "... (truncated at line %d; pass offset=%d to read more)\\n", last, last }
+  END { if (stopped) printf "... (truncated at line %d; pass offset=%d to read more)\\n", lastline, lastline }
 ' "$target"
 `;
 

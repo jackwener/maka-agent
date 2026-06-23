@@ -421,6 +421,30 @@ describe('isolated headless tools', () => {
     assert.equal(highBin.content, '[binary file: 3 bytes, contents omitted]');
   });
 
+  test('Read clips an over-long single line at 2000 bytes with a marker', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'maka-headless-read-clip-'));
+    await writeFile(join(cwd, 'long.txt'), 'X'.repeat(2500) + '\n', 'utf8'); // one 2500-byte line
+    const tools = buildIsolatedHeadlessTools({
+      async exec(input) {
+        try {
+          const { stdout, stderr } = await execAsync(input.command, { cwd: input.cwd, env: process.env, maxBuffer: 4 * 1024 * 1024 });
+          return { exitCode: 0, stdout, stderr };
+        } catch (error: any) {
+          return {
+            exitCode: typeof error?.code === 'number' ? error.code : 1,
+            stdout: typeof error?.stdout === 'string' ? error.stdout : '',
+            stderr: typeof error?.stderr === 'string' ? error.stderr : String(error),
+          };
+        }
+      },
+    });
+
+    const r = (await tool(tools, 'Read').impl({ path: join(cwd, 'long.txt') }, toolCtx(cwd))) as { content: string };
+    assert.ok(r.content.startsWith('     1\t'), 'line-number prefix present');
+    assert.ok(r.content.includes('... [line truncated]'), 'clip marker present');
+    assert.equal(r.content.match(/X/g)?.length, 2000, 'only the first 2000 bytes kept, clipped tail dropped');
+  });
+
   test('Grep prefers ripgrep when on PATH and skips binary files', async (t) => {
     try {
       await execAsync('rg --version', { env: process.env });
