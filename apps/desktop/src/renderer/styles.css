@@ -7382,17 +7382,18 @@ button:active {
   font-size: 13px;
 }
 
-/* PR-SETTINGS-GROUPED-CARD-0: rows live inside the outer card and
-   sit flush. Only a bottom hairline divider separates adjacent
-   rows; `:last-child` removes it so the card doesn't double its
-   bottom edge. */
+/* PR-SETTINGS-ROW-SPACIOUS-0 (2026-06-23, WAWQAQ msg `f7e9d166`):
+   reference rows are MUCH more spacious than maka's. WAWQAQ's screenshot
+   of QoderWork's preferences card showed rows ~80–90px tall with
+   noticeable internal padding. Bumped: min-height 56→72, padding
+   16/20 → 20/24, gap inside row 16→20, label 14→15px, hint 12→13. */
 .settingsFormRow {
-  min-height: 56px;
+  min-height: 72px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 16px 20px;
+  gap: 20px;
+  padding: 20px 24px;
   border: 0;
   border-bottom: 1px solid oklch(from var(--foreground) l c h / 0.06);
   border-radius: 0;
@@ -7413,17 +7414,18 @@ button:active {
 .settingsFormGrid label span {
   display: block;
   color: var(--foreground);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
+  line-height: 1.35;
 }
 
 .settingsFormRow small,
 .settingsField small {
   display: block;
-  margin-top: 4px;
-  color: var(--foreground-50);
-  font-size: 12px;
-  line-height: 1.4;
+  margin-top: 6px;
+  color: var(--foreground-55);
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .settingsFieldWarning {
