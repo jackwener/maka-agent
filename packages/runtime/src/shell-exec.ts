@@ -27,6 +27,21 @@ import { BashTailBuffer } from './bash-tail-buffer.js';
 // budget. Shared so both Bash paths retain identically.
 export const BASH_MAX_RETAINED_CHARS = 1024 * 1024;
 
+// Appended to a stream when BashTailBuffer dropped an oversized line that had no
+// newline to truncate at (dropped whole for redaction safety). Without it, a
+// command whose only output was one giant line would look like it produced
+// nothing. Carries no dropped content — just a recoverable notice.
+const UNSAFE_DROP_MARKER =
+  '[a single line larger than the output limit was omitted for safety; ' +
+  're-run with output redirected to a file (e.g. `cmd > out.txt 2>&1`) to inspect it]';
+
+function withUnsafeDropMarker(buf: BashTailBuffer): string {
+  const text = buf.value(); // value() trims first, so the drop flag is current after it
+  if (!buf.hasDroppedUnsafe()) return text;
+  // Append (not prepend) so a later tail-keeping truncateToolOutput retains it.
+  return text ? `${text}\n${UNSAFE_DROP_MARKER}` : UNSAFE_DROP_MARKER;
+}
+
 export interface BoundedShellOptions {
   cwd: string;
   /** Hard wall-clock cap; the child is SIGTERM'd and `timedOut` is set. */
@@ -113,8 +128,8 @@ export function runShellWithBoundedTail(
       if (outcome.timedOut || outcome.aborted) child.kill('SIGTERM');
       resolvePromise({
         exitCode: outcome.exitCode ?? (outcome.timedOut ? 124 : outcome.aborted ? 130 : 1),
-        stdout: stdoutBuf.value(),
-        stderr: stderrBuf.value(),
+        stdout: withUnsafeDropMarker(stdoutBuf),
+        stderr: withUnsafeDropMarker(stderrBuf),
         timedOut: !!outcome.timedOut,
         aborted: !!outcome.aborted,
       });

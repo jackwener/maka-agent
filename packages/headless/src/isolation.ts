@@ -14,6 +14,14 @@ export interface IsolatedCommandInput {
   command: string;
   cwd: string;
   timeoutMs?: number;
+  /**
+   * Bash-only opt-in. When true the executor keeps just the recoverable TAIL of
+   * a large output and never kills the command for output size. Omitted/false
+   * (the default) preserves FULL output up to the executor's buffer cap — so the
+   * Read/Glob/Grep command fallbacks return complete, head-first content instead
+   * of a silently head-dropped tail. Only buildIsolatedBashTool sets this.
+   */
+  boundedTail?: boolean;
 }
 
 export interface IsolatedCommandResult {

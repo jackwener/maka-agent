@@ -37,6 +37,16 @@ describe('runShellWithBoundedTail', () => {
     assert.equal(r.exitCode, 124);
   });
 
+  test('surfaces a safety marker (not bare empty) when an oversized no-newline line is dropped', async () => {
+    // One 500-char line with no newline, cap 50: BashTailBuffer drops it whole
+    // (no safe truncation boundary), so without a marker the result would look
+    // like the command produced nothing.
+    const r = await runShellWithBoundedTail("head -c 500 /dev/zero | tr '\\0' x", base({ maxRetainedChars: 50 }));
+    assert.equal(r.exitCode, 0);
+    assert.ok(!r.stdout.includes('xxxx'), 'dropped content is not leaked');
+    assert.ok(r.stdout.includes('omitted for safety'), 'a recoverable safety marker is present');
+  });
+
   test('emits every chunk live via emitOutput', async () => {
     const seen: Array<[string, string]> = [];
     await runShellWithBoundedTail(

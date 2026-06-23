@@ -38,6 +38,15 @@ describe('BashTailBuffer', () => {
     const buf = new BashTailBuffer(5);
     buf.push('Authorization: Bearer sk-live-secret-token-value'); // one giant line
     assert.equal(buf.value(), '');
+    // It also flags the unsafe drop so callers can mark the empty result.
+    assert.equal(buf.hasDroppedUnsafe(), true);
+  });
+
+  test('does not flag a safe drop (partial leading line trimmed at a newline)', () => {
+    const buf = new BashTailBuffer(8);
+    buf.push('aaaa\nbbbb\ncccc\n'); // sliced at a newline boundary — safe, not unsafe
+    assert.ok(buf.value().length <= 8);
+    assert.equal(buf.hasDroppedUnsafe(), false);
   });
 
   test('keeps discarding continuation chunks of a dropped oversized line until a newline', () => {

@@ -21,8 +21,18 @@ export class BashTailBuffer {
   // newline, otherwise a continuation chunk (a secret's severed suffix) would
   // be retained as if it were a clean line and defeat downstream redaction.
   private insideDroppedLine = false;
+  // Latches true once we drop an oversized no-newline line entirely (the case
+  // above). Callers surface a marker so a result that looks empty is not
+  // mistaken for "the command produced nothing" — content existed but could not
+  // be safely truncated.
+  private droppedUnsafe = false;
 
   constructor(private readonly cap: number) {}
+
+  /** Whether an oversized, unsafe-to-truncate line was dropped from the tail. */
+  hasDroppedUnsafe(): boolean {
+    return this.droppedUnsafe;
+  }
 
   push(chunk: string): void {
     if (!chunk) return;
@@ -65,6 +75,7 @@ export class BashTailBuffer {
         // dropped line so its continuation chunks are discarded until a newline.
         kept = '';
         this.insideDroppedLine = true;
+        this.droppedUnsafe = true;
       }
     }
     this.chunks = kept ? [kept] : [];

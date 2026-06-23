@@ -1,5 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { exec as nodeExec } from 'node:child_process';
 import { join } from 'node:path';
+import { promisify } from 'node:util';
 import type {
   BackendKind,
   LlmConnection,
@@ -36,6 +38,8 @@ import { buildIsolatedHeadlessToolAvailability, buildIsolatedHeadlessTools, type
 
 export const HARBOR_CELL_OUTPUT_FILENAME = 'maka-cell-output.json';
 export const HARBOR_CELL_RUNTIME_EVENTS_FILENAME = 'runtime-events.jsonl';
+const execAsync = promisify(nodeExec);
+const HARBOR_CELL_TOOL_MAX_BUFFER_BYTES = 10 * 1024 * 1024;
 
 export interface RunHarborCellInput {
   config: Config;
@@ -335,25 +339,46 @@ export function buildHarborCellAiSdkTools(
 export function createHarborCellLocalToolExecutor(env: RunHarborCellEnv = process.env): IsolatedToolExecutor {
   const childEnv = childProcessEnv(env);
   return {
-    exec: async ({ command, cwd, timeoutMs }) => {
+    exec: async ({ command, cwd, timeoutMs, boundedTail }) => {
+      if (boundedTail) {
+        // Bash opted in: stream into a bounded tail (shared with the in-process
+        // builtin Bash) instead of execAsync({ maxBuffer }). A command whose
+        // output passes 10MB is no longer KILLED with only its head returned —
+        // it runs to completion and we keep the last ~1MB (the recoverable tail).
+        try {
+          const result = await runShellWithBoundedTail(command, {
+            cwd,
+            env: childEnv,
+            timeoutMs: timeoutMs ?? 120_000,
+          });
+          return {
+            exitCode: result.timedOut ? 124 : result.exitCode,
+            stdout: result.stdout,
+            stderr: result.stderr,
+          };
+        } catch (error) {
+          // runShellWithBoundedTail only rejects when the process cannot be
+          // spawned at all (e.g. the shell binary is missing).
+          return {
+            exitCode: shellErrorExitCode(error),
+            stdout: shellErrorText(error, 'stdout'),
+            stderr: shellErrorText(error, 'stderr') || shellErrorMessage(error),
+          };
+        }
+      }
+      // Default (Read/Glob/Grep/Edit fallbacks): FULL output up to the buffer
+      // cap. These must return complete, head-first content — a bounded tail
+      // would silently drop the head of a file or search result and the model
+      // would edit code from a partial view.
       try {
-        // Stream into a bounded tail (shared with the in-process builtin Bash)
-        // instead of execAsync({ maxBuffer }): a command whose output passes the
-        // old 10MB buffer is no longer KILLED with only its head returned — it
-        // runs to completion and we keep the last ~1MB (the recoverable tail).
-        const result = await runShellWithBoundedTail(command, {
+        const result = await execAsync(command, {
           cwd,
           env: childEnv,
-          timeoutMs: timeoutMs ?? 120_000,
+          timeout: timeoutMs ?? 120_000,
+          maxBuffer: HARBOR_CELL_TOOL_MAX_BUFFER_BYTES,
         });
-        return {
-          exitCode: result.timedOut ? 124 : result.exitCode,
-          stdout: result.stdout,
-          stderr: result.stderr,
-        };
+        return { exitCode: 0, stdout: result.stdout, stderr: result.stderr };
       } catch (error) {
-        // runShellWithBoundedTail only rejects when the process cannot be
-        // spawned at all (e.g. the shell binary is missing).
         return {
           exitCode: shellErrorExitCode(error),
           stdout: shellErrorText(error, 'stdout'),

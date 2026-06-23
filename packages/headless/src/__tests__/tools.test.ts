@@ -39,7 +39,7 @@ describe('isolated headless tools', () => {
       },
     );
 
-    assert.deepEqual(calls, [{ command: 'npm test', cwd: '/workspace', timeoutMs: 12_000 }]);
+    assert.deepEqual(calls, [{ command: 'npm test', cwd: '/workspace', timeoutMs: 12_000, boundedTail: true }]);
     assert.deepEqual(emitted, [
       { stream: 'stdout', chunk: 'out\n' },
       { stream: 'stderr', chunk: 'err\n' },
@@ -54,7 +54,7 @@ describe('isolated headless tools', () => {
     });
   });
 
-  test('Bash bounds large executor output for the model but emits the full stream', async () => {
+  test('Bash surfaces the executor result to history and bounds it for the model', async () => {
     const big = Array.from({ length: 5000 }, (_, i) => `line${i + 1}`).join('\n') + '\n';
     const emitted: Array<{ stream: string; chunk: string }> = [];
     const bash = buildIsolatedBashTool({
@@ -75,13 +75,37 @@ describe('isolated headless tools', () => {
       },
     ) as { stdout: string };
 
-    // The full stream is still surfaced live (history / UI), unbounded.
+    // emitOutput surfaces whatever the executor RETURNS to history (there is no
+    // live per-chunk channel across the executor boundary — see the Harbor tests
+    // for the real bounded path). The model-facing result is bounded further.
     assert.equal(emitted.find((event) => event.stream === 'stdout')?.chunk, big);
-    // The model-facing result is bounded: tail kept, marker present, smaller.
     assert.ok(result.stdout.includes('line5000'));
     assert.ok(result.stdout.includes('truncated'));
     assert.ok(!result.stdout.includes('line1\n'));
     assert.ok(result.stdout.length < big.length);
+  });
+
+  test('only Bash opts into bounded-tail; Read/Glob/Grep request full output', async () => {
+    // Records the boundedTail flag of every exec() and returns empty output, so
+    // the command-backed Read/Glob/Grep complete without running anything.
+    const seen: Array<{ boundedTail: unknown }> = [];
+    const tools = buildIsolatedHeadlessTools({
+      async exec(input) {
+        seen.push({ boundedTail: (input as { boundedTail?: boolean }).boundedTail });
+        return { exitCode: 0, stdout: '', stderr: '' };
+      },
+    });
+
+    await tool(tools, 'Bash').impl({ command: 'echo hi' }, toolCtx('/workspace'));
+    await tool(tools, 'Read').impl({ path: 'src/f.txt' }, toolCtx('/workspace'));
+    await tool(tools, 'Glob').impl({ pattern: '**/*.txt' }, toolCtx('/workspace'));
+    await tool(tools, 'Grep').impl({ pattern: 'hello' }, toolCtx('/workspace'));
+
+    assert.equal(seen[0].boundedTail, true, 'Bash opts into bounded tail');
+    assert.ok(
+      seen.slice(1).every((call) => !call.boundedTail),
+      'Read/Glob/Grep must request full output, not a bounded tail',
+    );
   });
 
   test('standard isolated tool surface exposes externalized file tools to local-read children', () => {
