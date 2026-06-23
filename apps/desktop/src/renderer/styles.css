@@ -11913,21 +11913,24 @@ button:active {
   padding: 0;
   margin: 0;
   display: grid;
-  gap: 6px;
+  /* PR-SETTINGS-PERMISSION-POLISH-0 (WAWQAQ msg `6a04b077` reference
+     comparison): cards looked cramped at 6px gap; reference has ~12px
+     between cards so each row breathes. */
+  gap: 12px;
 }
 
 /* PR-PERMISSION-PAGE-REDESIGN: card layout with icon + body + actions.
-   Mirrors the reference's row anatomy (icon-left / text / status pill /
-   action button) but uses our atlas page-card recipe (hairline border +
-   6px radius + 4% lift + inner highlight). */
+   PR-SETTINGS-PERMISSION-POLISH-0 (round 16): bumped padding 12/14 → 16/18,
+   icon track 32 → 36, label 14 → 15, purpose 12.5 → 13 + 1.5 line-height.
+   Status-tinted icon bg so reference's pastel chip-icon feel survives. */
 .settingsOsPermissionRow {
   display: grid;
   grid-template-columns: 36px minmax(0, 1fr) auto;
   align-items: flex-start;
-  gap: 12px;
-  padding: 12px 14px;
+  gap: 14px;
+  padding: 16px 18px;
   border: 1px solid var(--card-border-color, var(--border));
-  border-radius: var(--card-radius, 8px);
+  border-radius: var(--card-radius, 10px);
   background: var(--card-bg, var(--background));
   box-shadow:
     var(--card-shadow, none),
@@ -11939,44 +11942,55 @@ button:active {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: oklch(from var(--foreground) l c h / 0.04);
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  background: oklch(from var(--foreground) l c h / 0.05);
   color: var(--foreground-70);
+}
+
+/* Status-tinted icon: when granted, color the icon plate with the success
+   tone; when denied, destructive; not_determined keeps the neutral. */
+.settingsOsPermissionRow[data-state="granted"] .settingsOsPermissionIcon {
+  background: oklch(from var(--success) l c h / 0.10);
+  color: var(--success);
+}
+.settingsOsPermissionRow[data-state="denied"] .settingsOsPermissionIcon {
+  background: oklch(from var(--destructive) l c h / 0.10);
+  color: var(--destructive);
 }
 
 .settingsOsPermissionBody {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
   min-width: 0;
 }
 
 .settingsOsPermissionHeading {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 .settingsOsPermissionHeading strong {
-  font-size: 0.875rem;
+  font-size: 15px;
   font-weight: 600;
   color: var(--foreground);
 }
 
 .settingsOsPermissionPurpose {
   color: var(--foreground-70);
-  font-size: 0.78rem;
-  line-height: 1.5;
+  font-size: 13px;
+  line-height: 1.55;
 }
 
 .settingsOsPermissionImpact {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.74rem;
-  color: var(--foreground-65);
+  font-size: 12px;
+  color: var(--foreground-60);
   line-height: 1.45;
 }
 .settingsOsPermissionImpactLabel {
