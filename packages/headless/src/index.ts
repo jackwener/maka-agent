@@ -156,6 +156,14 @@ export type {
   AutonomousResultTaxonomy,
   EnvNetworkSecretPolicy,
   FeedbackObservation,
+  HeavyTaskInventoryItem,
+  HeavyTaskInventoryRecordedEvent,
+  HeavyTaskInventoryState,
+  HeavyTaskModeRecordedEvent,
+  HeavyTaskProgressSource,
+  HeavyTaskTodoItem,
+  HeavyTaskTodoState,
+  HeavyTaskTodosRecordedEvent,
   HeadlessInterventionMode,
   IsolationPolicyRecordedEvent,
   PermissionDecision,
@@ -283,6 +291,21 @@ export {
   type HeavyTaskModeSelection,
   type HeavyTaskModeTriggerSource,
 } from './heavy-task-policy.js';
+export type {
+  HeavyTaskInventorySubmitInput,
+  HeavyTaskProgressRecorder,
+  HeavyTaskTodoUpdateInput,
+} from './heavy-task-progress.js';
+export {
+  buildHeavyTaskProgressTools,
+  createHeavyTaskProgressRecorder,
+  heavyTaskInventoryItemSchema,
+  heavyTaskInventorySubmitSchema,
+  heavyTaskTodoItemSchema,
+  heavyTaskTodoUpdateSchema,
+  HEAVY_TASK_PROGRESS_TOOL_NAMES,
+  renderHeavyTaskProgressForPrompt,
+} from './heavy-task-progress.js';
 export type {
   HeadlessBackendContext,
   IsolatedCommandInput,

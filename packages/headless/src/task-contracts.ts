@@ -282,6 +282,51 @@ export interface HeavyTaskModeFacts {
   policyVersion: string;
 }
 
+export interface HeavyTaskProgressSource {
+  kind: 'model_tool';
+  toolCallId: string;
+  sessionId?: string;
+  turnId?: string;
+}
+
+export interface HeavyTaskInventoryItem {
+  path: string;
+  kind: 'file' | 'directory' | 'artifact' | 'command' | 'unknown';
+  status: 'observed' | 'planned' | 'unknown';
+  purpose?: string;
+  evidence?: string;
+}
+
+export interface HeavyTaskInventoryState {
+  schemaVersion: 1;
+  inventoryId: string;
+  taskRunId: string;
+  attemptId?: string;
+  ts: number;
+  summary: string;
+  items: HeavyTaskInventoryItem[];
+  openQuestions?: string[];
+  source: HeavyTaskProgressSource;
+}
+
+export interface HeavyTaskTodoItem {
+  id: string;
+  content: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+  priority: 'high' | 'medium' | 'low';
+  evidence?: string;
+}
+
+export interface HeavyTaskTodoState {
+  schemaVersion: 1;
+  todoSetId: string;
+  taskRunId: string;
+  attemptId?: string;
+  ts: number;
+  items: HeavyTaskTodoItem[];
+  source: HeavyTaskProgressSource;
+}
+
 export interface EnvNetworkSecretPolicy {
   schemaVersion: 1;
   env: 'inherit_none' | 'allowlist';
@@ -484,6 +529,16 @@ export interface HeavyTaskModeRecordedEvent extends BaseTaskEvent {
   facts: HeavyTaskModeFacts;
 }
 
+export interface HeavyTaskInventoryRecordedEvent extends BaseTaskEvent {
+  type: 'heavy_task_inventory_recorded';
+  inventory: HeavyTaskInventoryState;
+}
+
+export interface HeavyTaskTodosRecordedEvent extends BaseTaskEvent {
+  type: 'heavy_task_todos_recorded';
+  todos: HeavyTaskTodoState;
+}
+
 export interface WorkspaceLeaseRecordedEvent extends BaseTaskEvent {
   type: 'workspace_lease_recorded';
   lease: WorkspaceLeaseFacts;
@@ -608,6 +663,8 @@ export type TaskEvent =
   | TaskRunArtifactRecordedEvent
   | ScoreResultRecordedEvent
   | HeavyTaskModeRecordedEvent
+  | HeavyTaskInventoryRecordedEvent
+  | HeavyTaskTodosRecordedEvent
   | IsolationPolicyRecordedEvent
   | WorkspaceLeaseRecordedEvent
   | ToolExecutorIdentityRecordedEvent

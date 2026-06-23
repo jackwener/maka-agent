@@ -65,9 +65,47 @@ describe('isolated headless tools', () => {
     assert.ok(names.includes('agent_spawn'));
     assert.ok(names.includes('agent_list'));
     assert.ok(names.includes('agent_output'));
+    assert.ok(!names.includes('inventory_submit'));
+    assert.ok(!names.includes('todo_update'));
     assert.equal(names.filter((name) => name === 'Bash').length, 1);
     assert.deepEqual(buildChildAgentTools(tools).map((tool) => tool.name), ['Read', 'Glob', 'Grep']);
     assert.ok(!buildChildAgentTools(tools).some((tool) => ['Bash', 'Write', 'Edit'].includes(tool.name)));
+  });
+
+  test('progress tools are included only when heavy-task progress is enabled', () => {
+    const tools = buildIsolatedHeadlessTools({
+      async exec() {
+        return { exitCode: 0, stdout: '', stderr: '' };
+      },
+    }, {
+      heavyTaskProgress: {
+        async recordInventory(input) {
+          return {
+            schemaVersion: 1,
+            inventoryId: 'inventory-1',
+            taskRunId: 'run-1',
+            ts: 1,
+            summary: input.summary,
+            items: input.items,
+            source: { kind: 'model_tool', toolCallId: 'tool-1' },
+          };
+        },
+        async recordTodos(input) {
+          return {
+            schemaVersion: 1,
+            todoSetId: 'todos-1',
+            taskRunId: 'run-1',
+            ts: 1,
+            items: input.items,
+            source: { kind: 'model_tool', toolCallId: 'tool-1' },
+          };
+        },
+      },
+    });
+
+    const names = tools.map((tool) => tool.name);
+    assert.ok(names.includes('inventory_submit'));
+    assert.ok(names.includes('todo_update'));
   });
 
   test('Read, Write, Edit, Glob, and Grep delegate to native isolated executor methods', async () => {

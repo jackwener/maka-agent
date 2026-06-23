@@ -5,14 +5,22 @@ import {
 } from '@maka/runtime';
 import { posix as pathPosix } from 'node:path';
 import { z } from 'zod';
+import { buildHeavyTaskProgressTools, type HeavyTaskProgressRecorder } from './heavy-task-progress.js';
 import type { IsolatedToolExecutor } from './isolation.js';
+
+export interface BuildIsolatedHeadlessToolsOptions {
+  heavyTaskProgress?: HeavyTaskProgressRecorder;
+}
 
 /**
  * Build Maka's standard headless tool surface with shell and file operations
  * routed through the isolated executor boundary.
  */
-export function buildIsolatedHeadlessTools(executor: IsolatedToolExecutor): MakaTool[] {
-  return [
+export function buildIsolatedHeadlessTools(
+  executor: IsolatedToolExecutor,
+  options: BuildIsolatedHeadlessToolsOptions = {},
+): MakaTool[] {
+  const tools = [
     buildIsolatedBashTool(executor),
     buildIsolatedReadTool(executor),
     buildIsolatedWriteTool(executor),
@@ -22,6 +30,10 @@ export function buildIsolatedHeadlessTools(executor: IsolatedToolExecutor): Maka
     buildSubagentSpawnTool(),
     ...buildSubagentProjectionTools(),
   ];
+  if (options.heavyTaskProgress) {
+    tools.push(...buildHeavyTaskProgressTools(options.heavyTaskProgress));
+  }
+  return tools;
 }
 
 export function buildIsolatedHeadlessToolAvailability(): ToolAvailabilityConfig {

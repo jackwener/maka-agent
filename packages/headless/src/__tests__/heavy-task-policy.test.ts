@@ -117,7 +117,8 @@ describe('heavy-task policy', () => {
     assert.match(prompt, /Base benchmark prompt/);
     assert.match(prompt, /Heavy-task benchmark policy/);
     assert.match(prompt, /inspect public task files/);
-    assert.match(prompt, /structured progress/);
+    assert.match(prompt, /inventory_submit/);
+    assert.match(prompt, /todo_update/);
     assert.match(prompt, /public, task-derived semantic checks/);
     assert.match(prompt, /Official benchmark scoring remains external and authoritative/);
   });

@@ -4,8 +4,10 @@ import type { ResultRecord } from './contracts.js';
 import type {
   AutonomousDecision,
   FeedbackObservation,
+  HeavyTaskInventoryState,
   TaskInboxItem,
   HeavyTaskModeFacts,
+  HeavyTaskTodoState,
   TaskIsolationFacts,
   TaskPermissionGrant,
   TaskPermissionRequest,
@@ -40,6 +42,10 @@ export interface TaskRunProjection extends TaskRun {
   latestVerifierResult?: VerifierResult;
   latestScoreResult?: ScoreResult;
   heavyTaskMode?: HeavyTaskModeFacts;
+  heavyTaskInventory: HeavyTaskInventoryState[];
+  latestHeavyTaskInventory?: HeavyTaskInventoryState;
+  heavyTaskTodoStates: HeavyTaskTodoState[];
+  latestHeavyTaskTodos?: HeavyTaskTodoState;
   isolation?: TaskIsolationFacts;
   workspaceLease?: WorkspaceLeaseFacts;
   parked?: TaskRunParkedState;
@@ -80,6 +86,8 @@ export function projectTaskRun(events: readonly TaskEvent[], taskRunId?: string)
     permissionRequests: [],
     inboxItems: [],
     warnings: [],
+    heavyTaskInventory: [],
+    heavyTaskTodoStates: [],
   };
   const attempts = new Map<string, TaskAttempt>();
   const inboxItems = new Map<string, TaskInboxItem>();
@@ -148,6 +156,14 @@ export function projectTaskRun(events: readonly TaskEvent[], taskRunId?: string)
         break;
       case 'heavy_task_mode_recorded':
         projection.heavyTaskMode = event.facts;
+        break;
+      case 'heavy_task_inventory_recorded':
+        projection.heavyTaskInventory.push(event.inventory);
+        projection.latestHeavyTaskInventory = event.inventory;
+        break;
+      case 'heavy_task_todos_recorded':
+        projection.heavyTaskTodoStates.push(event.todos);
+        projection.latestHeavyTaskTodos = event.todos;
         break;
       case 'isolation_policy_recorded':
         projection.isolation = event.facts;

@@ -53,6 +53,16 @@ export interface TaskRunExport {
   policy?: {
     heavyTask?: TaskRunProjection['heavyTaskMode'];
   };
+  progress?: {
+    inventory?: {
+      latest: NonNullable<TaskRunProjection['latestHeavyTaskInventory']>;
+      historyCount: number;
+    };
+    todos?: {
+      latest: NonNullable<TaskRunProjection['latestHeavyTaskTodos']>;
+      historyCount: number;
+    };
+  };
   isolation: {
     policy?: TaskRunProjection['isolation'];
     toolExecutors: TaskRunProjection['toolExecutors'];
@@ -128,6 +138,7 @@ export function taskRunExportFromProjection(
   const taxonomy = score?.taxonomy ?? projection.result?.taxonomy ?? legacyResultRecord.errorClass ?? projection.status;
   const primaryWorkspacePath = primaryWorkspacePathFromArtifacts(projection.artifacts);
   const policy = projection.heavyTaskMode?.enabled ? { heavyTask: projection.heavyTaskMode } : undefined;
+  const progress = progressFromProjection(projection);
 
   return {
     schemaVersion: 'maka.task_run_export.v1',
@@ -173,6 +184,7 @@ export function taskRunExportFromProjection(
     score,
     budget: recordValue(scoreDetails.budget) ? scoreDetails.budget as Record<string, unknown> : undefined,
     policy,
+    progress,
     isolation: {
       policy: projection.isolation,
       toolExecutors: projection.toolExecutors,
@@ -258,6 +270,7 @@ function compactResultView(exported: TaskRunExport): Record<string, unknown> {
       : undefined,
     score: exported.score,
     policy: exported.policy,
+    progress: exported.progress,
     workspace: exported.workspace,
     artifacts: exported.artifacts,
     legacyResultRecord: exported.legacyResultRecord,
@@ -266,6 +279,23 @@ function compactResultView(exported: TaskRunExport): Record<string, unknown> {
 
 function runtimeRefsFromFeedback(projection: TaskRunProjection): unknown {
   return projection.feedback.find((observation) => recordValue(observation.details?.runtimeRefs))?.details?.runtimeRefs;
+}
+
+function progressFromProjection(projection: TaskRunProjection): TaskRunExport['progress'] {
+  const progress: NonNullable<TaskRunExport['progress']> = {};
+  if (projection.latestHeavyTaskInventory) {
+    progress.inventory = {
+      latest: projection.latestHeavyTaskInventory,
+      historyCount: projection.heavyTaskInventory.length,
+    };
+  }
+  if (projection.latestHeavyTaskTodos) {
+    progress.todos = {
+      latest: projection.latestHeavyTaskTodos,
+      historyCount: projection.heavyTaskTodoStates.length,
+    };
+  }
+  return progress.inventory || progress.todos ? progress : undefined;
 }
 
 function runtimeEventIdsFrom(runtimeRefs: unknown): string[] {

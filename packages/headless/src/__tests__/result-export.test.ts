@@ -172,6 +172,57 @@ describe('task run export', () => {
     ], 'run-default'));
 
     assert.equal(exported.policy, undefined);
+    assert.equal(exported.progress, undefined);
+  });
+
+  test('exports heavy-task progress snapshots and compact result progress', async () => {
+    const projection = projectTaskRun([
+      { type: 'task_run_created', id: 'e1', taskRunId: 'run-progress', ts: 1, taskId: 'task-1', configId: 'cfg-1' },
+      {
+        type: 'heavy_task_inventory_recorded',
+        id: 'e2',
+        taskRunId: 'run-progress',
+        ts: 2,
+        inventory: {
+          schemaVersion: 1,
+          inventoryId: 'inventory-1',
+          taskRunId: 'run-progress',
+          ts: 2,
+          summary: 'Inspected public files',
+          items: [{ path: 'README.md', kind: 'file', status: 'observed' }],
+          source: { kind: 'model_tool', toolCallId: 'tool-1' },
+        },
+      },
+      {
+        type: 'heavy_task_todos_recorded',
+        id: 'e3',
+        taskRunId: 'run-progress',
+        ts: 3,
+        todos: {
+          schemaVersion: 1,
+          todoSetId: 'todos-1',
+          taskRunId: 'run-progress',
+          ts: 3,
+          items: [{ id: 'edit', content: 'Patch implementation', status: 'in_progress', priority: 'high' }],
+          source: { kind: 'model_tool', toolCallId: 'tool-2' },
+        },
+      },
+    ], 'run-progress');
+    const exported = taskRunExportFromProjection(projection, { exportedAt: '2026-06-19T00:00:00.000Z' });
+
+    assert.equal(exported.progress?.inventory?.latest.inventoryId, 'inventory-1');
+    assert.equal(exported.progress?.inventory?.historyCount, 1);
+    assert.equal(exported.progress?.todos?.latest.todoSetId, 'todos-1');
+    assert.equal(exported.progress?.todos?.historyCount, 1);
+
+    const outDir = await mkdtemp(join(tmpdir(), 'maka-progress-export-'));
+    try {
+      const written = await writeTaskRunExport(outDir, projection, { exportedAt: '2026-06-19T00:00:00.000Z' });
+      const compact = JSON.parse(await readFile(written.files.resultJson, 'utf8')) as { progress?: unknown };
+      assert.deepEqual(compact.progress, exported.progress);
+    } finally {
+      await rm(outDir, { recursive: true, force: true });
+    }
   });
 
   test('exports official verifier truth over a non-authoritative placeholder result', async () => {

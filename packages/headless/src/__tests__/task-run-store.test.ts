@@ -142,6 +142,78 @@ describe('TaskRunStore', () => {
     });
   });
 
+  test('projects heavy-task inventory and todo snapshots from replay order', () => {
+    const taskRunId = 'tr-progress';
+    const projection = projectTaskRun([
+      { type: 'task_run_created', id: 'e-1', taskRunId, ts: 1, taskId: 'task-1', configId: 'cfg-1' },
+      {
+        type: 'heavy_task_inventory_recorded',
+        id: 'e-2',
+        taskRunId,
+        ts: 2,
+        inventory: {
+          schemaVersion: 1,
+          inventoryId: 'inventory-1',
+          taskRunId,
+          ts: 2,
+          summary: 'Initial inventory',
+          items: [{ path: 'README.md', kind: 'file', status: 'observed' }],
+          source: { kind: 'model_tool', toolCallId: 'tool-1' },
+        },
+      },
+      {
+        type: 'heavy_task_todos_recorded',
+        id: 'e-3',
+        taskRunId,
+        ts: 3,
+        todos: {
+          schemaVersion: 1,
+          todoSetId: 'todos-1',
+          taskRunId,
+          ts: 3,
+          items: [{ id: 'inspect', content: 'Inspect files', status: 'in_progress', priority: 'high' }],
+          source: { kind: 'model_tool', toolCallId: 'tool-2' },
+        },
+      },
+      {
+        type: 'heavy_task_inventory_recorded',
+        id: 'e-4',
+        taskRunId,
+        ts: 4,
+        inventory: {
+          schemaVersion: 1,
+          inventoryId: 'inventory-2',
+          taskRunId,
+          ts: 4,
+          summary: 'Updated inventory',
+          items: [{ path: 'src/app.js', kind: 'file', status: 'planned' }],
+          source: { kind: 'model_tool', toolCallId: 'tool-3' },
+        },
+      },
+      {
+        type: 'heavy_task_todos_recorded',
+        id: 'e-5',
+        taskRunId,
+        ts: 5,
+        todos: {
+          schemaVersion: 1,
+          todoSetId: 'todos-2',
+          taskRunId,
+          ts: 5,
+          items: [{ id: 'edit', content: 'Patch implementation', status: 'pending', priority: 'medium' }],
+          source: { kind: 'model_tool', toolCallId: 'tool-4' },
+        },
+      },
+    ], taskRunId);
+
+    assert.equal(projection.heavyTaskInventory.length, 2);
+    assert.equal(projection.latestHeavyTaskInventory?.inventoryId, 'inventory-2');
+    assert.equal(projection.latestHeavyTaskInventory?.items[0]?.path, 'src/app.js');
+    assert.equal(projection.heavyTaskTodoStates.length, 2);
+    assert.equal(projection.latestHeavyTaskTodos?.todoSetId, 'todos-2');
+    assert.equal(projection.latestHeavyTaskTodos?.items[0]?.id, 'edit');
+  });
+
   test('projects isolation, permission, inbox, and needs_approval facts', () => {
     const taskRunId = 'tr-approval';
     const request = {

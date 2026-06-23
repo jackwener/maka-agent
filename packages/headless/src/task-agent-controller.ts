@@ -25,6 +25,11 @@ import {
 import type { Config, ResultRecord, Task } from './contracts.js';
 import { registerFakeBackend } from './backends.js';
 import { configWithHeavyTaskPolicy, resolveHeavyTaskMode } from './heavy-task-policy.js';
+import {
+  createHeavyTaskProgressRecorder,
+  HEAVY_TASK_PROGRESS_TOOL_NAMES,
+  renderHeavyTaskProgressForPrompt,
+} from './heavy-task-progress.js';
 import type { HeadlessBackendContext } from './isolation.js';
 import {
   ISOLATED_HEADLESS_TOOL_NAMES,
@@ -120,7 +125,6 @@ export async function runTaskOnce(
   const newId = deps.newId ?? randomUUID;
   const taskRunId = deps.taskRunId ?? newId();
   const attemptId = deps.attemptId ?? `${taskRunId}-attempt-1`;
-  const instruction = deps.instructionOverride ?? task.instruction;
   const createTaskRun = deps.createTaskRun ?? true;
   const closeTaskRun = deps.closeTaskRun ?? true;
   const interventionPolicy = deps.interventionPolicy ?? DEFAULT_INTERVENTION_POLICY;
@@ -132,6 +136,13 @@ export async function runTaskOnce(
   const verifier = normalizeVerifier(task);
   const heavyTaskMode = resolveHeavyTaskMode(config, task);
   const effectiveConfig = configWithHeavyTaskPolicy(config, heavyTaskMode);
+  const priorProgressPrompt = heavyTaskMode.enabled
+    ? renderHeavyTaskProgressForPrompt(await taskRunStore.project(taskRunId))
+    : undefined;
+  const instruction = withOptionalProgressPrompt(deps.instructionOverride ?? task.instruction, priorProgressPrompt);
+  const heavyTaskProgress = heavyTaskMode.enabled
+    ? createHeavyTaskProgressRecorder({ taskRunId, attemptId, store: taskRunStore, now, newId })
+    : undefined;
 
   if (createTaskRun) {
     await appendTaskEvent(taskRunStore, taskRunId, {
@@ -213,7 +224,7 @@ export async function runTaskOnce(
         taskRunId,
         attemptId,
         isolation: deps.realBackendIsolation,
-        toolNames: deps.realBackendIsolation?.toolExecutor ? [...ISOLATED_HEADLESS_TOOL_NAMES] : ['registered_backend'],
+        toolNames: toolNamesForIdentity(Boolean(deps.realBackendIsolation?.toolExecutor), heavyTaskMode.enabled),
       }),
     });
     const backends = new BackendRegistry();
@@ -223,6 +234,8 @@ export async function runTaskOnce(
       config: effectiveConfig,
       task,
       workspaceDir: workspace.dir,
+      heavyTaskMode,
+      ...(heavyTaskProgress ? { heavyTaskProgress } : {}),
       ...(backendNeedsIsolation(config.backend)
         ? { realBackendIsolation: deps.realBackendIsolation, toolExecutor: deps.realBackendIsolation?.toolExecutor }
         : {}),
@@ -458,6 +471,19 @@ export async function runTaskOnce(
 
 const DEFAULT_INTERVENTION_POLICY: TaskInterventionPolicy = { mode: 'fail_closed' };
 const DEFAULT_APPROVAL_TIMEOUT_MS = 5 * 60 * 1000;
+
+function withOptionalProgressPrompt(instruction: string, progressPrompt: string | undefined): string {
+  if (!progressPrompt || instruction.includes('Heavy-task progress state from prior task-run events:')) {
+    return instruction;
+  }
+  return `${instruction}\n\n${progressPrompt}`;
+}
+
+function toolNamesForIdentity(hasIsolatedExecutor: boolean, heavyTaskEnabled: boolean): string[] {
+  const names = hasIsolatedExecutor ? [...ISOLATED_HEADLESS_TOOL_NAMES] : ['registered_backend'];
+  if (heavyTaskEnabled && hasIsolatedExecutor) names.push(...HEAVY_TASK_PROGRESS_TOOL_NAMES);
+  return names;
+}
 
 interface PermissionInterventionInput {
   invocation: InvocationResult;

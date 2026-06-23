@@ -81,8 +81,9 @@ export function buildHeavyTaskSystemPromptPolicy(
   return [
     `Heavy-task benchmark policy (${selection.policyVersion})`,
     '',
-    '- Work like a persistent engineer on a long-running task: inspect public task files and workspace state before editing, keep compact progress notes when useful, and preserve evidence that helps continue the work.',
-    '- Maintain structured progress in public workspace artifacts or concise notes when the task benefits from it; do not invent dedicated progress tools that are not available.',
+    '- Work like a persistent engineer on a long-running task: inspect public task files and workspace state before editing, keep compact evidence that helps continue the work, and avoid relying on assistant prose as durable state.',
+    '- Use inventory_submit to submit a structured inventory snapshot after initial public inspection and whenever the important workspace/artifact inventory changes.',
+    '- Use todo_update to submit the full current todo/progress snapshot as work advances. Keep at most one item in_progress, and treat todo completion as advisory progress rather than benchmark success.',
     '- You may run public, task-derived semantic checks such as visible tests, builds, sample commands, or artifact inspections. Treat those checks as advisory engineering feedback.',
     '- Official benchmark scoring remains external and authoritative. Do not claim success solely from your own checks, and do not replace verifier results with self-checks.',
     `- Do not seek, infer, read, or rely on forbidden evaluator material: ${FORBIDDEN_HEAVY_TASK_POLICY_TERMS.join(', ')}.`,
