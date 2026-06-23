@@ -125,4 +125,88 @@ describe('SettingsStore.usageStats request logs', () => {
       await rm(workspaceRoot, { recursive: true, force: true });
     }
   });
+
+  it('keeps valid usage rows when one session message line is corrupt', async () => {
+    const workspaceRoot = await mkdtemp(join(tmpdir(), 'maka-settings-usage-corrupt-line-'));
+    try {
+      const header = makeHeader();
+      const sessionDir = join(workspaceRoot, 'sessions', header.id);
+      await mkdir(sessionDir, { recursive: true });
+      await writeFile(
+        join(sessionDir, 'session.jsonl'),
+        [
+          JSON.stringify(header),
+          JSON.stringify({
+            type: 'assistant',
+            id: 'assistant-1',
+            turnId: 'turn-1',
+            ts: 10,
+            text: 'tracked',
+            modelId: 'runtime-model',
+          }),
+          '{"type":"tool_call"',
+          JSON.stringify({
+            type: 'token_usage',
+            id: 'usage-1',
+            turnId: 'turn-1',
+            ts: 20,
+            input: 10,
+            output: 5,
+            cacheRead: 2,
+            costUsd: 0.02,
+          }),
+        ].join('\n') + '\n',
+      );
+
+      const stats = await createSettingsStore(workspaceRoot).usageStats('all');
+
+      assert.equal(stats.summary.totalRequests, 1);
+      assert.equal(stats.summary.totalTokens, 15);
+      assert.equal(stats.summary.cacheRead, 2);
+      assert.equal(stats.summary.totalCostUsd, 0.02);
+      assert.equal(stats.logs[0]?.model, 'runtime-model');
+    } finally {
+      await rm(workspaceRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('ignores malformed usage rows instead of poisoning totals', async () => {
+    const workspaceRoot = await mkdtemp(join(tmpdir(), 'maka-settings-usage-bad-token-row-'));
+    try {
+      const header = makeHeader();
+      const sessionDir = join(workspaceRoot, 'sessions', header.id);
+      await mkdir(sessionDir, { recursive: true });
+      await writeFile(
+        join(sessionDir, 'session.jsonl'),
+        [
+          JSON.stringify(header),
+          JSON.stringify({
+            type: 'token_usage',
+            id: 'bad-usage',
+            turnId: 'turn-1',
+            ts: 20,
+            input: '10',
+            output: 5,
+          }),
+          JSON.stringify({
+            type: 'token_usage',
+            id: 'good-usage',
+            turnId: 'turn-2',
+            ts: 30,
+            input: 7,
+            output: 3,
+          }),
+        ].join('\n') + '\n',
+      );
+
+      const stats = await createSettingsStore(workspaceRoot).usageStats('all');
+
+      assert.equal(stats.summary.totalRequests, 1);
+      assert.equal(stats.summary.totalTokens, 10);
+      assert.equal(stats.logs.length, 1);
+      assert.equal(stats.logs[0]?.id, 'good-usage');
+    } finally {
+      await rm(workspaceRoot, { recursive: true, force: true });
+    }
+  });
 });

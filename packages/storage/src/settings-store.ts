@@ -17,11 +17,53 @@ import {
 import { sanitizeOnboardingMilestones } from '@maka/core/onboarding';
 import type {
   SessionHeader,
-  StoredMessage,
-  TokenUsageMessage,
-  ToolCallMessage,
-  ToolResultMessage,
 } from '@maka/core/session';
+
+type UsageSessionHeader = Pick<SessionHeader, 'id' | 'llmConnectionSlug' | 'model'>;
+
+type UsageAssistantMessage = {
+  type: 'assistant';
+  turnId: string;
+  modelId: string;
+};
+
+type UsageTokenMessage = {
+  type: 'token_usage';
+  id: string;
+  turnId: string;
+  ts: number;
+  input: number;
+  output: number;
+  cacheMissInput?: number;
+  cacheRead?: number;
+  cacheCreation?: number;
+  reasoning?: number;
+  costUsd?: number;
+};
+
+type UsageToolCallMessage = {
+  type: 'tool_call';
+  id: string;
+  turnId: string;
+  ts: number;
+  toolName: string;
+  displayName?: string;
+};
+
+type UsageToolResultMessage = {
+  type: 'tool_result';
+  turnId: string;
+  ts: number;
+  toolUseId: string;
+  isError: boolean;
+  durationMs?: number;
+};
+
+type UsageMessage =
+  | UsageAssistantMessage
+  | UsageTokenMessage
+  | UsageToolCallMessage
+  | UsageToolResultMessage;
 
 export interface SettingsStore {
   get(): Promise<AppSettings>;
@@ -172,7 +214,7 @@ class FileSettingsStore implements SettingsStore {
           .map((message) => [message.turnId, message.modelId]),
       );
       return messages
-        .filter((message): message is TokenUsageMessage => message.type === 'token_usage')
+        .filter((message): message is UsageTokenMessage => message.type === 'token_usage')
         .filter((message) => !since || message.ts >= since)
         .map((message) => ({
           id: message.id,
@@ -237,20 +279,33 @@ class FileSettingsStore implements SettingsStore {
   }
 }
 
-async function readStoredSessions(sessionsRoot: string): Promise<Array<{ header: SessionHeader; messages: StoredMessage[] }>> {
+async function readStoredSessions(
+  sessionsRoot: string,
+): Promise<Array<{ header: UsageSessionHeader; messages: UsageMessage[] }>> {
   const fs = await import('node:fs/promises');
   try {
     const entries = await fs.readdir(sessionsRoot, { withFileTypes: true });
-    const sessions: Array<{ header: SessionHeader; messages: StoredMessage[] }> = [];
+    const sessions: Array<{ header: UsageSessionHeader; messages: UsageMessage[] }> = [];
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
       try {
         const text = await readFile(join(sessionsRoot, entry.name, 'session.jsonl'), 'utf8');
         const lines = text.split('\n').filter((line) => line.trim());
         if (!lines[0]) continue;
+        const header = normalizeUsageSessionHeader(JSON.parse(lines[0]), entry.name);
+        if (!header) continue;
+        const messages: UsageMessage[] = [];
+        for (const line of lines.slice(1)) {
+          try {
+            const message = normalizeUsageMessage(JSON.parse(line));
+            if (message) messages.push(message);
+          } catch {
+            // A partially-written/corrupt message line must not hide valid usage rows from the same session.
+          }
+        }
         sessions.push({
-          header: JSON.parse(lines[0]) as SessionHeader,
-          messages: lines.slice(1).map((line) => JSON.parse(line) as StoredMessage),
+          header,
+          messages,
         });
       } catch {
         // Ignore partially-written or legacy session folders.
@@ -260,6 +315,94 @@ async function readStoredSessions(sessionsRoot: string): Promise<Array<{ header:
   } catch {
     return [];
   }
+}
+
+function normalizeUsageSessionHeader(value: unknown, sessionId: string): UsageSessionHeader | null {
+  if (!isRecord(value)) return null;
+  if (value.id !== sessionId) return null;
+  if (typeof value.llmConnectionSlug !== 'string') return null;
+  if (typeof value.model !== 'string') return null;
+  return {
+    id: value.id,
+    llmConnectionSlug: value.llmConnectionSlug,
+    model: value.model,
+  };
+}
+
+function normalizeUsageMessage(value: unknown): UsageMessage | null {
+  if (!isRecord(value)) return null;
+  switch (value.type) {
+    case 'assistant':
+      if (typeof value.turnId !== 'string') return null;
+      if (typeof value.modelId !== 'string') return null;
+      return { type: 'assistant', turnId: value.turnId, modelId: value.modelId };
+    case 'token_usage':
+      if (typeof value.id !== 'string') return null;
+      if (typeof value.turnId !== 'string') return null;
+      if (!isFiniteNumber(value.ts)) return null;
+      if (!isFiniteNumber(value.input)) return null;
+      if (!isFiniteNumber(value.output)) return null;
+      if (!isOptionalFiniteNumber(value.cacheMissInput)) return null;
+      if (!isOptionalFiniteNumber(value.cacheRead)) return null;
+      if (!isOptionalFiniteNumber(value.cacheCreation)) return null;
+      if (!isOptionalFiniteNumber(value.reasoning)) return null;
+      if (!isOptionalFiniteNumber(value.costUsd)) return null;
+      return {
+        type: 'token_usage',
+        id: value.id,
+        turnId: value.turnId,
+        ts: value.ts,
+        input: value.input,
+        output: value.output,
+        cacheMissInput: value.cacheMissInput,
+        cacheRead: value.cacheRead,
+        cacheCreation: value.cacheCreation,
+        reasoning: value.reasoning,
+        costUsd: value.costUsd,
+      };
+    case 'tool_call':
+      if (typeof value.id !== 'string') return null;
+      if (typeof value.turnId !== 'string') return null;
+      if (!isFiniteNumber(value.ts)) return null;
+      if (typeof value.toolName !== 'string') return null;
+      if (value.displayName !== undefined && typeof value.displayName !== 'string') return null;
+      return {
+        type: 'tool_call',
+        id: value.id,
+        turnId: value.turnId,
+        ts: value.ts,
+        toolName: value.toolName,
+        displayName: value.displayName,
+      };
+    case 'tool_result':
+      if (typeof value.turnId !== 'string') return null;
+      if (!isFiniteNumber(value.ts)) return null;
+      if (typeof value.toolUseId !== 'string') return null;
+      if (typeof value.isError !== 'boolean') return null;
+      if (!isOptionalFiniteNumber(value.durationMs)) return null;
+      return {
+        type: 'tool_result',
+        turnId: value.turnId,
+        ts: value.ts,
+        toolUseId: value.toolUseId,
+        isError: value.isError,
+        durationMs: value.durationMs,
+      };
+    default:
+      return null;
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function isOptionalFiniteNumber(value: unknown): value is number | undefined {
+  return value === undefined || isFiniteNumber(value);
 }
 
 function rangeToSince(range: UsageRange): number | null {
@@ -287,11 +430,11 @@ function aggregateBy(logs: UsageStats['logs'], key: 'provider' | 'model') {
     .sort((a, b) => b.requests - a.requests) as never;
 }
 
-function toolStatsFromMessages(messages: StoredMessage[], since: number | null): UsageStats['byTool'] {
-  const calls = messages.filter((message): message is ToolCallMessage => message.type === 'tool_call');
+function toolStatsFromMessages(messages: UsageMessage[], since: number | null): UsageStats['byTool'] {
+  const calls = messages.filter((message): message is UsageToolCallMessage => message.type === 'tool_call');
   const results = new Map(
     messages
-      .filter((message): message is ToolResultMessage => message.type === 'tool_result')
+      .filter((message): message is UsageToolResultMessage => message.type === 'tool_result')
       .map((message) => [message.toolUseId, message]),
   );
   const rows = new Map<string, { calls: number; success: number; errors: number; totalDuration: number; durationCount: number }>();
@@ -318,14 +461,14 @@ function toolStatsFromMessages(messages: StoredMessage[], since: number | null):
 }
 
 function toolLogRowsFromMessages(
-  header: SessionHeader,
-  messages: StoredMessage[],
+  header: UsageSessionHeader,
+  messages: UsageMessage[],
   since: number | null,
 ): UsageStats['logs'] {
-  const calls = messages.filter((message): message is ToolCallMessage => message.type === 'tool_call');
+  const calls = messages.filter((message): message is UsageToolCallMessage => message.type === 'tool_call');
   const results = new Map(
     messages
-      .filter((message): message is ToolResultMessage => message.type === 'tool_result')
+      .filter((message): message is UsageToolResultMessage => message.type === 'tool_result')
       .map((message) => [message.toolUseId, message]),
   );
   return calls
