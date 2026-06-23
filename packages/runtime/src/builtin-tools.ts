@@ -179,14 +179,25 @@ async function runStreamingShell(
     abortSignal: options.abortSignal,
     emitOutput: options.emitOutput,
   });
-  if (result.timedOut) throw new Error(`Command timed out after ${options.timeout}ms`);
-  if (result.aborted) throw new Error('Command aborted');
-  if (result.exitCode !== 0) {
-    const error = new Error(`Command failed with exit code ${result.exitCode}`);
-    Object.assign(error, { stdout: result.stdout, stderr: result.stderr, code: result.exitCode });
-    throw error;
-  }
+  // Attach the captured (bounded) stdout/stderr + an exit code to EVERY failure,
+  // not just non-zero exit. coerceTerminalFailure only folds the tail into the
+  // model-facing result when error.code is a number, so without a code on
+  // timeout/abort the model would be blind to the logs leading up to the failure
+  // (124 = timeout, 130 = aborted, both conventional).
+  if (result.timedOut) throw terminalError(`Command timed out after ${options.timeout}ms`, result, 124);
+  if (result.aborted) throw terminalError('Command aborted', result, 130);
+  if (result.exitCode !== 0) throw terminalError(`Command failed with exit code ${result.exitCode}`, result, result.exitCode);
   return { stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode };
+}
+
+function terminalError(
+  message: string,
+  result: { stdout: string; stderr: string },
+  code: number,
+): Error {
+  const error = new Error(message);
+  Object.assign(error, { stdout: result.stdout, stderr: result.stderr, code });
+  return error;
 }
 
 function shellEscape(arg: string): string {

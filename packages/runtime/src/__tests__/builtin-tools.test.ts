@@ -116,6 +116,35 @@ describe('builtin Bash streaming output', () => {
     expect(err?.stdout).toBe('out-data');
     expect(err?.stderr).toBe('err-data');
   });
+
+  test('a timed-out command still surfaces the stdout/stderr captured before the timeout', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'maka-bash-'));
+    const bash = buildBuiltinTools().find((tool) => tool.name === 'Bash');
+    if (!bash) throw new Error('Bash tool missing');
+
+    let err: { code?: number; stdout?: string; stderr?: string } | null = null;
+    try {
+      await bash.impl(
+        { command: 'printf "out-before"; printf "err-before" >&2; sleep 5', timeout_ms: 200 },
+        {
+          sessionId: 'session-1',
+          turnId: 'turn-1',
+          cwd,
+          toolCallId: 'tool-1',
+          abortSignal: new AbortController().signal,
+          emitOutput: () => {},
+        },
+      );
+    } catch (e: unknown) {
+      err = e as { code?: number; stdout?: string; stderr?: string };
+    }
+
+    // Without the fix the model would see a bare "timed out" with no logs; now
+    // the error carries a code (124) and the bounded tail captured pre-timeout.
+    expect(err?.code).toBe(124);
+    expect(err?.stdout).toBe('out-before');
+    expect(err?.stderr).toBe('err-before');
+  });
 });
 
 describe('builtin read tools path containment', () => {
