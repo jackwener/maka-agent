@@ -24,6 +24,10 @@ import {
 } from '@maka/storage';
 import type { Config, ResultRecord, Task } from './contracts.js';
 import { registerFakeBackend } from './backends.js';
+import {
+  createHeavyTaskEvidenceRecorder,
+  renderHeavyTaskEvidenceForPrompt,
+} from './heavy-task-evidence.js';
 import { configWithHeavyTaskPolicy, resolveHeavyTaskMode } from './heavy-task-policy.js';
 import {
   createHeavyTaskProgressRecorder,
@@ -144,15 +148,20 @@ export async function runTaskOnce(
   const priorProjection = heavyTaskMode.enabled ? await taskRunStore.project(taskRunId) : undefined;
   const priorProgressPrompt = priorProjection ? renderHeavyTaskProgressForPrompt(priorProjection) : undefined;
   const priorSelfCheckPrompt = priorProjection ? renderHeavyTaskSelfCheckForPrompt(priorProjection) : undefined;
+  const priorEvidencePrompt = priorProjection ? renderHeavyTaskEvidenceForPrompt(priorProjection) : undefined;
   const instruction = withOptionalStatePrompts(deps.instructionOverride ?? task.instruction, [
     priorProgressPrompt,
     priorSelfCheckPrompt,
+    priorEvidencePrompt,
   ]);
   const heavyTaskProgress = heavyTaskMode.enabled
     ? createHeavyTaskProgressRecorder({ taskRunId, attemptId, store: taskRunStore, now, newId })
     : undefined;
   const heavyTaskSelfCheck = heavyTaskMode.enabled
     ? createHeavyTaskSelfCheckRecorder({ taskRunId, attemptId, store: taskRunStore, now, newId })
+    : undefined;
+  const heavyTaskEvidence = heavyTaskMode.enabled
+    ? createHeavyTaskEvidenceRecorder({ taskRunId, attemptId, store: taskRunStore, now, newId })
     : undefined;
 
   if (createTaskRun) {
@@ -248,6 +257,7 @@ export async function runTaskOnce(
       heavyTaskMode,
       ...(heavyTaskProgress ? { heavyTaskProgress } : {}),
       ...(heavyTaskSelfCheck ? { heavyTaskSelfCheck } : {}),
+      ...(heavyTaskEvidence ? { heavyTaskEvidence } : {}),
       ...(backendNeedsIsolation(config.backend)
         ? { realBackendIsolation: deps.realBackendIsolation, toolExecutor: deps.realBackendIsolation?.toolExecutor }
         : {}),

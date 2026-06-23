@@ -156,6 +156,11 @@ export type {
   AutonomousResultTaxonomy,
   EnvNetworkSecretPolicy,
   FeedbackObservation,
+  HeavyTaskCompactEvidenceEnvelope,
+  HeavyTaskDiffSummary,
+  HeavyTaskEvidenceKind,
+  HeavyTaskEvidenceRecordedEvent,
+  HeavyTaskOutputSummary,
   HeavyTaskInventoryItem,
   HeavyTaskInventoryRecordedEvent,
   HeavyTaskInventoryState,
@@ -167,9 +172,11 @@ export type {
   HeavyTaskSelfCheckStatus,
   HeavyTaskSemanticSelfCheckState,
   HeavyTaskSourceGuardResult,
+  HeavyTaskToolEvidenceName,
   HeavyTaskTodoItem,
   HeavyTaskTodoState,
   HeavyTaskTodosRecordedEvent,
+  HeavyTaskTruncationRef,
   HeadlessInterventionMode,
   IsolationPolicyRecordedEvent,
   PermissionDecision,
@@ -328,6 +335,24 @@ export {
   renderHeavyTaskSelfCheckForPrompt,
   validateHeavyTaskPublicSelfCheck,
 } from './heavy-task-self-check.js';
+export type {
+  CompactTextEvidenceOptions,
+  HeavyTaskCompactEvidenceInput,
+  HeavyTaskEvidenceRecorder,
+  HeavyTaskToolEvidenceInput,
+} from './heavy-task-evidence.js';
+export {
+  compactArtifactEvidence,
+  compactSelfCheckEvidence,
+  compactTextEvidence,
+  compactToolEvidence,
+  createHeavyTaskEvidenceRecorder,
+  DEFAULT_EXPORT_EVIDENCE_LIMIT,
+  DEFAULT_PROMPT_EVIDENCE_LIMIT,
+  DEFAULT_TEXT_EVIDENCE_LIMIT_CHARS,
+  HEAVY_TASK_EVIDENCE_SCHEMA_VERSION,
+  renderHeavyTaskEvidenceForPrompt,
+} from './heavy-task-evidence.js';
 export type {
   HeavyTaskCompletionInput,
   HeavyTaskCompletionStatus,

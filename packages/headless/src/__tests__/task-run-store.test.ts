@@ -57,6 +57,45 @@ function completedEvents(taskRunId = 'tr-1'): TaskEvent[] {
   ];
 }
 
+function heavyTaskEvidenceEvent(
+  taskRunId: string,
+  id: string,
+  evidenceId: string,
+  name: 'Bash' | 'Read',
+  ts: number,
+): TaskEvent {
+  return {
+    type: 'heavy_task_evidence_recorded',
+    id,
+    taskRunId,
+    ts,
+    evidence: {
+      schemaVersion: 1,
+      evidenceId,
+      taskRunId,
+      ts,
+      kind: 'tool',
+      public: true,
+      source: { kind: 'model_tool', toolCallId: `tool-${ts}`, toolName: name },
+      tool: {
+        name,
+        inputSummary: name === 'Bash' ? { command: 'npm test' } : { path: 'README.md' },
+        ...(name === 'Bash' ? { exitCode: 0 } : {}),
+        ok: true,
+        outputs: [{
+          stream: name === 'Bash' ? 'stdout' : 'content',
+          excerpt: 'bounded public summary',
+          byteCount: 22,
+          lineCount: 1,
+          truncated: false,
+          truncationRef: { truncated: false, originalBytes: 22, visibleBytes: 22, omittedBytes: 0 },
+        }],
+        diff: { status: 'not_applicable' },
+      },
+    },
+  };
+}
+
 describe('TaskRunStore', () => {
   test('appends and replays events in order', async () => {
     const store = createInMemoryTaskRunStore();
@@ -113,6 +152,65 @@ describe('TaskRunStore', () => {
     assert.equal(projection.artifacts.length, 1);
     assert.equal(projection.artifacts[0]?.workspacePath, '/app');
     assert.equal(projection.artifacts[0]?.authority.source, 'container_capture');
+    assert.equal(projection.heavyTaskEvidence.length, 0);
+  });
+
+  test('projects compact evidence for heavy-task runtime artifacts and skips official artifacts', () => {
+    const taskRunId = 'tr-artifact-evidence';
+    const projection = projectTaskRun([
+      { type: 'task_run_created', id: 'e-1', taskRunId, ts: 1, taskId: 'task-1', configId: 'cfg-1' },
+      {
+        type: 'heavy_task_mode_recorded',
+        id: 'e-2',
+        taskRunId,
+        ts: 2,
+        facts: {
+          schemaVersion: 1,
+          enabled: true,
+          triggerSource: 'config',
+          triggerReason: 'long public task',
+          policyVersion: 'maka-heavy-task-policy.v1',
+        },
+      },
+      {
+        type: 'task_run_artifact_recorded',
+        id: 'e-3',
+        taskRunId,
+        ts: 3,
+        artifact: {
+          schemaVersion: 1,
+          artifactId: 'artifact-runtime',
+          taskRunId,
+          ts: 3,
+          kind: 'generated_output',
+          path: 'build-output.log',
+          authority: { source: 'runtime', authoritative: false, label: 'public runtime artifact' },
+          metadata: { label: 'public label', body: 'raw artifact body' },
+        },
+      },
+      {
+        type: 'task_run_artifact_recorded',
+        id: 'e-4',
+        taskRunId,
+        ts: 4,
+        artifact: {
+          schemaVersion: 1,
+          artifactId: 'artifact-official',
+          taskRunId,
+          ts: 4,
+          kind: 'benchmark_manifest',
+          path: 'official-verifier-output.json',
+          authority: { source: 'official_harbor_verifier', authoritative: true },
+        },
+      },
+    ], taskRunId);
+
+    assert.equal(projection.artifacts.length, 2);
+    assert.equal(projection.heavyTaskEvidence.length, 1);
+    assert.equal(projection.latestHeavyTaskEvidence?.artifact?.artifactId, 'artifact-runtime');
+    assert.equal(projection.latestHeavyTaskEvidence?.artifact?.authority?.source, 'runtime');
+    assert.equal(projection.latestHeavyTaskEvidence?.artifact?.metadata?.label, 'public label');
+    assert.doesNotMatch(JSON.stringify(projection.heavyTaskEvidence), /raw artifact body|official-verifier-output/);
   });
 
   test('projects heavy-task mode facts', () => {
@@ -214,6 +312,20 @@ describe('TaskRunStore', () => {
     assert.equal(projection.latestHeavyTaskTodos?.items[0]?.id, 'edit');
   });
 
+  test('projects heavy-task compact evidence from replay order', () => {
+    const taskRunId = 'tr-evidence';
+    const projection = projectTaskRun([
+      { type: 'task_run_created', id: 'e-1', taskRunId, ts: 1, taskId: 'task-1', configId: 'cfg-1' },
+      heavyTaskEvidenceEvent(taskRunId, 'e-2', 'evidence-1', 'Bash', 2),
+      heavyTaskEvidenceEvent(taskRunId, 'e-3', 'evidence-2', 'Read', 3),
+    ], taskRunId);
+
+    assert.equal(projection.heavyTaskEvidence.length, 2);
+    assert.equal(projection.heavyTaskEvidence[0]?.evidenceId, 'evidence-1');
+    assert.equal(projection.latestHeavyTaskEvidence?.evidenceId, 'evidence-2');
+    assert.equal(projection.latestHeavyTaskEvidence?.tool?.name, 'Read');
+  });
+
   test('projects only accepted public heavy-task self-checks from replay', () => {
     const taskRunId = 'tr-self-check';
     const accepted = acceptedSelfCheck(taskRunId, 'self-check-1', 'pass', 'npm test passed on public files.');
@@ -236,6 +348,9 @@ describe('TaskRunStore', () => {
 
     assert.equal(projection.heavyTaskSelfChecks.length, 1);
     assert.equal(projection.latestHeavyTaskSelfCheck?.selfCheckId, 'self-check-1');
+    assert.deepEqual(projection.heavyTaskEvidence.map((item) => item.kind), ['check', 'tool', 'artifact']);
+    assert.equal(projection.heavyTaskEvidence[2]?.artifact?.path, 'build-output.log');
+    assert.equal(projection.heavyTaskEvidence[2]?.artifact?.authority?.source, 'self_check');
     assert.equal(projection.warnings.length, 2);
     assert.match(projection.warnings.join('\n'), /source guard did not accept/);
   });

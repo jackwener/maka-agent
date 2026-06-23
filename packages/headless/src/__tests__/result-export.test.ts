@@ -231,6 +231,44 @@ describe('task run export', () => {
         },
       },
       {
+        type: 'heavy_task_evidence_recorded',
+        id: 'e4a',
+        taskRunId: 'run-progress',
+        ts: 4,
+        evidence: {
+          schemaVersion: 1,
+          evidenceId: 'evidence-bash-1',
+          taskRunId: 'run-progress',
+          ts: 4,
+          kind: 'tool',
+          public: true,
+          source: { kind: 'model_tool', toolCallId: 'tool-5', toolName: 'Bash' },
+          tool: {
+            name: 'Bash',
+            inputSummary: { command: 'npm test' },
+            exitCode: 1,
+            ok: false,
+            outputs: [{
+              stream: 'stdout',
+              excerpt: 'public failure summary',
+              byteCount: 5_500,
+              lineCount: 20,
+              truncated: true,
+              truncationRef: {
+                truncated: true,
+                originalBytes: 5_500,
+                visibleBytes: 22,
+                omittedBytes: 5_478,
+                ref: 'runtime-event-1',
+                refKind: 'runtime_event',
+              },
+            }],
+            diff: { status: 'not_applicable' },
+          },
+          links: { runtimeEventIds: ['runtime-event-1'] },
+        },
+      },
+      {
         type: 'heavy_task_self_check_recorded',
         id: 'e5',
         taskRunId: 'run-progress',
@@ -262,6 +300,12 @@ describe('task run export', () => {
     assert.equal(exported.progress?.todos?.historyCount, 1);
     assert.equal(exported.progress?.selfChecks?.latest.selfCheckId, 'self-check-1');
     assert.equal(exported.progress?.selfChecks?.historyCount, 1);
+    assert.equal(exported.progress?.evidence?.latest.evidenceId, 'evidence-bash-1');
+    assert.equal(exported.progress?.evidence?.historyCount, 4);
+    assert.ok(exported.progress?.evidence?.recent.some((item) => item.check?.linkedSelfCheckId === 'self-check-1'));
+    assert.ok(exported.progress?.evidence?.recent.some((item) => item.artifact?.path === 'build-output.log'));
+    const bashEvidence = exported.progress?.evidence?.recent.find((item) => item.evidenceId === 'evidence-bash-1');
+    assert.equal(bashEvidence?.tool?.outputs[0]?.truncationRef?.ref, 'runtime-event-1');
 
     const outDir = await mkdtemp(join(tmpdir(), 'maka-progress-export-'));
     try {
@@ -277,7 +321,11 @@ describe('task run export', () => {
       assert.doesNotMatch(taskRunJson, /private_case|official-verifier-output/);
       assert.doesNotMatch(compactJson, /private_case|official-verifier-output/);
       assert.doesNotMatch(eventsJsonl, /private_case|official-verifier-output/);
+      assert.doesNotMatch(taskRunJson, /x{3000}|raw large stdout|old edit string|new edit string/);
+      assert.match(compactJson, /evidence-bash-1/);
+      assert.match(compactJson, /runtime-event-1/);
       assert.match(eventsJsonl, /self-check-1/);
+      assert.match(eventsJsonl, /evidence-bash-1/);
     } finally {
       await rm(outDir, { recursive: true, force: true });
     }

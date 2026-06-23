@@ -367,6 +367,85 @@ export interface HeavyTaskSemanticSelfCheckState {
   source: HeavyTaskProgressSource;
 }
 
+export type HeavyTaskEvidenceKind = 'tool' | 'check' | 'artifact';
+export type HeavyTaskToolEvidenceName = 'Bash' | 'Read' | 'Grep' | 'Write' | 'Edit' | 'Glob' | string;
+
+export interface HeavyTaskTruncationRef {
+  truncated: boolean;
+  originalBytes?: number;
+  visibleBytes?: number;
+  omittedBytes?: number;
+  ref?: string;
+  refKind?: 'runtime_event' | 'artifact' | 'external' | 'future_storage';
+}
+
+export interface HeavyTaskOutputSummary {
+  stream: 'stdout' | 'stderr' | 'output' | 'content' | 'matches' | 'diff';
+  excerpt?: string;
+  lineCount?: number;
+  byteCount?: number;
+  truncated: boolean;
+  truncationRef?: HeavyTaskTruncationRef;
+}
+
+export interface HeavyTaskDiffSummary {
+  status: 'not_applicable' | 'not_captured' | 'present';
+  files?: Array<{ path: string; additions?: number; deletions?: number }>;
+  excerpt?: string;
+  truncationRef?: HeavyTaskTruncationRef;
+}
+
+export interface HeavyTaskCompactEvidenceEnvelope {
+  schemaVersion: 1;
+  evidenceId: string;
+  taskRunId: string;
+  attemptId?: string;
+  ts: number;
+  kind: HeavyTaskEvidenceKind;
+  public: true;
+  source: HeavyTaskProgressSource & {
+    runtimeEventId?: string;
+    toolName?: HeavyTaskToolEvidenceName;
+  };
+  tool?: {
+    name: HeavyTaskToolEvidenceName;
+    inputSummary: Record<string, unknown>;
+    exitCode?: number | null;
+    timedOut?: boolean;
+    ok?: boolean;
+    outputs: HeavyTaskOutputSummary[];
+    diff?: HeavyTaskDiffSummary;
+  };
+  artifact?: {
+    artifactId?: string;
+    path?: string;
+    workspacePath?: string;
+    artifactRef?: string;
+    kind?: string;
+    exists?: boolean;
+    sizeBytes?: number;
+    hash?: string;
+    mimeType?: string;
+    metadata?: Record<string, unknown>;
+    authority?: {
+      source: string;
+      authoritative: boolean;
+      label?: string;
+    };
+  };
+  check?: {
+    checkId?: string;
+    status?: 'pass' | 'fail' | 'inconclusive' | 'unknown';
+    linkedSelfCheckId?: string;
+  };
+  links?: {
+    todoIds?: string[];
+    checkIds?: string[];
+    artifactIds?: string[];
+    runtimeEventIds?: string[];
+  };
+}
+
 export interface EnvNetworkSecretPolicy {
   schemaVersion: 1;
   env: 'inherit_none' | 'allowlist';
@@ -584,6 +663,11 @@ export interface HeavyTaskSelfCheckRecordedEvent extends BaseTaskEvent {
   selfCheck: HeavyTaskSemanticSelfCheckState;
 }
 
+export interface HeavyTaskEvidenceRecordedEvent extends BaseTaskEvent {
+  type: 'heavy_task_evidence_recorded';
+  evidence: HeavyTaskCompactEvidenceEnvelope;
+}
+
 export interface WorkspaceLeaseRecordedEvent extends BaseTaskEvent {
   type: 'workspace_lease_recorded';
   lease: WorkspaceLeaseFacts;
@@ -711,6 +795,7 @@ export type TaskEvent =
   | HeavyTaskInventoryRecordedEvent
   | HeavyTaskTodosRecordedEvent
   | HeavyTaskSelfCheckRecordedEvent
+  | HeavyTaskEvidenceRecordedEvent
   | IsolationPolicyRecordedEvent
   | WorkspaceLeaseRecordedEvent
   | ToolExecutorIdentityRecordedEvent

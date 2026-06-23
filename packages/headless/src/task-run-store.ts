@@ -1,11 +1,13 @@
 import { appendFile, mkdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { ResultRecord } from './contracts.js';
+import { compactArtifactEvidence, compactSelfCheckEvidence } from './heavy-task-evidence.js';
 import { evaluateHeavyTaskCompletionStatus, type HeavyTaskCompletionStatus } from './heavy-task-finalization.js';
 import { isAcceptedHeavyTaskSelfCheck } from './heavy-task-self-check.js';
 import type {
   AutonomousDecision,
   FeedbackObservation,
+  HeavyTaskCompactEvidenceEnvelope,
   HeavyTaskInventoryState,
   TaskInboxItem,
   HeavyTaskModeFacts,
@@ -51,6 +53,8 @@ export interface TaskRunProjection extends TaskRun {
   latestHeavyTaskTodos?: HeavyTaskTodoState;
   heavyTaskSelfChecks: HeavyTaskSemanticSelfCheckState[];
   latestHeavyTaskSelfCheck?: HeavyTaskSemanticSelfCheckState;
+  heavyTaskEvidence: HeavyTaskCompactEvidenceEnvelope[];
+  latestHeavyTaskEvidence?: HeavyTaskCompactEvidenceEnvelope;
   heavyTaskCompletion?: HeavyTaskCompletionStatus;
   isolation?: TaskIsolationFacts;
   workspaceLease?: WorkspaceLeaseFacts;
@@ -95,6 +99,7 @@ export function projectTaskRun(events: readonly TaskEvent[], taskRunId?: string)
     heavyTaskInventory: [],
     heavyTaskTodoStates: [],
     heavyTaskSelfChecks: [],
+    heavyTaskEvidence: [],
   };
   const attempts = new Map<string, TaskAttempt>();
   const inboxItems = new Map<string, TaskInboxItem>();
@@ -155,6 +160,16 @@ export function projectTaskRun(events: readonly TaskEvent[], taskRunId?: string)
         break;
       case 'task_run_artifact_recorded':
         projection.artifacts.push(event.artifact);
+        if (projection.heavyTaskMode?.enabled === true && isCompactEvidenceEligibleArtifact(event.artifact)) {
+          appendCompactEvidence(projection, compactArtifactEvidence({
+            evidenceId: `${event.id}:compact-artifact`,
+            taskRunId: projection.taskRunId,
+            ...(event.artifact.attemptId ? { attemptId: event.artifact.attemptId } : {}),
+            ts: event.ts,
+            source: { kind: 'model_tool', toolCallId: `task-run-artifact:${event.id}`, toolName: 'artifact' },
+            artifact: event.artifact,
+          }));
+        }
         break;
       case 'score_result_recorded':
         projection.scoreResults.push(event.result);
@@ -176,8 +191,20 @@ export function projectTaskRun(events: readonly TaskEvent[], taskRunId?: string)
         if (isAcceptedHeavyTaskSelfCheck(event.selfCheck)) {
           projection.heavyTaskSelfChecks.push(event.selfCheck);
           projection.latestHeavyTaskSelfCheck = event.selfCheck;
+          appendCompactEvidence(
+            projection,
+            ...compactSelfCheckEvidence({
+              selfCheck: event.selfCheck,
+              newId: selfCheckEvidenceIdFactory(event.selfCheck.selfCheckId),
+            }),
+          );
         } else {
           projection.warnings.push(`ignored heavy-task self-check ${event.selfCheck.selfCheckId}: source guard did not accept public evidence`);
+        }
+        break;
+      case 'heavy_task_evidence_recorded':
+        if (!appendCompactEvidence(projection, event.evidence)) {
+          projection.warnings.push(`ignored heavy-task evidence ${event.evidence.evidenceId}: evidence must be public and match taskRunId`);
         }
         break;
       case 'isolation_policy_recorded':
@@ -467,11 +494,35 @@ function applyTerminalEvent(projection: TaskRunProjection, terminalEvents: numbe
   return terminalEvents + 1;
 }
 
+function appendCompactEvidence(projection: TaskRunProjection, ...evidence: HeavyTaskCompactEvidenceEnvelope[]): boolean {
+  let ok = true;
+  for (const item of evidence) {
+    if (item.public !== true || item.taskRunId !== projection.taskRunId) {
+      ok = false;
+      continue;
+    }
+    projection.heavyTaskEvidence.push(item);
+    projection.latestHeavyTaskEvidence = item;
+  }
+  return ok;
+}
+
+function selfCheckEvidenceIdFactory(selfCheckId: string): () => string {
+  let index = 0;
+  return () => `${selfCheckId}:compact-${++index}`;
+}
+
+function isCompactEvidenceEligibleArtifact(artifact: TaskRunArtifact): boolean {
+  return (artifact.authority.source === 'runtime' || artifact.authority.source === 'self_check')
+    && artifact.authority.authoritative !== true;
+}
+
 function hasHeavyTaskCompletionState(projection: TaskRunProjection): boolean {
   return projection.heavyTaskMode?.enabled === true
     || projection.heavyTaskInventory.length > 0
     || projection.heavyTaskTodoStates.length > 0
-    || projection.heavyTaskSelfChecks.length > 0;
+    || projection.heavyTaskSelfChecks.length > 0
+    || projection.heavyTaskEvidence.length > 0;
 }
 
 function safeFileId(id: string): string {

@@ -6,11 +6,13 @@ import {
 } from '@maka/runtime';
 import { posix as pathPosix } from 'node:path';
 import { z } from 'zod';
+import type { HeavyTaskEvidenceRecorder } from './heavy-task-evidence.js';
 import { buildHeavyTaskProgressTools, type HeavyTaskProgressRecorder } from './heavy-task-progress.js';
 import { buildHeavyTaskSelfCheckTools, type HeavyTaskSelfCheckRecorder } from './heavy-task-self-check.js';
 import type { IsolatedToolExecutor } from './isolation.js';
 
 export interface BuildIsolatedHeadlessToolsOptions {
+  heavyTaskEvidence?: HeavyTaskEvidenceRecorder;
   heavyTaskProgress?: HeavyTaskProgressRecorder;
   heavyTaskSelfCheck?: HeavyTaskSelfCheckRecorder;
 }
@@ -24,12 +26,12 @@ export function buildIsolatedHeadlessTools(
   options: BuildIsolatedHeadlessToolsOptions = {},
 ): MakaTool[] {
   const tools = [
-    buildIsolatedBashTool(executor),
-    buildIsolatedReadTool(executor),
-    buildIsolatedWriteTool(executor),
-    buildIsolatedEditTool(executor),
-    buildIsolatedGlobTool(executor),
-    buildIsolatedGrepTool(executor),
+    buildIsolatedBashTool(executor, options),
+    buildIsolatedReadTool(executor, options),
+    buildIsolatedWriteTool(executor, options),
+    buildIsolatedEditTool(executor, options),
+    buildIsolatedGlobTool(executor, options),
+    buildIsolatedGrepTool(executor, options),
     buildSubagentSpawnTool(),
     ...buildSubagentProjectionTools(),
   ];
@@ -54,7 +56,10 @@ export function buildIsolatedHeadlessToolAvailability(): ToolAvailabilityConfig 
   };
 }
 
-export function buildIsolatedBashTool(executor: IsolatedToolExecutor): MakaTool {
+export function buildIsolatedBashTool(
+  executor: IsolatedToolExecutor,
+  options: Pick<BuildIsolatedHeadlessToolsOptions, 'heavyTaskEvidence'> = {},
+): MakaTool {
   return {
     name: 'Bash',
     description: 'Run a shell command in the isolated headless task workspace.',
@@ -63,14 +68,21 @@ export function buildIsolatedBashTool(executor: IsolatedToolExecutor): MakaTool 
       timeout_ms: z.number().int().positive().max(600_000).optional(),
     }),
     permissionRequired: true,
-    impl: async ({ command, timeout_ms }, { cwd, emitOutput }) => {
-      const result = await executor.exec({
+    impl: async ({ command, timeout_ms }, ctx) => {
+      const { cwd, emitOutput } = ctx;
+      const input = {
         command,
         cwd,
         timeoutMs: timeout_ms ?? 120_000,
+      };
+      const result = await executor.exec({
+        command: input.command,
+        cwd: input.cwd,
+        timeoutMs: input.timeoutMs,
       });
       if (result.stdout) emitOutput('stdout', result.stdout);
       if (result.stderr) emitOutput('stderr', result.stderr);
+      await options.heavyTaskEvidence?.recordToolEvidence({ name: 'Bash', input, result }, ctx);
       return {
         kind: 'terminal',
         cwd,
@@ -83,7 +95,10 @@ export function buildIsolatedBashTool(executor: IsolatedToolExecutor): MakaTool 
   };
 }
 
-export function buildIsolatedReadTool(executor: IsolatedToolExecutor): MakaTool {
+export function buildIsolatedReadTool(
+  executor: IsolatedToolExecutor,
+  options: Pick<BuildIsolatedHeadlessToolsOptions, 'heavyTaskEvidence'> = {},
+): MakaTool {
   return {
     name: 'Read',
     description: 'Read a file from the isolated headless task workspace.',
@@ -93,38 +108,60 @@ export function buildIsolatedReadTool(executor: IsolatedToolExecutor): MakaTool 
       limit: z.number().int().positive().optional(),
     }),
     permissionRequired: false,
-    impl: async ({ path, offset, limit }, { cwd }) => {
+    impl: async ({ path, offset, limit }, ctx) => {
+      const { cwd } = ctx;
       const normalizedPath = normalizeWorkspacePath(path, cwd, 'Read path');
-      if (executor.readFile) return await executor.readFile({ cwd, path: normalizedPath, offset, limit });
+      const input = { cwd, path: normalizedPath, offset, limit };
+      if (executor.readFile) {
+        const result = await executor.readFile(input);
+        await options.heavyTaskEvidence?.recordToolEvidence({ name: 'Read', input, result }, ctx);
+        return result;
+      }
       const stdout = await execFileCommand(executor, cwd, shellFileCommand(READ_SCRIPT, [
         normalizedPath,
         numberArg(offset),
         numberArg(limit),
       ]));
-      return { content: stdout };
+      const result = { content: stdout };
+      await options.heavyTaskEvidence?.recordToolEvidence({ name: 'Read', input, result }, ctx);
+      return result;
     },
   };
 }
 
-export function buildIsolatedWriteTool(executor: IsolatedToolExecutor): MakaTool {
+export function buildIsolatedWriteTool(
+  executor: IsolatedToolExecutor,
+  options: Pick<BuildIsolatedHeadlessToolsOptions, 'heavyTaskEvidence'> = {},
+): MakaTool {
   return {
     name: 'Write',
     description: 'Write content to a file in the isolated headless task workspace.',
     parameters: z.object({ path: z.string(), content: z.string() }),
     permissionRequired: true,
-    impl: async ({ path, content }, { cwd }) => {
+    impl: async ({ path, content }, ctx) => {
+      const { cwd } = ctx;
       const normalizedPath = normalizeWorkspacePath(path, cwd, 'Write path');
-      if (executor.writeFile) return await executor.writeFile({ cwd, path: normalizedPath, content });
+      const input = { cwd, path: normalizedPath, content };
+      if (executor.writeFile) {
+        const result = await executor.writeFile(input);
+        await options.heavyTaskEvidence?.recordToolEvidence({ name: 'Write', input, result }, ctx);
+        return result;
+      }
       await execFileCommand(executor, cwd, shellFileCommand(WRITE_SCRIPT, [
         normalizedPath,
         content,
       ]));
-      return { ok: true, path: normalizedPath, bytes: Buffer.byteLength(content, 'utf8') };
+      const result = { ok: true, path: normalizedPath, bytes: Buffer.byteLength(content, 'utf8') };
+      await options.heavyTaskEvidence?.recordToolEvidence({ name: 'Write', input, result }, ctx);
+      return result;
     },
   };
 }
 
-export function buildIsolatedEditTool(executor: IsolatedToolExecutor): MakaTool {
+export function buildIsolatedEditTool(
+  executor: IsolatedToolExecutor,
+  options: Pick<BuildIsolatedHeadlessToolsOptions, 'heavyTaskEvidence'> = {},
+): MakaTool {
   return {
     name: 'Edit',
     description:
@@ -139,8 +176,10 @@ export function buildIsolatedEditTool(executor: IsolatedToolExecutor): MakaTool 
       new_string: z.string(),
     }),
     permissionRequired: true,
-    impl: async ({ path, old_string, new_string }, { cwd }) => {
+    impl: async ({ path, old_string, new_string }, ctx) => {
+      const { cwd } = ctx;
       const normalizedPath = normalizeWorkspacePath(path, cwd, 'Edit path');
+      const input = { cwd, path: normalizedPath, oldString: old_string, newString: new_string };
       // Edit ALWAYS runs the shared computeEditedSource — unlike Read/Write/Glob/
       // Grep it has NO native-executor fast path, because its matching logic is
       // non-trivial and must stay the single source of truth with the in-process
@@ -152,12 +191,17 @@ export function buildIsolatedEditTool(executor: IsolatedToolExecutor): MakaTool 
         Buffer.from(old_string, 'utf8').toString('base64'),
         Buffer.from(new_string, 'utf8').toString('base64'),
       ]));
-      return { ok: true, path: normalizedPath, replacements: 1, ...parseEditMeta(editStdout) };
+      const result = { ok: true, path: normalizedPath, replacements: 1, ...parseEditMeta(editStdout) };
+      await options.heavyTaskEvidence?.recordToolEvidence({ name: 'Edit', input, result }, ctx);
+      return result;
     },
   };
 }
 
-export function buildIsolatedGlobTool(executor: IsolatedToolExecutor): MakaTool {
+export function buildIsolatedGlobTool(
+  executor: IsolatedToolExecutor,
+  options: Pick<BuildIsolatedHeadlessToolsOptions, 'heavyTaskEvidence'> = {},
+): MakaTool {
   return {
     name: 'Glob',
     description: 'Find files in the isolated headless task workspace matching a glob pattern.',
@@ -166,21 +210,32 @@ export function buildIsolatedGlobTool(executor: IsolatedToolExecutor): MakaTool 
       cwd: z.string().optional(),
     }),
     permissionRequired: false,
-    impl: async ({ pattern, cwd: relCwd }, { cwd }) => {
+    impl: async ({ pattern, cwd: relCwd }, ctx) => {
+      const { cwd } = ctx;
       const normalizedPattern = normalizeWorkspaceGlobPattern(pattern, cwd, 'Glob pattern');
       const normalizedRelCwd = relCwd === undefined ? undefined : normalizeWorkspacePath(relCwd, cwd, 'Glob cwd');
-      if (executor.globFiles) return await executor.globFiles({ cwd, pattern: normalizedPattern, searchCwd: normalizedRelCwd });
+      const input = { cwd, pattern: normalizedPattern, searchCwd: normalizedRelCwd };
+      if (executor.globFiles) {
+        const result = await executor.globFiles(input);
+        await options.heavyTaskEvidence?.recordToolEvidence({ name: 'Glob', input, result }, ctx);
+        return result;
+      }
       const stdout = await execFileCommand(executor, cwd, shellFileCommand(GLOB_SCRIPT, [
         normalizedPattern,
         globPatternToEre(normalizedPattern),
         normalizedRelCwd ?? '',
       ]));
-      return { files: parseLineArray(stdout) };
+      const result = { files: parseLineArray(stdout) };
+      await options.heavyTaskEvidence?.recordToolEvidence({ name: 'Glob', input, result }, ctx);
+      return result;
     },
   };
 }
 
-export function buildIsolatedGrepTool(executor: IsolatedToolExecutor): MakaTool {
+export function buildIsolatedGrepTool(
+  executor: IsolatedToolExecutor,
+  options: Pick<BuildIsolatedHeadlessToolsOptions, 'heavyTaskEvidence'> = {},
+): MakaTool {
   return {
     name: 'Grep',
     description: 'Search file contents with a regex in the isolated headless task workspace.',
@@ -190,22 +245,30 @@ export function buildIsolatedGrepTool(executor: IsolatedToolExecutor): MakaTool 
       glob: z.string().optional(),
     }),
     permissionRequired: false,
-    impl: async ({ pattern, path, glob }, { cwd }) => {
+    impl: async ({ pattern, path, glob }, ctx) => {
+      const { cwd } = ctx;
       const normalizedPath = path === undefined ? undefined : normalizeWorkspacePath(path, cwd, 'Grep path');
       const normalizedGlob = glob === undefined ? undefined : normalizeWorkspaceGlobPattern(glob, cwd, 'Grep glob');
-      if (executor.grepFiles) return await executor.grepFiles({
+      const input = {
         cwd,
         pattern,
         path: normalizedPath,
         glob: normalizedGlob,
-      });
+      };
+      if (executor.grepFiles) {
+        const result = await executor.grepFiles(input);
+        await options.heavyTaskEvidence?.recordToolEvidence({ name: 'Grep', input, result }, ctx);
+        return result;
+      }
       const stdout = await execFileCommand(executor, cwd, shellFileCommand(GREP_SCRIPT, [
         pattern,
         normalizedPath ?? '',
         normalizedGlob ?? '',
         normalizedGlob === undefined ? '' : globPatternToEre(normalizedGlob),
       ]));
-      return { matches: parseLineArray(stdout) };
+      const result = { matches: parseLineArray(stdout) };
+      await options.heavyTaskEvidence?.recordToolEvidence({ name: 'Grep', input, result }, ctx);
+      return result;
     },
   };
 }

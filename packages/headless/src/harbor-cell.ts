@@ -33,7 +33,7 @@ import type { HeadlessBackendContext, IsolatedToolExecutor, RealBackendIsolation
 import { ISOLATED_HEADLESS_TOOL_NAMES, validateRealBackendIsolation } from './isolation.js';
 import { PiCliJsonTransport } from './pi-cli-json-transport.js';
 import { backendNeedsIsolation } from './runner.js';
-import { buildIsolatedHeadlessToolAvailability, buildIsolatedHeadlessTools } from './tools.js';
+import { buildIsolatedHeadlessToolAvailability, buildIsolatedHeadlessTools, type BuildIsolatedHeadlessToolsOptions } from './tools.js';
 
 export const HARBOR_CELL_OUTPUT_FILENAME = 'maka-cell-output.json';
 export const HARBOR_CELL_RUNTIME_EVENTS_FILENAME = 'runtime-events.jsonl';
@@ -305,7 +305,11 @@ export function buildAiSdkCellBackendRegistration(input: {
         modelId: input.model,
         permissionEngine,
         modelFactory: getAIModel,
-        tools: buildHarborCellAiSdkTools(context.toolExecutor!),
+        tools: buildHarborCellAiSdkTools(context.toolExecutor!, {
+          ...(context.heavyTaskEvidence ? { heavyTaskEvidence: context.heavyTaskEvidence } : {}),
+          ...(context.heavyTaskProgress ? { heavyTaskProgress: context.heavyTaskProgress } : {}),
+          ...(context.heavyTaskSelfCheck ? { heavyTaskSelfCheck: context.heavyTaskSelfCheck } : {}),
+        }),
         toolAvailability: buildIsolatedHeadlessToolAvailability(),
         providerOptions: buildProviderOptions(connection, input.model),
         systemPrompt: harborCellSystemPrompt(context.config.systemPrompt),
@@ -318,9 +322,12 @@ export function buildAiSdkCellBackendRegistration(input: {
   };
 }
 
-export function buildHarborCellAiSdkTools(executor: IsolatedToolExecutor): MakaTool[] {
+export function buildHarborCellAiSdkTools(
+  executor: IsolatedToolExecutor,
+  options: BuildIsolatedHeadlessToolsOptions = {},
+): MakaTool[] {
   const nonInteractiveToolNames = new Set<string>(ISOLATED_HEADLESS_TOOL_NAMES);
-  return buildIsolatedHeadlessTools(executor).map((tool) => (
+  return buildIsolatedHeadlessTools(executor, options).map((tool) => (
     nonInteractiveToolNames.has(tool.name)
       ? { ...tool, permissionRequired: false }
       : tool

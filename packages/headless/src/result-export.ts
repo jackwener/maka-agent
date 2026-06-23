@@ -71,6 +71,11 @@ export interface TaskRunExport {
       latest: NonNullable<TaskRunProjection['latestHeavyTaskSelfCheck']>;
       historyCount: number;
     };
+    evidence?: {
+      latest: NonNullable<TaskRunProjection['latestHeavyTaskEvidence']>;
+      recent: TaskRunProjection['heavyTaskEvidence'];
+      historyCount: number;
+    };
   };
   isolation: {
     policy?: TaskRunProjection['isolation'];
@@ -315,7 +320,14 @@ function progressFromProjection(projection: TaskRunProjection): TaskRunExport['p
       historyCount: projection.heavyTaskSelfChecks.length,
     };
   }
-  return progress.inventory || progress.todos || progress.selfChecks ? progress : undefined;
+  if (projection.latestHeavyTaskEvidence) {
+    progress.evidence = {
+      latest: projection.latestHeavyTaskEvidence,
+      recent: projection.heavyTaskEvidence.slice(-25),
+      historyCount: projection.heavyTaskEvidence.length,
+    };
+  }
+  return progress.inventory || progress.todos || progress.selfChecks || progress.evidence ? progress : undefined;
 }
 
 function runtimeEventIdsFrom(runtimeRefs: unknown): string[] {
@@ -373,8 +385,13 @@ function eventsJsonl(events: readonly TaskEvent[]): string {
 }
 
 function exportableTaskEvents(event: TaskEvent): TaskEvent[] {
-  if (event.type !== 'heavy_task_self_check_recorded') return [event];
-  return isAcceptedHeavyTaskSelfCheck(event.selfCheck) ? [event] : [];
+  if (event.type === 'heavy_task_self_check_recorded') {
+    return isAcceptedHeavyTaskSelfCheck(event.selfCheck) ? [event] : [];
+  }
+  if (event.type === 'heavy_task_evidence_recorded') {
+    return event.evidence.public === true ? [event] : [];
+  }
+  return [event];
 }
 
 export function exportContentHash(value: unknown): string {

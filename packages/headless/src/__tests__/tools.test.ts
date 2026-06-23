@@ -10,6 +10,8 @@ import {
   LOAD_TOOLS_NAME,
   ToolAvailabilityRuntime,
 } from '@maka/runtime';
+import { createHeavyTaskEvidenceRecorder } from '../heavy-task-evidence.js';
+import { createInMemoryTaskRunStore } from '../task-run-store.js';
 import { buildIsolatedBashTool, buildIsolatedHeadlessToolAvailability, buildIsolatedHeadlessTools } from '../tools.js';
 
 const execAsync = promisify(childExec);
@@ -227,6 +229,49 @@ describe('isolated headless tools', () => {
     );
     assert.equal(await readFile(file, 'utf8'), 'function f() {\n    return 2;\n}\n');
     assert.deepEqual(nativeCalls, []);
+  });
+
+  test('enabled heavy-task evidence recorder captures Bash, Read, Grep, Write, and Edit results', async () => {
+    const store = createInMemoryTaskRunStore();
+    let id = 0;
+    const recorder = createHeavyTaskEvidenceRecorder({
+      taskRunId: 'run-evidence',
+      attemptId: 'attempt-1',
+      store,
+      now: () => 100 + id,
+      newId: () => `id-${++id}`,
+    });
+    const tools = buildIsolatedHeadlessTools({
+      async exec(input) {
+        if (input.command.startsWith("node -e '")) {
+          return { exitCode: 0, stdout: '{"matchedVia":"exact","startLine":1,"endLine":1}', stderr: '' };
+        }
+        return { exitCode: 2, stdout: `large stdout\n${'x'.repeat(5_000)}`, stderr: 'short stderr\n' };
+      },
+      async readFile(input) {
+        return { content: `read ${input.path}\n${'r'.repeat(5_000)}` };
+      },
+      async writeFile(input) {
+        return { ok: true, path: input.path, bytes: Buffer.byteLength(input.content, 'utf8') };
+      },
+      async grepFiles() {
+        return { matches: ['src/file.ts:1:needle'] };
+      },
+    }, { heavyTaskEvidence: recorder });
+    const ctx = toolCtx('/workspace');
+
+    await tool(tools, 'Bash').impl({ command: 'npm test' }, ctx);
+    await tool(tools, 'Read').impl({ path: 'src/file.ts', limit: 10 }, ctx);
+    await tool(tools, 'Grep').impl({ pattern: 'needle', path: 'src' }, ctx);
+    await tool(tools, 'Write').impl({ path: 'src/out.txt', content: 'write payload must be omitted' }, ctx);
+    await tool(tools, 'Edit').impl({ path: 'src/out.txt', old_string: 'old payload', new_string: 'new payload' }, ctx);
+
+    const projection = await store.project('run-evidence');
+    assert.deepEqual(projection.heavyTaskEvidence.map((item) => item.tool?.name), ['Bash', 'Read', 'Grep', 'Write', 'Edit']);
+    assert.equal(projection.latestHeavyTaskEvidence?.tool?.name, 'Edit');
+    assert.equal(projection.heavyTaskEvidence[0]?.tool?.outputs[0]?.truncated, true);
+    const serialized = JSON.stringify(projection.heavyTaskEvidence);
+    assert.doesNotMatch(serialized, /write payload must be omitted|old payload|new payload/);
   });
 
   test('sh-backed file tools fall back to command-backed isolated operations', async () => {

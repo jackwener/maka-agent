@@ -284,6 +284,7 @@ const registerProgressToolBackend = (seen: HeadlessBackendContext[]) => (registr
     sessionId: ctx.sessionId,
     header: ctx.header,
     tools: buildIsolatedHeadlessTools(context.toolExecutor!, {
+      ...(context.heavyTaskEvidence ? { heavyTaskEvidence: context.heavyTaskEvidence } : {}),
       ...(context.heavyTaskProgress ? { heavyTaskProgress: context.heavyTaskProgress } : {}),
       ...(context.heavyTaskSelfCheck ? { heavyTaskSelfCheck: context.heavyTaskSelfCheck } : {}),
     }),
@@ -414,6 +415,7 @@ describe('runTaskOnce', () => {
       });
 
       assert.equal(seenContexts[0]?.heavyTaskMode?.enabled, true);
+      assert.ok(seenContexts[0]?.heavyTaskEvidence);
       assert.ok(seenContexts[0]?.heavyTaskProgress);
       assert.ok(seenContexts[0]?.heavyTaskSelfCheck);
       assert.ok(result.projection.toolExecutors[0]?.toolNames.includes('inventory_submit'));

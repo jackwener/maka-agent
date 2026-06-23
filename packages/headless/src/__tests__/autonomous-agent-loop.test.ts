@@ -64,6 +64,7 @@ class PromptCapturingProgressBackend implements AgentBackend {
   constructor(
     sessionId: string,
     private readonly progress: HeadlessBackendContext['heavyTaskProgress'],
+    private readonly evidence: HeadlessBackendContext['heavyTaskEvidence'],
     private readonly prompts: string[],
   ) {
     this.sessionId = sessionId;
@@ -87,6 +88,11 @@ class PromptCapturingProgressBackend implements AgentBackend {
       await this.progress.recordTodos({
         items: [{ id: 'fix', content: 'Patch implementation', status: 'in_progress', priority: 'high' }],
       }, toolCtx);
+      await this.evidence?.recordToolEvidence({
+        name: 'Bash',
+        input: { command: 'npm test', cwd: '/workspace', timeoutMs: 120_000 },
+        result: { exitCode: 1, stdout: `public failure summary\n${'x'.repeat(5_000)}`, stderr: 'short stderr\n' },
+      }, toolCtx);
     }
     const ts = Date.now();
     yield { type: 'complete', id: `progress-complete-${this.prompts.length}`, turnId: input.turnId, ts, stopReason: 'end_turn' };
@@ -98,7 +104,7 @@ class PromptCapturingProgressBackend implements AgentBackend {
 }
 
 const registerPromptCapturingProgressBackend = (prompts: string[]) => (registry: BackendRegistry, context: HeadlessBackendContext): void => {
-  registry.register('fake', (ctx) => new PromptCapturingProgressBackend(ctx.sessionId, context.heavyTaskProgress, prompts));
+  registry.register('fake', (ctx) => new PromptCapturingProgressBackend(ctx.sessionId, context.heavyTaskProgress, context.heavyTaskEvidence, prompts));
 };
 
 async function withDirs<T>(fn: (fixtureDir: string, storageRoot: string) => Promise<T>): Promise<T> {
@@ -241,7 +247,12 @@ describe('runAutonomousTask', () => {
       assert.match(prompts[1] ?? '', /Heavy-task progress state from prior task-run events/);
       assert.match(prompts[1] ?? '', /Inventory summary: Inspected public task files/);
       assert.match(prompts[1] ?? '', /Active todo: fix/);
+      assert.match(prompts[1] ?? '', /Heavy-task compact evidence from prior public tool\/check\/artifact observations/);
+      assert.match(prompts[1] ?? '', /tool:Bash exit=1/);
+      assert.match(prompts[1] ?? '', /truncated=true/);
+      assert.doesNotMatch(prompts[1] ?? '', new RegExp(`x{${3_000}}`));
       assert.equal((prompts[1]?.match(/Heavy-task progress state/g) ?? []).length, 1);
+      assert.equal((prompts[1]?.match(/Heavy-task compact evidence/g) ?? []).length, 1);
     });
   });
 

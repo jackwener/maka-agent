@@ -1,4 +1,5 @@
 import type { Config, Task } from './contracts.js';
+import type { HeavyTaskEvidenceRecorder } from './heavy-task-evidence.js';
 import type { HeavyTaskModeSelection } from './heavy-task-policy.js';
 import type { HeavyTaskProgressRecorder } from './heavy-task-progress.js';
 import type { HeavyTaskSelfCheckRecorder } from './heavy-task-self-check.js';
@@ -41,6 +42,22 @@ export interface IsolatedWriteFileResult {
   ok: boolean;
   path: string;
   bytes: number;
+}
+
+export interface IsolatedEditFileInput {
+  cwd: string;
+  path: string;
+  oldString: string;
+  newString: string;
+}
+
+export interface IsolatedEditFileResult {
+  ok: boolean;
+  path: string;
+  replacements: number;
+  matchedVia?: string;
+  startLine?: number;
+  endLine?: number;
 }
 
 export interface IsolatedGlobInput {
@@ -130,6 +147,8 @@ export interface HeadlessBackendContext {
   heavyTaskProgress?: HeavyTaskProgressRecorder;
   /** Present only when heavy-task mode is enabled for advisory public self-check tooling. */
   heavyTaskSelfCheck?: HeavyTaskSelfCheckRecorder;
+  /** Present only when heavy-task mode is enabled for compact public evidence capture. */
+  heavyTaskEvidence?: HeavyTaskEvidenceRecorder;
 }
 
 export function validateRealBackendIsolation(isolation: RealBackendIsolation | undefined): void {
