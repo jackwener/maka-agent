@@ -54,6 +54,10 @@ export interface TaskRunExport {
   policy?: {
     heavyTask?: TaskRunProjection['heavyTaskMode'];
   };
+  heavyTask?: {
+    mode?: TaskRunProjection['heavyTaskMode'];
+    completion: NonNullable<TaskRunProjection['heavyTaskCompletion']>;
+  };
   progress?: {
     inventory?: {
       latest: NonNullable<TaskRunProjection['latestHeavyTaskInventory']>;
@@ -143,6 +147,9 @@ export function taskRunExportFromProjection(
   const taxonomy = score?.taxonomy ?? projection.result?.taxonomy ?? legacyResultRecord.errorClass ?? projection.status;
   const primaryWorkspacePath = primaryWorkspacePathFromArtifacts(projection.artifacts);
   const policy = projection.heavyTaskMode?.enabled ? { heavyTask: projection.heavyTaskMode } : undefined;
+  const heavyTask = projection.heavyTaskCompletion
+    ? { mode: projection.heavyTaskMode, completion: projection.heavyTaskCompletion }
+    : undefined;
   const progress = progressFromProjection(projection);
 
   return {
@@ -189,6 +196,7 @@ export function taskRunExportFromProjection(
     score,
     budget: recordValue(scoreDetails.budget) ? scoreDetails.budget as Record<string, unknown> : undefined,
     policy,
+    heavyTask,
     progress,
     isolation: {
       policy: projection.isolation,
@@ -275,6 +283,7 @@ function compactResultView(exported: TaskRunExport): Record<string, unknown> {
       : undefined,
     score: exported.score,
     policy: exported.policy,
+    heavyTask: exported.heavyTask,
     progress: exported.progress,
     workspace: exported.workspace,
     artifacts: exported.artifacts,

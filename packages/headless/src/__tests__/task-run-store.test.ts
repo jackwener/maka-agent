@@ -240,6 +240,82 @@ describe('TaskRunStore', () => {
     assert.match(projection.warnings.join('\n'), /source guard did not accept/);
   });
 
+  test('derives heavy-task completion from accepted self-checks and latest todos', () => {
+    const taskRunId = 'tr-heavy-completion';
+    const projection = projectTaskRun([
+      { type: 'task_run_created', id: 'e-1', taskRunId, ts: 1, taskId: 'task-1', configId: 'cfg-1' },
+      {
+        type: 'heavy_task_mode_recorded',
+        id: 'e-2',
+        taskRunId,
+        ts: 2,
+        facts: {
+          schemaVersion: 1,
+          enabled: true,
+          triggerSource: 'config',
+          triggerReason: 'long public task',
+          policyVersion: 'maka-heavy-task-policy.v1',
+        },
+      },
+      {
+        type: 'heavy_task_todos_recorded',
+        id: 'e-3',
+        taskRunId,
+        ts: 3,
+        todos: {
+          schemaVersion: 1,
+          todoSetId: 'todos-1',
+          taskRunId,
+          ts: 3,
+          items: [
+            { id: 'edit', content: 'Patch implementation', status: 'completed', priority: 'high' },
+            { id: 'optional', content: 'Optional polish', status: 'cancelled', priority: 'low', evidence: 'Not required by public task.' },
+          ],
+          source: { kind: 'model_tool', toolCallId: 'tool-2' },
+        },
+      },
+      {
+        type: 'heavy_task_self_check_recorded',
+        id: 'e-4',
+        taskRunId,
+        ts: 4,
+        selfCheck: acceptedSelfCheck(taskRunId, 'self-check-1', 'pass', 'npm test passed against public files.'),
+      },
+      {
+        type: 'score_result_recorded',
+        id: 'e-5',
+        taskRunId,
+        ts: 5,
+        result: {
+          id: 'score-1',
+          taskRunId,
+          ts: 5,
+          passed: false,
+          scored: true,
+          eligible: true,
+          taxonomy: 'verification_failed',
+          authority: { source: 'official_harbor_verifier', authoritative: true },
+        },
+      },
+      {
+        type: 'task_run_budget_exhausted',
+        id: 'e-6',
+        taskRunId,
+        ts: 6,
+        error: { message: 'runtime step cap reached', class: 'max_steps' },
+      },
+    ], taskRunId);
+
+    assert.equal(projection.heavyTaskCompletion?.runtime.taskRunStatus, 'budget_exhausted');
+    assert.equal(projection.heavyTaskCompletion?.runtime.taxonomy, 'verification_failed');
+    assert.equal(projection.heavyTaskCompletion?.runtime.capKind, 'runtime_step_cap');
+    assert.equal(projection.heavyTaskCompletion?.semantic.status, 'complete');
+    assert.deepEqual(projection.heavyTaskCompletion?.semantic.nonblockingTodoIds, ['optional']);
+    assert.equal(projection.heavyTaskCompletion?.finalization.eligible, true);
+    assert.equal(projection.result?.taxonomy, 'verification_failed');
+    assert.equal(projection.result?.passed, false);
+  });
+
   test('projects isolation, permission, inbox, and needs_approval facts', () => {
     const taskRunId = 'tr-approval';
     const request = {

@@ -329,6 +329,15 @@ export {
   validateHeavyTaskPublicSelfCheck,
 } from './heavy-task-self-check.js';
 export type {
+  HeavyTaskCompletionInput,
+  HeavyTaskCompletionStatus,
+  HeavyTaskRuntimeCapKind,
+  HeavyTaskSemanticStatus,
+} from './heavy-task-finalization.js';
+export {
+  evaluateHeavyTaskCompletionStatus,
+} from './heavy-task-finalization.js';
+export type {
   HeadlessBackendContext,
   IsolatedCommandInput,
   IsolatedCommandResult,

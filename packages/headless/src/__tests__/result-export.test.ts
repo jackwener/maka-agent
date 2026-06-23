@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
 import { renderTaskRunMarkdown, taskRunExportFromProjection, writeTaskRunExport } from '../result-export.js';
-import type { TaskEvent } from '../task-contracts.js';
+import type { HeavyTaskTodoItem, TaskEvent } from '../task-contracts.js';
 import { projectTaskRun } from '../task-run-store.js';
 
 describe('task run export', () => {
@@ -283,6 +283,55 @@ describe('task run export', () => {
     }
   });
 
+  test('exports heavy-task dual runtime and semantic completion status in full and compact views', async () => {
+    const projection = projectTaskRun(heavyTaskCompletionEvents(), 'run-heavy-complete');
+    const exported = taskRunExportFromProjection(projection, { exportedAt: '2026-06-19T00:00:00.000Z' });
+
+    assert.equal(exported.taskRun.status, 'budget_exhausted');
+    assert.equal(exported.taxonomy.value, 'verification_failed');
+    assert.equal(exported.taxonomy.passed, false);
+    assert.equal(exported.legacyResultRecord.passed, false);
+    assert.equal(exported.heavyTask?.mode?.enabled, true);
+    assert.equal(exported.heavyTask?.completion.runtime.taskRunStatus, 'budget_exhausted');
+    assert.equal(exported.heavyTask?.completion.runtime.taxonomy, 'verification_failed');
+    assert.equal(exported.heavyTask?.completion.runtime.capLike, true);
+    assert.equal(exported.heavyTask?.completion.semantic.status, 'complete');
+    assert.equal(exported.heavyTask?.completion.semantic.advisory, true);
+    assert.deepEqual(exported.heavyTask?.completion.semantic.unresolvedTodoIds, []);
+    assert.deepEqual(exported.heavyTask?.completion.semantic.nonblockingTodoIds, ['optional-polish']);
+    assert.equal(exported.heavyTask?.completion.finalization.eligible, true);
+    assert.equal(exported.score?.taxonomy, 'verification_failed');
+    assert.equal(exported.verifier?.passed, false);
+
+    const outDir = await mkdtemp(join(tmpdir(), 'maka-heavy-task-export-'));
+    try {
+      const written = await writeTaskRunExport(outDir, projection, {
+        exportedAt: '2026-06-19T00:00:00.000Z',
+      });
+      const compact = JSON.parse(await readFile(written.files.resultJson, 'utf8'));
+      assert.deepEqual(compact.heavyTask, exported.heavyTask);
+      assert.equal(compact.taxonomy.value, 'verification_failed');
+      assert.equal(compact.legacyResultRecord.passed, false);
+    } finally {
+      await rm(outDir, { recursive: true, force: true });
+    }
+  });
+
+  test('exports semantic incomplete and finalization ineligible when todos are unresolved', () => {
+    const events = heavyTaskCompletionEvents([
+      { id: 'edit', content: 'Patch implementation', status: 'completed', priority: 'high' },
+      { id: 'verify', content: 'Run public checks', status: 'pending', priority: 'high' },
+    ]);
+    const exported = taskRunExportFromProjection(projectTaskRun(events, 'run-heavy-complete'));
+
+    assert.equal(exported.heavyTask?.completion.runtime.capLike, true);
+    assert.equal(exported.heavyTask?.completion.semantic.status, 'incomplete');
+    assert.deepEqual(exported.heavyTask?.completion.semantic.unresolvedTodoIds, ['verify']);
+    assert.equal(exported.heavyTask?.completion.finalization.eligible, false);
+    assert.equal(exported.taxonomy.value, 'verification_failed');
+    assert.equal(exported.legacyResultRecord.passed, false);
+  });
+
   test('exports official verifier truth over a non-authoritative placeholder result', async () => {
     const events: TaskEvent[] = [
       { type: 'task_run_created', id: 'e1', taskRunId: 'run-official', ts: 1, taskId: 'task-1', configId: 'cfg-1' },
@@ -551,3 +600,109 @@ describe('task run export', () => {
     }
   });
 });
+
+function heavyTaskCompletionEvents(todos: HeavyTaskTodoItem[] = [
+  { id: 'edit', content: 'Patch implementation', status: 'completed', priority: 'high' },
+  {
+    id: 'optional-polish',
+    content: 'Optional polish',
+    status: 'cancelled',
+    priority: 'low',
+    evidence: 'Not required by public task.',
+  },
+]): TaskEvent[] {
+  const taskRunId = 'run-heavy-complete';
+  return [
+    { type: 'task_run_created', id: 'hc1', taskRunId, ts: 1, taskId: 'task-1', configId: 'cfg-1' },
+    {
+      type: 'heavy_task_mode_recorded',
+      id: 'hc2',
+      taskRunId,
+      ts: 2,
+      facts: {
+        schemaVersion: 1,
+        enabled: true,
+        triggerSource: 'config',
+        triggerReason: 'long public task',
+        policyVersion: 'maka-heavy-task-policy.v1',
+      },
+    },
+    {
+      type: 'heavy_task_todos_recorded',
+      id: 'hc3',
+      taskRunId,
+      ts: 3,
+      todos: {
+        schemaVersion: 1,
+        todoSetId: 'todos-2',
+        taskRunId,
+        ts: 3,
+        items: todos,
+        source: { kind: 'model_tool', toolCallId: 'tool-todos' },
+      },
+    },
+    {
+      type: 'heavy_task_self_check_recorded',
+      id: 'hc4',
+      taskRunId,
+      ts: 4,
+      selfCheck: {
+        schemaVersion: 1,
+        selfCheckId: 'self-check-1',
+        taskRunId,
+        ts: 4,
+        status: 'pass',
+        publicReason: 'npm test passed against public files.',
+        commandEvidence: [{ command: 'npm test', exitCode: 0, outputExcerpt: 'public tests passed' }],
+        artifactEvidence: [{ path: 'build-output.log', kind: 'log', exists: true }],
+        guard: {
+          status: 'accepted',
+          checkedAt: 4,
+          categories: [],
+          publicReason: 'Accepted as public, task-derived advisory self-check evidence.',
+        },
+        source: { kind: 'model_tool', toolCallId: 'tool-self-check' },
+      },
+    },
+    {
+      type: 'verifier_result_recorded',
+      id: 'hc5',
+      taskRunId,
+      ts: 5,
+      result: {
+        id: 'verifier-1',
+        taskRunId,
+        ts: 5,
+        kind: 'terminal_bench',
+        passed: false,
+        exitCode: 1,
+        errorClass: 'verification_failed',
+        authority: { source: 'official_harbor_verifier', authoritative: true },
+      },
+    },
+    {
+      type: 'score_result_recorded',
+      id: 'hc6',
+      taskRunId,
+      ts: 6,
+      result: {
+        id: 'score-1',
+        taskRunId,
+        ts: 6,
+        passed: false,
+        scored: true,
+        eligible: true,
+        taxonomy: 'verification_failed',
+        errorClass: 'verification_failed',
+        authority: { source: 'official_harbor_verifier', authoritative: true },
+      },
+    },
+    {
+      type: 'task_run_budget_exhausted',
+      id: 'hc7',
+      taskRunId,
+      ts: 7,
+      error: { message: 'runtime step cap reached', class: 'max_steps' },
+    },
+  ];
+}

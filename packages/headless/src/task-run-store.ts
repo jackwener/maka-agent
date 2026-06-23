@@ -1,6 +1,7 @@
 import { appendFile, mkdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { ResultRecord } from './contracts.js';
+import { evaluateHeavyTaskCompletionStatus, type HeavyTaskCompletionStatus } from './heavy-task-finalization.js';
 import { isAcceptedHeavyTaskSelfCheck } from './heavy-task-self-check.js';
 import type {
   AutonomousDecision,
@@ -50,6 +51,7 @@ export interface TaskRunProjection extends TaskRun {
   latestHeavyTaskTodos?: HeavyTaskTodoState;
   heavyTaskSelfChecks: HeavyTaskSemanticSelfCheckState[];
   latestHeavyTaskSelfCheck?: HeavyTaskSemanticSelfCheckState;
+  heavyTaskCompletion?: HeavyTaskCompletionStatus;
   isolation?: TaskIsolationFacts;
   workspaceLease?: WorkspaceLeaseFacts;
   parked?: TaskRunParkedState;
@@ -301,6 +303,17 @@ export function projectTaskRun(events: readonly TaskEvent[], taskRunId?: string)
   } else if (projection.latestVerifierResult) {
     projection.result = resultFromVerifier(projection.latestVerifierResult);
   }
+  if (hasHeavyTaskCompletionState(projection)) {
+    projection.heavyTaskCompletion = evaluateHeavyTaskCompletionStatus({
+      status: projection.status,
+      taxonomy: projection.latestScoreResult?.taxonomy ?? projection.result?.taxonomy,
+      error: projection.error,
+      heavyTaskMode: projection.heavyTaskMode,
+      latestHeavyTaskTodos: projection.latestHeavyTaskTodos,
+      latestHeavyTaskSelfCheck: projection.latestHeavyTaskSelfCheck,
+      decisions: projection.decisions,
+    });
+  }
   return projection;
 }
 
@@ -452,6 +465,13 @@ function applyTerminalEvent(projection: TaskRunProjection, terminalEvents: numbe
   }
   delete projection.parked;
   return terminalEvents + 1;
+}
+
+function hasHeavyTaskCompletionState(projection: TaskRunProjection): boolean {
+  return projection.heavyTaskMode?.enabled === true
+    || projection.heavyTaskInventory.length > 0
+    || projection.heavyTaskTodoStates.length > 0
+    || projection.heavyTaskSelfChecks.length > 0;
 }
 
 function safeFileId(id: string): string {
