@@ -31,6 +31,7 @@ export { PermissionEngine, createDefaultPermissionEngineDeps } from './permissio
 export type { EvaluateResult, EvaluateInput, PermissionEngineDeps } from './permission-engine.js';
 
 export { AiSdkBackend } from './ai-sdk-backend.js';
+export { ToolRuntime, formatLoopGateText, LOOP_GATE_IDENTICAL_THRESHOLD } from './tool-runtime.js';
 export type {
   AgentBackend,
   AiSdkBackendInput,

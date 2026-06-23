@@ -821,6 +821,12 @@ function deriveToolResultStatus(content: ToolResultContent): ToolInvocationRecor
   if (content.kind === 'office_document' && content.ok === false) {
     return content.reason === 'officecli_aborted' ? 'aborted' : 'error';
   }
+  // Headless Bash returns a terminal result instead of throwing, so a non-zero
+  // exit must be classified here — otherwise it counts as success and the
+  // loop-gate never sees a repeated failing command (and history/telemetry
+  // mis-report the failure). This is the one classification point shared by the
+  // isError flag, telemetry status, and the loop-gate failure streak.
+  if (content.kind === 'terminal') return content.exitCode === 0 ? 'success' : 'error';
   return 'success';
 }
 

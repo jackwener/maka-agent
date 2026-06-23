@@ -7,8 +7,13 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import {
   buildChildAgentTools,
+  formatLoopGateText,
   LOAD_TOOLS_NAME,
+  LOOP_GATE_IDENTICAL_THRESHOLD,
+  PermissionEngine,
   ToolAvailabilityRuntime,
+  ToolRuntime,
+  type MakaTool,
 } from '@maka/runtime';
 import { createHeavyTaskEvidenceRecorder } from '../heavy-task-evidence.js';
 import { createInMemoryTaskRunStore } from '../task-run-store.js';
@@ -661,6 +666,95 @@ describe('isolated headless tools', () => {
     assert.ok(
       readme.includes('tools: [...(ctx.tools ?? buildIsolatedHeadlessTools(context.toolExecutor!))],'),
     );
+  });
+});
+
+describe('headless Bash failures feed the loop-gate', () => {
+  // Headless Bash returns a terminal result instead of throwing, so a non-zero
+  // exit only counts as a loop-gate failure if deriveToolResultStatus() classifies
+  // the terminal exitCode. Drive the real buildIsolatedBashTool through a real
+  // ToolRuntime to prove that wiring end-to-end (this is the core benchmark path).
+  function makeRuntime(): { runtime: ToolRuntime; pushed: unknown[] } {
+    const pushed: unknown[] = [];
+    const runtime = new ToolRuntime({
+      sessionId: 'session-1',
+      header: {
+        id: 'session-1',
+        cwd: '/workspace',
+        workspaceRoot: '/workspace',
+        createdAt: 1,
+        lastUsedAt: 1,
+        name: 'loop-gate headless test',
+        isFlagged: false,
+        labels: [],
+        isArchived: false,
+        status: 'active',
+        hasUnread: false,
+        backend: 'ai-sdk',
+        llmConnectionSlug: 'openai',
+        connectionLocked: true,
+        model: 'gpt-4o-mini',
+        permissionMode: 'execute', // shell_unsafe → allow, so no permission parking
+        schemaVersion: 1,
+      },
+      connection: { providerType: 'openai', slug: 'openai' } as never,
+      modelId: 'm',
+      appendMessage: async () => {},
+      permissionEngine: new PermissionEngine({ newId: () => 'perm', now: () => 1 }),
+      newId: () => 'id',
+      now: () => 1,
+      getPermissionPauseTarget: () => null,
+    });
+    return { runtime, pushed };
+  }
+
+  let seq = 0;
+  function run(runtime: ToolRuntime, t: MakaTool, args: unknown, pushed: unknown[]): Promise<unknown> {
+    const exec = runtime.wrapToolExecute(t, 'turn-1', { push: (e) => pushed.push(e) });
+    return exec(args, { toolCallId: `tc-${++seq}`, abortSignal: new AbortController().signal });
+  }
+
+  test('repeated identical failing commands run N-1 times then trip the gate', async () => {
+    const calls: unknown[] = [];
+    const bash = buildIsolatedBashTool({
+      async exec(input) {
+        calls.push(input);
+        return { exitCode: 1, stdout: '', stderr: 'boom\n' };
+      },
+    });
+    const { runtime, pushed } = makeRuntime();
+    const args = { command: 'npm test' };
+
+    const results: unknown[] = [];
+    for (let i = 0; i < LOOP_GATE_IDENTICAL_THRESHOLD; i++) results.push(await run(runtime, bash, args, pushed));
+
+    // The first N-1 reach the executor and surface their terminal result; the Nth
+    // identical failure is blocked before exec, so the executor is never called for it.
+    assert.equal(calls.length, LOOP_GATE_IDENTICAL_THRESHOLD - 1, 'the executor ran only before the gate fired');
+    for (let i = 0; i < LOOP_GATE_IDENTICAL_THRESHOLD - 1; i++) {
+      assert.equal((results[i] as { kind?: string }).kind, 'terminal');
+      assert.equal((results[i] as { exitCode?: number }).exitCode, 1);
+    }
+    assert.deepEqual(results[LOOP_GATE_IDENTICAL_THRESHOLD - 1], { error: formatLoopGateText('Bash') });
+  });
+
+  test('repeated succeeding commands (exit 0) are never gated — polling is allowed', async () => {
+    let n = 0;
+    const bash = buildIsolatedBashTool({
+      async exec() {
+        n += 1;
+        return { exitCode: 0, stdout: 'clean\n', stderr: '' };
+      },
+    });
+    const { runtime, pushed } = makeRuntime();
+    const args = { command: 'git status --porcelain' };
+
+    const runs = LOOP_GATE_IDENTICAL_THRESHOLD + 2;
+    const results: unknown[] = [];
+    for (let i = 0; i < runs; i++) results.push(await run(runtime, bash, args, pushed));
+
+    assert.equal(n, runs, 'every poll reached the executor — none was gated');
+    for (const r of results) assert.equal((r as { exitCode?: number }).exitCode, 0);
   });
 });
 
