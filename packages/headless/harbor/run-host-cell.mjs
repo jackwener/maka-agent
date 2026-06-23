@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import {
   buildAiSdkCellBackendRegistration,
   runHarborCell,
-} from '../dist/index.js';
+} from '#harbor-cell';
 
 const TRIAL_PRICING_ENV = [
   'MAKA_TRIAL_INPUT_USD_PER_1M',

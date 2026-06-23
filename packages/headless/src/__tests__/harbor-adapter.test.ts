@@ -64,9 +64,31 @@ describe('Harbor adapter contract', () => {
     assert.match(source, /MAKA_HARBOR_TOOL_EXECUTOR_URL/);
     assert.match(source, /MAKA_HARBOR_TOOL_EXECUTOR_TOKEN/);
     assert.match(source, /fetch\(new URL\('\/exec'/);
+    assert.match(source, /from '#harbor-cell'/);
+    assert.doesNotMatch(source, /\.\.\/dist\/index\.js/);
     assert.doesNotMatch(source, /DEEPSEEK_API_KEY_FILE/);
     assert.doesNotMatch(source, /\/run\/secrets/);
     assert.doesNotMatch(source, /host\.docker\.internal/);
+  });
+
+  test('run-host-cell.mjs resolves package-local harbor-cell internals at runtime', (t: TestContext) => {
+    const result = spawnSync('node', ['packages/headless/harbor/run-host-cell.mjs'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        MAKA_INSTRUCTION: 'noop',
+        MAKA_HARBOR_TOOL_EXECUTOR_URL: 'http://127.0.0.1:1',
+        MAKA_HARBOR_TOOL_EXECUTOR_TOKEN: 'test',
+      },
+    });
+    if (result.error && 'code' in result.error && result.error.code === 'ENOENT') {
+      t.skip('node is not available');
+      return;
+    }
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /MAKA_HOST_API_KEY_FILE is required/);
+    assert.doesNotMatch(result.stderr, /does not provide an export named/);
   });
 
   test('run-prompt-optimization.mjs wires the headless run API with a key file, not a raw key', async () => {

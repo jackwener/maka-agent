@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { runHarborCellFromEnv } from '../dist/index.js';
+import { runHarborCellFromEnv } from '#harbor-cell';
 
 try {
   const result = await runHarborCellFromEnv(process.env);
