@@ -613,18 +613,35 @@ if [ -n "$search_cwd" ]; then
 else
   base=$root
 fi
-find "$base" -type f -print | awk -v root="$root" -v re="$pattern_re" '
-  BEGIN { prefix = root "/"; count = 0 }
-  {
-    rel = $0
-    if (index(rel, prefix) == 1) rel = substr(rel, length(prefix) + 1)
-    if (rel ~ re) {
-      print rel
-      count += 1
-      if (count >= 200) exit
-    }
-  }
-'
+# Enumerate files with ripgrep when available (much faster than find on large
+# trees); fall back to find. --no-ignore --hidden keeps the file set identical
+# with or without rg, and the glob match stays the existing ERE, so membership
+# never depends on rg's glob dialect. Both branches search the SAME resolved base
+# (rel_base, derived from existing_target's symlink-resolved $base) and emit
+# root-relative paths, then sort under a fixed locale before the 200 cap, so the
+# truncated result is deterministic regardless of each tool's enumeration order.
+# rg gets an explicit relative path (so it never reads from its never-closing
+# stdin pipe) and runs from root so its output is root-relative; its "./" prefix
+# is stripped to match find's paths. --no-config makes rg hermetic: a stray
+# RIPGREP_CONFIG_PATH (e.g. a dev's global --follow/--sort/--glob) would
+# otherwise change rg's file set or output format while find is unaffected,
+# breaking the rg/find equivalence this script depends on.
+rel_base=.
+[ "$base" != "$root" ] && rel_base=\${base#"$root"/}
+{
+  if command -v rg >/dev/null 2>&1; then
+    ( cd "$root" && rg --no-config --files --no-ignore --hidden -- "$rel_base" 2>/dev/null ) | sed 's#^\\./##' | awk -v re="$pattern_re" '$0 ~ re'
+  else
+    find "$base" -type f -print | awk -v root="$root" -v re="$pattern_re" '
+      BEGIN { prefix = root "/" }
+      {
+        rel = $0
+        if (index(rel, prefix) == 1) rel = substr(rel, length(prefix) + 1)
+        if (rel ~ re) print rel
+      }
+    '
+  fi
+} | LC_ALL=C sort | awk 'NR <= 200'
 `;
 
 const GREP_SCRIPT = `${COMMON_SHELL_HELPERS}

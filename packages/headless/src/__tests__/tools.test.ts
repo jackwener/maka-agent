@@ -402,6 +402,76 @@ describe('isolated headless tools', () => {
     assert.ok(calls.every((command) => !command.includes('node -e')));
   });
 
+  test('Glob rg path enumerates the same files as the find path', async (t) => {
+    try {
+      await execAsync('rg --version', { env: process.env });
+    } catch {
+      t.skip('ripgrep not installed');
+      return;
+    }
+    const cwd = await mkdtemp(join(tmpdir(), 'maka-headless-glob-rg-'));
+    await mkdir(join(cwd, 'sub'));
+    await writeFile(join(cwd, 'visible.txt'), '', 'utf8');
+    await writeFile(join(cwd, '.hidden.txt'), '', 'utf8'); // hidden -> kept by --hidden
+    await writeFile(join(cwd, '.gitignore'), 'ignored.txt\n', 'utf8');
+    await writeFile(join(cwd, 'ignored.txt'), '', 'utf8'); // gitignored -> kept by --no-ignore
+    await writeFile(join(cwd, 'real.txt'), '', 'utf8');
+    await symlink('real.txt', join(cwd, 'link.txt')); // file symlink -> excluded (parity with find -type f)
+    await writeFile(join(cwd, 'sub', 'deep.txt'), '', 'utf8');
+
+    const mkTools = (env: NodeJS.ProcessEnv) => buildIsolatedHeadlessTools({
+      async exec(input) {
+        try {
+          const { stdout, stderr } = await execAsync(input.command, { cwd: input.cwd, env, maxBuffer: 1024 * 1024 });
+          return { exitCode: 0, stdout, stderr };
+        } catch (error: any) {
+          return {
+            exitCode: typeof error?.code === 'number' ? error.code : 1,
+            stdout: typeof error?.stdout === 'string' ? error.stdout : '',
+            stderr: typeof error?.stderr === 'string' ? error.stderr : String(error),
+          };
+        }
+      },
+    });
+    const rgTools = mkTools(process.env); // rg on PATH -> rg --files branch
+    // Guarantee the find branch: a PATH with the coreutils GLOB_SCRIPT needs but
+    // NOT rg. A fixed '/usr/bin:/bin' would not do it — on some Linux CI rg lives
+    // in /usr/bin, so findTools would silently run rg and the parity check below
+    // would be vacuous.
+    const noRgBin = await mkdtemp(join(tmpdir(), 'maka-headless-norg-bin-'));
+    for (const bin of ['sh', 'find', 'sed', 'awk', 'sort', 'dirname', 'basename']) {
+      const resolved = (await execAsync(`command -v ${bin}`, { env: process.env })).stdout.trim();
+      await symlink(resolved, join(noRgBin, bin));
+    }
+    const findTools = mkTools({ ...process.env, PATH: noRgBin }); // no rg -> find branch
+
+    const glob = async (tools: ReturnType<typeof buildIsolatedHeadlessTools>) =>
+      ((await tool(tools, 'Glob').impl({ pattern: '*.txt' }, toolCtx(cwd))) as { files: string[] }).files.slice().sort();
+
+    const rgFiles = await glob(rgTools);
+    const findFiles = await glob(findTools);
+    assert.deepEqual(rgFiles, findFiles, 'rg and find enumerate the same files');
+    // *.txt matches top-level .txt only; hidden + gitignored kept, file symlink excluded.
+    assert.deepEqual(rgFiles, ['.hidden.txt', 'ignored.txt', 'real.txt', 'visible.txt']);
+
+    // >200 matches: rg and find traverse in different orders, so the 200-cap must
+    // be applied AFTER a deterministic sort or the truncated sets would diverge.
+    // Read .files raw (no test-side sort) to prove the script sorts before capping.
+    await mkdir(join(cwd, 'many'));
+    for (let i = 0; i < 250; i += 1) {
+      await writeFile(join(cwd, 'many', `f${String(i).padStart(3, '0')}.txt`), '', 'utf8');
+    }
+    const globRaw = async (tools: ReturnType<typeof buildIsolatedHeadlessTools>) =>
+      ((await tool(tools, 'Glob').impl({ pattern: 'many/*.txt' }, toolCtx(cwd))) as { files: string[] }).files;
+    const rgMany = await globRaw(rgTools);
+    const findMany = await globRaw(findTools);
+    assert.equal(rgMany.length, 200, 'capped at 200');
+    assert.deepEqual(rgMany, findMany, 'same capped set regardless of enumeration order');
+    // The cap is the sorted first 200 (f000..f199), not whatever each tool happened to enumerate first.
+    assert.equal(rgMany[0], 'many/f000.txt');
+    assert.equal(rgMany[199], 'many/f199.txt');
+  });
+
   test('Read (command path) numbers lines, caps by default, and guards binaries', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'maka-headless-read-'));
     await writeFile(join(cwd, 'big.txt'), Array.from({ length: 2500 }, (_, i) => `line${i + 1}`).join('\n') + '\n', 'utf8');
