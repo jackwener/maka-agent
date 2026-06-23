@@ -197,6 +197,21 @@ describe('pickQQSendRoute', () => {
     assert.equal(route!.body.msg_type, 0);
   });
 
+  it('trims accidental whitespace around route target ids', () => {
+    assert.equal(
+      pickQQSendRoute('channel: chan-1 ', 'hi')?.path,
+      '/channels/chan-1/messages',
+    );
+    assert.equal(
+      pickQQSendRoute('group: g-1 ', 'hi')?.path,
+      '/v2/groups/g-1/messages',
+    );
+    assert.equal(
+      pickQQSendRoute('c2c: uo-1 ', 'hi')?.path,
+      '/v2/users/uo-1/messages',
+    );
+  });
+
   it('routes group: chatIds to /v2/groups/{id}/messages', () => {
     const route = pickQQSendRoute('group:g-1', 'hi');
     assert.ok(route);
@@ -217,6 +232,15 @@ describe('pickQQSendRoute', () => {
   it('returns null for unknown chatId prefix (defensive)', () => {
     assert.equal(pickQQSendRoute('unknown:foo', 'hi'), null);
     assert.equal(pickQQSendRoute('', 'hi'), null);
+  });
+
+  it('returns null for known prefixes with no route target id', () => {
+    assert.equal(pickQQSendRoute('channel:', 'hi'), null);
+    assert.equal(pickQQSendRoute('channel:   ', 'hi'), null);
+    assert.equal(pickQQSendRoute('group:', 'hi'), null);
+    assert.equal(pickQQSendRoute('group:   ', 'hi'), null);
+    assert.equal(pickQQSendRoute('c2c:', 'hi'), null);
+    assert.equal(pickQQSendRoute('c2c:   ', 'hi'), null);
   });
 });
 

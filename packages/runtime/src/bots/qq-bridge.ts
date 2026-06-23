@@ -236,8 +236,10 @@ export function pickQQSendRoute(chatId: string, text: string, options?: BotSendO
 } | null {
   const replyId = options?.replyToMessageId;
   if (chatId.startsWith('channel:')) {
+    const targetId = chatId.slice('channel:'.length).trim();
+    if (!targetId) return null;
     return {
-      path: `/channels/${chatId.slice('channel:'.length)}/messages`,
+      path: `/channels/${targetId}/messages`,
       body: {
         content: text,
         msg_type: 0,
@@ -246,8 +248,10 @@ export function pickQQSendRoute(chatId: string, text: string, options?: BotSendO
     };
   }
   if (chatId.startsWith('group:')) {
+    const targetId = chatId.slice('group:'.length).trim();
+    if (!targetId) return null;
     return {
-      path: `/v2/groups/${chatId.slice('group:'.length)}/messages`,
+      path: `/v2/groups/${targetId}/messages`,
       body: {
         content: text,
         msg_type: 0,
@@ -256,8 +260,10 @@ export function pickQQSendRoute(chatId: string, text: string, options?: BotSendO
     };
   }
   if (chatId.startsWith('c2c:')) {
+    const targetId = chatId.slice('c2c:'.length).trim();
+    if (!targetId) return null;
     return {
-      path: `/v2/users/${chatId.slice('c2c:'.length)}/messages`,
+      path: `/v2/users/${targetId}/messages`,
       body: {
         content: text,
         msg_type: 0,
