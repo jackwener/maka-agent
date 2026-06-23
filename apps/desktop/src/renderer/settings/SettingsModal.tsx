@@ -1105,8 +1105,11 @@ function SettingsPage(props: {
       );
     case 'appearance':
       // PR-SETTINGS-IA-CONSOLIDATE-0: 主题 + 个性化 → 外观.
+      // PR-SETTINGS-SWEEP-0: per-section uppercase heading so the user
+      // can see the two sub-blocks as belonging to one page.
       return (
         <div className="settingsStructuredPage">
+          <h2 className="settingsSectionHeading">主题</h2>
           <ThemeSettingsPage
             themePref={props.themePref}
             density={props.density}
@@ -1117,6 +1120,7 @@ function SettingsPage(props: {
             onDensityChange={props.onDensityChange}
             onThemePaletteChange={props.onThemePaletteChange}
           />
+          <h2 className="settingsSectionHeading">个性化</h2>
           <PersonalizationSettingsPage settings={props.settings} onUpdate={props.onUpdateSettings} />
         </div>
       );
@@ -1136,21 +1140,27 @@ function SettingsPage(props: {
       return <HealthCenterPage />;
     case 'memory-review':
       // PR-SETTINGS-IA-CONSOLIDATE-0: 记忆 + 每日回顾 → 记忆与回顾.
+      // PR-SETTINGS-SWEEP-0: section heading per sub-block.
       return (
         <div className="settingsStructuredPage">
+          <h2 className="settingsSectionHeading">本地记忆</h2>
           <MemorySettingsPage
             settings={props.settings}
             onUpdate={props.onUpdateSettings}
             onReloadSettings={props.onReloadSettings}
           />
+          <h2 className="settingsSectionHeading">每日回顾</h2>
           <DailyReviewSettingsPage onOpenDailyReview={props.onOpenDailyReview} />
         </div>
       );
     case 'voice-gateway':
       // PR-SETTINGS-IA-CONSOLIDATE-0: 语音模型 + 开放网关 → 语音与网关.
+      // PR-SETTINGS-SWEEP-0: section heading per sub-block.
       return (
         <div className="settingsStructuredPage">
+          <h2 className="settingsSectionHeading">语音模型</h2>
           <VoiceModelsSettingsPage />
+          <h2 className="settingsSectionHeading">开放网关</h2>
           <OpenGatewaySettingsPage settings={props.settings} onUpdate={props.onUpdateSettings} />
         </div>
       );

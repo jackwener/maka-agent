@@ -7274,6 +7274,32 @@ button:active {
   padding: 40px 24px 64px;
 }
 
+/* PR-SETTINGS-SWEEP-0 (2026-06-23, WAWQAQ msg `59a55bdf`): when a
+   merged section stacks two sub-pages (外观 = 主题 + 个性化, etc.),
+   the inner pages each own their own `settingsStructuredPage` wrapper.
+   Without this rule, every inner wrapper would re-center and re-pad,
+   doubling the side gutters. Let the OUTER wrapper own the chrome; the
+   nested ones become visual passthroughs. */
+.settingsStructuredPage .settingsStructuredPage {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* PR-SETTINGS-SWEEP-0: section heading for merged pages. Mirrors
+   reference's small uppercase sub-section tag. */
+.settingsSectionHeading {
+  margin: 24px 20px 8px;
+  color: var(--foreground-50);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.settingsStructuredPage > .settingsSectionHeading:first-child {
+  margin-top: 0;
+}
+
 .settingsPageIntro {
   display: flex;
   align-items: center;
