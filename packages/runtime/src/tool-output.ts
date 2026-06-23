@@ -13,8 +13,9 @@
 // opencode does: the benchmark Bash path runs through an isolated executor that
 // abstracts the filesystem away, so there is no shared location the host can
 // write and the model can later read. Instead the truncation marker points the
-// model at the portable recovery it can always perform itself — re-run the
-// command redirecting to a file, then Read/Grep that file.
+// model at the portable recovery it can perform itself — re-run the command
+// (only when it is safe to repeat) redirecting to a file, then Read/Grep that
+// file; otherwise work from the kept window.
 //
 // Adapted from opencode's truncate.output() (packages/opencode/src/tool/
 // truncate.ts): same byte+line budget and head/tail windowing, minus the file
@@ -136,8 +137,9 @@ export function truncateToolOutput(
   const unit: 'lines' | 'bytes' = hitBytes ? 'bytes' : 'lines';
   const marker =
     `...${removed} ${unit} truncated. ` +
-    'Re-run the command redirecting to a file (e.g. `cmd > out.txt 2>&1`) ' +
-    'then Read or Grep that file for the omitted portion...';
+    'If the command is safe to re-run, redirect it to a file (e.g. `cmd > out.txt 2>&1`) ' +
+    'then Read or Grep that file for the omitted portion. ' +
+    'If re-running could repeat side effects, work from the kept output above instead...';
 
   const content = direction === 'head'
     ? `${preview}\n\n${marker}`

@@ -34,6 +34,13 @@ describe('truncateToolOutput', () => {
     assert.ok(!result.content.includes('line6'));
   });
 
+  test('marker caveats re-running so it does not encourage repeating side effects', () => {
+    const text = Array.from({ length: 10 }, (_, i) => `line${i}`).join('\n');
+    const marker = truncateToolOutput(text, { maxLines: 3, direction: 'tail' }).content;
+    assert.ok(marker.includes('safe to re-run'), 'recovery guidance is conditioned on safety');
+    assert.ok(marker.includes('side effects'), 'warns about repeating side effects');
+  });
+
   test('truncates by bytes and reports the bytes unit', () => {
     const text = Array.from({ length: 50 }, () => 'x'.repeat(100)).join('\n');
     const result = truncateToolOutput(text, { maxLines: 10_000, maxBytes: 250, direction: 'head' });

@@ -1,7 +1,5 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { exec as nodeExec } from 'node:child_process';
 import { join } from 'node:path';
-import { promisify } from 'node:util';
 import type {
   BackendKind,
   LlmConnection,
@@ -17,6 +15,7 @@ import {
   buildProviderOptions,
   getAIModel,
   getBuiltinPricing,
+  runShellWithBoundedTail,
   type MakaTool,
   type InvocationResult,
 } from '@maka/runtime';
@@ -37,8 +36,6 @@ import { buildIsolatedHeadlessToolAvailability, buildIsolatedHeadlessTools, type
 
 export const HARBOR_CELL_OUTPUT_FILENAME = 'maka-cell-output.json';
 export const HARBOR_CELL_RUNTIME_EVENTS_FILENAME = 'runtime-events.jsonl';
-const execAsync = promisify(nodeExec);
-const HARBOR_CELL_TOOL_MAX_BUFFER_BYTES = 10 * 1024 * 1024;
 
 export interface RunHarborCellInput {
   config: Config;
@@ -340,14 +337,23 @@ export function createHarborCellLocalToolExecutor(env: RunHarborCellEnv = proces
   return {
     exec: async ({ command, cwd, timeoutMs }) => {
       try {
-        const result = await execAsync(command, {
+        // Stream into a bounded tail (shared with the in-process builtin Bash)
+        // instead of execAsync({ maxBuffer }): a command whose output passes the
+        // old 10MB buffer is no longer KILLED with only its head returned — it
+        // runs to completion and we keep the last ~1MB (the recoverable tail).
+        const result = await runShellWithBoundedTail(command, {
           cwd,
           env: childEnv,
-          timeout: timeoutMs ?? 120_000,
-          maxBuffer: HARBOR_CELL_TOOL_MAX_BUFFER_BYTES,
+          timeoutMs: timeoutMs ?? 120_000,
         });
-        return { exitCode: 0, stdout: result.stdout, stderr: result.stderr };
+        return {
+          exitCode: result.timedOut ? 124 : result.exitCode,
+          stdout: result.stdout,
+          stderr: result.stderr,
+        };
       } catch (error) {
+        // runShellWithBoundedTail only rejects when the process cannot be
+        // spawned at all (e.g. the shell binary is missing).
         return {
           exitCode: shellErrorExitCode(error),
           stdout: shellErrorText(error, 'stdout'),
