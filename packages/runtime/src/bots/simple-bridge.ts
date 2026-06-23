@@ -95,11 +95,20 @@ function buildTelegramSendBody(
     chat_id: chatId,
     text: chunk,
   };
-  if (chunkIndex === 0 && options?.replyToMessageId) {
-    body.reply_to_message_id = Number(options.replyToMessageId);
+  const replyToMessageId = normalizeTelegramReplyToMessageId(options?.replyToMessageId);
+  if (chunkIndex === 0 && replyToMessageId !== undefined) {
+    body.reply_to_message_id = replyToMessageId;
     body.allow_sending_without_reply = true;
   }
   return body;
+}
+
+function normalizeTelegramReplyToMessageId(value: string | undefined): number | undefined {
+  if (value === undefined) return undefined;
+  const trimmed = value.trim();
+  if (!/^[1-9]\d*$/.test(trimmed)) return undefined;
+  const numeric = Number(trimmed);
+  return Number.isSafeInteger(numeric) ? numeric : undefined;
 }
 
 /**
@@ -221,6 +230,7 @@ export const __TEST__ = {
   prefixWithinUtf16,
   splitForTelegram,
   buildTelegramSendBody,
+  normalizeTelegramReplyToMessageId,
   isAllowedUser,
   classifyTelegramSendResponse,
   TELEGRAM_RETRY_MIN_MS,
