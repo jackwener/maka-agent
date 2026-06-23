@@ -34,7 +34,7 @@ import {
   envRatio,
   resolveMinStable,
   smokeExitCode,
-} from '@maka/headless/prompt-optimization-env';
+} from '#prompt-optimization-env';
 
 const execFileAsync = promisify(execFile);
 

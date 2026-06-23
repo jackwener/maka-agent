@@ -9,11 +9,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    },
-    "./prompt-optimization-env": {
-      "types": "./dist/prompt-optimization-env.d.ts",
-      "default": "./dist/prompt-optimization-env.js"
     }
+  },
+  "imports": {
+    "#prompt-optimization-env": "./dist/prompt-optimization-env.js"
   },
   "bin": {
     "maka-headless": "./dist/cli.js"
