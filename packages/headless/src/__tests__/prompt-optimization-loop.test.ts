@@ -193,18 +193,23 @@ describe('runPromptOptimizationLoop', () => {
     });
   });
 
-  test('rejects rounds below 1 so a baseline-only run cannot pass the structural smoke', async () => {
+  test('rejects out-of-contract numeric inputs at the public API boundary', async () => {
     await withHarness(async (harness) => {
-      await assert.rejects(
-        runLoop(harness, {
-          heldInTasks: makeTasks('hin', 2),
-          heldOutTasks: makeTasks('hout', 1),
-          rewardFor: () => 1,
-          rounds: 0,
-          baselineRuns: 1,
-        }),
-        /rounds must be at least 1/,
-      );
+      const base = {
+        heldInTasks: makeTasks('hin', 2),
+        heldOutTasks: makeTasks('hout', 1),
+        rewardFor: () => 1,
+        rounds: 1,
+        baselineRuns: 1,
+      };
+      // rounds 0 is baseline-only (trivially passes the smoke); 1.5 would run two
+      // rounds; a NaN ceiling/ratio never trips its guard; minStable 0 disables
+      // the stable-task protection. All must fail loud, not silently degrade.
+      await assert.rejects(runLoop(harness, { ...base, rounds: 0 }), /rounds must be a positive integer/);
+      await assert.rejects(runLoop(harness, { ...base, rounds: 1.5 }), /rounds must be a positive integer/);
+      await assert.rejects(runLoop(harness, { ...base, costCeilingUsd: NaN }), /costCeilingUsd must be a finite positive number/);
+      await assert.rejects(runLoop(harness, { ...base, minStableHeldInTasks: 0 }), /minStableHeldInTasks must be a positive integer/);
+      await assert.rejects(runLoop(harness, { ...base, maxInfraFailureRate: 1.5 }), /maxInfraFailureRate must be a number in \(0, 1\]/);
     });
   });
 
@@ -352,6 +357,7 @@ interface RunLoopOptions {
   rounds: number;
   baselineRuns: number;
   costCeilingUsd?: number;
+  maxInfraFailureRate?: number;
   heldOutResultsTsvPath?: string;
   minStableHeldInTasks?: number;
   maxStableTaskDurationMs?: number;
@@ -387,6 +393,7 @@ async function runLoop(harness: Harness, options: RunLoopOptions) {
     originalCommitSha: harness.originalCommitSha,
     rewardHackVerifierPatternsByTaskId,
     ...(options.costCeilingUsd !== undefined ? { costCeilingUsd: options.costCeilingUsd } : {}),
+    ...(options.maxInfraFailureRate !== undefined ? { maxInfraFailureRate: options.maxInfraFailureRate } : {}),
     ...(options.minStableHeldInTasks !== undefined ? { minStableHeldInTasks: options.minStableHeldInTasks } : {}),
     ...(options.maxStableTaskDurationMs !== undefined ? { maxStableTaskDurationMs: options.maxStableTaskDurationMs } : {}),
     now: () => (clock += 1),

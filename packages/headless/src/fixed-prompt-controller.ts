@@ -3,6 +3,7 @@ import { appendFile, mkdir, readFile, truncate, writeFile } from 'node:fs/promis
 import { dirname } from 'node:path';
 import { validateHarborCellOutput, type HarborCellOutput, type HarborCellTokenSummary } from './cell-output.js';
 import type { Config } from './contracts.js';
+import { assertFinitePositive, assertPositiveInt, assertRatio } from './numeric-guards.js';
 
 export const FIXED_PROMPT_WAL_SCHEMA_VERSION = 1;
 
@@ -181,6 +182,11 @@ export async function runFixedPromptController(
 ): Promise<FixedPromptControllerResult> {
   const now = input.now ?? Date.now;
   const newId = input.newId ?? randomId;
+  // Fail loud on out-of-contract guard knobs before any work: a NaN ceiling or
+  // ratio would make `cost >= ceiling` / `rate > ratio` always false and
+  // silently disable the guard (maxConcurrency is checked in normalizeMaxConcurrency).
+  if (input.costCeilingUsd !== undefined) assertFinitePositive('costCeilingUsd', input.costCeilingUsd);
+  if (input.maxInfraFailureRate !== undefined) assertRatio('maxInfraFailureRate', input.maxInfraFailureRate);
   const systemPrompt = await readFile(input.systemPromptPath, 'utf8');
   const expectedPromptHash = hashSystemPrompt(systemPrompt);
   const config = { ...input.config, systemPrompt };
@@ -193,7 +199,10 @@ export async function runFixedPromptController(
     maxInfraFailureRate: input.maxInfraFailureRate,
     costCeilingUsd: input.costCeilingUsd,
   });
-  const maxConcurrency = hasStopGuard(input) ? 1 : normalizeMaxConcurrency(input.maxConcurrency);
+  // Always validate the requested concurrency (even when a stop guard forces the
+  // effective value to 1) so a fractional/NaN value never slips through unchecked.
+  const requestedConcurrency = normalizeMaxConcurrency(input.maxConcurrency);
+  const maxConcurrency = hasStopGuard(input) ? 1 : requestedConcurrency;
 
   for (let index = 0; index < input.tasks.length;) {
     if (stopReason) break;
@@ -598,10 +607,8 @@ function taskEventsCostUsd(events: readonly FixedPromptTaskWalEvent[]): number {
 
 function normalizeMaxConcurrency(value: number | undefined): number {
   if (value === undefined) return 1;
-  if (!Number.isFinite(value) || value < 1) {
-    throw new Error('maxConcurrency must be at least 1');
-  }
-  return Math.floor(value);
+  // A fractional concurrency must fail loud, not be silently floored.
+  return assertPositiveInt('maxConcurrency', value);
 }
 
 async function truncateTornWalTail(path: string): Promise<void> {

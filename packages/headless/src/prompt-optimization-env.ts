@@ -1,38 +1,40 @@
 /**
- * Pure, testable parsers and guards for the RSI prompt-optimization CLI entry
+ * Pure, testable env-string parsers for the RSI prompt-optimization CLI entry
  * (`harbor/run-prompt-optimization.mjs`). These live here rather than inline in the
- * `.mjs` so the validation behaviour can be unit-tested without spawning the script
- * (which has top-level side effects). Each parser takes the raw env string (or
- * undefined) plus a fallback, and FAILS LOUD on an illegal value instead of letting
- * `NaN` slip through a later `!== undefined` check and silently disable a guard.
+ * `.mjs` so the parsing behaviour can be unit-tested without spawning the script
+ * (which has top-level side effects). Each parser only turns the raw env string
+ * (or undefined) into a number and delegates the invariant check to the shared
+ * `numeric-guards`, so the CLI and the core API enforce the same contract and a
+ * `NaN` can never slip through a later `!== undefined` check to disable a guard.
  */
+
+import {
+  assertFinitePositive,
+  assertNonNegativeInt,
+  assertPositiveInt,
+  assertRatio,
+} from './numeric-guards.js';
 
 /** Parse a non-negative integer; throw on a non-integer or negative value. */
 export function envNonNegativeInt(name: string, raw: string | undefined, fallback: number): number {
   if (raw === undefined || raw === '') return fallback;
-  const value = Number(raw);
-  if (!Number.isInteger(value) || value < 0) {
-    throw new Error(`${name} must be a non-negative integer (got "${raw}")`);
-  }
-  return value;
+  return assertNonNegativeInt(name, Number(raw));
 }
 
 /** Parse a positive integer (>= 1); throw on 0, negative, or non-integer. Used
  * for counts that are meaningless at 0 — e.g. full-run rounds, where 0 would make
  * a baseline-only run trivially pass the structural smoke (minimumRounds 0), and
  * max-concurrency, where a fractional value must fail loud rather than be floored.
- * Returns `fallback` (which may be undefined) when unset. */
+ * Returns `fallback` (which may be undefined) when unset. A non-integer or
+ * negative value reports as "non-negative integer"; 0 reports as "positive
+ * integer" (the value that is the integer-but-not-allowed case). */
 export function envPositiveInt(
   name: string,
   raw: string | undefined,
   fallback: number | undefined,
 ): number | undefined {
   if (raw === undefined || raw === '') return fallback;
-  const value = envNonNegativeInt(name, raw, 0);
-  if (value < 1) {
-    throw new Error(`${name} must be a positive integer (got "${raw}")`);
-  }
-  return value;
+  return assertPositiveInt(name, assertNonNegativeInt(name, Number(raw)));
 }
 
 /**
@@ -47,11 +49,7 @@ export function envFinitePositiveNumber(
   fallback: number | undefined,
 ): number | undefined {
   if (raw === undefined || raw === '') return fallback;
-  const value = Number(raw);
-  if (!Number.isFinite(value) || value <= 0) {
-    throw new Error(`${name} must be a finite positive number (got "${raw}")`);
-  }
-  return value;
+  return assertFinitePositive(name, Number(raw));
 }
 
 /** Parse a ratio in `(0, 1]`; throw on `NaN`, non-finite, or out-of-range.
@@ -62,11 +60,7 @@ export function envRatio(
   fallback: number | undefined,
 ): number | undefined {
   if (raw === undefined || raw === '') return fallback;
-  const value = Number(raw);
-  if (!Number.isFinite(value) || value <= 0 || value > 1) {
-    throw new Error(`${name} must be a number in (0, 1] (got "${raw}")`);
-  }
-  return value;
+  return assertRatio(name, Number(raw));
 }
 
 /**

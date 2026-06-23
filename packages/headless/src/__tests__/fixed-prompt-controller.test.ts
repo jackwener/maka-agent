@@ -387,6 +387,42 @@ describe('fixed prompt controller', () => {
     });
   });
 
+  test('rejects out-of-contract guard knobs instead of silently disabling them', async () => {
+    await withDir(async (dir) => {
+      const systemPromptPath = join(dir, 'system_prompt.md');
+      await writeFile(systemPromptPath, 'fixed prompt\n', 'utf8');
+      const base = {
+        runId: 'run-1',
+        roundId: 'round-1',
+        config,
+        systemPromptPath,
+        resultsJsonlPath: join(dir, 'results.jsonl'),
+        resultsTsvPath: join(dir, 'results.tsv'),
+        tasks: [{ id: 'task-a', path: '/bench/task-a' }],
+        harborRunner: async () => { throw new Error('should not run'); },
+        now: () => 100,
+        newId: idFactory(),
+      };
+      await assert.rejects(
+        runFixedPromptController({ ...base, maxConcurrency: 1.5 }),
+        /maxConcurrency must be a positive integer/,
+      );
+      // Caught even when a stop guard would force the effective concurrency to 1.
+      await assert.rejects(
+        runFixedPromptController({ ...base, maxConcurrency: 1.5, costCeilingUsd: 10 }),
+        /maxConcurrency must be a positive integer/,
+      );
+      await assert.rejects(
+        runFixedPromptController({ ...base, costCeilingUsd: NaN }),
+        /costCeilingUsd must be a finite positive number/,
+      );
+      await assert.rejects(
+        runFixedPromptController({ ...base, maxInfraFailureRate: 0 }),
+        /maxInfraFailureRate must be a number in \(0, 1\]/,
+      );
+    });
+  });
+
   test('preserves infra stop after WAL resume', async () => {
     await withDir(async (dir) => {
       const systemPromptPath = join(dir, 'system_prompt.md');

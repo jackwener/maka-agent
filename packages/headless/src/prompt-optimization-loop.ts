@@ -32,6 +32,7 @@ import {
   promptStructuralSmokeReport,
   type PromptStructuralSmokeReport,
 } from './prompt-structural-smoke.js';
+import { assertFinitePositive, assertPositiveInt, assertRatio } from './numeric-guards.js';
 
 /**
  * Top-level driver for the RSI prompt-optimization loop (Issue #64).
@@ -143,12 +144,27 @@ export async function runPromptOptimizationLoop(
   const now = input.now ?? Date.now;
   const newId = input.newId ?? randomUUID;
   const baselineRunCount = input.baselineRuns ?? 3;
-  if (baselineRunCount < 1) throw new Error('baselineRuns must be at least 1');
-  // rounds must be >= 1: a 0-round run is baseline-only and would trivially pass
-  // the structural smoke (minimumRounds 0), so it must not share the normal
-  // structural-pass semantics. The runner enforces this too, but the public API
-  // is callable directly, so the invariant lives here.
-  if (input.rounds < 1) throw new Error('rounds must be at least 1');
+  // Fail loud on out-of-contract numbers. The CLI env parser guards env values,
+  // but this public API is callable directly, so the invariants live here too: a
+  // NaN/fraction/0 would otherwise slip past a `< 1` or `>= ceiling` comparison
+  // and silently disable a guard or change semantics — e.g. rounds 1.5 would run
+  // two rounds, rounds 0 is a baseline-only run that trivially passes the
+  // structural smoke (minimumRounds 0), and a NaN cost ceiling never trips.
+  assertPositiveInt('rounds', input.rounds);
+  assertPositiveInt('baselineRuns', baselineRunCount);
+  if (input.zScore !== undefined) assertFinitePositive('zScore', input.zScore);
+  if (input.minStableHeldInTasks !== undefined) {
+    assertPositiveInt('minStableHeldInTasks', input.minStableHeldInTasks);
+  }
+  if (input.minStableHeldOutTasks !== undefined) {
+    assertPositiveInt('minStableHeldOutTasks', input.minStableHeldOutTasks);
+  }
+  if (input.maxStableTaskDurationMs !== undefined) {
+    assertFinitePositive('maxStableTaskDurationMs', input.maxStableTaskDurationMs);
+  }
+  if (input.costCeilingUsd !== undefined) assertFinitePositive('costCeilingUsd', input.costCeilingUsd);
+  if (input.maxInfraFailureRate !== undefined) assertRatio('maxInfraFailureRate', input.maxInfraFailureRate);
+  if (input.maxConcurrency !== undefined) assertPositiveInt('maxConcurrency', input.maxConcurrency);
 
   const heldInTaskIds = input.heldInTasks.map((task) => task.id);
   const heldOutTaskIds = input.heldOutTasks.map((task) => task.id);
