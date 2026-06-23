@@ -2,6 +2,7 @@ import type { MakaTool, ToolAvailabilityConfig } from '@maka/runtime';
 import {
   buildSubagentProjectionTools,
   buildSubagentSpawnTool,
+  COMPUTE_EDITED_SOURCE_FN_SOURCE,
 } from '@maka/runtime';
 import { posix as pathPosix } from 'node:path';
 import { z } from 'zod';
@@ -126,7 +127,12 @@ export function buildIsolatedWriteTool(executor: IsolatedToolExecutor): MakaTool
 export function buildIsolatedEditTool(executor: IsolatedToolExecutor): MakaTool {
   return {
     name: 'Edit',
-    description: 'Replace an exact string in a file in the isolated headless task workspace.',
+    description:
+      'Replace old_string with new_string in a file in the isolated headless task workspace. '
+      + 'Prefers an exact, unique match; if exact fails it tolerates limited whitespace/indentation/escape '
+      + 'drift in old_string, but only when the match is unambiguous (otherwise it errors — re-read and retry '
+      + 'with exact text). new_string is written verbatim, so provide the exact final text/indentation you want. '
+      + 'Errors if old_string is not found or not unique.',
     parameters: z.object({
       path: z.string(),
       old_string: z.string(),
@@ -138,12 +144,18 @@ export function buildIsolatedEditTool(executor: IsolatedToolExecutor): MakaTool 
       if (executor.editFile) {
         return await executor.editFile({ cwd, path: normalizedPath, oldString: old_string, newString: new_string });
       }
-      await execFileCommand(executor, cwd, shellFileCommand(EDIT_SCRIPT, [
+      // Edit is the one file tool whose matching logic is non-trivial and must
+      // stay byte-identical to the in-process builtin Edit. Rather than keep a
+      // second (perl) matcher, it runs the SHARED computeEditedSource via
+      // `node -e` (node is guaranteed in the headless/Harbor environment); the
+      // other file tools stay on the POSIX-sh scripts. old/new are base64-encoded
+      // so arbitrary content survives argv transport unchanged.
+      const editStdout = await execFileCommand(executor, cwd, nodeFileCommand(EDIT_SCRIPT, [
         normalizedPath,
-        old_string,
-        new_string,
+        Buffer.from(old_string, 'utf8').toString('base64'),
+        Buffer.from(new_string, 'utf8').toString('base64'),
       ]));
-      return { ok: true, path: normalizedPath, replacements: 1 };
+      return { ok: true, path: normalizedPath, replacements: 1, ...parseEditMeta(editStdout) };
     },
   };
 }
@@ -213,6 +225,14 @@ function shellFileCommand(script: string, args: string[]): string {
   return ['sh', '-c', shellQuote(script), '--', ...args.map(shellQuote)].join(' ');
 }
 
+// Like shellFileCommand but runs the script with `node -e`. Used only by Edit,
+// whose matcher (computeEditedSource) is shared TypeScript that cannot be
+// expressed in POSIX sh. shellQuote escapes the embedded script (including its
+// single quotes) so the serialized function survives transport intact.
+function nodeFileCommand(script: string, args: string[]): string {
+  return ['node', '-e', shellQuote(script), '--', ...args.map(shellQuote)].join(' ');
+}
+
 function shellQuote(value: string): string {
   return `'${value.replaceAll("'", "'\\''")}'`;
 }
@@ -224,6 +244,26 @@ function numberArg(value: number | undefined): string {
 function parseLineArray(stdout: string): string[] {
   if (!stdout) return [];
   return stdout.replace(/\n$/, '').split('\n').filter((line) => line.length > 0);
+}
+
+// EDIT_SCRIPT applies the edit and THEN prints this metadata, so the file is
+// already changed by the time we parse. matchedVia / line range are best-effort
+// observability; a malformed payload must not turn a successful edit into a
+// reported failure, so this fails open to {} (a protocol regression is caught by
+// tests, which assert the metadata is present on success).
+function parseEditMeta(stdout: string): { matchedVia?: string; startLine?: number; endLine?: number } {
+  try {
+    const parsed: unknown = JSON.parse(stdout || '{}');
+    if (!parsed || typeof parsed !== 'object') return {};
+    const { matchedVia, startLine, endLine } = parsed as Record<string, unknown>;
+    return {
+      matchedVia: typeof matchedVia === 'string' ? matchedVia : undefined,
+      startLine: typeof startLine === 'number' ? startLine : undefined,
+      endLine: typeof endLine === 'number' ? endLine : undefined,
+    };
+  } catch {
+    return {};
+  }
 }
 
 function globPatternToEre(pattern: string): string {
@@ -367,33 +407,111 @@ target=$(writable_target "$1" 'Write path') || exit 1
 printf '%s' "$2" > "$target"
 `;
 
-const EDIT_SCRIPT = `${COMMON_SHELL_HELPERS}
-root=$(pwd -P) || exit 1
-target=$(existing_target "$1" 'Edit path') || exit 1
-tmp=$(mktemp "$target.maka-edit.XXXXXX") || exit 1
-perl -0 -e '
-  use strict;
-  use warnings;
-  my ($old, $new, $target, $tmp) = @ARGV;
-  die "old_string must not be empty\n" if $old eq "";
-  open my $in, "<:raw", $target or die "$target: $!\n";
-  local $/;
-  my $content = <$in>;
-  close $in;
-  my $count = () = $content =~ /\\Q$old\\E/g;
-  die "old_string not found in $target\n" if $count == 0;
-  die "old_string is not unique in $target ($count matches)\n" if $count > 1;
-  $content =~ s/\\Q$old\\E/$new/;
-  open my $out, ">:raw", $tmp or die "$tmp: $!\n";
-  print {$out} $content;
-  close $out;
-' "$2" "$3" "$target" "$tmp"
-rc=$?
-if [ "$rc" -ne 0 ]; then
-  rm -f "$tmp"
-  exit "$rc"
-fi
-mv "$tmp" "$target"
+// Edit runs as a `node -e` script (not sh) so it can embed the shared
+// computeEditedSource matcher verbatim — keeping a single source of truth with
+// the in-process builtin Edit instead of a divergent perl reimplementation.
+// Path containment mirrors COMMON_SHELL_HELPERS' existing_target(): reject a
+// symlinked target outright and require the resolved path to stay inside the
+// workspace root. Keep this policy in lockstep with existing_target().
+//
+// The file is read as raw BYTES. A valid-UTF-8 file goes through the shared
+// computeEditedSource (exact + fuzzy) because its utf8 round-trip is lossless; a
+// binary / invalid-UTF-8 file is NEVER decoded (that would replace stray bytes
+// with U+FFFD and corrupt it) — it only permits a unique, exact, byte-level
+// replacement, preserving the prior perl ':raw' guarantee that an exact edit can
+// never corrupt a binary file.
+const EDIT_SCRIPT = `const fs = require('node:fs');
+const path = require('node:path');
+const crypto = require('node:crypto');
+const computeEditedSource = ${COMPUTE_EDITED_SOURCE_FN_SOURCE};
+function inside(root, target) {
+  const rel = path.relative(root, target);
+  return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+}
+function editTarget(root, inputPath, label) {
+  const target = path.join(root, inputPath);
+  let stat;
+  try {
+    stat = fs.lstatSync(target);
+  } catch (error) {
+    if (error && error.code === 'ENOENT') throw new Error(label + ' does not exist: ' + inputPath);
+    throw error;
+  }
+  if (stat.isSymbolicLink()) throw new Error(label + ' must stay inside workspace');
+  const real = stat.isDirectory()
+    ? fs.realpathSync(target)
+    : path.join(fs.realpathSync(path.dirname(target)), path.basename(target));
+  if (!inside(root, real)) throw new Error(label + ' must stay inside workspace');
+  return real;
+}
+function countNewlines(buf, end) {
+  let n = 0;
+  for (let i = 0; i < end; i++) if (buf[i] === 10) n += 1;
+  return n;
+}
+function writeAtomic(target, data) {
+  // Atomic write (tmp + rename), matching the prior perl EDIT_SCRIPT, so a crash
+  // mid-write can never leave a torn file — only the old or the new content. The
+  // temp name is unpredictable (crypto) and created with 'wx' (O_CREAT|O_EXCL) at
+  // the target's OWN permission bits, so a pre-planted symlink at the temp path
+  // can neither be guessed nor followed, and the temp is never briefly wider than
+  // the target. A chmod after creation still applies any bits umask stripped. On
+  // a later failure we unlink ONLY the temp we created (guarded by 'created'), so
+  // a partial/looser-mode file is never left and a foreign file at an EEXIST temp
+  // path is never deleted.
+  const mode = fs.statSync(target).mode & 0o777;
+  const tmp = target + '.maka-edit.' + crypto.randomBytes(8).toString('hex');
+  let created = false;
+  try {
+    fs.writeFileSync(tmp, data, { flag: 'wx', mode: mode });
+    created = true;
+    fs.chmodSync(tmp, mode);
+    fs.renameSync(tmp, target);
+  } catch (error) {
+    if (created) { try { fs.unlinkSync(tmp); } catch (_) {} }
+    throw error;
+  }
+}
+try {
+  const [inputPath, oldBase64, newBase64] = process.argv.slice(1);
+  const root = fs.realpathSync(process.cwd());
+  const target = editTarget(root, inputPath, 'Edit path');
+  const raw = fs.readFileSync(target);
+  const source = raw.toString('utf8');
+  if (Buffer.compare(Buffer.from(source, 'utf8'), raw) === 0) {
+    // Valid UTF-8: the decode is lossless, so the shared matcher (exact + fuzzy)
+    // runs on the decoded text with no risk of byte corruption.
+    const oldString = Buffer.from(oldBase64, 'base64').toString('utf8');
+    const newString = Buffer.from(newBase64, 'base64').toString('utf8');
+    const result = computeEditedSource(source, oldString, newString, inputPath);
+    writeAtomic(target, Buffer.from(result.content, 'utf8'));
+    process.stdout.write(JSON.stringify({ matchedVia: result.matchedVia, startLine: result.startLine, endLine: result.endLine }));
+  } else {
+    // Binary / invalid UTF-8: never decode. Allow only a unique, exact, byte-level
+    // replacement so an exact edit can never corrupt the file; fuzzy is impossible
+    // here by construction (it needs text).
+    const oldBuf = Buffer.from(oldBase64, 'base64');
+    const newBuf = Buffer.from(newBase64, 'base64');
+    if (oldBuf.length === 0) throw new Error('old_string must not be empty in ' + inputPath);
+    const first = raw.indexOf(oldBuf);
+    if (first === -1) {
+      throw new Error('Refusing a non-exact match in ' + inputPath + ': the file is not valid UTF-8 (looks binary). Re-read it and pass the exact bytes to replace.');
+    }
+    if (raw.indexOf(oldBuf, first + oldBuf.length) !== -1) {
+      throw new Error('old_string is not unique in ' + inputPath + ' (binary file: the exact bytes match more than once)');
+    }
+    writeAtomic(target, Buffer.concat([raw.slice(0, first), newBuf, raw.slice(first + oldBuf.length)]));
+    const startLine = countNewlines(raw, first) + 1;
+    const endsWithNewline = oldBuf[oldBuf.length - 1] === 10;
+    const spanLineCount = Math.max(countNewlines(oldBuf, oldBuf.length) + 1 - (endsWithNewline ? 1 : 0), 1);
+    process.stdout.write(JSON.stringify({ matchedVia: 'exact', startLine: startLine, endLine: startLine + spanLineCount - 1 }));
+  }
+} catch (error) {
+  // Surface a clean message (matching the prior perl die behavior) instead of a
+  // node [eval] stack trace; execFileCommand propagates stderr to the model.
+  process.stderr.write(error && error.message ? error.message : String(error));
+  process.exit(1);
+}
 `;
 
 const GLOB_SCRIPT = `${COMMON_SHELL_HELPERS}
