@@ -180,6 +180,22 @@ describe('FileTelemetryRepo', () => {
     }
   });
 
+  test('load accepts legacy telemetry files with only known array sections', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'maka-telemetry-legacy-'));
+    try {
+      await writeFile(join(root, 'telemetry.json'), JSON.stringify({ usageRecords: [] }) + '\n', 'utf8');
+      const repo = createTelemetryRepo(root);
+
+      await repo.load();
+
+      assert.deepEqual(repo.logs({ range: 'all' }), { rows: [], total: 0 });
+      assert.deepEqual(repo.listPricingOverrides(), []);
+    } finally {
+      await flushWrites();
+      await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
+    }
+  });
+
   test('load rejects corrupt telemetry.json without overwriting usage history bytes', async () => {
     const root = await mkdtemp(join(tmpdir(), 'maka-telemetry-corrupt-'));
     try {
@@ -189,6 +205,42 @@ describe('FileTelemetryRepo', () => {
 
       await assert.rejects(() => repo.load(), SyntaxError);
       assert.equal(await readFile(join(root, 'telemetry.json'), 'utf8'), corrupt);
+    } finally {
+      await flushWrites();
+      await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
+    }
+  });
+
+  test('load rejects wrong telemetry schema without overwriting bytes', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'maka-telemetry-wrong-schema-'));
+    try {
+      const wrongShape = JSON.stringify({ reminders: [] }, null, 2) + '\n';
+      await writeFile(join(root, 'telemetry.json'), wrongShape, 'utf8');
+      const repo = createTelemetryRepo(root);
+
+      await assert.rejects(
+        () => repo.load(),
+        /expected known telemetry sections/,
+      );
+      assert.equal(await readFile(join(root, 'telemetry.json'), 'utf8'), wrongShape);
+    } finally {
+      await flushWrites();
+      await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
+    }
+  });
+
+  test('load rejects known telemetry sections with non-array values', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'maka-telemetry-bad-section-'));
+    try {
+      const wrongShape = JSON.stringify({ usageRecords: {} }, null, 2) + '\n';
+      await writeFile(join(root, 'telemetry.json'), wrongShape, 'utf8');
+      const repo = createTelemetryRepo(root);
+
+      await assert.rejects(
+        () => repo.load(),
+        /usageRecords must be an array/,
+      );
+      assert.equal(await readFile(join(root, 'telemetry.json'), 'utf8'), wrongShape);
     } finally {
       await flushWrites();
       await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });

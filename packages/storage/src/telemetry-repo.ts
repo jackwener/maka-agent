@@ -234,13 +234,31 @@ function emptyFile(): TelemetryFile {
 }
 
 function normalizeFile(input: unknown): TelemetryFile {
-  if (!input || typeof input !== 'object') return emptyFile();
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new Error('Invalid telemetry file: expected an object');
+  }
   const value = input as Partial<TelemetryFile>;
+  const hasKnownSection =
+    'usageRecords' in value ||
+    'toolInvocations' in value ||
+    'pricingOverrides' in value;
+  if (!hasKnownSection) {
+    throw new Error('Invalid telemetry file: expected known telemetry sections');
+  }
+  assertOptionalArraySection(value, 'usageRecords');
+  assertOptionalArraySection(value, 'toolInvocations');
+  assertOptionalArraySection(value, 'pricingOverrides');
   return {
-    usageRecords: Array.isArray(value.usageRecords) ? value.usageRecords.map(normalizeLlmCallRecord) : [],
-    toolInvocations: Array.isArray(value.toolInvocations) ? value.toolInvocations : [],
-    pricingOverrides: Array.isArray(value.pricingOverrides) ? value.pricingOverrides : [],
+    usageRecords: value.usageRecords ? value.usageRecords.map(normalizeLlmCallRecord) : [],
+    toolInvocations: value.toolInvocations ?? [],
+    pricingOverrides: value.pricingOverrides ?? [],
   };
+}
+
+function assertOptionalArraySection<T extends object>(value: T, key: keyof T): void {
+  if (key in value && !Array.isArray(value[key])) {
+    throw new Error(`Invalid telemetry file: ${String(key)} must be an array`);
+  }
 }
 
 function normalizeLlmCallRecord(input: unknown): PersistedLlmCallRecord {
