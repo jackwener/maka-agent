@@ -47,6 +47,19 @@ const DEEPSEEK_V4_FLASH_PRICING = {
   source: 'deepseek-v4-flash',
 };
 
+// This object is plain JS (no HarborTaskPricing type-check) and is no longer
+// pinned by a unit test, so a mistyped field name would leave a rate `undefined`
+// and the runner would silently emit wrong/zero costUsd. Fail loud at startup —
+// before any Docker time — if a canonical rate field is missing or not a finite,
+// non-negative number. The field-name -> MAKA_TRIAL_* forwarding contract is
+// covered in harbor-task-runner.test.ts.
+for (const field of ['inputUsdPer1M', 'outputUsdPer1M', 'cacheReadUsdPer1M', 'cacheWriteUsdPer1M']) {
+  const rate = DEEPSEEK_V4_FLASH_PRICING[field];
+  if (typeof rate !== 'number' || !Number.isFinite(rate) || rate < 0) {
+    throw new Error(`DEEPSEEK_V4_FLASH_PRICING.${field} must be a finite, non-negative number (got ${JSON.stringify(rate)})`);
+  }
+}
+
 const PROGRAM = `You are improving ONE system prompt for autonomous Terminal-Bench coding agents.
 Given the current prompt, the latest held-in results, and recent failure digests,
 propose a single, conservative improvement that should raise the held-in pass rate
