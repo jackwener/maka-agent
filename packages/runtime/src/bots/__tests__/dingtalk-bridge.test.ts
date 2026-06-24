@@ -8,6 +8,7 @@ const {
   dingTalkReconnectBackoffMs,
   buildDingTalkGroupSendBody,
   buildDingTalkSingleSendBody,
+  pickDingTalkSendRoute,
   classifyDingTalkSendResponse,
   dingTalkPayloadToEvent,
   buildDingTalkAckFrame,
@@ -56,6 +57,28 @@ describe('buildDingTalkSingleSendBody', () => {
     assert.deepEqual(body.userIds, ['user-99']);
     assert.equal(body.msgKey, 'sampleText');
     assert.equal(body.msgParam, '{"content":"hi"}');
+  });
+});
+
+describe('pickDingTalkSendRoute', () => {
+  it('routes cid-prefixed chat ids to group send with trimmed target ids', () => {
+    const route = pickDingTalkSendRoute(' cidp-abc ', 'app-key-1', 'hello');
+    assert.ok(route);
+    assert.equal(route.path, '/v1.0/robot/groupMessages/send');
+    assert.equal(route.body.openConversationId, 'cidp-abc');
+    assert.equal(route.body.robotCode, 'app-key-1');
+  });
+
+  it('routes non-cid chat ids to single send with trimmed user ids', () => {
+    const route = pickDingTalkSendRoute(' user-99 ', 'app-key-1', 'hi');
+    assert.ok(route);
+    assert.equal(route.path, '/v1.0/robot/oToMessages/batchSend');
+    assert.deepEqual(route.body.userIds, ['user-99']);
+  });
+
+  it('returns null for empty route target ids', () => {
+    assert.equal(pickDingTalkSendRoute('', 'app-key-1', 'hi'), null);
+    assert.equal(pickDingTalkSendRoute('   ', 'app-key-1', 'hi'), null);
   });
 });
 

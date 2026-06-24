@@ -115,6 +115,27 @@ export function buildDingTalkSingleSendBody(
   };
 }
 
+export function pickDingTalkSendRoute(
+  chatId: string,
+  robotCode: string,
+  text: string,
+): {
+  path: string;
+  body: Record<string, unknown>;
+} | null {
+  const targetId = chatId.trim();
+  if (!targetId) return null;
+  const isGroup = targetId.startsWith('cid');
+  return {
+    path: isGroup
+      ? '/v1.0/robot/groupMessages/send'
+      : '/v1.0/robot/oToMessages/batchSend',
+    body: isGroup
+      ? buildDingTalkGroupSendBody(targetId, robotCode, text)
+      : buildDingTalkSingleSendBody(targetId, robotCode, text),
+  };
+}
+
 /**
  * Pure helper: classify DingTalk's HTTP send response so we can route
  * between done / retry / fatal. DingTalk uses `errcode` style (0 = ok)
@@ -274,21 +295,16 @@ export class DingTalkBotBridge extends BaseBotAdapter implements SendCapable {
    */
   async sendMessage(chatId: string, text: string, _options?: BotSendOptions): Promise<string | null> {
     if (this.platform !== 'dingtalk' || !this.running) return null;
+    const robotCode = this.settings.appId?.trim() ?? '';
+    const route = pickDingTalkSendRoute(chatId, robotCode, text);
+    if (!route) return null;
     const token = await this.refreshTokenIfNeeded();
     if (!token) return null;
-    const robotCode = this.settings.appId?.trim() ?? '';
-    const isGroup = chatId.startsWith('cid');
-    const body = isGroup
-      ? buildDingTalkGroupSendBody(chatId, robotCode, text)
-      : buildDingTalkSingleSendBody(chatId, robotCode, text);
-    const path = isGroup
-      ? '/v1.0/robot/groupMessages/send'
-      : '/v1.0/robot/oToMessages/batchSend';
-    const first = await this.performSend(path, body, token);
+    const first = await this.performSend(route.path, route.body, token);
     let classification = first;
     if (first.kind === 'retry') {
       await sleep(first.delayMs);
-      classification = await this.performSend(path, body, token);
+      classification = await this.performSend(route.path, route.body, token);
     }
     if (classification.kind !== 'ok') {
       this.readiness = this.readiness === 'operational' ? 'degraded' : 'credentials_valid';
@@ -521,6 +537,7 @@ export const __TEST__ = {
   dingTalkReconnectBackoffMs,
   buildDingTalkGroupSendBody,
   buildDingTalkSingleSendBody,
+  pickDingTalkSendRoute,
   classifyDingTalkSendResponse,
   dingTalkPayloadToEvent,
   buildDingTalkAckFrame,
