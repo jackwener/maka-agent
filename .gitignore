@@ -2,6 +2,10 @@ node_modules
 dist
 .DS_Store
 *.log
+# pnpm-lock.yaml is generated locally — the repo tracks package-lock.json
+# (npm-first). pnpm users get correct workspace resolution via the .npmrc
+# `link-workspace-packages` setting.
+pnpm-lock.yaml
 *.tsbuildinfo
 __pycache__/
 *.pyc
