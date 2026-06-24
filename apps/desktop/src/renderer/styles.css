@@ -5674,31 +5674,27 @@ button:active {
 .message.assistant > span { color: var(--accent); }
 .message.system > span { color: var(--info-text); }
 
+/* PR-CHAT-CHROME-FOLLOWUP-0: the relative time is always visible now
+   (it was `opacity: 0` until hover, which hid it on touch + from
+   assistive tech). It stays quiet — 12px at the shared chrome size,
+   muted — and rides in the user turn's meta row beneath the block. */
 .maka-message-time-inline {
   display: inline-block;
-  color: var(--foreground-35);
-  font-size: 10px;
+  color: var(--foreground-40);
+  font-size: 12px;
   font-weight: 500;
   line-height: 1;
   font-variant-numeric: tabular-nums;
-  opacity: 0;
-  transform: translateY(-1px);
-  transition: opacity 120ms ease;
-  pointer-events: none;
   white-space: nowrap;
 }
 
-.maka-message-time-inline-after {
-  margin-left: 8px;
-}
-
-.maka-message-time-inline-before {
-  margin-right: 8px;
-}
-
-.message:hover .maka-message-time-inline,
-.message:focus-within .maka-message-time-inline {
-  opacity: 1;
+/* User turn meta row: quiet time + a copy affordance, right-aligned
+   beneath the message block (the parent `.message.user` aligns items
+   to flex-end, so this row shrink-wraps and hugs the right edge). */
+.maka-message-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .message.user {
@@ -11363,13 +11359,14 @@ button:active {
 .maka-turn-footer-action {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 5px;
+  gap: 6px;
+  min-height: 28px;
+  padding: 4px 8px;
   border-radius: 8px;
   border: 0;
   background: transparent;
-  color: var(--foreground-42);
-  font-size: 10px;
+  color: var(--foreground-50);
+  font-size: 12px;
   transition: background 120ms ease, color 120ms ease, opacity 120ms ease;
 }
 .maka-turn-footer:hover,
@@ -11400,49 +11397,15 @@ button:active {
   color: var(--destructive);
 }
 
-/* PR-UI-17 (audit §3.4): footer action density.
- *
- * Secondary actions (branch / copy) render icon-only by default to
- * reduce noise when the turn already shows lineage badges + status
- * pills. Hovering or focusing into the toolbar expands all actions
- * to full icon+label so the affordance is still discoverable. The
- * label stays in the DOM as visually-hidden text so screen readers
- * read it identically regardless of presentation state. Pending
- * actions explicitly opt back to full layout via data-pending so
- * the user sees "正在重试…" not just a spinner icon.
- *
- * `prefers-reduced-motion` users still get the same final state, just
- * with the width transition collapsed.
- */
-.maka-turn-footer-action[data-priority="secondary"] {
-  padding-right: 6px;
-  /* Smooth width transition between collapsed (icon-only) and expanded
-   * (icon + label). The label is the natural child; we just hide its
-   * occupied space via max-width + overflow. */
-}
-.maka-turn-footer-action[data-priority="secondary"] > span {
-  display: inline-block;
-  max-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  opacity: 0;
-  margin-left: 0;
-  transition: max-width 160ms ease, opacity 120ms ease, margin-left 160ms ease;
-}
-.maka-turn-footer:hover .maka-turn-footer-action[data-priority="secondary"] > span,
-.maka-turn-footer:focus-within .maka-turn-footer-action[data-priority="secondary"] > span,
-.maka-turn-footer-action[data-priority="secondary"]:focus-visible > span,
-.maka-turn-footer-action[data-priority="secondary"][data-pending] > span {
-  max-width: 120px;
-  opacity: 1;
-  margin-left: 4px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .maka-turn-footer-action[data-priority="secondary"] > span {
-    transition: none;
-  }
-}
+/* PR-CHAT-CHROME-FOLLOWUP-0: footer actions render uniformly — icon +
+ * label, always visible, at the shared 12px chrome size. This supersedes
+ * the PR-UI-17 primary/secondary collapse, which hid branch/copy (and,
+ * after #212, retry/regenerate too) behind a hover-to-expand width
+ * animation. That left an unclear, undeclared priority split and made
+ * the most common action — copy — hard to find. The strip stays quiet at
+ * rest via the toolbar's 0.72 opacity and lifts to full on hover/focus;
+ * the label is no longer width-collapsed. `data-priority` is retained on
+ * the element for downstream styling but no longer drives visibility. */
 
 
 /* PR109e-d: Failed turn banner. Lives above the assistant message body

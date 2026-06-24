@@ -1,8 +1,7 @@
 /**
  * Small pure helpers backing the chat surface (TurnView,
  * RelativeTime, StreamingAssistantBubble, etc.) —
- * time formatters, role/avatar label derivation, turn duration +
- * abort marker copy.
+ * time formatters, turn duration + abort marker copy.
  *
  * PR-UI-LIB-EXTRACT-4 (round 5/10) introduced this module with a
  * deliberate ESM circular import on `./components.js` for
@@ -10,13 +9,16 @@
  * cycle by lifting `detectUiLocale` into a new `locale-helpers`
  * leaf module; this file now depends on that leaf instead.
  *
- * Why this seam: avatar/initial derivation has Unicode codepoint
- * subtleties (emoji vs CJK vs Latin), duration formatting has
- * ms→s→m bucket rules, and the abort-marker label is i18n-able
- * copy. Each rule was previously buried between TurnView's 200-
- * line JSX block and StreamingAssistantBubble's stream-snap
- * hookup; the bundle now sits as 6 short pure functions easy to
- * unit-test in isolation.
+ * Why this seam: duration formatting has ms→s→m bucket rules, and
+ * the abort-marker label is i18n-able copy. Each rule was
+ * previously buried between TurnView's 200-line JSX block and
+ * StreamingAssistantBubble's stream-snap hookup; the bundle now
+ * sits as short pure functions easy to unit-test in isolation.
+ *
+ * PR-CHAT-CHROME-FOLLOWUP-0: `messageRoleLabel` / `avatarInitial`
+ * were removed — the chat surface dropped per-message avatars and
+ * name labels (MessageMeta), leaving both helpers with zero call
+ * sites.
  */
 
 import { detectUiLocale } from './locale-helpers.js';
@@ -33,28 +35,6 @@ export function createAbsoluteTimeFormat(): Intl.DateTimeFormat {
 
 export function formatAbsoluteTimestamp(ts: number): string {
   return createAbsoluteTimeFormat().format(new Date(ts));
-}
-
-export function messageRoleLabel(role: string, userLabel?: string): string {
-  if (role === 'user') {
-    const trimmed = userLabel?.trim();
-    return trimmed && trimmed.length > 0 ? trimmed : '你';
-  }
-  if (role === 'assistant') return 'Maka';
-  return role;
-}
-
-/**
- * Initial-glyph derivation for the message avatar. Uses the first non-ASCII
- * codepoint or first ASCII letter so a userLabel like "JK" → "J", a Chinese
- * userLabel like "用户" → "用", an emoji name like "🦊 fox" → "🦊".
- */
-export function avatarInitial(label: string): string {
-  const trimmed = label.trim();
-  if (trimmed.length === 0) return '你';
-  // Pull the first codepoint so we don't slice an emoji surrogate pair.
-  const [first] = trimmed;
-  return first ?? '?';
 }
 
 export function formatTurnDuration(ms: number): string {

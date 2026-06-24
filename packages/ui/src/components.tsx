@@ -4529,28 +4529,33 @@ function ChatModelSwitcher(props: {
  */
 const MessageBody = memo(function MessageBody(props: { role: string; text: string; ts?: number }) {
   if (props.role === 'user') {
+    // User turn: the message sits in a tinted, width-capped block aligned to
+    // the right (so the right-anchor reads even for long messages), with a
+    // quiet always-visible time + a copy affordance in a meta row beneath it.
+    // The time is no longer hover-gated (was `opacity: 0` until hover, which
+    // hid it from touch + assistive tech); copy reuses MessageCopyButton.
     return (
-      <div className="maka-bubble-user">
-        <MessageTimeInline ts={props.ts} position="before" />
-        <span>{props.text}</span>
-      </div>
+      <>
+        <div className="maka-bubble-user">
+          <span>{props.text}</span>
+        </div>
+        <div className="maka-message-meta">
+          {props.ts !== undefined && (
+            <RelativeTime ts={props.ts} className="maka-message-time-inline" />
+          )}
+          <MessageCopyButton text={props.text} />
+        </div>
+      </>
     );
   }
+  // Assistant / system body: open prose, no bubble. Per-turn timing lives in
+  // the turn summary; copy + the other actions live in the turn footer.
   return (
     <div className="maka-bubble-assistant maka-bubble-with-actions">
       <Markdown text={props.text} />
-      <MessageTimeInline ts={props.ts} />
     </div>
   );
 });
-
-function MessageTimeInline(props: { ts?: number; position?: 'before' | 'after' }) {
-  if (props.ts === undefined) return null;
-  const positionClass = props.position === 'before'
-    ? 'maka-message-time-inline-before'
-    : 'maka-message-time-inline-after';
-  return <RelativeTime ts={props.ts} className={`maka-message-time-inline ${positionClass}`} />;
-}
 
 function MessageCopyButton(props: { text: string; label?: string }) {
   const copyFeedback = useClipboardCopyFeedback(1400, { redact: false });
@@ -4843,6 +4848,7 @@ function TurnView(props: {
       {turn.user && (
         <article
           className="maka-message-row message user"
+          aria-label="你发送的消息"
           title={turn.user.ts ? formatAbsoluteTimestamp(turn.user.ts) : undefined}
         >
           <MessageBody role="user" text={turn.user.text} ts={turn.user.ts} />
@@ -4868,6 +4874,7 @@ function TurnView(props: {
         <article
           className="maka-message-row message assistant"
           data-turn-status={turn.status}
+          aria-label="Maka 的回答"
           title={turn.assistant.ts ? formatAbsoluteTimestamp(turn.assistant.ts) : undefined}
         >
           <div className="maka-bubble-assistant-stack">

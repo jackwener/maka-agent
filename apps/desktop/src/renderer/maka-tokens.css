@@ -850,7 +850,9 @@
     padding: 24px 0 16px 0;
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    /* PR-CHAT-CHROME-FOLLOWUP-0: looser separation BETWEEN turns so each
+       Q+A unit reads as its own block (the within-turn gap stays tight). */
+    gap: 24px;
   }
   .maka-message-row {
     max-width: var(--maka-chat-measure, 680px);
@@ -874,7 +876,11 @@
   .maka-turn {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    /* PR-CHAT-CHROME-FOLLOWUP-0: 4px → 8px. The parts of one turn (user
+       block, summary, tools, answer) were cramped; 8px gives a calmer
+       internal rhythm while still reading as one unit against the 24px
+       between-turn gap. */
+    gap: 8px;
     max-width: var(--maka-chat-measure, 680px);
     margin: 0 auto;
     width: 100%;
@@ -888,40 +894,51 @@
   /* Compact turn summary chips between the user message and the rest of
    * the turn. Surfaces "用了哪个模型，跑了几个工具，耗时多少，token 多少"
    * inline so each turn answers @kenji's UI-04 follow-up questions. */
+  /* PR-CHAT-CHROME-FOLLOWUP-0: the summary reads as ONE quiet caption
+     line (model · tools · duration · tokens) at the shared 12px chrome
+     size, not a cluster of 9-10px pills. Middot separators carry the
+     rhythm; the chips themselves drop their pill chrome. */
   .maka-turn-summary {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
-    padding: 0 0 0 0;
-    margin-top: 0;
+    align-items: center;
+    gap: 6px;
     margin-bottom: 2px;
-    opacity: 0.86;
+    color: var(--foreground-50);
+    font-variant-numeric: tabular-nums;
   }
 
   .maka-turn-summary-chip {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
-    padding: 0;
-    border-radius: 999px;
-    background: transparent;
-    color: var(--foreground-42);
-    font-size: 9.5px;
+    gap: 4px;
+    color: var(--foreground-50);
+    font-size: 12px;
     font-weight: 500;
-    line-height: 1.25;
-    letter-spacing: 0;
+    line-height: 1.4;
+  }
+
+  .maka-turn-summary-chip:not(:first-child)::before {
+    content: "·";
+    margin-right: 4px;
+    color: var(--foreground-40);
+    font-weight: 400;
   }
 
   .maka-turn-summary-chip code {
     background: transparent;
     color: inherit;
     font-family: var(--font-mono);
-    font-size: 9.5px;
+    font-size: 12px;
+  }
+
+  .maka-turn-summary-chip[data-kind="model"] code {
+    color: var(--foreground-60);
+    font-weight: 600;
   }
 
   .maka-turn-summary-chip[data-kind="tools"] {
-    color: var(--foreground-42);
-    background: transparent;
+    color: var(--foreground-50);
   }
 
   .maka-turn-summary-chip[data-kind="duration"] {
@@ -931,33 +948,30 @@
   .maka-turn-summary-chip[data-kind="tokens"] {
     font-variant-numeric: tabular-nums;
     font-family: var(--font-mono);
-    font-size: 9px;
+    font-size: 12px;
   }
 
   .maka-turn-summary-chip[data-state="in-progress"] {
-    background: transparent;
     color: var(--accent);
     font-weight: 600;
   }
 
   /* PR-CHAT-NON-DEFAULT-MODEL-CHIP-0: emphasize a per-turn model
-     switch. The chip itself gets a warning border + the "切换"
-     pill renders inside the chip in warning tone so the user
-     notices that this turn departed from the sticky session model
-     (kenji 3-way decision lock). */
-  .maka-turn-summary-chip[data-kind="model"][data-switched="true"] {
-    color: var(--foreground-55);
+     switch — the "切换" pill renders inside the chip in a muted tone
+     so the user notices that this turn departed from the sticky
+     session model (kenji 3-way decision lock). */
+  .maka-turn-summary-chip[data-kind="model"][data-switched="true"] code {
+    color: var(--foreground-60);
   }
 
   .maka-turn-summary-chip-switched {
-    margin-left: 2px;
-    padding: 0 4px;
+    margin-left: 4px;
+    padding: 1px 6px;
     border-radius: 999px;
     background: oklch(from var(--foreground) l c h / 0.06);
-    color: var(--foreground-45);
-    font-size: 8.5px;
+    color: var(--foreground-60);
+    font-size: 11px;
     font-weight: 600;
-    letter-spacing: 0;
   }
 
   /* Optional reasoning block — collapsed by default, expandable to inspect
@@ -1118,21 +1132,24 @@
        previous turn while it lands. */
     box-sizing: border-box;
   }
-  /* User message: plain text block aligned to the right, matching the
-     assistant's no-bubble body treatment while preserving the dialogue
-     structure via row alignment + metadata placement. */
+  /* User message: a tinted, width-capped block anchored to the right.
+     PR-CHAT-CHROME-FOLLOWUP-0: the previous treatment was transparent
+     right-aligned text — for a long message it filled most of the
+     column, so the right-anchor was imperceptible. Re-tinting with the
+     existing `--chat-user-bg` token + a width cap makes "what the human
+     said" read clearly on the right at any length. The block shrink-
+     wraps to its content because `.message.user` aligns items to
+     flex-end (so short messages stay compact). Radius 10px matches the
+     code-block family and stays under the sharp-identity ceiling. */
   .maka-bubble-user {
-    background: transparent;
-    border-radius: 0;
-    padding: 2px 0 0;
-    line-height: 1.68;
-    color: var(--foreground);
-    max-width: min(100%, 640px);
-    margin-left: auto;
-    margin-right: 0;
+    background: var(--chat-user-bg);
+    color: var(--chat-user-foreground, var(--foreground));
+    border-radius: 10px;
+    padding: 10px 14px;
+    line-height: 1.6;
+    max-width: min(100%, 78%);
     white-space: pre-wrap;
     word-wrap: break-word;
-    text-align: left;
   }
   /* Assistant: no bubble — just text on background, like an editor.
      The bubble itself flows naturally; child markdown elements (h*, p, ul,
