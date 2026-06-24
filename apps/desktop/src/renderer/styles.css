@@ -9560,19 +9560,6 @@ button:active {
   grid-template-columns: minmax(190px, 0.7fr) minmax(250px, 1fr);
 }
 
-.providersCatalogPanel,
-.settingsSurface[data-modal="true"] .providersCatalogPanel {
-  grid-template-columns: minmax(178px, 0.62fr) minmax(238px, 0.86fr) minmax(330px, 1.28fr);
-  align-items: stretch;
-}
-
-.settingsSurface[data-modal="true"] .providersEmpty {
-  min-height: 420px;
-  border-radius: 12px;
-}
-
-.providersEmpty h3,
-.providersList h3,
 .providerEditor h3 {
   margin: 0;
   color: var(--foreground);
@@ -9580,77 +9567,11 @@ button:active {
   font-weight: 600;
 }
 
-.providersEmpty p,
 .providerEditor p {
   margin: 0;
   color: var(--foreground-50);
   font-size: 12px;
   line-height: 1.4;
-}
-
-.settingsSurface[data-modal="true"] .providersList,
-.settingsSurface[data-modal="true"] .providersDetail {
-  border-radius: 12px;
-  background: var(--foreground-3);
-}
-
-.providersList header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 10px;
-  border-bottom: 1px solid var(--border);
-}
-
-.providersList header small {
-  display: block;
-  margin-top: 3px;
-  color: var(--foreground-50);
-  font-size: 11px;
-}
-
-.enabledProvidersEmpty span {
-  color: var(--foreground-50);
-  font-size: 12px;
-  line-height: 1.4;
-}
-
-.providersList ul {
-  min-height: 0;
-  margin: 0;
-  padding: 6px;
-  overflow: auto;
-  list-style: none;
-}
-
-.settingsSurface[data-modal="true"] .providerListItem {
-  border-radius: 12px;
-}
-
-.providerListItem strong,
-.providerListItem small {
-  display: block;
-}
-
-.providerListItem strong {
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.providerListItem small {
-  margin-top: 4px;
-  color: var(--foreground-50);
-  font-size: 11px;
-}
-
-.providerBadges em {
-  border-radius: 999px;
-  background: var(--foreground-5);
-  color: var(--foreground-50);
-  padding: 2px 6px;
-  font-size: 10px;
-  font-style: normal;
 }
 
 .providerCatalog {
