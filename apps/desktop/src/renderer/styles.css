@@ -14378,12 +14378,15 @@ html[data-os="darwin"] .maka-list-row {
 }
 
 html[data-os="darwin"] .maka-session-panel-footer {
+  /* PR-FE-BUG-HUNT-8 (kenji aesthetic-audit reminder 9, finding #2):
+     drop the 180deg footer linear-gradient. Even though it was a
+     subtle transparent→30% surface-canvas fade, it's exactly the
+     "上面灰下面白" pattern WAWQAQ called out twice (`1e693dee` /
+     `5d3b10e5`). The 50% glass base on the panel already provides
+     material depth; the footer only needs a hairline border-top
+     to separate it from the scroll area. No gradient. No seam. */
   border-top: 1px solid oklch(from var(--foreground) l c h / 0.05);
-  background: linear-gradient(
-    180deg,
-    transparent 0%,
-    oklch(from var(--surface-canvas) l c h / 0.30) 100%
-  );
+  background: oklch(from var(--surface-canvas) l c h / 0.15);
 }
 
 /* The main content column stays on its existing solid `var(--background)` so
@@ -14444,60 +14447,16 @@ html[data-theme="dark-parchment"] [data-banner-logo] :is(path, circle)[stroke*="
   stroke: var(--card-border-color);
 }
 
-/* =============================================================================
-   [data-gradual-blur-layer] — atlas §15.2 ported. Fixed pointer-events: none
-   overlay that fades content edges into chrome via linear-gradient mask +
-   backdrop blur. Use cases: sticky chat header bottom edge, sidebar scroll
-   bottom edge, modal header overflow.
+/* PR-FE-BUG-HUNT-8 (kenji aesthetic-audit reminder 9, finding #3):
+   `[data-gradual-blur-layer]` block removed. Originally ported from
+   atlas §15.2 as a generic linear-gradient mask + `backdrop-filter:
+   blur(6px)` overlay + raw `z-index: 5` that any element could opt
+   into via the data attribute. Kenji called it out as an escape
+   hatch — future surfaces could re-introduce blur and a non-token
+   z-index just by wearing the attr, sidestepping the design system.
 
-   Usage: drop on an absolutely positioned div inside a scroll container with
-   `data-gradual-blur-layer` + `data-side="top|bottom"`. The element auto-
-   resolves into the right gradient direction.
-============================================================================= */
-[data-gradual-blur-layer] {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 32px;
-  pointer-events: none;
-  z-index: 5;
-  background: linear-gradient(
-    to bottom,
-    var(--background) 0%,
-    transparent 100%
-  );
-  -webkit-mask: linear-gradient(to bottom, black 0%, transparent 100%);
-  mask: linear-gradient(to bottom, black 0%, transparent 100%);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
-}
-
-[data-gradual-blur-layer][data-side="bottom"] {
-  bottom: 0;
-  top: auto;
-  background: linear-gradient(
-    to top,
-    var(--background) 0%,
-    transparent 100%
-  );
-  -webkit-mask: linear-gradient(to top, black 0%, transparent 100%);
-  mask: linear-gradient(to top, black 0%, transparent 100%);
-}
-
-[data-gradual-blur-layer][data-side="top"] {
-  top: 0;
-  bottom: auto;
-}
-
-/* Honor the user's preference + visual-smoke fixture. */
-@media (prefers-reduced-motion: reduce) {
-  [data-gradual-blur-layer] {
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
-}
-
-[data-maka-visual-smoke="true"] [data-gradual-blur-layer] {
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-}
+   `grep -rn data-gradual-blur-layer --include=*.tsx` confirmed zero
+   consumers in the renderer JSX. The CSS was dead. Removing it
+   eliminates the escape hatch + the raw z-index. If a future scroll
+   edge needs a fade we'll add a named class with an explicit
+   contract instead. */
