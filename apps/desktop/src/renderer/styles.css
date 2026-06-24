@@ -1476,11 +1476,6 @@ button:active {
   }
 }
 
-@keyframes maka-agents-fade-in {
-  0% { opacity: 0; }
-  100% { opacity: 1; }
-}
-
 @keyframes maka-workbench-card-scale-in {
   0% {
     opacity: 0;
@@ -1558,128 +1553,156 @@ button:active {
   display: none;
 }
 
-.maka-onboarding-grid {
-  margin: 0;
-  padding: 0;
-  list-style: none;
+/* ============================================================
+   First-run hero (needs_connection) — selection-led redesign.
+   Scoped via `.maka-firstrun` so the other onboarding hero states
+   (SetupHero) keep their existing layout. Title leads, the three
+   setup steps compress to one quiet stepper line, and the provider
+   list is the clear subject.
+   ============================================================ */
+.maka-firstrun {
+  width: min(600px, 100%);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0;
 }
 
-.maka-onboarding-grid > li {
-  animation: maka-agents-fade-in 150ms var(--ease-out-strong) both;
+.maka-firstrun-title {
+  margin: 0;
+  max-width: none;
+  font-size: 26px;
+  font-weight: 680;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--foreground);
 }
 
-.maka-onboarding-grid > li:nth-child(1) { animation-delay: 60ms; }
-.maka-onboarding-grid > li:nth-child(2) { animation-delay: 100ms; }
-.maka-onboarding-grid > li:nth-child(3) { animation-delay: 140ms; }
-.maka-onboarding-grid > li:nth-child(4) { animation-delay: 180ms; }
-.maka-onboarding-grid > li:nth-child(5) { animation-delay: 220ms; }
-.maka-onboarding-grid > li:nth-child(6) { animation-delay: 260ms; }
-
-@media (prefers-reduced-motion: reduce) {
-  .maka-onboarding-grid > li {
-    animation: none;
-  }
+.maka-firstrun-sub {
+  margin: 8px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--foreground-55);
 }
 
-.maka-onboarding-card {
-  width: 100%;
-  height: auto;
-  display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) 12px;
+/* --- compact stepper (numbered nodes + connectors) --- */
+.maka-firstrun-stepper {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0;
+  margin: 22px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.maka-firstrun-step {
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 5px 8px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
+  padding: 5px 10px 5px 6px;
+  border-radius: 999px;
+}
+
+.maka-firstrun-step-dot {
+  display: inline-grid;
+  place-items: center;
+  width: 21px;
+  height: 21px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 650;
+  border: 1.5px solid var(--border-strong);
+  color: var(--foreground-50);
+}
+
+.maka-firstrun-step-label {
+  font-size: 13px;
+  color: var(--foreground-50);
+  white-space: nowrap;
+}
+
+.maka-firstrun-step[data-state="active"] {
+  background: oklch(from var(--accent) l c h / 0.12);
+}
+.maka-firstrun-step[data-state="active"] .maka-firstrun-step-dot {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--background);
+}
+.maka-firstrun-step[data-state="active"] .maka-firstrun-step-label {
   color: var(--foreground);
-  text-align: left;
-  transition:
-    background 150ms var(--ease-out-strong),
-    transform 180ms var(--ease-out-strong),
-    box-shadow 220ms var(--ease-out-strong);
-}
-
-.maka-onboarding-card:hover {
-  background: oklch(from var(--foreground) l c h / 0.04);
-  transform: translateX(2px);
-  box-shadow: none;
-}
-
-.maka-onboarding-card:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.maka-onboarding-card:active:not(:disabled) {
-  background: oklch(from var(--foreground) l c h / 0.07);
-}
-
-/* PR-UI-7: stagger entrance on provider tiles. Each card delays
- * 40ms longer than the previous so the grid populates feeling alive
- * rather than appearing all at once. Up to 6 tiles supported (FEATURED
- * array length); 7+ falls through to default delay. */
-.maka-onboarding-grid > li {
-  animation: maka-card-enter 280ms var(--ease-out-strong) both;
-}
-.maka-onboarding-grid > li:nth-child(1) { animation-delay: 80ms; }
-.maka-onboarding-grid > li:nth-child(2) { animation-delay: 120ms; }
-.maka-onboarding-grid > li:nth-child(3) { animation-delay: 160ms; }
-.maka-onboarding-grid > li:nth-child(4) { animation-delay: 200ms; }
-.maka-onboarding-grid > li:nth-child(5) { animation-delay: 240ms; }
-.maka-onboarding-grid > li:nth-child(6) { animation-delay: 280ms; }
-
-@keyframes maka-card-enter {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .maka-onboarding-grid > li {
-    animation: none;
-  }
-  .maka-onboarding-card:hover {
-    transform: none;
-  }
-}
-
-[data-maka-visual-smoke="true"] .maka-onboarding-grid > li {
-  animation: none;
-}
-
-.maka-onboarding-card-copy {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.maka-onboarding-card-copy strong {
-  font-size: 12px;
   font-weight: 600;
 }
 
-.maka-onboarding-card-copy small {
+.maka-firstrun-step[data-state="done"] .maka-firstrun-step-dot {
+  background: var(--foreground-8);
+  border-color: transparent;
   color: var(--foreground-60);
-  font-size: 11px;
-  line-height: 1.4;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
 }
 
-.maka-onboarding-card > :last-child {
-  color: var(--foreground-40);
+.maka-firstrun-step[data-state="warning"] .maka-firstrun-step-dot {
+  border-color: var(--warning);
+  color: var(--warning-text);
+}
+
+.maka-firstrun-step-line {
+  width: 20px;
+  height: 1.5px;
+  flex: 0 0 auto;
+  margin: 0 2px;
+  border-radius: 2px;
+  background: var(--border-strong);
+}
+
+/* --- section label above the provider list --- */
+.maka-firstrun-pick {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 30px 0 12px;
+}
+.maka-firstrun-pick-label {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--foreground);
+}
+.maka-firstrun-pick-hint {
+  font-size: 12.5px;
+  color: var(--foreground-50);
+}
+
+/* --- provider list panel (scrolls vertically as the list grows) --- */
+.maka-firstrun-list {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--background-elevated);
+}
+.maka-firstrun-list ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 56vh;
+  overflow-y: auto;
+}
+.maka-firstrun-list li + li {
+  border-top: 1px solid var(--border);
+}
+
+/* --- "常用" tag inside a provider row title --- */
+.maka-firstrun-tag {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--accent);
+  background: oklch(from var(--accent) l c h / 0.12);
+  padding: 2px 6px;
+  border-radius: 5px;
+}
+
+.maka-firstrun .maka-onboarding-footer {
+  margin-top: 22px;
 }
 
 .maka-onboarding-footer {
@@ -7452,18 +7475,6 @@ button:active {
   margin-top: 0;
 }
 
-.settingsPageIntro {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.settingsPageIntro p {
-  margin: 0;
-  color: var(--foreground-60);
-  font-size: 12px;
-}
 
 .settingsEmptyState {
   min-height: 240px;
@@ -9478,103 +9489,57 @@ button:active {
   line-height: 1.2;
 }
 
+/* Provider catalog + OAuth login render as governed Item rows (media ·
+ * content · actions) — the same shadcn primitive the enabled connections
+ * use — inside a seamless hairline list. This replaces the hand-written
+ * .providerCatalogCard grid so the whole 模型 page speaks one component
+ * language (component governance). */
 .catalogGrid {
   min-height: 0;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   align-content: start;
-  gap: 10px;
   overflow: auto;
 }
 
-.providerCatalogCard {
-  height: 124px;
-  min-height: 76px;
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 6px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: transparent;
-  color: var(--foreground);
-  padding: 10px;
-  text-align: left;
-  transition:
-    border-color 150ms var(--ease-out-strong),
-    background 150ms var(--ease-out-strong),
-    box-shadow 150ms var(--ease-out-strong),
-    transform 150ms var(--ease-out-strong);
+.providerCatalogRow {
+  gap: 12px;
+  padding: 11px 6px;
 }
 
-/* PR-UI-LAYOUT-15 fixup (@kenji review @msg 0e7482e5):
- * Interactive states MUST be scoped to enabled cards. A disabled
- * provider tile that lifts + halos on hover/focus looks actionable
- * — exactly the misrepresentation the provider-surface gate
- * forbids ("不可用 / preview / gated provider 不能呈现为可点击"). */
-.providerCatalogCard:hover:not([data-disabled="true"]) {
-  border-color: oklch(from var(--accent) l c h / 0.28);
-  background: oklch(from var(--accent) l c h / 0.04);
-  transform: translateY(-1px);
-  box-shadow:
-    0 1px 2px oklch(from var(--foreground) l c h / 0.04),
-    0 4px 12px oklch(from var(--accent) l c h / 0.06);
-}
-
-.providerCatalogCard:active:not([data-disabled="true"]) {
-  transform: translateY(0) scale(0.99);
-}
-
-.providerCatalogCard:focus-visible:not([data-disabled="true"]) {
-  outline: none;
-  border-color: oklch(from var(--accent) l c h / 0.42);
-  box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.14);
-}
-
-.providerCatalogCard[data-disabled="true"] {
-  opacity: 0.72;
+/* Gated providers (preview / not-yet-open) stay inert and muted; the
+ * provider-surface gate forbids rendering them as actionable. */
+.providerCatalogRow[data-disabled="true"] {
+  opacity: 0.66;
   cursor: not-allowed;
-}
-
-/* PR-UI-LAYOUT-15 fixup (@kenji review @msg 0e7482e5):
- * Disabled cards still need keyboard focus feedback (a11y) — but
- * the indicator MUST NOT suggest actionability. Muted variant: a
- * neutral border color shift, no accent halo, no lift, no scale.
- * The 1.5px outline-offset keeps the indicator visible against the
- * card chrome without competing with the accent halo used on
- * enabled cards. */
-.providerCatalogCard[data-disabled="true"]:focus-visible {
-  outline: 1.5px dashed var(--foreground-40);
-  outline-offset: 2px;
-}
-
-.providerCatalogCopy {
-  min-width: 0;
-  display: grid;
-  align-content: start;
-  gap: 7px;
+  filter: grayscale(0.28);
 }
 
 .providerCatalogTitle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  font-weight: 600;
 }
 
-.providerCatalogTitle strong {
-  min-width: 0;
-  overflow-wrap: normal;
-  /* PR-UI-LAYOUT-37: title bumped 12→13px (provider name was
-   * unreadably small for a card title — most peer cards in the
-   * settings use 13-14px). Tile grid `minmax(198px, 1fr)` still
-   * fits comfortably; checked on 1280-width baseline. */
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.2;
+/* Trailing badge + chevron live in ItemActions (a direct child of the row),
+ * so they sit vertically centered against the full two-line row rather than
+ * pinned to the title line. */
+.providerCatalogActions {
+  gap: 10px;
 }
 
-.providerCatalogTitle em,
 .providerCatalogCount {
+  margin-left: 8px;
+  color: var(--foreground-50);
+  font-size: 12px;
+}
+
+.providerCatalogChevron {
+  flex: 0 0 auto;
+  color: var(--foreground-40);
+}
+
+/* category / preview / login badges — compact squared corners, never pills */
+.providerCatalogBadge {
+  flex: 0 0 auto;
   width: fit-content;
   border-radius: 4px;
   background: var(--foreground-5);
@@ -9582,16 +9547,8 @@ button:active {
   padding: 2px 7px;
   font-size: 10px;
   font-style: normal;
+  font-weight: 600;
   line-height: 1.35;
-}
-
-.providerCatalogCopy small {
-  color: var(--foreground-50);
-  /* PR-UI-LAYOUT-37: description bumped 11→12px so the helper
-   * line under each provider name is readable without forcing
-   * the user to lean in. */
-  font-size: 12px;
-  line-height: 1.4;
 }
 
 .catalogCustom .catalogGrid {
@@ -9626,11 +9583,20 @@ button:active {
   line-height: 1.4;
 }
 
-.providerEditor header {
+/* Direct child only: this is the sheet's own title/badges header. The
+ * descendant form (`.providerEditor header`) also matched the nested
+ * `.modelTableHeader`, leaking the close-button padding-right onto the
+ * model card and pushing its refresh button 36px off the right edge. */
+.providerEditor > header {
   display: flex;
   align-items: start;
   justify-content: space-between;
   gap: 12px;
+  /* Reserve the top-right corner for the absolutely-positioned sheet
+   * close button (.providerConfigSheetClose: 32px wide at right:14px,
+   * intruding ~30px into the 16px-padded content box). Without this the
+   * right-aligned header badges (默认 / 国内) slide under the X. */
+  padding-right: 36px;
 }
 
 .providerEditor label {
@@ -9727,6 +9693,11 @@ button:active {
  * editor, not a form field. */
 .modelTable {
   display: grid;
+  /* Single column that fills the card. Without an explicit 1fr the
+   * implicit `auto` track sizes to content and the header row stops
+   * short of the card edge, so the right-aligned refresh button never
+   * reaches the right margin. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   padding: 12px;
   border: 1px solid var(--border);
@@ -9737,7 +9708,7 @@ button:active {
 
 .modelTableHeader {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
 }
@@ -10018,17 +9989,8 @@ button:active {
 }
 .providerOAuthGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(198px, 1fr));
-  align-content: start;
-  gap: 12px;
+  grid-template-columns: 1fr;
   overflow: auto;
-  padding-right: 4px;
-}
-
-.providerOAuthGrid .providerCatalogCard {
-  width: 100%;
-  max-width: 286px;
-  min-height: 172px;
 }
 
 .providerOAuthCardBadge {
@@ -10051,24 +10013,15 @@ button:active {
 }
 
 .enabledStrip {
-  min-height: 74px;
   display: flex;
-  align-items: stretch;
+  flex-direction: column;
   gap: 10px;
-  overflow-x: auto;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: var(--foreground-3);
-  padding: 10px;
 }
 
 .enabledStripHeader {
-  min-width: 136px;
-  display: grid;
-  align-content: center;
-  gap: 3px;
-  border-right: 1px solid var(--border);
-  padding-right: 12px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
 }
 
 .enabledStripHeader h3,
@@ -10089,98 +10042,159 @@ button:active {
   line-height: 1.35;
 }
 
-.enabledEmptyChip,
-.enabledProviderChip {
-  flex: 0 0 auto;
-  min-width: 206px;
+/* Empty / load-error CTA shown when there are no connections yet. */
+.enabledEmptyChip {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
   border: 1px dashed var(--border);
-  /* PR-UI-LAYOUT-19: enabledProviderChip radius 13 → 12 to sit
-   * cleanly in the card family (12 for chip-ish surfaces). */
   border-radius: 12px;
   background: var(--background);
   color: var(--foreground);
-  padding: 10px 12px;
+  padding: 12px 14px;
   text-align: left;
 }
 
-.enabledProviderChip {
-  border-style: solid;
-  transition:
-    transform 140ms ease,
-    background-color 140ms ease,
-    border-color 140ms ease;
-}
-
-.enabledProviderChip:hover,
 .enabledEmptyChip:hover {
   border-color: oklch(from var(--accent) l c h / 0.16);
   background: var(--background-elevated);
 }
 
-.enabledProviderChip:active,
-.enabledEmptyChip:active {
-  transform: translateY(1px);
+.enabledEmptyChip strong { font-size: 12px; font-weight: 700; }
+.enabledEmptyChip small { margin-top: 2px; color: var(--foreground-50); font-size: 11px; }
+
+/* ---- Enabled models: provider → connection hierarchy (Base UI Accordion).
+ * Each provider is a collapsible row; its connections live in the panel, so
+ * the list reads as provider over connection instead of a flat peer list.
+ * Problem providers open by default (see defaultOpenGroups). ---- */
+/* Seamless list: no card box (it was the heaviest element on the page and
+ * clashed with the catalog below). Hairline top/bottom bounds the group;
+ * whitespace + the logo plates carry the structure. */
+.enabledAccordion {
+  max-height: 360px;
+  overflow-y: auto;
 }
 
-.enabledProviderChip[data-default="true"] {
-  border-color: oklch(from var(--accent) l c h / 0.22);
-  background: oklch(from var(--accent) l c h / 0.06);
+.enabledProvider + .enabledProvider {
+  border-top: 1px solid oklch(from var(--foreground) l c h / 0.06);
 }
 
-.enabledProviderChip[data-disabled="true"] {
-  opacity: 0.6;
-  filter: grayscale(0.4);
+.enabledProviderHead { margin: 0; }
+
+.enabledProviderTrigger {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  /* pad-x 6 + logo 32 + gap 11 = 49 → connection name (pl-[49px]) sits
+   * directly under the provider name; pr keeps the rollup status right
+   * edge aligned with the connection status (pr-[32px] = 6 + chevron 15 +
+   * meta gap 11). */
+  padding: 11px 6px;
+  background: transparent;
+  border: 0;
+  color: var(--foreground);
+  font: inherit;
+  text-align: left;
+  transition: background-color 130ms ease;
 }
 
-/* Status dot on each chip — peer to the chip name. data-test-status comes
- * from `lastTestStatus` (PR61 schema). 'untested' shows a quiet neutral
- * dot; 'verified' goes success; 'needs_reauth' warns; 'error' destructive.
- * Sits at the chip's top-right, above the provider name. */
-.enabledProviderChip {
-  position: relative;
+.enabledProviderTrigger:hover { background: var(--hover); }
+
+.enabledProviderName {
+  font-size: 13.5px;
+  font-weight: 620;
+  letter-spacing: -0.002em;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.enabledProviderChipStatus {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--foreground-20);
+.enabledProviderMeta {
+  margin-left: auto;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 11px;
 }
 
-.enabledProviderChip[data-test-status="verified"] .enabledProviderChipStatus {
-  background: var(--success);
-  box-shadow: 0 0 0 3px oklch(from var(--success) l c h / 0.18);
+.enabledChevron {
+  color: var(--foreground-40);
+  transition: transform 160ms var(--ease-out-strong);
 }
 
-.enabledProviderChip[data-test-status="needs_reauth"] .enabledProviderChipStatus {
-  background: var(--info);
-  box-shadow: 0 0 0 3px oklch(from var(--info) l c h / 0.20);
+.enabledProviderTrigger[data-panel-open] .enabledChevron,
+.enabledProvider[data-open] .enabledChevron {
+  transform: rotate(90deg);
 }
 
-.enabledProviderChip[data-test-status="error"] .enabledProviderChipStatus {
-  background: var(--destructive);
-  box-shadow: 0 0 0 3px oklch(from var(--destructive) l c h / 0.20);
-}
-
-.enabledEmptyChip strong,
-.enabledProviderChip strong {
-  display: block;
+/* status line, shared by the provider rollup and each connection row;
+ * the dot inherits the text color via currentColor. */
+.enabledRollup,
+.enabledConnStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 12px;
-  font-weight: 700;
+  white-space: nowrap;
+  color: var(--foreground-50);
 }
 
-.enabledEmptyChip small,
-.enabledProviderChip small {
-  display: block;
-  margin-top: 2px;
-  color: var(--foreground-50);
+.enabledStatusDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: 0 0 auto;
+}
+
+.enabledRollup.is-ok,
+.enabledConnStatus.is-verified { color: var(--success); }
+.enabledRollup.is-warn,
+.enabledConnStatus.is-needs_reauth { color: var(--info); }
+.enabledRollup.is-err,
+.enabledConnStatus.is-error { color: var(--destructive); }
+.enabledRollup.is-idle,
+.enabledConnStatus.is-untested { color: var(--foreground-50); }
+
+.enabledProviderPanel {
+  background: oklch(from var(--foreground) l c h / 0.02);
+  border-top: 1px solid oklch(from var(--foreground) l c h / 0.07);
+}
+
+.enabledProviderPanel ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.enabledProviderPanel li + li .enabledConnRow {
+  border-top: 1px solid oklch(from var(--foreground) l c h / 0.07);
+}
+
+.enabledConnRow[data-default="true"] {
+  background: oklch(from var(--accent) l c h / 0.07);
+}
+
+.enabledConnRow[data-disabled="true"] {
+  opacity: 0.6;
+}
+
+.enabledConnTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.enabledDefaultTag {
   font-size: 11px;
+  font-weight: 650;
+  color: var(--accent);
+  background: oklch(from var(--accent) l c h / 0.14);
+  border-radius: 999px;
+  padding: 1px 8px;
 }
 
 .providerMarketHeader {
@@ -10217,7 +10231,14 @@ button:active {
   border-color: oklch(from var(--accent) l c h / 0.22);
   background: oklch(from var(--accent) l c h / 0.13);
   color: var(--accent);
-  box-shadow: inset 0 0 0 1px oklch(from var(--accent) l c h / 0.03);
+}
+
+/* Base UI's Tabs renders a sliding rounded-md indicator behind the active
+ * tab. These pills supply their own active fill, and the indicator's square
+ * radius pokes out from behind the 999px pill (the warped selected look).
+ * Hide it; the pill background is the single source of the active state. */
+.catalogPillTabs [data-slot="tab-indicator"] {
+  display: none;
 }
 
 .catalogPillTabs strong {
@@ -10227,95 +10248,35 @@ button:active {
 
 .providerMarketGrid,
 .settingsSurface[data-modal="true"] .providerMarketGrid {
-  grid-template-columns: repeat(auto-fill, minmax(198px, 1fr));
-  gap: 12px;
+  grid-template-columns: 1fr;
   overflow: auto;
-  padding-right: 4px;
 }
 
-.providerMarketGrid .providerCatalogCard {
-  width: 100%;
-  max-width: 286px;
-  min-height: 172px;
+.providerMarketGrid .providerCatalogRow + .providerCatalogRow,
+.providerOAuthGrid .providerCatalogRow + .providerCatalogRow {
+  border-top: 1px solid oklch(from var(--foreground) l c h / 0.06);
 }
 
-.providerCatalogCard {
-  position: relative;
-  overflow: hidden;
-  transition:
-    transform 160ms ease,
-    border-color 160ms ease,
-    background-color 160ms ease,
-    box-shadow 160ms ease;
+/* Logo plates match the enabled list (compact 32px) so the page reads as
+ * one column of provider rows top to bottom. */
+.providerCatalogRow .providerLogo {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
 }
 
-/* PR-UI-PROV-POLISH fixup v3 (@xuan source-gate msg d2fdec44):
- * Older PR-UI-1 rules also need the disabled guard so the
- * grep-level gate ("any providerCatalogCard hover/active rule that
- * applies actionable affordance must exclude disabled cards") holds
- * file-wide, not just for the new LAYOUT-15 rules above. */
-.providerMarketGrid .providerCatalogCard:hover:not([data-disabled="true"]) {
-  transform: translateY(-1px);
-  border-color: oklch(from var(--accent) l c h / 0.2);
-  box-shadow: 0 12px 28px oklch(0.35 0.02 90 / 0.08);
-}
-
-.providerCatalogCard:active:not([data-disabled="true"]) {
-  transform: translateY(1px);
-}
-
-.providerCatalogCard[data-status="unavailable"],
-.providerCatalogCard[data-status="experimental"] {
-  cursor: not-allowed;
-  filter: grayscale(0.28);
-  opacity: 0.66;
-}
-
-.providerCatalogCard[data-status="unavailable"]:hover,
-.providerCatalogCard[data-status="experimental"]:hover {
-  transform: none;
-  border-color: var(--border);
-  box-shadow: none;
-}
-
-/* PR-UI-LAYOUT-41 follow-up (@kenji gate 2): defensive — the
- * disabled card is rendered as `<div>` so `:focus-visible` never
- * matches it (divs aren't focusable without tabindex). This rule
- * is here as a belt-and-suspenders override in case some future
- * change accidentally adds tabindex / contenteditable / button
- * fallback. */
-.providerCatalogCard[data-status="unavailable"]:focus-visible,
-.providerCatalogCard[data-status="experimental"]:focus-visible {
-  outline: none;
-  box-shadow: none;
-  border-color: var(--border);
-}
-
-.providerCatalogCard[data-status="unavailable"]::after {
-  content: "未开放";
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  border-radius: 4px;
-  background: oklch(from var(--info) l c h / 0.12);
+/* Gated providers carry a real trailing state badge in ItemActions (not an
+ * absolute ::after), tinted by the gate reason. The row itself is a plain
+ * div Item with no render prop, so it is inert — the provider-surface gate
+ * never lets a gated provider read as clickable. */
+.providerCatalogRow[data-status="unavailable"] .providerCatalogBadge.is-state {
+  background: oklch(from var(--info) l c h / 0.14);
   color: var(--info-text);
-  padding: 2px 8px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0;
 }
 
-.providerCatalogCard[data-status="experimental"]::after {
-  content: "实验";
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  border-radius: 4px;
+.providerCatalogRow[data-status="experimental"] .providerCatalogBadge.is-state {
   background: oklch(from var(--warning) l c h / 0.14);
   color: var(--warning-text);
-  padding: 2px 8px;
-  font-size: 10px;
-  font-weight: 700;
 }
 
 /* PR-UI-13 (@yuejing 2026-05-22): ProviderLogo size normalization.
@@ -10332,6 +10293,9 @@ button:active {
  * Inner SVG keeps the existing 72% ratio so brand marks read the
  * same at every size.
  */
+/* Neutral, theme-aware plate. Provider identity now comes from the
+   official brand mark (provider-brand-marks.tsx), so the plate stays a
+   quiet foreground wash in both light and dark — no per-provider tints. */
 .providerLogo {
   width: 44px;
   height: 44px;
@@ -10339,102 +10303,24 @@ button:active {
   place-items: center;
   border-radius: 12px; /* 27.3% — anchor ratio */
   background: var(--foreground-5);
-  color: var(--brand-deep);
-  box-shadow:
-    inset 0 0 0 1px oklch(1 0 0 / 0.58),
-    0 8px 16px oklch(0.44 0.03 90 / 0.06);
+  color: var(--foreground);
+  box-shadow: inset 0 0 0 1px oklch(from var(--foreground) l c h / 0.06);
 }
 
 .providerLogo[data-compact="true"] {
   width: 32px;
   height: 32px;
   border-radius: 9px; /* 28.1% — matches md ratio */
-  /* Scale the drop shadow with the icon so the visual weight stays
-   * proportional. Without this override the compact icon inherited
-   * the 44px-tuned shadow and felt heavier than the default. */
-  box-shadow:
-    inset 0 0 0 1px oklch(1 0 0 / 0.58),
-    0 4px 10px oklch(0.44 0.03 90 / 0.05);
 }
 
+/* Color marks keep their own fill; monochrome marks declare
+   `fill="currentColor"` and inherit the plate color (= foreground). */
 .providerLogo svg {
-  width: 72%;
-  height: 72%;
+  width: 64%;
+  height: 64%;
   display: block;
-  color: currentColor;
-  fill: currentColor;
 }
 
-.providerLogo[data-provider="zai-coding-plan"] svg {
-  width: 82%;
-}
-
-.providerLogo[data-provider="google"] svg,
-.providerLogo[data-provider="gemini-cli"] svg,
-.providerLogo[data-provider="openai"] svg,
-.providerLogo[data-provider="codex-subscription"] svg,
-.providerLogo[data-provider="openai-compatible"] svg {
-  fill: none;
-}
-
-.providerLogo[data-provider="openai"],
-.providerLogo[data-provider="codex-subscription"],
-.providerLogo[data-provider="openai-compatible"] {
-  background: #e7f0ea;
-  color: #103b2c;
-}
-
-.providerLogo[data-provider="anthropic"],
-.providerLogo[data-provider="claude-subscription"] {
-  background: #eee7dd;
-  color: #5a3d24;
-}
-
-.providerLogo[data-provider="google"],
-.providerLogo[data-provider="gemini-cli"] {
-  background: #e9effd;
-  color: #2850a7;
-}
-
-.providerLogo[data-provider="deepseek"] {
-  background: #e7effb;
-  color: #1f4c8a;
-}
-
-.providerLogo[data-provider="moonshot"],
-.providerLogo[data-provider="kimi-coding-plan"] {
-  background: #f0edff;
-  color: #5d50b2;
-}
-
-.providerLogo[data-provider="zai-coding-plan"] {
-  background: #e8f3ef;
-  color: #235142;
-}
-
-.providerLogo[data-provider="ollama"] {
-  background: #ececec;
-  color: #292929;
-}
-
-.providerCatalogCard .providerCatalogTitle {
-  margin-top: 2px;
-}
-
-.providerCatalogCard .providerCatalogCopy {
-  gap: 8px;
-}
-
-.providerCatalogCard .providerCatalogCopy small {
-  max-width: 32ch;
-}
-
-.providerCatalogTitle em,
-.providerCatalogCount {
-  background: var(--foreground-5);
-  color: var(--foreground-50);
-  font-weight: 600;
-}
 
 .customProviderEntry {
   display: flex;
@@ -10442,8 +10328,6 @@ button:active {
   justify-content: space-between;
   gap: 16px;
   border-top: 1px solid var(--border);
-  background: linear-gradient(180deg, transparent, oklch(0.97 0.01 90 / 0.58));
-  border-radius: 0 0 14px 14px;
   padding-top: 14px;
 }
 
@@ -10482,28 +10366,18 @@ button:active {
   padding: 16px;
 }
 
+/* Position + circular shape only. Size, centering, and every rest/hover/
+ * focus state come from the governed Button (variant="quiet" size="icon-sm"),
+ * so there is nothing to hand-maintain here. The earlier hand-written rules
+ * leaned on undefined --settings-surface-* / --text* tokens, which is why the
+ * button had no hover feedback at all. */
 .providerConfigSheetClose {
   position: absolute;
-  top: 14px;
+  /* Center on the header's first line, aligned with the title and the
+   * right-aligned status badges (~25px from the sheet top). */
+  top: 10px;
   right: 14px;
-  display: inline-grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border: 0;
   border-radius: 999px;
-  background: var(--settings-surface-muted);
-  color: var(--text-muted);
-}
-
-.providerConfigSheetClose:hover {
-  background: var(--settings-surface-raised);
-  color: var(--text);
-}
-
-.providerConfigSheetClose:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
 }
 
 /* ──────────────────────────────────────────────────────────────────────── */

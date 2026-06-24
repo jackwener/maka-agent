@@ -1087,10 +1087,6 @@ function SettingsPage(props: {
     case 'models':
       return (
         <div className="settingsStructuredPage settingsModelsPage">
-          <div className="settingsPageIntro">
-            <p>如果配置遇到问题，可以查看配置指南。</p>
-            {props.connections.length > 0 && <span className="settingsBadge">{props.connections.length} 个模型</span>}
-          </div>
           <ProvidersPanel bridge={window.maka.connections} />
         </div>
       );

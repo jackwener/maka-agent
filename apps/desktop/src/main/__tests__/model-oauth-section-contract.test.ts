@@ -53,11 +53,23 @@ describe('Model OAuth catalog contract (PR-MODEL-OAUTH-ALL-0 + PR-CLAUDE-CARD-MO
     const src = await readFile(PROVIDERS_PANEL_SOURCE, 'utf8');
     const tabs = src.match(/<PrimitiveTabs\s+className="catalogTabsRoot"[\s\S]*?<\/PrimitiveTabs>/)?.[0] ?? '';
 
-    assert.match(
-      src,
-      /import \{ Button, PrimitiveTabs, PrimitiveTabsList, PrimitiveTabsTrigger, Input, RelativeTime, Textarea, useToast, useModalA11y \} from '@maka\/ui';/,
-      'ProvidersPanel should consume the shared shared primitive Tabs primitive from @maka/ui',
-    );
+    // ProvidersPanel must source its UI from the shared @maka/ui primitives
+    // (component governance), not hand-rolled markup. Assert the @maka/ui
+    // import block carries the primitives this panel relies on; tolerant of
+    // single- vs multi-line formatting.
+    const uiImport = src.match(/import \{[^}]*\} from '@maka\/ui';/)?.[0] ?? '';
+    for (const name of [
+      'Button',
+      'PrimitiveTabs', 'PrimitiveTabsList', 'PrimitiveTabsTrigger',
+      'PrimitiveAccordion', 'PrimitiveAccordionItem', 'PrimitiveAccordionTrigger', 'PrimitiveAccordionPanel',
+      'Item', 'ItemContent', 'ItemTitle', 'ItemActions',
+      'Input', 'RelativeTime', 'Textarea', 'useToast', 'useModalA11y',
+    ]) {
+      assert.ok(
+        uiImport.includes(name),
+        `ProvidersPanel should import ${name} from the shared @maka/ui primitives`,
+      );
+    }
     assert.doesNotMatch(src, /function onCatalogTabsKeyDown/, 'provider catalog tabs should not keep a custom keyboard handler');
     assert.doesNotMatch(src, /data-catalog-tab="\$\{CSS\.escape/, 'provider catalog tabs should not use manual focus queries');
     assert.match(tabs, /value=\{catalogTab\}[\s\S]*onValueChange=\{\(value\) => setCatalogTab\(value as CatalogTab\)\}/);
@@ -241,7 +253,7 @@ describe('Model OAuth catalog contract (PR-MODEL-OAUTH-ALL-0 + PR-CLAUDE-CARD-MO
     );
     assert.match(
       addForm,
-      /<Button className="maka-button" variant="ghost" type="button" disabled=\{busy\} onClick=\{props\.onCancel\}>取消<\/Button>/,
+      /<Button variant="ghost" type="button" disabled=\{busy\} onClick=\{props\.onCancel\}>取消<\/Button>/,
       'AddProviderForm cancel must be disabled while create is in flight',
     );
     assert.doesNotMatch(
@@ -271,7 +283,14 @@ describe('Model OAuth catalog contract (PR-MODEL-OAUTH-ALL-0 + PR-CLAUDE-CARD-MO
     assert.match(overlay, /<X strokeWidth=\{1\.75\} aria-hidden="true" \/>/);
     assert.match(styles, /\.providerConfigSheet\s*\{[\s\S]*position:\s*relative;/);
     assert.match(styles, /\.providerConfigSheetClose\s*\{[\s\S]*position:\s*absolute;[\s\S]*right:\s*14px;/);
-    assert.match(styles, /\.providerConfigSheetClose:focus-visible\s*\{[\s\S]*outline:\s*2px solid var\(--accent\);/);
+    // The close button reuses the governed quiet icon Button, so its rest /
+    // hover / focus states come from the component, not hand-written CSS. The
+    // local class only positions and rounds it.
+    assert.match(
+      overlay,
+      /variant="quiet"[\s\S]*?size="icon-sm"[\s\S]*?className="providerConfigSheetClose"/,
+      'close button must reuse the governed quiet icon Button for its hover/focus states',
+    );
   });
 
   it('provider config sheets hide the blurred Settings background from accessibility', async () => {
@@ -334,13 +353,13 @@ describe('Model OAuth catalog contract (PR-MODEL-OAUTH-ALL-0 + PR-CLAUDE-CARD-MO
     );
     assert.match(
       src,
-      /function chipStatusText\(connection: LlmConnection\): string/,
-      'status copy must be a dedicated helper, not parsed out of the chip title',
+      /import \{[^}]*chipStatusText[^}]*\} from '\.\/provider-connection-status'/,
+      'status copy must come from the dedicated provider-connection-status helper (behaviour is covered by provider-connection-status.test.ts), not be parsed out of the chip title',
     );
     assert.match(
       src,
-      /已启用模型：\$\{connection\.name\}，供应商：\$\{provider\}/,
-      'enabled model chip aria-label must describe the model and provider explicitly',
+      /模型连接：\$\{connection\.name\}，供应商：\$\{provider\}/,
+      'model connection chip aria-label must describe the model and provider explicitly',
     );
     assert.match(
       src,
@@ -385,7 +404,7 @@ describe('Model OAuth catalog contract (PR-MODEL-OAUTH-ALL-0 + PR-CLAUDE-CARD-MO
     );
     assert.match(src, /自定义 OpenAI 兼容接口/);
     assert.match(src, /添加 OpenAI 兼容接口/);
-    assert.match(src, /OpenAI 兼容协议/);
+    assert.match(src, /智谱 · OpenAI 兼容/);
     assert.doesNotMatch(
       src,
       /OpenAI-compatible|endpoint/,
@@ -406,10 +425,18 @@ describe('Model OAuth catalog contract (PR-MODEL-OAUTH-ALL-0 + PR-CLAUDE-CARD-MO
     assert.match(addForm, /连接标识已存在/);
     assert.match(addForm, /这个供应商需要填写服务地址/);
 
-    assert.match(detail, /<span>连接标识<\/span>/);
+    // PR-FIELD-PRIMITIVE-PILOT: ConnectionDetail's form rows moved off the
+    // hand-written <label><span/> markup onto the governed Base UI Field
+    // primitive (FieldRoot + Label + FieldDescription). Label copy stays
+    // Chinese-first; the parenthetical state hints split into their own
+    // FieldDescription lines. AddProviderForm is intentionally left on the
+    // legacy <label><span/> markup this round (single-page pilot).
+    assert.match(detail, /<Label[^>]*>连接标识<\/Label>/);
     assert.match(detail, /aria-label="模型连接标识"/);
-    assert.match(detail, /<span>服务地址 \{hasFixedOAuthBaseUrl \? '（OAuth 固定）' : ''\}<\/span>/);
-    assert.match(detail, /模型密钥 \{hasSecret === true \? '（已设置，粘贴新值可替换）' : ''\}/);
+    assert.match(detail, /<Label[^>]*>服务地址<\/Label>/);
+    assert.match(detail, /hasFixedOAuthBaseUrl && <FieldDescription>OAuth 固定<\/FieldDescription>/);
+    assert.match(detail, /<Label[^>]*>模型密钥<\/Label>/);
+    assert.match(detail, /hasSecret === true && <FieldDescription>已设置，粘贴新值可替换<\/FieldDescription>/);
     assert.match(detail, /placeholder=\{hasSecret === true \? '••••••••' : '粘贴模型密钥'\}/);
     assert.match(detail, /ariaLabel=\{`\$\{display\.name\} 模型密钥`\}/);
     assert.match(detail, /获取模型密钥/);
@@ -419,8 +446,10 @@ describe('Model OAuth catalog contract (PR-MODEL-OAUTH-ALL-0 + PR-CLAUDE-CARD-MO
     assert.match(modelTable, /先配置模型密钥/);
     assert.match(modelTable, /该供应商的真实模型清单/);
     assert.match(src, /网络错误，请检查服务地址或代理设置后重试。/);
-    assert.match(src, /Claude 模型密钥，适合生产级代理工作流。/);
-    assert.match(src, /GPT \/ Responses 模型，使用模型密钥接入。/);
+    // Provider descriptions are version-agnostic (provider + access path,
+    // never a model generation that goes stale).
+    assert.match(src, /Anthropic 官方接入/);
+    assert.match(src, /OpenAI 官方接入/);
 
     for (const block of [addForm, detail, modelTable]) {
       assert.doesNotMatch(block, />Slug</);
@@ -453,8 +482,8 @@ describe('Model OAuth catalog contract (PR-MODEL-OAUTH-ALL-0 + PR-CLAUDE-CARD-MO
 
     assert.match(
       section,
-      /className="providerCatalogCard providerOAuthCard"/,
-      'OAuth tab cards must reuse the same provider catalog card chrome as 国内 / 海外 / 本地 cards',
+      /className="providerCatalogRow providerOAuthCard rounded-none"/,
+      'OAuth tab rows must reuse the same governed provider catalog row chrome as 国内 / 海外 / 本地 rows',
     );
     assert.match(
       section,
@@ -463,8 +492,8 @@ describe('Model OAuth catalog contract (PR-MODEL-OAUTH-ALL-0 + PR-CLAUDE-CARD-MO
     );
     assert.match(
       section,
-      /className="providerCatalogCopy providerOAuthCardCopy"[\s\S]*className="providerCatalogTitle"/,
-      'OAuth cards must reuse the same title/description hierarchy as provider catalog cards',
+      /<ItemTitle className="providerCatalogTitle"[\s\S]*<ItemDescription className="providerCatalogDesc providerOAuthCardDescription"/,
+      'OAuth rows must reuse the same Item title/description hierarchy as provider catalog rows',
     );
     assert.doesNotMatch(
       section,
@@ -474,28 +503,28 @@ describe('Model OAuth catalog contract (PR-MODEL-OAUTH-ALL-0 + PR-CLAUDE-CARD-MO
 
     assert.match(
       styles,
-      /\.providerMarketGrid,[\s\S]*?grid-template-columns:\s*repeat\(auto-fill,\s*minmax\(198px,\s*1fr\)\)/,
-      'provider market tabs must use stable auto-fill columns so 国内 and 海外 card widths do not diverge',
+      /\.providerMarketGrid,[\s\S]*?grid-template-columns:\s*1fr/,
+      'provider market tabs must use a single-column seamless row list so 国内 and 海外 stay visually identical',
     );
     assert.match(
       styles,
-      /\.providerCatalogCard\s*\{[\s\S]*?height:\s*172px;/,
-      'provider catalog cards need a fixed shared height so tab content does not jump between categories',
+      /\.providerCatalogRow\s*\{/,
+      'provider catalog + OAuth rows share the governed .providerCatalogRow chrome so the tabs do not look like unrelated surfaces',
     );
     assert.match(
       styles,
-      /\.providerOAuthGrid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(auto-fill,\s*minmax\(198px,\s*1fr\)\)[\s\S]*?align-content:\s*start;/,
-      'OAuth tab must use the same 198px provider grid as the API-key provider tabs without stretching the card row',
+      /\.providerOAuthGrid\s*\{[\s\S]*?grid-template-columns:\s*1fr/,
+      'OAuth tab must use the same single-column row list as the API-key provider tabs',
     );
     assert.match(
       styles,
-      /\.providerMarketGrid \.providerCatalogCard\s*\{[\s\S]*?max-width:\s*286px;[\s\S]*?min-height:\s*172px;/,
-      'API-key provider cards must use the same fixed card height as OAuth cards',
+      /\.providerMarketGrid \.providerCatalogRow \+ \.providerCatalogRow/,
+      'API-key provider rows must use the same seamless hairline separators as OAuth rows',
     );
     assert.match(
       styles,
-      /\.providerOAuthGrid \.providerCatalogCard\s*\{[\s\S]*?max-width:\s*286px;[\s\S]*?min-height:\s*172px;/,
-      'OAuth cards must use the same max width and minimum height as provider catalog cards',
+      /\.providerOAuthGrid \.providerCatalogRow \+ \.providerCatalogRow/,
+      'OAuth rows must use the same seamless hairline separators as provider catalog rows',
     );
     assert.match(
       styles,
@@ -588,7 +617,7 @@ describe('Model OAuth catalog contract (PR-MODEL-OAUTH-ALL-0 + PR-CLAUDE-CARD-MO
     );
     assert.match(
       detail,
-      /!\s*props\.isDefault && connection\.enabled && \([\s\S]*<Button className="maka-button" variant="secondary" type="button" disabled=\{detailActionBusy\} onClick=\{setAsDefault\}>[\s\S]*\{settingDefault \? '设置中…' : '设为默认'\}[\s\S]*<\/Button>/,
+      /!\s*props\.isDefault && connection\.enabled && \([\s\S]*<Button variant="secondary" type="button" disabled=\{detailActionBusy\} onClick=\{setAsDefault\}>[\s\S]*\{settingDefault \? '设置中…' : '设为默认'\}[\s\S]*<\/Button>/,
       'disabled connections must not render the set-default action',
     );
   });
@@ -646,7 +675,7 @@ describe('Model OAuth catalog contract (PR-MODEL-OAUTH-ALL-0 + PR-CLAUDE-CARD-MO
     );
     assert.match(
       detail,
-      /<Button className="maka-button" variant="destructive" type="button" disabled=\{detailActionBusy\} onClick=\{remove\}>[\s\S]*\{deleting \? '删除中…' : '删除'\}[\s\S]*<\/Button>/,
+      /<Button variant="destructive" type="button" disabled=\{detailActionBusy\} onClick=\{remove\}>[\s\S]*\{deleting \? '删除中…' : '删除'\}[\s\S]*<\/Button>/,
       'Delete should be disabled while provider detail actions are busy and show its own pending copy',
     );
   });
@@ -832,8 +861,8 @@ describe('Model OAuth catalog contract (PR-MODEL-OAUTH-ALL-0 + PR-CLAUDE-CARD-MO
     );
     assert.match(
       src,
-      /catch \(error\) \{[\s\S]*toast\.error\('刷新已启用模型失败', subscriptionActionErrorMessage\(error\)\)/,
-      'OAuth modal close must surface enabled-model refresh failures',
+      /catch \(error\) \{[\s\S]*toast\.error\('刷新模型连接失败', subscriptionActionErrorMessage\(error\)\)/,
+      'OAuth modal close must surface model-connection refresh failures',
     );
     assert.match(
       src,
@@ -923,7 +952,7 @@ describe('Model OAuth catalog contract (PR-MODEL-OAUTH-ALL-0 + PR-CLAUDE-CARD-MO
     );
     assert.match(
       section,
-      /catch \(error\) \{[\s\S]*if \(!modelOAuthMountedRef\.current\) return;[\s\S]*toast\.error\('刷新已启用模型失败', subscriptionActionErrorMessage\(error\)\)/,
+      /catch \(error\) \{[\s\S]*if \(!modelOAuthMountedRef\.current\) return;[\s\S]*toast\.error\('刷新模型连接失败', subscriptionActionErrorMessage\(error\)\)/,
       'enabled-provider refresh failures after modal close must not toast after Settings unmount',
     );
   });

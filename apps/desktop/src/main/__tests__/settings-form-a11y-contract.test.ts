@@ -47,14 +47,20 @@ describe('Settings form accessibility labels', () => {
     // collapsed to `.settingsRow` alone.
     const providerSurfaces = styles.match(/\.settingsRow\s*\{[\s\S]*?\}/g)?.at(0) ?? '';
     const catalogTabsButton = styles.match(/\.catalogTab\s*\{[\s\S]*?\}/)?.[0] ?? '';
-    const providerCatalogCard = styles.match(/\.providerCatalogCard\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    // PR-MODEL-PAGE-ITEM-GOVERNANCE: the provider catalog moved off the
+    // hand-written .providerCatalogCard grid onto the shared shadcn Item
+    // primitive (.providerCatalogRow) in a seamless single-column list, so
+    // the whole 模型 page speaks one component language. The "secondary
+    // surface 8px card geometry" intent now lives on the connection /
+    // model-table surfaces; the catalog's intent is "governed rows +
+    // squared (non-pill) badges".
+    const providerCatalogRow = styles.match(/\.providerCatalogRow\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    const providerMarketGridRule = styles.match(/\.providerMarketGrid,[\s\S]*?\}/)?.[0] ?? '';
     // PR-DELETE-ORPHAN-CSS: `.providerIcon` was an orphan class
     // (no TSX consumer); the geometry pin moved to the live model
     // table cells which carry the same border-radius family.
     const providerIcon = '';
-    const providerCatalogBadge = styles.match(/\.providerCatalogTitle em,\n\.providerCatalogCount\s*\{[\s\S]*?\}/)?.[0] ?? '';
-    const providerUnavailableBadge = styles.match(/\.providerCatalogCard\[data-status="unavailable"\]::after\s*\{[\s\S]*?\}/)?.[0] ?? '';
-    const providerExperimentalBadge = styles.match(/\.providerCatalogCard\[data-status="experimental"\]::after\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    const providerCatalogBadge = styles.match(/\.providerCatalogBadge\s*\{[\s\S]*?\}/)?.[0] ?? '';
     const modelTable = styles.match(/\.modelTable\s*\{[\s\S]*?\}/)?.[0] ?? '';
     const modelTableRow = styles.match(/\.modelTableRow\s*\{[\s\S]*?\}/)?.[0] ?? '';
     const modelTableEmpty = styles.match(/\.modelTableEmpty\s*\{[\s\S]*?\}/)?.[0] ?? '';
@@ -73,22 +79,19 @@ describe('Settings form accessibility labels', () => {
     // border-radius / shadow geometry still applies via the same
     // rule which is captured by `providerSurfaces` now.
     assert.match(catalogTabsButton, /border-radius:\s*8px;/, 'Settings model category tabs should use reference implementation rounded-lg geometry');
-    assert.match(providerCatalogCard, /border-radius:\s*8px;/, 'Settings provider catalog cards should use reference implementation rounded-lg geometry');
+    assert.match(providerMarketGridRule, /grid-template-columns:\s*1fr;/, 'Settings provider catalog should render as a seamless single-column row list, not a card grid');
+    assert.ok(providerCatalogRow, 'Settings provider catalog rows should be governed by the shared .providerCatalogRow (Item) class');
     // PR-DELETE-ORPHAN-CSS: providerIcon assertion removed (orphan).
     assert.match(modelTable, /border-radius:\s*8px;/, 'Settings model table should use the same 8px secondary-surface radius');
     assert.match(modelTable, /box-shadow:\s*0 1px 3px rgba\(0, 0, 0, 0\.03\);/, 'Settings model table should stay near-flat instead of returning to legacy panel shadows');
     assert.match(modelTableRow, /border-radius:\s*8px;/, 'Settings model rows should use compact 8px row geometry');
     assert.match(modelTableEmpty, /border-radius:\s*8px;/, 'Settings model table empty state should align with the same 8px geometry');
-    assert.match(providerCatalogBadge, /border-radius:\s*4px;/, 'Provider catalog badges should use compact squared target-layout style corners, not pills');
-    assert.match(providerUnavailableBadge, /border-radius:\s*4px;/, 'Provider unavailable badges should use compact squared target-layout style corners, not pills');
-    assert.match(providerExperimentalBadge, /border-radius:\s*4px;/, 'Provider experimental badges should use compact squared target-layout style corners, not pills');
+    assert.match(providerCatalogBadge, /border-radius:\s*4px;/, 'Provider catalog badges (category / preview / login) should use compact squared target-layout style corners, not pills');
     assert.match(modelTableChip, /border-radius:\s*4px;/, 'Settings model capability chips should use compact squared target-layout style corners, not pills');
     assert.match(modelTableDefaultBadge, /border-radius:\s*4px;/, 'Settings model default badge should use compact squared target-layout style corners, not pills');
     assert.match(connectionBadge, /border-radius:\s*4px;/, 'Settings status badges should use compact squared target-layout style corners, not pills');
     assert.match(settingsBadge, /border-radius:\s*4px;/, 'Generic Settings badges should use compact squared target-layout style corners, not pills');
     assert.doesNotMatch(providerCatalogBadge, /border-radius:\s*999px;/, 'Provider catalog badges must not regress to pill-shaped chrome');
-    assert.doesNotMatch(providerUnavailableBadge, /border-radius:\s*999px;/, 'Provider unavailable badges must not regress to pill-shaped chrome');
-    assert.doesNotMatch(providerExperimentalBadge, /border-radius:\s*999px;/, 'Provider experimental badges must not regress to pill-shaped chrome');
     assert.doesNotMatch(modelTableChip, /border-radius:\s*999px;/, 'Settings model capability chips must not regress to pill-shaped chrome');
     assert.doesNotMatch(modelTableDefaultBadge, /border-radius:\s*999px;/, 'Settings model default badge must not regress to pill-shaped chrome');
     assert.doesNotMatch(connectionBadge, /border-radius:\s*999px;/, 'Settings connection badges must not regress to pill-shaped chrome');
@@ -107,7 +110,12 @@ describe('Settings form accessibility labels', () => {
 
     assert.match(settings, /SelectItem,[\s\S]*SelectPopup,[\s\S]*SelectPortal,[\s\S]*SelectPositioner,[\s\S]*SelectRoot,[\s\S]*SelectTrigger,[\s\S]*SelectValue,/);
     assert.match(passwordInput, /import \{ Button, Input, useToast \} from '@maka\/ui';/);
-    assert.match(providersPanel, /import \{ Button, PrimitiveTabs, PrimitiveTabsList, PrimitiveTabsTrigger, Input, RelativeTime, Textarea, useToast, useModalA11y \} from '@maka\/ui';/);
+    // ProvidersPanel sources its UI from the shared @maka/ui primitives;
+    // tolerant of single- vs multi-line import formatting.
+    const providersPanelUiImport = providersPanel.match(/import \{[^}]*\} from '@maka\/ui';/)?.[0] ?? '';
+    for (const name of ['Button', 'PrimitiveTabs', 'PrimitiveTabsList', 'PrimitiveTabsTrigger', 'Input', 'RelativeTime', 'Textarea', 'useToast', 'useModalA11y']) {
+      assert.ok(providersPanelUiImport.includes(name), `ProvidersPanel should import ${name} from @maka/ui`);
+    }
     assert.match(settings, /function SettingsSelect<T extends string>/);
     assert.match(settings, /<SelectPositioner alignItemWithTrigger=\{false\} sideOffset=\{6\}>/);
 
@@ -143,7 +151,13 @@ describe('Settings form accessibility labels', () => {
     assert.doesNotMatch(providersPanel, /<input\b/, 'ProvidersPanel must use the shared Input primitive for Settings text fields');
     assert.doesNotMatch(providersPanel, /<textarea\b/, 'ProvidersPanel must use the shared Textarea primitive for Settings text areas');
     assert.doesNotMatch(providersPanel, /<select\b/, 'ProvidersPanel must use the Base UI Select primitive for Settings selects');
-    assert.doesNotMatch(providersPanel, /<button\b/, 'ProvidersPanel must use the shared Button primitive for Settings buttons');
+    assert.doesNotMatch(providersPanel, /className="maka-button/, 'ProvidersPanel governed Buttons must not layer the legacy maka-button class (inert under the @maka/ui Button utilities, so it is dead weight)');
+    // `Item` rows become real buttons through Base UI's polymorphic
+    // `render={<button .../>}` prop, which is a primitive render target rather
+    // than a hand-rolled control. Strip those before asserting no raw <button>
+    // so the rule still catches bespoke buttons everywhere else.
+    const providersPanelButtons = providersPanel.replace(/render=\{\s*<button[\s\S]*?\/>\s*\}/g, 'render={<primitiveTarget/>}');
+    assert.doesNotMatch(providersPanelButtons, /<button\b/, 'ProvidersPanel must use the shared Button / Item primitives (raw <button> only allowed as a Base UI render target)');
   });
 
   it('keeps shared Settings password copy actions guarded and failure-visible', async () => {

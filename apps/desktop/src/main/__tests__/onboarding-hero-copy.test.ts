@@ -339,15 +339,22 @@ describe('getOnboardingSetupSteps — first-run AI setup guide', () => {
     );
   });
 
-  it('keeps provider setup card hover neutral on the gray plate', async () => {
-    const styles = await readFile(new URL('../../../src/renderer/styles.css', import.meta.url), 'utf8');
-    const hoverRule = styles.match(/\.maka-onboarding-card:hover\s*\{[\s\S]*?\n\}/)?.[0] ?? '';
+  it('keeps the Item row hover neutral, reserving accent for active rows', async () => {
+    // The onboarding provider tiles now render through the shared `Item`
+    // primitive, so the "neutral hover" contract lives in item.tsx rather
+    // than a bespoke `.maka-onboarding-card` rule. A clickable Item should
+    // wash with a faint foreground tint, never the brand `accent` (which in
+    // this theme maps to the brand color reserved for active/selected rows).
+    const item = await readFile(
+      new URL('../../../../../packages/ui/src/primitives/item.tsx', import.meta.url),
+      'utf8',
+    );
 
-    assert.match(hoverRule, /background:\s*oklch\(from var\(--foreground\) l c h \/ 0\.04\)/);
+    assert.match(item, /\[a&,button&\]:hover:bg-foreground\/4/);
     assert.doesNotMatch(
-      hoverRule,
-      /var\(--accent\)/,
-      'Provider setup cards should keep neutral hover chrome; semantic accent belongs to active setup rows',
+      item,
+      /hover:bg-accent/,
+      'Item rows should keep neutral hover chrome; semantic accent belongs to active rows',
     );
   });
 });
@@ -357,9 +364,15 @@ describe('OnboardingHero Quick Chat draft lifecycle', () => {
     const hero = await readFile(new URL('../../../src/renderer/OnboardingHero.tsx', import.meta.url), 'utf8');
     const checklist = await readFile(new URL('../../../src/renderer/FirstRunChecklist.tsx', import.meta.url), 'utf8');
 
-    assert.match(hero, /import \{ Button, Textarea, appendPromptContextDraft,/);
+    const heroImport = hero.match(/import \{[\s\S]*?\} from '@maka\/ui';/)?.[0] ?? '';
+    for (const name of ['Button', 'Item', 'ItemContent', 'ItemMedia', 'Textarea', 'appendPromptContextDraft']) {
+      assert.match(heroImport, new RegExp(`\\b${name}\\b`), `OnboardingHero must import ${name} from @maka/ui`);
+    }
     assert.match(checklist, /import \{[^}]*\bButton\b[^}]*\buseToast\b[^}]*\} from '@maka\/ui';/);
-    assert.doesNotMatch(hero, /<button\b/, 'OnboardingHero actions must use the shared Button primitive');
+    // A bare `<button className=...>` is a hand-rolled control; forbid it. The
+    // only raw `<button>` allowed is the polymorphic render target handed to an
+    // `Item` (it carries no className — the primitive owns the styling).
+    assert.doesNotMatch(hero, /<button[^>]*className=/, 'OnboardingHero actions must use the shared Button/Item primitives, not hand-styled buttons');
     assert.doesNotMatch(hero, /<textarea\b/, 'OnboardingHero quick chat must use the shared Textarea primitive');
     assert.doesNotMatch(hero, /className="maka-button/, 'OnboardingHero must not keep legacy maka-button styling on migrated actions');
     assert.doesNotMatch(checklist, /<button\b/, 'FirstRunChecklist actions must use the shared Button primitive');

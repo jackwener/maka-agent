@@ -20,6 +20,7 @@ export * from './utils.js';
 // consumers can `import { Alert, Empty, Sidebar, ... } from '@maka/ui'`.
 export * from './primitives/alert.js';
 export * from './primitives/empty.js';
+export * from './primitives/item.js';
 export * from './primitives/spinner.js';
 export * from './primitives/kbd.js';
 export * from './primitives/menu.js';
@@ -41,6 +42,14 @@ export {
   TabsContent as PrimitiveTabsContent,
   TabsPrimitive as PrimitiveTabsPrimitive,
 } from './primitives/tabs.js';
+export {
+  Accordion as PrimitiveAccordion,
+  AccordionItem as PrimitiveAccordionItem,
+  AccordionHeader as PrimitiveAccordionHeader,
+  AccordionTrigger as PrimitiveAccordionTrigger,
+  AccordionPanel as PrimitiveAccordionPanel,
+  AccordionPrimitive as PrimitiveAccordionPrimitive,
+} from './primitives/accordion.js';
 // PR-USE-SHADCN-BASE-UI-BADGE: the canonical shadcn/base-ui Badge primitive
 // (variants: default / destructive / error / info / outline / secondary /
 // success / warning). Aliased to PrimitiveBadge so it doesn't collide with

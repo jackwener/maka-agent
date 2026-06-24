@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type RefObject } from 'react';
-import { X } from 'lucide-react';
+import { ChevronRight, X } from 'lucide-react';
 import { nextRadioId } from './model-table-keyboard';
 import {
   CATALOG_PROVIDER_TYPES,
@@ -17,9 +17,18 @@ import {
   type SubscriptionAccountState,
   type UpdateConnectionInput,
 } from '@maka/core';
-import { Button, PrimitiveTabs, PrimitiveTabsList, PrimitiveTabsTrigger, Input, RelativeTime, Textarea, useToast, useModalA11y } from '@maka/ui';
+import {
+  Button,
+  PrimitiveTabs, PrimitiveTabsList, PrimitiveTabsTrigger,
+  PrimitiveAccordion, PrimitiveAccordionItem, PrimitiveAccordionHeader, PrimitiveAccordionTrigger, PrimitiveAccordionPanel,
+  Item, ItemMedia, ItemContent, ItemTitle, ItemDescription, ItemActions,
+  FieldRoot, Label, FieldDescription,
+  Input, RelativeTime, Textarea, useToast, useModalA11y,
+} from '@maka/ui';
 import { formatRelativeTimestamp } from '@maka/core';
 import { PasswordInput } from './password-input';
+import { ProviderBrandMark } from './provider-brand-marks';
+import { chipStatusText, rollupForGroup } from './provider-connection-status';
 
 export interface ConnectionsBridge {
   list(): Promise<LlmConnection[]>;
@@ -138,6 +147,50 @@ export function ProvidersPanel({ bridge }: { bridge: ConnectionsBridge }) {
     [connections, selectedSlug],
   );
 
+  // Group connections under their provider so the list reads as a
+  // hierarchy (provider → connections) instead of a flat peer list. Each
+  // group rolls the worst connection status up to its header so a problem
+  // is visible while the group is collapsed.
+  const providerGroups = useMemo(() => {
+    const order: ProviderType[] = [];
+    const byType = new Map<ProviderType, LlmConnection[]>();
+    for (const connection of connections) {
+      const list = byType.get(connection.providerType);
+      if (list) {
+        list.push(connection);
+      } else {
+        byType.set(connection.providerType, [connection]);
+        order.push(connection.providerType);
+      }
+    }
+    return order.map((type) => {
+      const groupConnections = byType.get(type) ?? [];
+      return {
+        type,
+        name: providerDisplay(type).name,
+        connections: groupConnections,
+        rollup: rollupForGroup(groupConnections),
+      };
+    });
+  }, [connections]);
+
+  // Start with the provider holding the default connection expanded (so the
+  // default is visible at a glance) plus any problem provider (failed / needs
+  // re-login), surfacing issues without a click; healthy providers stay
+  // collapsed and compact.
+  const defaultOpenGroups = useMemo(
+    () =>
+      providerGroups
+        .filter(
+          (group) =>
+            group.rollup === 'err' ||
+            group.rollup === 'warn' ||
+            group.connections.some((connection) => connection.slug === defaultSlug),
+        )
+        .map((group) => group.type),
+    [providerGroups, defaultSlug],
+  );
+
   const catalogProviders = CATALOG_PROVIDER_TYPES.filter(
     (type) => PROVIDER_DEFAULTS[type].category === catalogTab,
   );
@@ -150,27 +203,6 @@ export function ProvidersPanel({ bridge }: { bridge: ConnectionsBridge }) {
     setSelectedSlug(null);
   }
 
-  function chipStatusText(connection: LlmConnection): string {
-    if (!connection.enabled) return '已禁用';
-    switch (connection.lastTestStatus) {
-      case 'verified':
-        // PR-UI-AUDIT-1 (@kenji msg 7a16aa0b): `verified` is a
-        // credential-validation result only; it does NOT prove
-        // agent send / stream / interrupt paths are operational
-        // (provider-auth contract Path 17 S11 D1 lock). Older copy
-        // "已验证可用" conflated validation with operational
-        // readiness — fixed to credential-only language. Matches
-        // the doc warning at SettingsModal `验证通过 ≠ 运行可用`.
-        return '凭据已验证';
-      case 'needs_reauth':
-        return '需要重新登录';
-      case 'error':
-        return '上次连接失败';
-      default:
-        return '等待验证';
-    }
-  }
-
   function chipTitle(connection: LlmConnection): string {
     return `${connection.name} · ${chipStatusText(connection)}`;
   }
@@ -178,7 +210,7 @@ export function ProvidersPanel({ bridge }: { bridge: ConnectionsBridge }) {
   function chipAriaLabel(connection: LlmConnection): string {
     const provider = providerDisplay(connection.providerType).name;
     const defaultSuffix = connection.slug === defaultSlug ? '，默认连接' : '';
-    return `已启用模型：${connection.name}，供应商：${provider}${defaultSuffix}，${chipStatusText(connection)}`;
+    return `模型连接：${connection.name}，供应商：${provider}${defaultSuffix}，${chipStatusText(connection)}`;
   }
 
   const configuredByType = (type: ProviderType) =>
@@ -203,10 +235,12 @@ export function ProvidersPanel({ bridge }: { bridge: ConnectionsBridge }) {
   return (
     <div className="providersPanel providersMarketPanel">
       <section className="providerMarket">
-        <div className="enabledStrip" aria-label="已启用的模型供应商">
+        <div className="enabledStrip" aria-label="模型连接">
           <div className="enabledStripHeader">
-            <h3>已启用模型</h3>
-            {connections.length > 0 && <span>{connections.length} 个配置</span>}
+            <h3>模型连接</h3>
+            {connections.length > 0 && (
+              <span>{providerGroups.length} 个供应商 · {connections.length} 个连接</span>
+            )}
           </div>
           {loadError ? (
             <Button className="enabledEmptyChip" type="button" variant="ghost" onClick={() => void reload()}>
@@ -218,31 +252,76 @@ export function ProvidersPanel({ bridge }: { bridge: ConnectionsBridge }) {
               <strong>等待添加供应商</strong>
               <small>从下面选择一个开始配置。</small>
             </Button>
-          ) : connections.map((connection) => (
-              <Button
-                key={connection.slug}
-                type="button"
-                variant="ghost"
-                className="enabledProviderChip"
-                data-default={connection.slug === defaultSlug}
-                data-test-status={connection.lastTestStatus ?? 'untested'}
-                data-disabled={connection.enabled ? undefined : 'true'}
-                aria-label={chipAriaLabel(connection)}
-                onClick={() => {
-                  setSelectedSlug(connection.slug);
-                  setAddingType(null);
-                }}
-                title={chipTitle(connection)}
-              >
-                <ProviderLogo type={connection.providerType} compact />
-                <span>
-                  <strong>{connection.name}</strong>
-                  <small>{providerDisplay(connection.providerType).name}</small>
-                </span>
-                <span className="enabledProviderChipStatus" aria-hidden="true" />
-              </Button>
-            ))
-          }
+          ) : (
+            <PrimitiveAccordion className="enabledAccordion" multiple defaultValue={defaultOpenGroups}>
+              {providerGroups.map((group) => {
+                const single = group.connections.length === 1;
+                const problem = group.rollup === 'err' || group.rollup === 'warn';
+                const rollupLabel = problem
+                  ? single
+                    ? chipStatusText(group.connections[0])
+                    : group.rollup === 'err' ? '有连接异常' : '需重新登录'
+                  : `${group.connections.length} 连接`;
+                return (
+                  <PrimitiveAccordionItem key={group.type} value={group.type} className="enabledProvider">
+                    <PrimitiveAccordionHeader className="enabledProviderHead">
+                      <PrimitiveAccordionTrigger className="enabledProviderTrigger">
+                        <ProviderLogo type={group.type} compact />
+                        <span className="enabledProviderName">{group.name}</span>
+                        <span className="enabledProviderMeta">
+                          <span className={`enabledRollup is-${group.rollup}`}>
+                            <span className="enabledStatusDot" aria-hidden="true" />
+                            {rollupLabel}
+                          </span>
+                          <ChevronRight className="enabledChevron" size={15} strokeWidth={2} aria-hidden="true" />
+                        </span>
+                      </PrimitiveAccordionTrigger>
+                    </PrimitiveAccordionHeader>
+                    <PrimitiveAccordionPanel className="enabledProviderPanel">
+                      <ul role="list">
+                        {group.connections.map((connection) => (
+                          <li key={connection.slug}>
+                            <Item
+                              className="enabledConnRow py-2 pr-[32px] pl-[49px] rounded-none"
+                              data-default={connection.slug === defaultSlug ? 'true' : undefined}
+                              data-test-status={connection.lastTestStatus ?? 'untested'}
+                              data-disabled={connection.enabled ? undefined : 'true'}
+                              aria-label={chipAriaLabel(connection)}
+                              title={chipTitle(connection)}
+                              render={
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedSlug(connection.slug);
+                                    setAddingType(null);
+                                  }}
+                                />
+                              }
+                            >
+                              <ItemContent>
+                                <ItemTitle className="enabledConnTitle">
+                                  {connection.name}
+                                  {connection.slug === defaultSlug && (
+                                    <span className="enabledDefaultTag">默认</span>
+                                  )}
+                                </ItemTitle>
+                              </ItemContent>
+                              <ItemActions>
+                                <span className={`enabledConnStatus is-${connection.lastTestStatus ?? 'untested'}`}>
+                                  <span className="enabledStatusDot" aria-hidden="true" />
+                                  {chipStatusText(connection)}
+                                </span>
+                              </ItemActions>
+                            </Item>
+                          </li>
+                        ))}
+                      </ul>
+                    </PrimitiveAccordionPanel>
+                  </PrimitiveAccordionItem>
+                );
+              })}
+            </PrimitiveAccordion>
+          )}
         </div>
 
         <div className="providerMarketHeader">
@@ -250,7 +329,7 @@ export function ProvidersPanel({ bridge }: { bridge: ConnectionsBridge }) {
             <h3>模型供应商</h3>
             <p>选择 API Key 服务、本地模型、OAuth 账号登录，或自定义 OpenAI 兼容接口。</p>
           </div>
-          <Button className="maka-button" type="button" onClick={() => startAdd('openai-compatible')}>
+          <Button type="button" onClick={() => startAdd('openai-compatible')}>
             自定义
           </Button>
         </div>
@@ -439,45 +518,54 @@ function ProviderCatalogCard(props: { type: ProviderType; count: number; onSelec
 
   if (disabled) {
     return (
-      <div
-        className="providerCatalogCard"
+      <Item
+        className="providerCatalogRow rounded-none"
         data-provider={props.type}
         data-status={disabledStatus}
+        data-disabled="true"
         aria-label={providerDisabledAriaLabel(props.type, display.name)}
         title={title}
       >
-        <ProviderLogo type={props.type} />
-        <span className="providerCatalogCopy">
-          <span className="providerCatalogTitle">
-            <strong>{display.name}</strong>
+        <ItemMedia>
+          <ProviderLogo type={props.type} />
+        </ItemMedia>
+        <ItemContent>
+          <ItemTitle className="providerCatalogTitle">{display.name}</ItemTitle>
+          <ItemDescription className="providerCatalogDesc">{display.description}</ItemDescription>
+        </ItemContent>
+        <ItemActions>
+          <span className="providerCatalogBadge is-state" aria-hidden="true">
+            {disabledStatus === 'experimental' ? '实验' : '未开放'}
           </span>
-          <small>{display.description}</small>
-        </span>
-      </div>
+        </ItemActions>
+      </Item>
     );
   }
 
   return (
-    <Button
-      className="providerCatalogCard"
-      variant="ghost"
+    <Item
+      className="providerCatalogRow rounded-none"
       data-provider={props.type}
       data-status="ready"
-      type="button"
       aria-label={providerCatalogAriaLabel(display, props.count)}
       title={title}
-      onClick={props.onSelect}
+      render={<button type="button" onClick={props.onSelect} />}
     >
-      <ProviderLogo type={props.type} />
-      <span className="providerCatalogCopy">
-        <span className="providerCatalogTitle">
-          <strong>{display.name}</strong>
-          {display.badge && <em>{display.badge}</em>}
-        </span>
-        <small>{display.description}</small>
-        {props.count > 0 && <span className="providerCatalogCount">已配置 {props.count} 个</span>}
-      </span>
-    </Button>
+      <ItemMedia>
+        <ProviderLogo type={props.type} />
+      </ItemMedia>
+      <ItemContent>
+        <ItemTitle className="providerCatalogTitle">{display.name}</ItemTitle>
+        <ItemDescription className="providerCatalogDesc">
+          {display.description}
+          {props.count > 0 && <span className="providerCatalogCount">已配置 {props.count} 个</span>}
+        </ItemDescription>
+      </ItemContent>
+      <ItemActions className="providerCatalogActions">
+        {display.badge && <span className="providerCatalogBadge">{display.badge}</span>}
+        <ChevronRight className="providerCatalogChevron" size={15} strokeWidth={2} aria-hidden="true" />
+      </ItemActions>
+    </Item>
   );
 }
 
@@ -487,7 +575,7 @@ function providerDisabledStatus(type: ProviderType): 'unavailable' | 'experiment
 
 function providerDisabledTitle(type: ProviderType): string {
   if (isWiredOAuthProvider(type)) {
-    return '请在 OAuth 分类完成账号登录；登录成功后会自动出现在已启用模型。';
+    return '请在 OAuth 分类完成账号登录；登录成功后会自动出现在模型连接。';
   }
   return '该账号登录暂未接入聊天发送；当前请使用同一家厂商的模型密钥。';
 }
@@ -637,7 +725,7 @@ function ModelOAuthSection(props: { onConnectionsChanged(): Promise<void> }) {
       await props.onConnectionsChanged();
     } catch (error) {
       if (!modelOAuthMountedRef.current) return;
-      toast.error('刷新已启用模型失败', subscriptionActionErrorMessage(error));
+      toast.error('刷新模型连接失败', subscriptionActionErrorMessage(error));
     }
   }
 
@@ -671,28 +759,29 @@ function ModelOAuthSection(props: { onConnectionsChanged(): Promise<void> }) {
             ? snapshot.email
             : card.description;
           return (
-            <Button
+            <Item
               key={card.id}
-              type="button"
-              variant="ghost"
-              className="providerCatalogCard providerOAuthCard"
+              className="providerCatalogRow providerOAuthCard rounded-none"
               data-card-id={card.id}
               data-provider={card.providerType}
               data-status="ready"
               data-oauth-status={card.status}
               data-logged-in={isLoggedIn ? 'true' : undefined}
               aria-label={providerOAuthAriaLabel(card, liveBadge, liveDescription)}
-              onClick={() => setOpenModal(card.id)}
+              render={<button type="button" onClick={() => setOpenModal(card.id)} />}
             >
-              <ProviderLogo type={card.providerType} />
-              <span className="providerCatalogCopy providerOAuthCardCopy">
-                <span className="providerCatalogTitle">
-                  <strong>{card.name}</strong>
-                  <em className="providerOAuthCardBadge">{liveBadge}</em>
-                </span>
-                <small className="providerOAuthCardDescription">{liveDescription}</small>
-              </span>
-            </Button>
+              <ItemMedia>
+                <ProviderLogo type={card.providerType} />
+              </ItemMedia>
+              <ItemContent>
+                <ItemTitle className="providerCatalogTitle">{card.name}</ItemTitle>
+                <ItemDescription className="providerCatalogDesc providerOAuthCardDescription">{liveDescription}</ItemDescription>
+              </ItemContent>
+              <ItemActions className="providerCatalogActions">
+                <span className="providerCatalogBadge providerOAuthCardBadge">{liveBadge}</span>
+                <ChevronRight className="providerCatalogChevron" size={15} strokeWidth={2} aria-hidden="true" />
+              </ItemActions>
+            </Item>
           );
         })}
       </div>
@@ -752,11 +841,10 @@ function ClaudeSubscriptionModal(props: { onClose(): void }) {
         <header className="providerConfigHeader">
           <div>
             <h3>Claude Code</h3>
-            <p>登录 Claude Pro / Max 后，会同步成已启用模型连接。</p>
+            <p>登录 Claude Pro / Max 后，会同步成模型连接。</p>
           </div>
           <Button
             type="button"
-            className="maka-button"
             variant="ghost"
             onClick={props.onClose}
             aria-label="关闭"
@@ -937,7 +1025,6 @@ function SubscriptionLoginModal(props: { serviceId: BrowserOAuthServiceId; onClo
           </div>
           <Button
             type="button"
-            className="maka-button"
             variant="ghost"
             onClick={props.onClose}
             aria-label="关闭"
@@ -959,7 +1046,6 @@ function SubscriptionLoginModal(props: { serviceId: BrowserOAuthServiceId; onClo
             {!isLoggedIn ? (
               <Button
                 type="button"
-                className="maka-button"
                 onClick={() => void startLogin()}
                 disabled={actionBusy}
               >
@@ -968,7 +1054,6 @@ function SubscriptionLoginModal(props: { serviceId: BrowserOAuthServiceId; onClo
             ) : (
               <Button
                 type="button"
-                className="maka-button"
                 variant="ghost"
                 onClick={() => void logout()}
                 disabled={actionBusy}
@@ -1117,75 +1202,10 @@ function presentSnapshotDetail(state: SubscriptionSnapshot | null, display: Subs
   return _exhaustive;
 }
 
+// Renders the official brand mark (vendored in `provider-brand-marks.tsx`).
+// Kept as a thin wrapper so the many `ProviderLogo` call sites stay put.
 function ProviderLogoMark({ type }: { type: ProviderType }) {
-  switch (type) {
-    case 'anthropic':
-    case 'claude-subscription':
-      return (
-        <svg viewBox="0 0 36 36" role="img">
-          <path d="M18 6 29.5 30h-5.1l-2.3-5.4h-8.2L11.6 30H6.5L18 6Zm-2.5 14.7h5L18 14.9l-2.5 5.8Z" />
-        </svg>
-      );
-    case 'openai':
-    case 'codex-subscription':
-    case 'openai-compatible':
-      return (
-        <svg viewBox="0 0 36 36" role="img">
-          <g fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
-            <path d="M18 7.5c4.5 0 7.7 3.4 7.7 7.1 3.2 1.9 4.2 6.2 2.1 9.5-2.1 3.4-6.2 4.6-9.2 3.1-3.1 1.8-7.4.9-9.6-2.4-2.2-3.2-1.6-7.6 1.4-9.6.2-4.1 3.4-7.7 7.6-7.7Z" />
-            <path d="M12 15.4 18 12l6 3.4v6.9L18 25.7l-6-3.4v-6.9Z" />
-          </g>
-        </svg>
-      );
-    case 'google':
-    case 'gemini-cli':
-      return (
-        <svg viewBox="0 0 36 36" role="img">
-          <path fill="#4285F4" d="M29.5 18.3c0-.8-.1-1.6-.2-2.3H18v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.8Z" />
-          <path fill="#34A853" d="M18 30c3.3 0 6.1-1.1 8.1-3l-3.9-3c-1.1.7-2.4 1.1-4.2 1.1-3.1 0-5.8-2.1-6.8-5H7.2v3.1C9.2 27.2 13.3 30 18 30Z" />
-          <path fill="#FBBC05" d="M11.2 20.1c-.3-.7-.4-1.5-.4-2.3s.1-1.6.4-2.3v-3.1H7.2a12 12 0 0 0 0 10.8l4-3.1Z" />
-          <path fill="#EA4335" d="M18 10.8c1.8 0 3.4.6 4.7 1.8l3.5-3.5C24 7.1 21.3 6 18 6c-4.7 0-8.8 2.8-10.8 6.4l4 3.1c1-2.9 3.7-4.7 6.8-4.7Z" />
-        </svg>
-      );
-    case 'deepseek':
-      return (
-        <svg viewBox="0 0 36 36" role="img">
-          <path d="M7 19.5c4.6-7.7 14.4-8.4 21-3.1-1.2 7.4-8.7 12.9-16.7 9.1 2.8-.2 5.5-1.6 7-4.1-3.9 2.2-7.9 1.9-11.3-1.9Z" />
-          <circle cx="24" cy="14" r="2.3" fill="#fff" opacity=".9" />
-        </svg>
-      );
-    case 'moonshot':
-      return (
-        <svg viewBox="0 0 36 36" role="img">
-          <path d="M22.8 6.9a11.7 11.7 0 1 0 0 22.2 10 10 0 1 1 0-22.2Z" />
-          <circle cx="23.5" cy="13" r="2" />
-          <circle cx="26.5" cy="22" r="1.4" />
-        </svg>
-      );
-    case 'kimi-coding-plan':
-      return (
-        <svg viewBox="0 0 36 36" role="img">
-          <path d="M9 8h5.3v9.1L22.6 8h6.6L20 17.6 30 28h-6.9l-8.8-9.5V28H9V8Z" />
-          <path d="M27 8.4c-2.4 3.1-2.2 6.5.4 9.7-4.3-.6-7.1-3.7-7.1-7.3 0-1 .2-1.9.6-2.8 1.8-.5 3.9-.5 6.1.4Z" opacity=".35" />
-        </svg>
-      );
-    case 'zai-coding-plan':
-      return (
-        <svg viewBox="0 0 44 36" role="img">
-          <path d="M8 9h18v4.4L14.8 24H26v4H7.5v-4.5L18.7 13H8V9Z" />
-          <circle cx="31" cy="26" r="2" />
-          <path d="M35 12h3.7v16H35V12Zm-.2-4.8c0-1.2.9-2.2 2.1-2.2 1.3 0 2.2 1 2.2 2.2s-.9 2.1-2.2 2.1c-1.2 0-2.1-.9-2.1-2.1Z" />
-        </svg>
-      );
-    case 'ollama':
-      return (
-        <svg viewBox="0 0 36 36" role="img">
-          <path d="M13 9.5 10.8 6 9.4 12.2A10.6 10.6 0 0 0 7 19c0 6 4.9 10 11 10s11-4 11-10c0-2.6-.9-4.9-2.4-6.8L25.2 6 23 9.5A12 12 0 0 0 18 8.4c-1.8 0-3.5.4-5 1.1Z" />
-          <circle cx="14.2" cy="18" r="1.5" fill="#fff" opacity=".9" />
-          <circle cx="21.8" cy="18" r="1.5" fill="#fff" opacity=".9" />
-        </svg>
-      );
-  }
+  return <ProviderBrandMark type={type} />;
 }
 
 function AddProviderForm(props: {
@@ -1289,8 +1309,8 @@ function AddProviderForm(props: {
       </label>
       {error && <p className="providerError">{error}</p>}
       <div className="providerActions">
-        <Button className="maka-button" variant="ghost" type="button" disabled={busy} onClick={props.onCancel}>取消</Button>
-        <Button className="maka-button" type="button" disabled={busy || isExperimental} onClick={submit}>
+        <Button variant="ghost" type="button" disabled={busy} onClick={props.onCancel}>取消</Button>
+        <Button type="button" disabled={busy || isExperimental} onClick={submit}>
           {busy ? '保存中…' : '保存供应商'}
         </Button>
       </div>
@@ -1577,7 +1597,7 @@ function ConnectionDetail(props: {
     setDeleting(true);
     const ok = await toast.confirm({
       title: `删除供应商 ${connection.name}？`,
-      description: '将从已启用模型连接中移除这个供应商配置；如需再次使用，需要重新添加凭据。',
+      description: '将从模型连接中移除这个供应商配置；如需再次使用，需要重新添加凭据。',
       confirmLabel: '删除',
       cancelLabel: '取消',
       destructive: true,
@@ -1618,12 +1638,13 @@ function ConnectionDetail(props: {
           <span className="settingsBadge">{categoryLabel(defaults.category)}</span>
         </span>
       </header>
-      <label>
-        <span>连接标识</span>
+      <FieldRoot className="grid gap-1.5">
+        <Label className="text-xs text-foreground-60">连接标识</Label>
         <Input value={connection.slug} disabled aria-label="模型连接标识" />
-      </label>
-      <label>
-        <span>服务地址 {hasFixedOAuthBaseUrl ? '（OAuth 固定）' : ''}</span>
+      </FieldRoot>
+      <FieldRoot className="grid gap-1.5">
+        <Label className="text-xs text-foreground-60">服务地址</Label>
+        {hasFixedOAuthBaseUrl && <FieldDescription>OAuth 固定</FieldDescription>}
         <Input
           value={hasFixedOAuthBaseUrl ? defaults.baseUrl : baseUrl}
           onChange={(event) => setBaseUrl(event.currentTarget.value)}
@@ -1633,14 +1654,13 @@ function ConnectionDetail(props: {
           aria-readonly={hasFixedOAuthBaseUrl ? 'true' : undefined}
           aria-label={hasFixedOAuthBaseUrl ? '模型连接服务地址，OAuth 固定' : '模型连接服务地址'}
         />
-      </label>
+      </FieldRoot>
       {needsApiKey && (
-        <label>
-          <span>
-            模型密钥 {hasSecret === true ? '（已设置，粘贴新值可替换）' : ''}
-            {hasSecret === 'loading' ? '（正在读取状态）' : ''}
-            {hasSecret === 'error' ? '（凭据状态未知）' : ''}
-          </span>
+        <FieldRoot className="grid gap-1.5">
+          <Label className="text-xs text-foreground-60">模型密钥</Label>
+          {hasSecret === true && <FieldDescription>已设置，粘贴新值可替换</FieldDescription>}
+          {hasSecret === 'loading' && <FieldDescription>正在读取状态</FieldDescription>}
+          {hasSecret === 'error' && <FieldDescription>凭据状态未知</FieldDescription>}
           <PasswordInput
             value={apiKey}
             onChange={setApiKey}
@@ -1648,7 +1668,7 @@ function ConnectionDetail(props: {
             ariaLabel={`${display.name} 模型密钥`}
             disabled={detailActionBusy}
           />
-        </label>
+        </FieldRoot>
       )}
       {needsOAuth && (
         <div className="providerUnavailableNotice" data-auth-kind="oauth">
@@ -1668,7 +1688,7 @@ function ConnectionDetail(props: {
                 ? '正在读取本机 OAuth 登录状态，读取完成前不会把未知状态显示成未登录。'
                 : hasSecret === 'error'
                   ? '暂时无法读取本机 OAuth 登录状态；请刷新页面或重新打开设置。'
-                  : '请到上方 OAuth 分类完成登录；登录成功后会自动出现在已启用模型里。'}
+                  : '请到上方 OAuth 分类完成登录；登录成功后会自动出现在模型连接里。'}
           </span>
         </div>
       )}
@@ -1697,18 +1717,18 @@ function ConnectionDetail(props: {
         </a>
       )}
       <div className="providerActions">
-        <Button className="maka-button" type="button" disabled={detailActionBusy || !hasSaveChanges} onClick={save}>
+        <Button type="button" disabled={detailActionBusy || !hasSaveChanges} onClick={save}>
           {busy ? '保存中…' : '保存修改'}
         </Button>
-        <Button className="maka-button" variant="secondary" type="button" disabled={detailActionBusy || !hasUsableCredential} onClick={runTest}>
+        <Button variant="secondary" type="button" disabled={detailActionBusy || !hasUsableCredential} onClick={runTest}>
           {testing ? '测试中…' : '测试连接'}
         </Button>
         {!props.isDefault && connection.enabled && (
-          <Button className="maka-button" variant="secondary" type="button" disabled={detailActionBusy} onClick={setAsDefault}>
+          <Button variant="secondary" type="button" disabled={detailActionBusy} onClick={setAsDefault}>
             {settingDefault ? '设置中…' : '设为默认'}
           </Button>
         )}
-        <Button className="maka-button" variant="destructive" type="button" disabled={detailActionBusy} onClick={remove}>
+        <Button variant="destructive" type="button" disabled={detailActionBusy} onClick={remove}>
           {deleting ? '删除中…' : '删除'}
         </Button>
       </div>
@@ -1857,7 +1877,6 @@ function ModelTable(props: {
           </small>
         </div>
         <Button
-          className="maka-button"
           type="button"
           disabled={!props.canRefresh}
           onClick={props.onRefresh}
@@ -1968,22 +1987,26 @@ function formatContextWindow(tokens: number): string {
 
 export function providerDisplay(type: ProviderType): { name: string; description: string; badge?: string } {
   switch (type) {
+    // Descriptions stay version-agnostic on purpose: they name the
+    // PROVIDER and how you connect (official key / protocol-compatible /
+    // local), never a specific model generation — model names go stale
+    // (GPT-4o, DeepSeek-V3, …) but the provider and access path do not.
     case 'anthropic':
-      return { name: 'Anthropic', description: 'Claude 模型密钥，适合生产级代理工作流。', badge: 'API' };
+      return { name: 'Anthropic', description: 'Anthropic 官方接入', badge: 'API' };
     case 'kimi-coding-plan':
-      return { name: 'Kimi Coding Plan', description: 'Kimi for Coding，兼容 Anthropic 协议。', badge: 'Coding' };
+      return { name: 'Kimi Coding Plan', description: '月之暗面 · Anthropic 兼容', badge: 'Coding' };
     case 'openai':
-      return { name: 'OpenAI', description: 'GPT / Responses 模型，使用模型密钥接入。', badge: 'API' };
+      return { name: 'OpenAI', description: 'OpenAI 官方接入', badge: 'API' };
     case 'google':
-      return { name: 'Google Gemini', description: 'Google AI Studio 模型密钥接入。', badge: 'API' };
+      return { name: 'Google Gemini', description: 'Google AI Studio 接入', badge: 'API' };
     case 'deepseek':
-      return { name: 'DeepSeek', description: 'DeepSeek Chat / Reasoner 系列模型。', badge: 'API' };
+      return { name: 'DeepSeek', description: 'DeepSeek 官方接入', badge: 'API' };
     case 'moonshot':
-      return { name: 'Moonshot', description: 'Moonshot Kimi 模型密钥接入。', badge: 'API' };
+      return { name: 'Moonshot', description: 'Moonshot 官方接入', badge: 'API' };
     case 'zai-coding-plan':
-      return { name: 'Z.AI Coding Plan', description: 'GLM Coding Plan，OpenAI 兼容协议。', badge: 'Coding' };
+      return { name: 'Z.AI Coding Plan', description: '智谱 · OpenAI 兼容', badge: 'Coding' };
     case 'ollama':
-      return { name: 'Ollama', description: '连接本机 localhost 的 Ollama 模型。', badge: 'Local' };
+      return { name: 'Ollama', description: '本机运行 · 离线可用', badge: 'Local' };
     case 'openai-compatible':
       return { name: 'OpenAI Compatible', description: '中转站、代理服务或自部署网关。', badge: 'Custom' };
     case 'claude-subscription':
@@ -2104,7 +2127,6 @@ function ClaudeSubscriptionCard() {
         <div className="settingsConnectionActions">
           <Button
             type="button"
-            className="maka-button"
             onClick={() => void refreshExperimentalGate()}
           >
             重试
@@ -2306,7 +2328,6 @@ function ClaudeSubscriptionCard() {
         {canStartClaudeLogin || claudeLoginPending ? (
           <Button
             type="button"
-            className="maka-button"
             onClick={() => void startLogin()}
             disabled={actionBusy || claudeLoginPending}
           >
@@ -2322,7 +2343,6 @@ function ClaudeSubscriptionCard() {
           <>
             <Button
               type="button"
-              className="maka-button"
               onClick={() => void refreshQuota()}
               disabled={actionBusy}
             >
@@ -2330,7 +2350,6 @@ function ClaudeSubscriptionCard() {
             </Button>
             <Button
               type="button"
-              className="maka-button"
               variant="ghost"
               onClick={() => void logout()}
               disabled={actionBusy}
@@ -2363,7 +2382,6 @@ function ClaudeSubscriptionCard() {
           <div className="settingsConnectionActions">
             <Button
               type="button"
-              className="maka-button"
               onClick={() => void submitPaste()}
               disabled={actionBusy || pasteValue.trim().length === 0}
             >
@@ -2371,7 +2389,6 @@ function ClaudeSubscriptionCard() {
             </Button>
             <Button
               type="button"
-              className="maka-button"
               variant="ghost"
               onClick={() => void cancelLogin()}
               disabled={actionBusy}
@@ -2404,7 +2421,7 @@ function presentSubscriptionState(state: SubscriptionAccountState): Subscription
       return {
         label: '已登录',
         tone: 'success',
-        detail: '已绑定 Claude 订阅，并会同步到“已启用模型”。',
+        detail: '已绑定 Claude 订阅，并会同步到“模型连接”。',
       };
     case 'refreshing':
       return { label: '刷新中…', tone: 'info', detail: '正在刷新访问令牌。' };
