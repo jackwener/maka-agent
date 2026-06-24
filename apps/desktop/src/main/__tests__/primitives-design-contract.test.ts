@@ -7,22 +7,14 @@
  * fail when new ones creep in OR when stale allowlist entries point
  * at content that no longer exists.
  *
- * Why these aren't removed in this PR:
+ * Self-review correction: initial draft missed the actual occurrence
+ * counts. drawer.tsx has 3 `z-50` sites and 3 distinct
+ * `transition-[<list>]` patterns; tabs.tsx has 2. The counts here are
+ * derived from `grep -o ... | wc -l` against the current files.
  *
- * - drawer.tsx has 2 sites of `cubic-bezier(0.32,0.72,0,1)` + 2 sites
- *   of `duration-450` + a `transition-[transform,box-shadow,height,
- *   background-color]` block. Animating `height` is layout-trigger
- *   and would normally fail the motion contract — but drawer height
- *   is computed from snap points (peek / half / full), and a
- *   `transform: scaleY` would distort children. Layout-property
- *   transition is intentional. The raw cubic-bezier curve should
- *   eventually move to a `--ease-drawer` token; that's a follow-up.
- *
- * - tabs.tsx has 1 site of `transition-[width,translate] duration-200
- *   ease-in-out` on the active-tab indicator. Animating `width` is
- *   layout-trigger; the cleaner pattern is `transform: scaleX` with
- *   an offset. That refactor is a follow-up — the contract just locks
- *   the perimeter so a fifth or sixth bare site can't slip in.
+ * Why these aren't removed in this PR — same rationale as PR-FE-BUG-
+ * HUNT-12: touching Base UI primitives risks visual breakage, each
+ * tokenization needs design review.
  */
 
 import { strict as assert } from 'node:assert';
@@ -45,25 +37,37 @@ const DRAWER_ALLOWED: ReadonlyArray<{ pattern: string; count: number; reason: st
     pattern: 'duration-450',
     count: 2,
     reason:
-      'drawer settle duration. Sits between --duration-emphasized and --duration-large; doesn\'t match any current token. Should eventually be tokenized.',
+      "drawer settle duration. Sits between --duration-emphasized and --duration-large; doesn't match any current token. Should eventually be tokenized.",
   },
   {
     pattern: 'transition-[transform,box-shadow,height,background-color]',
     count: 1,
     reason:
-      'drawer popup needs to animate height because snap points (peek / half / full) drive variable height; transform: scaleY would distort children. Layout-property transition is intentional here.',
+      'drawer popup base. Animates height because snap points (peek / half / full) drive variable height; transform: scaleY would distort children. Layout-property transition is intentional.',
+  },
+  {
+    pattern: 'transition-[transform,box-shadow,height,background-color,margin,padding]',
+    count: 1,
+    reason:
+      'drawer popup bottom-edge rule extends the base with `margin` + `padding` so the safe-area inset can settle smoothly. EVEN MORE layout-trigger than the base transition (height + margin + padding all trigger reflow). Tracked as a known higher-cost exception; refactor is a separate effort.',
+  },
+  {
+    pattern: 'transition-[background-color,box-shadow]',
+    count: 1,
+    reason:
+      'drawer-internal switch handle. Paint-only transition (no layout properties). Safe; allowlisted for completeness so the sweep test passes.',
   },
   {
     pattern: 'backdrop-blur-sm',
     count: 1,
     reason:
-      'drawer backdrop scrim. Same blur token kenji audit #6 wants to settle for the whole app; pending decision.',
+      'drawer backdrop scrim. Same blur kenji audit #6 wants to settle for the whole app; pending decision.',
   },
   {
     pattern: 'z-50',
-    count: 1,
+    count: 3,
     reason:
-      'drawer backdrop overlay layer. Same z-50 convention used in dialog/sheet/tooltip/select/popover; pending tokenization.',
+      'drawer has 3 sibling overlay layers stacked at z-50: gesture-target wrapper (~line 81), backdrop scrim (~line 101), dismissable cushion overlay (~line 122). Same convention used in dialog/sheet/tooltip/select/popover; pending tokenization.',
   },
 ];
 
@@ -72,7 +76,13 @@ const TABS_ALLOWED: ReadonlyArray<{ pattern: string; count: number; reason: stri
     pattern: 'transition-[width,translate]',
     count: 1,
     reason:
-      'active-tab indicator animates width because tabs have variable label widths. Cleaner refactor is `translate + scaleX` with a measured base width, but that needs measurement infrastructure that isn\'t in place. Layout-property transition is acknowledged.',
+      "tabs active-indicator animates width because tabs have variable label widths. Cleaner refactor is `translate + scaleX` with a measured base width, but that needs measurement infrastructure that isn't in place. Layout-property transition is acknowledged.",
+  },
+  {
+    pattern: 'transition-[color,background-color,box-shadow]',
+    count: 1,
+    reason:
+      'tabs trigger paint transition. No layout properties. Safe; allowlisted for completeness.',
   },
   {
     pattern: 'duration-200',
@@ -84,7 +94,7 @@ const TABS_ALLOWED: ReadonlyArray<{ pattern: string; count: number; reason: stri
     pattern: 'ease-in-out',
     count: 1,
     reason:
-      'tabs indicator easing. Generic Tailwind easing, not the project\'s canonical --ease-out-strong. Mismatch is small for this micro-motion but flagged for future review.',
+      "tabs indicator easing. Generic Tailwind easing, not the project's canonical --ease-out-strong. Mismatch is small for this micro-motion but flagged for future review.",
   },
 ];
 
@@ -117,31 +127,31 @@ describe('PR-FE-BUG-HUNT-13 drawer.tsx + tabs.tsx design contract', () => {
     }
   });
 
-  it('no unexpected `transition-[<layout-prop>...]` patterns crept into drawer.tsx beyond the allowlisted one', async () => {
+  it('no unexpected `transition-[<bracketed-list>]` patterns crept into drawer.tsx', async () => {
     const src = await readFile(DRAWER_FILE, 'utf8');
-    // Find every `transition-[...]` bracketed token-list and verify
-    // the only one is the allowlisted full string.
-    const matches = src.match(/transition-\[[^\]]+\]/g) ?? [];
-    const allowedFull = DRAWER_ALLOWED.find((e) => e.pattern.startsWith('transition-['))!.pattern;
-    for (const match of matches) {
-      assert.equal(
-        match,
-        allowedFull,
-        `Found unexpected \`${match}\` in drawer.tsx. The only allowlisted transition is \`${allowedFull}\`. Add the new one to DRAWER_ALLOWED with a justification or refactor it out.`,
-      );
-    }
+    const found = new Set(src.match(/transition-\[[^\]]+\]/g) ?? []);
+    const allowed = new Set(
+      DRAWER_ALLOWED.filter((e) => e.pattern.startsWith('transition-[')).map((e) => e.pattern),
+    );
+    const unexpected = [...found].filter((m) => !allowed.has(m));
+    assert.deepEqual(
+      unexpected,
+      [],
+      `Found unexpected transition-[<bracketed>] patterns in drawer.tsx: ${JSON.stringify(unexpected)}. Add to DRAWER_ALLOWED with a justification, or refactor.`,
+    );
   });
 
-  it('no unexpected `transition-[<layout-prop>...]` patterns crept into tabs.tsx beyond the allowlisted one', async () => {
+  it('no unexpected `transition-[<bracketed-list>]` patterns crept into tabs.tsx', async () => {
     const src = await readFile(TABS_FILE, 'utf8');
-    const matches = src.match(/transition-\[[^\]]+\]/g) ?? [];
-    const allowedFull = TABS_ALLOWED.find((e) => e.pattern.startsWith('transition-['))!.pattern;
-    for (const match of matches) {
-      assert.equal(
-        match,
-        allowedFull,
-        `Found unexpected \`${match}\` in tabs.tsx. The only allowlisted transition is \`${allowedFull}\`. Add the new one to TABS_ALLOWED with a justification or refactor it out.`,
-      );
-    }
+    const found = new Set(src.match(/transition-\[[^\]]+\]/g) ?? []);
+    const allowed = new Set(
+      TABS_ALLOWED.filter((e) => e.pattern.startsWith('transition-[')).map((e) => e.pattern),
+    );
+    const unexpected = [...found].filter((m) => !allowed.has(m));
+    assert.deepEqual(
+      unexpected,
+      [],
+      `Found unexpected transition-[<bracketed>] patterns in tabs.tsx: ${JSON.stringify(unexpected)}. Add to TABS_ALLOWED with a justification, or refactor.`,
+    );
   });
 });
