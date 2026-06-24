@@ -9,10 +9,12 @@
 //   node packages/headless/harbor/run-prompt-ab.mjs
 
 import { createHash } from 'node:crypto';
+import { execFile as execFileCallback } from 'node:child_process';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 import { BENCHMARK_BASE_SYSTEM_PROMPT } from '@maka/headless';
 import {
   discoverCachedHarborTasks,
@@ -38,6 +40,8 @@ const DEEPSEEK_V4_FLASH_PRICING = {
   cacheWriteUsdPer1M: 0,
   source: 'deepseek-v4-flash',
 };
+
+const execFile = promisify(execFileCallback);
 
 function envPath(name, fallback) {
   const raw = process.env[name];
@@ -72,6 +76,76 @@ function hashSystemPrompt(systemPrompt) {
   return `sha256:${createHash('sha256').update(systemPrompt).digest('hex')}`;
 }
 
+function hashPayload(payload) {
+  return `sha256:${createHash('sha256').update(canonicalJson(payload)).digest('hex')}`;
+}
+
+function canonicalJson(value) {
+  if (Array.isArray(value)) return `[${value.map((item) => canonicalJson(item)).join(',')}]`;
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value)
+      .filter(([, entryValue]) => entryValue !== undefined)
+      .sort(([a], [b]) => a.localeCompare(b));
+    return `{${entries.map(([key, entryValue]) => `${JSON.stringify(key)}:${canonicalJson(entryValue)}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+async function gitOutput(repoPath, args) {
+  const { stdout } = await execFile('git', ['-C', repoPath, ...args], {
+    encoding: 'utf8',
+    maxBuffer: 1024 * 1024,
+  });
+  return stdout.trimEnd();
+}
+
+async function buildSubjectFingerprint(repoPath, explicitSubjectId) {
+  if (explicitSubjectId && explicitSubjectId.trim().length > 0) {
+    return hashPayload({
+      kind: 'prompt-ab-subject',
+      explicitSubjectId: explicitSubjectId.trim(),
+    });
+  }
+  let gitRoot;
+  let head;
+  let status;
+  try {
+    [gitRoot, head, status] = await Promise.all([
+      gitOutput(repoPath, ['rev-parse', '--show-toplevel']),
+      gitOutput(repoPath, ['rev-parse', 'HEAD']),
+      gitOutput(repoPath, ['status', '--porcelain=v1', '--untracked-files=normal']),
+    ]);
+  } catch (error) {
+    throw new Error(`MAKA_PROMPT_AB_MAKA_REPO must be a git checkout or MAKA_PROMPT_AB_SUBJECT_ID must be set: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  return hashPayload({
+    kind: 'prompt-ab-subject',
+    path: resolve(repoPath),
+    gitRoot: resolve(gitRoot),
+    head,
+    dirty: status.length > 0,
+    statusHash: hashPayload({ status }),
+  });
+}
+
+async function buildTaskSourceFingerprint(tasksRoot, tasks) {
+  const taskEntries = [];
+  for (const task of tasks) {
+    const taskTomlPath = join(task.path, 'task.toml');
+    const taskToml = await readFile(taskTomlPath, 'utf8');
+    taskEntries.push({
+      id: task.id,
+      path: resolve(task.path),
+      taskTomlHash: hashSystemPrompt(taskToml),
+    });
+  }
+  return hashPayload({
+    kind: 'prompt-ab-task-source',
+    tasksRoot: resolve(tasksRoot),
+    tasks: taskEntries,
+  });
+}
+
 async function main() {
   const repoRoot = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
   const makaRepoPath = process.env.MAKA_PROMPT_AB_MAKA_REPO
@@ -81,6 +155,7 @@ async function main() {
   const keyFile = envPath('MAKA_PROMPT_AB_KEY_FILE', join(homedir(), '.local/maka-eval/secrets/deepseek-key'));
   const tasksRoot = envPath('MAKA_PROMPT_AB_TASKS_ROOT', join(homedir(), '.cache/harbor/tasks'));
   const candidatePromptSourcePath = envPath('MAKA_PROMPT_AB_CANDIDATE_PROMPT_PATH');
+  const subjectId = process.env.MAKA_PROMPT_AB_SUBJECT_ID;
   const runId = process.env.MAKA_PROMPT_AB_RUN_ID || `prompt-ab-${Date.now()}`;
   const candidatePromptId = process.env.MAKA_PROMPT_AB_CANDIDATE_ID || promptIdFromPath(candidatePromptSourcePath);
   const runRoot = resolveFixedPromptRunRoot(outDir, runId, 'MAKA_PROMPT_AB_RUN_ID');
@@ -154,6 +229,8 @@ async function main() {
     model,
     taskBudgetSec,
     harborTimeoutMs,
+    subjectFingerprint: await buildSubjectFingerprint(makaRepoPath, subjectId),
+    taskSourceFingerprint: await buildTaskSourceFingerprint(tasksRoot, evaluationTasks),
     evaluationTaskIds: evaluationTasks.map((task) => task.id),
     reps,
     candidateLimit: candidateTaskLimit?.limit ?? null,
@@ -269,6 +346,8 @@ function renderPromptAbRunManifestMarkdown(manifest) {
     '# Prompt A/B Run Manifest',
     '',
     `- Fingerprint: ${manifest.fingerprint}`,
+    `- Subject fingerprint: ${manifest.subjectFingerprint}`,
+    `- Task source fingerprint: ${manifest.taskSourceFingerprint}`,
     `- Selection mode: ${manifest.selectionMode}`,
     `- Max concurrency: ${manifest.maxConcurrency}`,
     `- Reps: ${manifest.reps}`,

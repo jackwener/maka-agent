@@ -79,6 +79,8 @@ describe('prompt A/B run manifest', () => {
         model: 'deepseek/deepseek-v4-flash',
         taskBudgetSec: 30 * 60,
         harborTimeoutMs: 35 * 60 * 1000,
+        subjectFingerprint: 'subject:path=/repo;maka-head=abc123;dirty=false',
+        taskSourceFingerprint: 'tasks:path=/cache/tasks;selected=task-a:/cache/tasks/a,task-b:/cache/tasks/b',
         evaluationTaskIds: ['task-a', 'task-b'],
         reps: 3,
         candidateLimit: null,
@@ -91,6 +93,20 @@ describe('prompt A/B run manifest', () => {
         ensurePromptAbRunManifest(manifestPath, buildPromptAbRunManifest({
           ...original,
           taskBudgetSec: 60 * 60,
+        })),
+        /prompt A\/B run manifest does not match existing run id/,
+      );
+      await assert.rejects(
+        ensurePromptAbRunManifest(manifestPath, buildPromptAbRunManifest({
+          ...original,
+          subjectFingerprint: 'subject:path=/repo;maka-head=def456;dirty=false',
+        })),
+        /prompt A\/B run manifest does not match existing run id/,
+      );
+      await assert.rejects(
+        ensurePromptAbRunManifest(manifestPath, buildPromptAbRunManifest({
+          ...original,
+          taskSourceFingerprint: 'tasks:path=/other-cache/tasks;selected=task-a:/other-cache/tasks/a,task-b:/other-cache/tasks/b',
         })),
         /prompt A\/B run manifest does not match existing run id/,
       );
