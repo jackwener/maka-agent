@@ -110,11 +110,48 @@ async function gitOutput(repoPath, args) {
   return stdout.trimEnd();
 }
 
-export async function buildSubjectFingerprint(repoPath, explicitSubjectId, readGitOutput = gitOutput) {
-  if (explicitSubjectId && explicitSubjectId.trim().length > 0) {
+function isSha256Fingerprint(value) {
+  return /^sha256:[a-f0-9]{64}$/.test(value);
+}
+
+async function toolOutput(command, args) {
+  const { stdout, stderr } = await execFile(command, args, {
+    encoding: 'utf8',
+    maxBuffer: 1024 * 1024,
+  });
+  return `${stdout}${stderr}`.trim();
+}
+
+export async function buildToolchainFingerprint(explicitToolchainFingerprint, readToolOutput = toolOutput) {
+  if (explicitToolchainFingerprint && explicitToolchainFingerprint.trim().length > 0) {
+    const value = explicitToolchainFingerprint.trim();
+    if (!isSha256Fingerprint(value)) {
+      throw new Error('MAKA_PROMPT_AB_TOOLCHAIN_FINGERPRINT must be a sha256:<64 lowercase hex> content fingerprint');
+    }
+    return value;
+  }
+  let harborVersion;
+  try {
+    harborVersion = await readToolOutput('harbor', ['--version']);
+  } catch (error) {
+    harborVersion = `unavailable:${error instanceof Error ? error.message : String(error)}`;
+  }
+  return hashPayload({
+    kind: 'prompt-ab-toolchain',
+    node: process.version,
+    harborVersion,
+  });
+}
+
+export async function buildSubjectFingerprint(repoPath, explicitSubjectFingerprint, readGitOutput = gitOutput) {
+  if (explicitSubjectFingerprint && explicitSubjectFingerprint.trim().length > 0) {
+    const value = explicitSubjectFingerprint.trim();
+    if (!isSha256Fingerprint(value)) {
+      throw new Error('MAKA_PROMPT_AB_EXPLICIT_SUBJECT_FINGERPRINT must be a sha256:<64 lowercase hex> content fingerprint');
+    }
     return hashPayload({
       kind: 'prompt-ab-subject',
-      explicitSubjectId: explicitSubjectId.trim(),
+      explicitSubjectFingerprint: value,
     });
   }
   let gitRoot;
@@ -127,10 +164,10 @@ export async function buildSubjectFingerprint(repoPath, explicitSubjectId, readG
       readGitOutput(repoPath, ['status', '--porcelain=v1', '--untracked-files=normal']),
     ]);
   } catch (error) {
-    throw new Error(`MAKA_PROMPT_AB_MAKA_REPO must be a git checkout or MAKA_PROMPT_AB_SUBJECT_ID must be set: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(`MAKA_PROMPT_AB_MAKA_REPO must be a git checkout or MAKA_PROMPT_AB_EXPLICIT_SUBJECT_FINGERPRINT must be set: ${error instanceof Error ? error.message : String(error)}`);
   }
   if (status.length > 0) {
-    throw new Error(`MAKA_PROMPT_AB_MAKA_REPO must be clean for resume-safe prompt A/B runs. Commit/stash the changes, or set MAKA_PROMPT_AB_SUBJECT_ID to an explicit content identity. Dirty git status:\n${status}`);
+    throw new Error(`MAKA_PROMPT_AB_MAKA_REPO must be clean for resume-safe prompt A/B runs. Commit/stash the changes, or set MAKA_PROMPT_AB_EXPLICIT_SUBJECT_FINGERPRINT to an explicit content fingerprint. Dirty git status:\n${status}`);
   }
   return hashPayload({
     kind: 'prompt-ab-subject',
@@ -234,7 +271,7 @@ async function main() {
   const keyFile = envPath('MAKA_PROMPT_AB_KEY_FILE', join(homedir(), '.local/maka-eval/secrets/deepseek-key'));
   const tasksRoot = envPath('MAKA_PROMPT_AB_TASKS_ROOT', join(homedir(), '.cache/harbor/tasks'));
   const candidatePromptSourcePath = envPath('MAKA_PROMPT_AB_CANDIDATE_PROMPT_PATH');
-  const subjectId = process.env.MAKA_PROMPT_AB_SUBJECT_ID;
+  const subjectFingerprintOverride = process.env.MAKA_PROMPT_AB_EXPLICIT_SUBJECT_FINGERPRINT;
   const runId = process.env.MAKA_PROMPT_AB_RUN_ID || `prompt-ab-${Date.now()}`;
   const candidatePromptId = process.env.MAKA_PROMPT_AB_CANDIDATE_ID || promptIdFromPath(candidatePromptSourcePath);
   const runRoot = resolveFixedPromptRunRoot(outDir, runId, 'MAKA_PROMPT_AB_RUN_ID');
@@ -300,8 +337,9 @@ async function main() {
     model,
     taskBudgetSec,
     harborTimeoutMs,
-    subjectFingerprint: await buildSubjectFingerprint(makaRepoPath, subjectId),
+    subjectFingerprint: await buildSubjectFingerprint(makaRepoPath, subjectFingerprintOverride),
     taskSourceFingerprint: await buildTaskSourceFingerprint(tasksRoot, evaluationTasks),
+    toolchainFingerprint: await buildToolchainFingerprint(process.env.MAKA_PROMPT_AB_TOOLCHAIN_FINGERPRINT),
     evaluationTaskIds: evaluationTasks.map((task) => task.id),
     reps,
     candidateLimit: candidateTaskLimit?.limit ?? null,
@@ -427,6 +465,7 @@ function renderPromptAbRunManifestMarkdown(manifest) {
     `- Fingerprint: ${manifest.fingerprint}`,
     `- Subject fingerprint: ${manifest.subjectFingerprint}`,
     `- Task source fingerprint: ${manifest.taskSourceFingerprint}`,
+    `- Toolchain fingerprint: ${manifest.toolchainFingerprint}`,
     `- Selection mode: ${manifest.selectionMode}`,
     `- Max concurrency: ${manifest.maxConcurrency}`,
     `- Reps: ${manifest.reps}`,

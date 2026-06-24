@@ -153,6 +153,7 @@ export interface PromptAbRunManifestInput {
   harborTimeoutMs: number;
   subjectFingerprint: string;
   taskSourceFingerprint: string;
+  toolchainFingerprint: string;
   evaluationTaskIds: readonly string[];
   reps: number;
   candidateLimit: number | null;
@@ -228,6 +229,7 @@ export function buildPromptAbRunManifest(input: PromptAbRunManifestInput): Promp
     harborTimeoutMs: input.harborTimeoutMs,
     subjectFingerprint: input.subjectFingerprint,
     taskSourceFingerprint: input.taskSourceFingerprint,
+    toolchainFingerprint: input.toolchainFingerprint,
     evaluationTaskIds: [...input.evaluationTaskIds],
     reps: input.reps,
     candidateLimit: input.candidateLimit,

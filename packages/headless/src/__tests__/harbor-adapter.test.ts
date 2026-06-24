@@ -117,6 +117,7 @@ describe('Harbor adapter contract', () => {
     assert.match(source, /ensurePromptAbRunManifest/);
     assert.match(source, /buildSubjectFingerprint/);
     assert.match(source, /buildTaskSourceFingerprint/);
+    assert.match(source, /buildToolchainFingerprint/);
     assert.match(source, /runPromptAbComparison/);
     assert.match(source, /renderPromptAbComparisonMarkdown/);
     assert.match(source, /discoverCachedHarborTasks/);
@@ -124,6 +125,7 @@ describe('Harbor adapter contract', () => {
     assert.match(source, /resumeFingerprint: runManifest\.fingerprint/);
     assert.match(source, /subjectFingerprint/);
     assert.match(source, /taskSourceFingerprint/);
+    assert.match(source, /toolchainFingerprint/);
     assert.match(source, /prompt-ab-manifest\.json/);
     assert.match(source, /createHarborTaskRunner/);
     assert.match(source, /apiKeyFile: keyFile/);
@@ -132,6 +134,9 @@ describe('Harbor adapter contract', () => {
     assert.match(source, /MAKA_PROMPT_AB_TASK_BUDGET_SEC/);
     assert.match(source, /MAKA_PROMPT_AB_HARBOR_TIMEOUT_MS/);
     assert.match(source, /MAKA_PROMPT_AB_CANDIDATE_ID/);
+    assert.match(source, /MAKA_PROMPT_AB_EXPLICIT_SUBJECT_FINGERPRINT/);
+    assert.match(source, /MAKA_PROMPT_AB_TOOLCHAIN_FINGERPRINT/);
+    assert.doesNotMatch(source, /MAKA_PROMPT_AB_SUBJECT_ID/);
     assert.match(source, /candidatePromptId/);
     assert.doesNotMatch(source, /process\.env\.MAKA_PROMPT_AB_PROVIDER/);
     assert.match(source, /const targetEvaluationTaskCount = envPosInt\('MAKA_PROMPT_AB_EVALUATION_TASKS', undefined\);/);
@@ -217,7 +222,8 @@ describe('Harbor adapter contract', () => {
           MAKA_PROMPT_AB_TASKS_ROOT: tasksRoot,
           MAKA_PROMPT_AB_CANDIDATE_PROMPT_PATH: candidatePromptSourcePath,
           MAKA_PROMPT_AB_RUN_ID: 'run-1',
-          MAKA_PROMPT_AB_SUBJECT_ID: 'subject-snapshot-1',
+          MAKA_PROMPT_AB_EXPLICIT_SUBJECT_FINGERPRINT: sha256('a'),
+          MAKA_PROMPT_AB_TOOLCHAIN_FINGERPRINT: sha256('b'),
           MAKA_PROMPT_AB_EVALUATION_IDS: 'task-a',
         },
       });
@@ -356,6 +362,10 @@ describe('Harbor adapter contract', () => {
 
 async function readRepoFile(path: string): Promise<string> {
   return await readFile(resolve(repoRoot, path), 'utf8');
+}
+
+function sha256(char: string): string {
+  return `sha256:${char.repeat(64)}`;
 }
 
 function pythonAdapterSmokeScript(root: string): string {

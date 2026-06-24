@@ -81,6 +81,7 @@ describe('prompt A/B run manifest', () => {
         harborTimeoutMs: 35 * 60 * 1000,
         subjectFingerprint: 'subject:path=/repo;maka-head=abc123;dirty=false',
         taskSourceFingerprint: 'tasks:path=/cache/tasks;selected=task-a:/cache/tasks/a,task-b:/cache/tasks/b',
+        toolchainFingerprint: sha256('c'),
         evaluationTaskIds: ['task-a', 'task-b'],
         reps: 3,
         candidateLimit: null,
@@ -125,12 +126,19 @@ describe('prompt A/B run manifest', () => {
         })),
         /prompt A\/B run manifest does not match existing run id/,
       );
+      await assert.rejects(
+        ensurePromptAbRunManifest(manifestPath, buildPromptAbRunManifest({
+          ...original,
+          toolchainFingerprint: sha256('d'),
+        })),
+        /prompt A\/B run manifest does not match existing run id/,
+      );
     });
   });
 });
 
 describe('prompt A/B source fingerprints', () => {
-  test('rejects dirty subject repos unless an explicit subject id is provided', async () => {
+  test('rejects dirty subject repos unless an explicit subject fingerprint is provided', async () => {
     const { buildSubjectFingerprint } = await import(promptAbScriptUrl);
     const gitWithStatus = (status: string) => async (_repoPath: string, args: readonly string[]): Promise<string> => {
       const command = args.join(' ');
@@ -150,10 +158,27 @@ describe('prompt A/B source fingerprints', () => {
       buildSubjectFingerprint('/repo', undefined, untrackedDirtyGit),
       /must be clean/,
     );
-
-    await assert.doesNotReject(
+    await assert.rejects(
       buildSubjectFingerprint('/repo', 'dirty-subject-snapshot-1', untrackedDirtyGit),
+      /EXPLICIT_SUBJECT_FINGERPRINT must be a sha256/,
     );
+    await assert.doesNotReject(
+      buildSubjectFingerprint('/repo', sha256('a'), untrackedDirtyGit),
+    );
+  });
+
+  test('builds a toolchain fingerprint from Node and Harbor identity unless explicit', async () => {
+    const { buildToolchainFingerprint } = await import(promptAbScriptUrl);
+
+    const first = await buildToolchainFingerprint(undefined, async () => 'harbor 1.0.0');
+    const second = await buildToolchainFingerprint(undefined, async () => 'harbor 2.0.0');
+    assert.notEqual(first, second);
+
+    await assert.rejects(
+      buildToolchainFingerprint('toolchain-v1', async () => 'harbor 1.0.0'),
+      /TOOLCHAIN_FINGERPRINT must be a sha256/,
+    );
+    assert.equal(await buildToolchainFingerprint(sha256('b'), async () => 'harbor 1.0.0'), sha256('b'));
   });
 
   test('includes runtime dist artifacts in the subject fingerprint', async () => {
@@ -541,6 +566,10 @@ function budgetExhausted(taskId: string): FixedPromptTaskBudgetExhaustedEvent {
 function idFactory(): () => string {
   let next = 0;
   return () => `id-${next++}`;
+}
+
+function sha256(char: string): string {
+  return `sha256:${char.repeat(64)}`;
 }
 
 async function withDir(fn: (dir: string) => Promise<void>): Promise<void> {
