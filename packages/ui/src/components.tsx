@@ -3498,6 +3498,12 @@ function SessionRow(props: {
   const rowMountedRef = useRef(true);
   const pendingActionRef = useRef<SessionRowActionId | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // PR-FE-BUG-HUNT-11: Escape on the rename input has to suppress the
+  // blur-fires-on-unmount commit. Without this ref, the sequence
+  //   type → Escape → setEditing(false) → input unmounts → blur fires
+  //   with the typed value → commitRename(typed) → rename happens
+  // would silently commit the user's typed value despite the cancel.
+  const escapeCancelledRef = useRef(false);
   const actionBusy = pendingAction !== null;
   const actionTabIndex = actionsVisible ? 0 : -1;
 
@@ -3590,13 +3596,23 @@ function SessionRow(props: {
               defaultValue={session.name}
               maxLength={80}
               aria-label="重命名对话"
-              onBlur={(event) => commitRename(event.currentTarget.value)}
+              onBlur={(event) => {
+                // PR-FE-BUG-HUNT-11: skip the commit when the blur was
+                // caused by Escape cancelling edit mode (input unmounts
+                // → blur fires with the typed value otherwise).
+                if (escapeCancelledRef.current) {
+                  escapeCancelledRef.current = false;
+                  return;
+                }
+                commitRename(event.currentTarget.value);
+              }}
               onKeyDown={(event) => {
                 // IME guard so committing CJK characters with Enter doesn't
                 // submit the rename before the user is done.
                 if (event.nativeEvent.isComposing || event.key === 'Process') return;
                 if (event.key === 'Escape') {
                   event.preventDefault();
+                  escapeCancelledRef.current = true;
                   setEditing(false);
                 }
               }}
