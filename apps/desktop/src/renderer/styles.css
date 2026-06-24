@@ -7449,40 +7449,6 @@ button:active {
   white-space: nowrap;
 }
 
-.settingsFeatureStatusSection p {
-  margin: 0;
-  color: var(--foreground-70);
-  font-size: 13px;
-  line-height: 1.55;
-}
-
-.settingsFeatureStatusSection-include .settingsFeatureStatusSectionTitle {
-  color: var(--success);
-}
-
-.settingsFeatureStatusSection-exclude .settingsFeatureStatusSectionTitle {
-  color: var(--destructive);
-}
-
-.settingsFeatureStatusListExclude li {
-  position: relative;
-  padding-left: 22px;
-}
-
-.settingsFeatureStatusListExclude li::before {
-  content: "✗";
-  position: absolute;
-  left: 4px;
-  top: 0;
-  color: var(--destructive);
-  font-weight: 700;
-  line-height: 1.55;
-}
-
-.settingsFeatureStatusSection-config .settingsFeatureStatusSectionTitle {
-  color: var(--info);
-}
-
 .settingsLoadingSkeleton {
   padding: 8px 0;
   max-width: 540px;
@@ -8361,19 +8327,6 @@ button:active {
   line-height: 1.4;
 }
 
-/* 飞书 域名 dropdown — match the input field height + border. */
-.settingsBotDomainSelect {
-  appearance: none;
-  width: 100%;
-  background: var(--background);
-  background-image: linear-gradient(45deg, transparent 50%, var(--foreground-55) 50%),
-                    linear-gradient(135deg, var(--foreground-55) 50%, transparent 50%);
-  background-position: calc(100% - 16px) 50%, calc(100% - 12px) 50%;
-  background-size: 4px 4px, 4px 4px;
-  background-repeat: no-repeat;
-  padding-right: 32px;
-}
-
 /* PR-BOT-WECHAT-QR-MODAL-0 (WAWQAQ msg `10ec1fbe`): scan-login modal —
    compact dialog centered above the backdrop with the QR + status. */
 .settingsBotScanLoginModal {
@@ -9023,25 +8976,6 @@ button:active {
   background: var(--background);
 }
 
-.settingsHeader span {
-  display: block;
-  margin-bottom: 2px;
-  color: var(--foreground-50);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0;
-  text-transform: none;
-}
-
-.settingsHeader h1 {
-  margin: 0;
-  color: var(--foreground);
-  font-size: 30px;
-  font-weight: 600;
-  letter-spacing: -0.012em;
-  line-height: 1.15;
-}
-
 .settingsCloseButton {
   width: 24px;
   height: 24px;
@@ -9064,73 +8998,11 @@ button:active {
   color: var(--foreground);
 }
 
-.settingsSurface[data-modal="true"] .settingsBody {
-  grid-template-columns: 196px minmax(0, 1fr);
-  padding-bottom: 74px;
-}
-
-.settingsSurface[data-modal="true"] .settingsTabs {
-  padding: 22px 12px 18px 18px;
-  border-right: 0;
-  background: var(--background);
-}
-
-.settingsSurface[data-modal="true"] .settingsTab {
-  min-height: 32px;
-  grid-template-columns: 1fr;
-  align-content: center;
-  border-radius: 6px;
-  padding: 4px 10px;
-}
-
-.settingsTab strong {
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.settingsTab small {
-  color: var(--foreground-50);
-  font-size: 10px;
-  line-height: 1.3;
-}
-
-.settingsSurface[data-modal="true"] .settingsContent {
-  padding: 8px 18px 16px 6px;
-}
-
-.settingsSurface[data-modal="true"] .settingsCard {
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  padding: 0;
-}
-
-.settingsCard h2 {
-  margin: 0;
-  color: var(--foreground);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.settingsCard p {
-  margin: 2px 0 0;
-  max-width: 68ch;
-  color: var(--foreground-60);
-  font-size: 11px;
-  line-height: 1.4;
-}
-
-.settingsCardHeader,
 .settingsRow {
   display: flex;
   align-items: center;
-  gap: 10px;
-}
-
-.settingsCardHeader,
-.settingsRow {
   justify-content: space-between;
+  gap: 10px;
 }
 
 .settingsBadge {
@@ -9144,7 +9016,6 @@ button:active {
   font-size: 10px;
 }
 
-.providerGrid,
 /* PR-SETTINGS-GROUPED-CARD-0 (WAWQAQ msg `1abecd66`): same grouped-
    card pattern as `.settingsStructuredPage` — outer card + hairline
    dividers, no per-row chrome. */
@@ -9647,18 +9518,6 @@ button:active {
   line-height: 1.35;
 }
 
-.catalogCustom .catalogGrid {
-  grid-template-columns: 1fr;
-}
-
-.catalogCustom h3 {
-  margin: 0;
-  color: var(--foreground-60);
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
 .providerEditor {
   display: grid;
   gap: 12px;
@@ -9730,7 +9589,6 @@ button:active {
   box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.10);
 }
 
-.providerModelRow,
 .providerActions {
   display: flex;
   align-items: center;
@@ -9769,20 +9627,6 @@ button:active {
   box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.14);
 }
 
-.providerModelRow select {
-  flex: 1 1 auto;
-}
-
-/* Per @kenji's status contract item #4: fetched vs fallback must NEVER look
- * the same. Fetched lists get a neutral success line; fallback lists get
- * an info-toned line that explicitly says it's static and how to refresh. */
-.providerModelSource {
-  display: block;
-  margin-top: 6px;
-  font-size: 11px;
-  line-height: 1.5;
-  letter-spacing: 0.01em;
-}
 /* UI-02 model table: per-row default radio, capability chips, search box,
  * source/fetchedAt header. Replaces the legacy <select> + refresh button
  * pair. The whole block is itself a "workspace" inside the connection
