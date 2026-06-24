@@ -130,6 +130,8 @@ export interface PromptAbTaskLevelSummary {
   wins: number;
   losses: number;
   ties: number;
+  signTestNonTieTasks: number;
+  signTestPValue: number | null;
   missingTaskIds: string[];
   meanPassRateDelta: number | null;
   medianPassRateDelta: number | null;
@@ -143,6 +145,8 @@ export interface PromptAbAttemptPairSummary {
   losses: number;
   ties: number;
   missingPairIds: string[];
+  budgetDiscordantPairIds: string[];
+  infraOrPlumbingDiscordantPairIds: string[];
 }
 
 export interface PromptAbComparisonSummary {
@@ -400,7 +404,7 @@ export function summarizePromptAbComparison(input: SummarizePromptAbComparisonIn
   const candidate = summarizeArm(input.candidateRuns, taskIds, reps);
   const taskLevel = summarizeTasks(input.baselineRuns, input.candidateRuns, taskIds, reps);
   const pairedAttempts = summarizeAttemptPairs(input.baselineRuns, input.candidateRuns, taskIds);
-  const { decision, reason } = decide(taskLevel, baseline, candidate);
+  const { decision, reason } = decide(taskLevel, baseline, candidate, pairedAttempts);
 
   return {
     runId: input.runId,
@@ -423,35 +427,40 @@ export function summarizePromptAbComparison(input: SummarizePromptAbComparisonIn
 export async function runPromptAbComparison(input: RunPromptAbComparisonInput): Promise<PromptAbComparisonSummary> {
   const reps = input.reps ?? 3;
   assertPositiveInt('reps', reps);
-  if (input.maxConcurrency !== undefined) assertPositiveInt('maxConcurrency', input.maxConcurrency);
-  const baselineRuns: FixedPromptTaskWalEvent[][] = [];
-  const candidateRuns: FixedPromptTaskWalEvent[][] = [];
-
+  const maxConcurrency = input.maxConcurrency !== undefined ? assertPositiveInt('maxConcurrency', input.maxConcurrency) : 1;
+  const baselineRuns: FixedPromptTaskWalEvent[][] = Array.from({ length: reps }, () => []);
+  const candidateRuns: FixedPromptTaskWalEvent[][] = Array.from({ length: reps }, () => []);
+  const pairs: { rep: number; taskIndex: number; task: FixedPromptTask }[] = [];
   for (let rep = 0; rep < reps; rep += 1) {
-    const baselineFirst = rep % 2 === 0;
-    const runBaseline = async () => {
-      baselineRuns[rep] = await runComparisonArm({
-        ...input,
-        promptPath: input.baselinePromptPath,
-        promptLabel: 'baseline',
-        rep,
-      });
-    };
-    const runCandidate = async () => {
-      candidateRuns[rep] = await runComparisonArm({
-        ...input,
-        promptPath: input.candidatePromptPath,
-        promptLabel: 'candidate',
-        rep,
-      });
-    };
-    if (baselineFirst) {
-      await runBaseline();
-      await runCandidate();
-    } else {
-      await runCandidate();
-      await runBaseline();
+    input.evaluationTasks.forEach((task, taskIndex) => pairs.push({ rep, taskIndex, task }));
+  }
+
+  let nextPairIndex = 0;
+  const active = new Map<number, Promise<{
+    pairIndex: number;
+    rep: number;
+    baseline: FixedPromptTaskWalEvent;
+    candidate: FixedPromptTaskWalEvent;
+  }>>();
+  const launchReadyPairs = () => {
+    while (active.size < maxConcurrency && nextPairIndex < pairs.length) {
+      const pairIndex = nextPairIndex;
+      const pair = pairs[nextPairIndex++]!;
+      active.set(pairIndex, runComparisonPair(input, pair).then((result) => ({ pairIndex, ...result })));
     }
+  };
+
+  launchReadyPairs();
+  while (active.size > 0) {
+    const result = await Promise.race(active.values());
+    active.delete(result.pairIndex);
+    baselineRuns[result.rep]!.push(result.baseline);
+    candidateRuns[result.rep]!.push(result.candidate);
+    launchReadyPairs();
+  }
+  const taskOrder = new Map(input.evaluationTasks.map((task, index) => [task.id, index]));
+  for (const run of [...baselineRuns, ...candidateRuns]) {
+    run.sort((a, b) => (taskOrder.get(a.taskId) ?? 0) - (taskOrder.get(b.taskId) ?? 0));
   }
 
   return summarizePromptAbComparison({
@@ -477,7 +486,7 @@ export function renderPromptAbComparisonMarkdown(summary: PromptAbComparisonSumm
     `- Decision: ${decisionLabel(summary.decision)} (${summary.reason})`,
     `- Budget: ${summary.budgetMs !== undefined ? `${Math.round(summary.budgetMs / 1000)}s task budget` : 'not recorded'}`,
     `- Evaluation pass rate: A=${summary.baseline.passed}/${summary.baseline.valid} = ${rate(summary.baseline.passRate)}, B=${summary.candidate.passed}/${summary.candidate.valid} = ${rate(summary.candidate.passRate)}`,
-    `- Task-level delta: mean=${rate(summary.taskLevel.meanPassRateDelta)}, median=${rate(summary.taskLevel.medianPassRateDelta)}, wins=${summary.taskLevel.wins}, losses=${summary.taskLevel.losses}, ties=${summary.taskLevel.ties}, missing=${summary.taskLevel.missingTaskIds.length}`,
+    `- Task-level delta: mean=${rate(summary.taskLevel.meanPassRateDelta)}, median=${rate(summary.taskLevel.medianPassRateDelta)}, wins=${summary.taskLevel.wins}, losses=${summary.taskLevel.losses}, ties=${summary.taskLevel.ties}, sign_test_p=${rate(summary.taskLevel.signTestPValue)}, missing=${summary.taskLevel.missingTaskIds.length}`,
     `- Attempt-pair auxiliary: wins=${summary.pairedAttempts.wins}, losses=${summary.pairedAttempts.losses}, ties=${summary.pairedAttempts.ties}, missing=${summary.pairedAttempts.missingPairIds.length}`,
     `- Budget outcomes: A timed_out=${summary.outcomes.baseline.budgetExhausted}, B timed_out=${summary.outcomes.candidate.budgetExhausted}`,
     `- Infra outcomes: A infra_failed=${summary.outcomes.baseline.infraFailed}, B infra_failed=${summary.outcomes.candidate.infraFailed}; A plumbing_failed=${summary.outcomes.baseline.plumbingFailed}, B plumbing_failed=${summary.outcomes.candidate.plumbingFailed}`,
@@ -590,11 +599,17 @@ function summarizeTasks(
   const tasks = taskIds.map((taskId) => summarizeTask(taskId, baselineRuns, candidateRuns, reps));
   const comparable = tasks.filter((task) => task.passRateDelta !== null);
   const deltas = comparable.map((task) => task.passRateDelta as number);
+  const wins = comparable.filter((task) => task.outcome === 'candidate_win').length;
+  const losses = comparable.filter((task) => task.outcome === 'baseline_win').length;
+  const ties = comparable.filter((task) => task.outcome === 'tie').length;
+  const signTestNonTieTasks = wins + losses;
   return {
     comparableTasks: comparable.length,
-    wins: comparable.filter((task) => task.outcome === 'candidate_win').length,
-    losses: comparable.filter((task) => task.outcome === 'baseline_win').length,
-    ties: comparable.filter((task) => task.outcome === 'tie').length,
+    wins,
+    losses,
+    ties,
+    signTestNonTieTasks,
+    signTestPValue: signTestNonTieTasks > 0 ? exactTwoSidedSignTestPValue(signTestNonTieTasks, Math.max(wins, losses)) : null,
     missingTaskIds: tasks.filter((task) => task.outcome === 'missing').map((task) => task.taskId),
     meanPassRateDelta: deltas.length > 0 ? sum(deltas) / deltas.length : null,
     medianPassRateDelta: median(deltas),
@@ -670,6 +685,8 @@ function summarizeAttemptPairs(
   taskIds: readonly string[],
 ): PromptAbAttemptPairSummary {
   const missingPairIds: string[] = [];
+  const budgetDiscordantPairIds: string[] = [];
+  const infraOrPlumbingDiscordantPairIds: string[] = [];
   let observedPairs = 0;
   let wins = 0;
   let losses = 0;
@@ -681,7 +698,17 @@ function summarizeAttemptPairs(
       const pairId = `${taskId}#r${rep}`;
       const baseline = baselineByTask.get(taskId);
       const candidate = candidateByTask.get(taskId);
-      if (!baseline || !candidate || !isValidBudgetedOutcome(baseline) || !isValidBudgetedOutcome(candidate)) {
+      if (!baseline || !candidate) {
+        missingPairIds.push(pairId);
+        continue;
+      }
+      if (isBudgetExhaustedOutcome(baseline) !== isBudgetExhaustedOutcome(candidate)) {
+        budgetDiscordantPairIds.push(pairId);
+      }
+      if (isInfraOrPlumbingOutcome(baseline) !== isInfraOrPlumbingOutcome(candidate)) {
+        infraOrPlumbingDiscordantPairIds.push(pairId);
+      }
+      if (!isValidBudgetedOutcome(baseline) || !isValidBudgetedOutcome(candidate)) {
         missingPairIds.push(pairId);
         continue;
       }
@@ -702,6 +729,8 @@ function summarizeAttemptPairs(
     losses,
     ties,
     missingPairIds,
+    budgetDiscordantPairIds,
+    infraOrPlumbingDiscordantPairIds,
   };
 }
 
@@ -709,50 +738,105 @@ function decide(
   taskLevel: PromptAbTaskLevelSummary,
   baseline: PromptAbArmSummary,
   candidate: PromptAbArmSummary,
+  pairedAttempts: PromptAbAttemptPairSummary,
 ): { decision: PromptAbDecision; reason: string } {
   const coverage = Math.min(baseline.coverageRate, candidate.coverageRate);
   if (coverage < 0.9) return { decision: 'inconclusive', reason: 'low_effective_coverage' };
-  if (candidate.budgetExhausted !== baseline.budgetExhausted) {
+  if (pairedAttempts.budgetDiscordantPairIds.length > 0) {
     return { decision: 'inconclusive', reason: 'asymmetric_budget_exhaustion' };
   }
+  if (pairedAttempts.infraOrPlumbingDiscordantPairIds.length > 0) {
+    return { decision: 'inconclusive', reason: 'asymmetric_infra_or_plumbing' };
+  }
   const meanDelta = taskLevel.meanPassRateDelta ?? 0;
+  if (taskLevel.signTestPValue === null || taskLevel.signTestPValue > 0.05) {
+    return { decision: 'inconclusive', reason: 'sign_test_not_significant' };
+  }
   if (taskLevel.wins > taskLevel.losses && meanDelta > 0) {
-    return { decision: 'candidate_better', reason: 'task_level_delta_positive' };
+    return { decision: 'candidate_better', reason: 'task_level_sign_test_p<=0.05' };
   }
   if (taskLevel.losses > taskLevel.wins && meanDelta < 0) {
-    return { decision: 'baseline_better', reason: 'task_level_delta_negative' };
+    return { decision: 'baseline_better', reason: 'task_level_sign_test_p<=0.05' };
   }
-  return { decision: 'inconclusive', reason: 'task_level_delta_tied' };
+  return { decision: 'inconclusive', reason: 'sign_test_direction_mismatch' };
 }
 
-async function runComparisonArm(
-  input: RunPromptAbComparisonInput & {
-    promptPath: string;
-    promptLabel: string;
-    rep: number;
-  },
-): Promise<FixedPromptTaskWalEvent[]> {
-  const roundId = `ab-${input.promptLabel}-r${input.rep}`;
+async function runComparisonPair(
+  input: RunPromptAbComparisonInput,
+  pair: { rep: number; taskIndex: number; task: FixedPromptTask },
+): Promise<{ rep: number; baseline: FixedPromptTaskWalEvent; candidate: FixedPromptTaskWalEvent }> {
+  let baseline: FixedPromptTaskWalEvent | undefined;
+  let candidate: FixedPromptTaskWalEvent | undefined;
+  const runBaseline = async () => {
+    baseline = await runComparisonTaskArm({
+      input,
+      task: pair.task,
+      promptPath: input.baselinePromptPath,
+      promptLabel: 'baseline',
+      rep: pair.rep,
+    });
+  };
+  const runCandidate = async () => {
+    candidate = await runComparisonTaskArm({
+      input,
+      task: pair.task,
+      promptPath: input.candidatePromptPath,
+      promptLabel: 'candidate',
+      rep: pair.rep,
+    });
+  };
+  if ((pair.rep + pair.taskIndex) % 2 === 0) {
+    await runBaseline();
+    await runCandidate();
+  } else {
+    await runCandidate();
+    await runBaseline();
+  }
+  if (!baseline || !candidate) throw new Error(`prompt A/B pair did not produce both arms for ${pair.task.id} rep ${pair.rep}`);
+  return { rep: pair.rep, baseline, candidate };
+}
+
+async function runComparisonTaskArm(input: {
+  input: RunPromptAbComparisonInput;
+  task: FixedPromptTask;
+  promptPath: string;
+  promptLabel: string;
+  rep: number;
+}): Promise<FixedPromptTaskWalEvent> {
+  const roundId = `ab-${input.promptLabel}-r${input.rep}-${roundIdTaskSuffix(input.task.id)}`;
   const result = await runFixedPromptController({
-    runId: input.runId,
+    runId: input.input.runId,
     roundId,
-    config: input.config,
+    config: input.input.config,
     systemPromptPath: input.promptPath,
-    resultsJsonlPath: input.resultsJsonlPath,
-    resultsTsvPath: `${input.resultsJsonlPath}.${roundId}.tsv`,
-    tasks: input.evaluationTasks,
-    harborRunner: input.harborRunner,
-    ...(input.maxConcurrency !== undefined ? { maxConcurrency: input.maxConcurrency } : {}),
-    ...(input.now ? { now: input.now } : {}),
-    ...(input.newId ? { newId: input.newId } : {}),
+    resultsJsonlPath: input.input.resultsJsonlPath,
+    resultsTsvPath: `${input.input.resultsJsonlPath}.${roundId}.tsv`,
+    tasks: [input.task],
+    harborRunner: input.input.harborRunner,
+    ...(input.input.now ? { now: input.input.now } : {}),
+    ...(input.input.newId ? { newId: input.input.newId } : {}),
   });
-  return result.events;
+  const event = result.events.find((candidate) => candidate.taskId === input.task.id);
+  if (!event) throw new Error(`prompt A/B arm ${roundId} produced no event for ${input.task.id}`);
+  return event;
+}
+
+function roundIdTaskSuffix(taskId: string): string {
+  return taskId.replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'task';
 }
 
 function isValidBudgetedOutcome(
   event: FixedPromptTaskWalEvent,
 ): event is Extract<FixedPromptTaskWalEvent, { type: 'task_completed' | 'task_budget_exhausted' }> {
   return event.type === 'task_completed' || event.type === 'task_budget_exhausted';
+}
+
+function isBudgetExhaustedOutcome(event: FixedPromptTaskWalEvent): boolean {
+  return event.type === 'task_budget_exhausted';
+}
+
+function isInfraOrPlumbingOutcome(event: FixedPromptTaskWalEvent): boolean {
+  return event.type === 'task_infra_failed' || event.type === 'task_plumbing_failed';
 }
 
 function decisionLabel(decision: PromptAbDecision): string {
@@ -777,6 +861,24 @@ function median(values: readonly number[]): number | null {
   const mid = Math.floor(sorted.length / 2);
   if (sorted.length % 2 === 1) return sorted[mid]!;
   return (sorted[mid - 1]! + sorted[mid]!) / 2;
+}
+
+function exactTwoSidedSignTestPValue(nonTieTasks: number, majorityWins: number): number {
+  if (nonTieTasks <= 0) return 1;
+  const minorityWins = Math.min(majorityWins, nonTieTasks - majorityWins);
+  let tail = 0;
+  for (let wins = 0; wins <= minorityWins; wins += 1) {
+    tail += binomialProbability(nonTieTasks, wins, 0.5);
+  }
+  return Math.min(1, tail * 2);
+}
+
+function binomialProbability(n: number, k: number, p: number): number {
+  let combinations = 1;
+  for (let i = 1; i <= k; i += 1) {
+    combinations *= (n - k + i) / i;
+  }
+  return combinations * p ** k * (1 - p) ** (n - k);
 }
 
 function sum(values: readonly number[]): number {

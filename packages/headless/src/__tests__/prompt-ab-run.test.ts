@@ -244,7 +244,8 @@ describe('summarizePromptAbComparison', () => {
       budgetMs: 600_000,
     });
 
-    assert.equal(result.decision, 'candidate_better');
+    assert.equal(result.decision, 'inconclusive');
+    assert.equal(result.reason, 'sign_test_not_significant');
     assert.equal(result.taskCount, 2);
     assert.equal(result.reps, 2);
     assert.equal(result.baseline.passRate, 0.25);
@@ -258,7 +259,7 @@ describe('summarizePromptAbComparison', () => {
     assert.equal(result.outcomes.candidate.budgetExhausted, 0);
 
     const markdown = renderPromptAbComparisonMarkdown(result);
-    assert.match(markdown, /Decision: B better \(task_level_delta_positive\)/);
+    assert.match(markdown, /Decision: inconclusive \(sign_test_not_significant\)/);
     assert.match(markdown, /Budget: 600s task budget/);
     assert.match(markdown, /Evaluation pass rate: A=1\/4 = 0.25, B=4\/4 = 1/);
     assert.match(markdown, /Task-level delta: mean=0.75/);
@@ -285,10 +286,72 @@ describe('summarizePromptAbComparison', () => {
     assert.equal(result.taskLevel.losses, 1);
     assert.match(renderPromptAbComparisonMarkdown(result), /Budget outcomes: A timed_out=0, B timed_out=1/);
   });
+
+  test('does not call a small task majority statistically significant', () => {
+    const taskIds = Array.from({ length: 16 }, (_, index) => `t${index}`);
+    const result = summarizePromptAbComparison({
+      runId: 'ab-run',
+      roundId: 'ab-summary',
+      baselinePromptId: 'maka-baseline',
+      candidatePromptId: 'opencode-default',
+      evaluationTaskIds: taskIds,
+      baselineRuns: [
+        taskIds.map((taskId, index) => completed(taskId, index >= 9)),
+      ],
+      candidateRuns: [
+        taskIds.map((taskId, index) => completed(taskId, index < 9)),
+      ],
+    });
+
+    assert.equal(result.taskLevel.wins, 9);
+    assert.equal(result.taskLevel.losses, 7);
+    assert.equal(result.decision, 'inconclusive');
+    assert.equal(result.reason, 'sign_test_not_significant');
+  });
+
+  test('uses an exact task-level sign test for a directional decision', () => {
+    const taskIds = Array.from({ length: 16 }, (_, index) => `t${index}`);
+    const result = summarizePromptAbComparison({
+      runId: 'ab-run',
+      roundId: 'ab-summary',
+      baselinePromptId: 'maka-baseline',
+      candidatePromptId: 'opencode-default',
+      evaluationTaskIds: taskIds,
+      baselineRuns: [
+        taskIds.map((taskId, index) => completed(taskId, index >= 13)),
+      ],
+      candidateRuns: [
+        taskIds.map((taskId, index) => completed(taskId, index < 13)),
+      ],
+    });
+
+    assert.equal(result.taskLevel.wins, 13);
+    assert.equal(result.taskLevel.losses, 3);
+    assert.equal(result.decision, 'candidate_better');
+    assert.equal(result.reason, 'task_level_sign_test_p<=0.05');
+  });
+
+  test('treats pair-level timeout asymmetry as inconclusive even when total timeouts match', () => {
+    const result = summarizePromptAbComparison({
+      runId: 'ab-run',
+      roundId: 'ab-summary',
+      baselinePromptId: 'maka-baseline',
+      candidatePromptId: 'opencode-default',
+      evaluationTaskIds: ['t1', 't2'],
+      baselineRuns: [[budgetExhausted('t1'), completed('t2', true)]],
+      candidateRuns: [[completed('t1', true), budgetExhausted('t2')]],
+    });
+
+    assert.equal(result.outcomes.baseline.budgetExhausted, 1);
+    assert.equal(result.outcomes.candidate.budgetExhausted, 1);
+    assert.deepEqual(result.pairedAttempts.budgetDiscordantPairIds, ['t1#r0', 't2#r0']);
+    assert.equal(result.decision, 'inconclusive');
+    assert.equal(result.reason, 'asymmetric_budget_exhaustion');
+  });
 });
 
 describe('runPromptAbComparison', () => {
-  test('runs baseline and candidate prompts across reps with interleaved arm order', async () => {
+  test('runs baseline and candidate prompts adjacent for each task-rep pair', async () => {
     await withDir(async (dir) => {
       const baselinePromptPath = join(dir, 'baseline.md');
       const candidatePromptPath = join(dir, 'candidate.md');
@@ -302,9 +365,12 @@ describe('runPromptAbComparison', () => {
         baselinePromptPath,
         candidatePromptPath,
         resultsJsonlPath: join(dir, 'results.jsonl'),
-        evaluationTasks: [{ id: 't1', path: '/tasks/t1' }],
+        evaluationTasks: [
+          { id: 't1', path: '/tasks/t1' },
+          { id: 't2', path: '/tasks/t2' },
+        ],
         reps: 2,
-        maxConcurrency: 4,
+        maxConcurrency: 1,
         harborRunner: async ({ roundId, task, systemPrompt }) => {
           calls.push(`${roundId}:${task.id}`);
           const isCandidate = systemPrompt.startsWith('B prompt');
@@ -318,13 +384,17 @@ describe('runPromptAbComparison', () => {
         newId: idFactory(),
       });
 
-      assert.equal(result.decision, 'candidate_better');
-      assert.equal(result.taskLevel.wins, 1);
+      assert.equal(result.decision, 'inconclusive');
+      assert.equal(result.taskLevel.wins, 2);
       assert.deepEqual(calls, [
-        'ab-baseline-r0:t1',
-        'ab-candidate-r0:t1',
-        'ab-candidate-r1:t1',
-        'ab-baseline-r1:t1',
+        'ab-baseline-r0-t1:t1',
+        'ab-candidate-r0-t1:t1',
+        'ab-candidate-r0-t2:t2',
+        'ab-baseline-r0-t2:t2',
+        'ab-candidate-r1-t1:t1',
+        'ab-baseline-r1-t1:t1',
+        'ab-baseline-r1-t2:t2',
+        'ab-candidate-r1-t2:t2',
       ]);
     });
   });
