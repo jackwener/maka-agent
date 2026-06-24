@@ -7254,18 +7254,32 @@ button:active {
 /* PR-SETTINGS-REVIEW-0 (WAWQAQ msg `e1194266`): left-aligned `返回应用`
    in place of the right-side X. Sits above the 设置 brand. */
 .settingsBackButton {
-  display: inline-flex;
+  /* WAWQAQ msg `dd21e793` 2026-06-25: the "返回应用" link previously
+     used 4px 8px padding + 13px / weight 500 + 6px radius + 4px gap +
+     `align-self: flex-start` — none of which matched `.settingsNavItem`
+     below it (38px height, 12px h-pad, 7px radius, 14px / weight 500,
+     12px gap). Combined with `inline-flex` + no width, the back link
+     looked intrinsically sized and visually centered, while every nav
+     row below was full-width, left-aligned with the same glyph + label
+     rhythm. Match `.settingsNavItem` exactly so the row reads as part
+     of the same vertical list. */
+  width: calc(100% - 8px);
+  height: 38px;
+  min-height: 38px;
+  display: flex;
   align-items: center;
-  gap: 4px;
-  align-self: flex-start;
-  margin: 0 0 10px 4px;
-  padding: 4px 8px;
-  border-radius: 6px;
+  gap: 12px;
+  margin: 0 4px 4px;
+  padding: 6px 12px;
+  border-radius: 7px;
   background: transparent;
-  color: var(--foreground-60);
-  font-size: 13px;
+  color: var(--foreground-70);
+  font-size: 14px;
   font-weight: 500;
+  text-align: left;
+  justify-content: initial;
   -webkit-app-region: no-drag;
+  transition: background-color var(--duration-base) var(--ease-out-strong), color var(--duration-base) var(--ease-out-strong);
 }
 .settingsBackButton:hover {
   background: oklch(from var(--foreground) l c h / 0.05);
