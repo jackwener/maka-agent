@@ -5724,6 +5724,13 @@ export const Composer = forwardRef<
   }
 
   function onTextareaPaste(event: ClipboardEvent<HTMLTextAreaElement>) {
+    // PR-FE-BUG-HUNT-10: extend the IME composition guard from the
+    // keydown path (line 5640) to the paste path. If the user is
+    // mid-CJK composition and the clipboard happens to contain a
+    // file (screenshot shortcut etc.), `event.preventDefault()`
+    // below would interrupt the IME mid-character. Match the
+    // existing keydown pattern exactly.
+    if (event.nativeEvent.isComposing) return;
     if (!hasPastedFiles(event)) return;
     if (!canAcceptDroppedTextFiles()) return;
     const files = Array.from(event.clipboardData.files);
