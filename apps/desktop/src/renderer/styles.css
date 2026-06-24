@@ -6328,7 +6328,6 @@ button:active {
   text-align: center;
 }
 
-.maka-composer-role-chip,
 .maka-composer-mode-chip,
 .maka-composer-model-chip {
   height: 26px;
@@ -6343,18 +6342,12 @@ button:active {
   font-size: 10.5px;
   font-weight: 500;
   white-space: nowrap;
-}
-
-.maka-composer-role-chip,
-.maka-composer-mode-chip,
-.maka-composer-model-chip {
   transition:
     background-color var(--duration-base) var(--ease-out-strong),
     color var(--duration-base) var(--ease-out-strong),
     border-color var(--duration-base) var(--ease-out-strong);
 }
 
-.maka-composer-role-chip:hover,
 .maka-composer-mode-chip:hover,
 .maka-composer-model-chip:hover {
   background: var(--foreground-3);
