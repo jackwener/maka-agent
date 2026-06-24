@@ -7911,12 +7911,22 @@ button:active {
 .settingsField [role="switch"] > span {
   height: 22px;
   width: 22px;
-  transform: translateX(2px);
+  /* WAWQAQ msg `b45dc33d` 2026-06-25: Settings Switch thumbs ("白点")
+     were escaping the track to the right. Root cause: Tailwind v4's
+     `translate-x-0.5` / `translate-x-[1.125rem]` utilities applied on
+     <BaseSwitch.Thumb> in `packages/ui/src/ui.tsx:464` emit the
+     `translate:` CSS property, not `transform:`. The previous overrides
+     here set `transform: translateX(...)`, which is an INDEPENDENT
+     property — both stacked additively, pushing the thumb 2-18px past
+     the right edge of the 46px track at h-6.5 settings scale.
+     Fix: override the same `translate:` property so the value wins by
+     specificity instead of compounding. */
+  translate: 2px 0;
 }
 
 .settingsFormRow [role="switch"][data-checked] > span,
 .settingsField [role="switch"][data-checked] > span {
-  transform: translateX(22px);
+  translate: 22px 0;
 }
 
 .settingsFormRow strong,
