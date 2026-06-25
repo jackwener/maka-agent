@@ -25,6 +25,7 @@ export * from './utils.js';
 // local helper. Net-new components that aren't already covered
 // by our shared component-style wrappers in `./ui.js` re-export here so
 // consumers can `import { Alert, Empty, Sidebar, ... } from '@maka/ui'`.
+export * from './bot-brand.js';
 export * from './primitives/alert.js';
 export * from './primitives/empty.js';
 export * from './primitives/item.js';

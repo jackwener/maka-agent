@@ -3305,6 +3305,28 @@ button:active {
   min-width: var(--anchor-width);
 }
 
+/* PR audit2-bundled (@kenji audit msg `e4cfbfb0` finding #2): the Plan
+   Reminder delivery picker now carries real IM brand logos so it reads
+   the same as Settings → 机器人对话. The icon slot lines up with the
+   text via inline-flex; the icon tile is a fixed 16x16 to absorb
+   Iconify's size: '100%' rendering of the lazy-loaded simple-icons
+   svg without pushing the option row height around. */
+.maka-plan-select-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.maka-plan-select-option-icon {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .maka-plan-search-summary {
   display: flex;
   min-width: 0;
@@ -7437,6 +7459,18 @@ button:active {
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 16px;
+}
+
+/* PR audit2-bundled (@kenji audit #5 msg `e4cfbfb0`): names for the
+   inline `style={{ marginTop: N }}` patches that were sprinkled around
+   settings surfaces. Keeps the spacing decision discoverable + locked
+   in the design token surface instead of buried in JSX. */
+.settingsSurfaceAlert {
+  margin-top: 12px;
+}
+
+.settingsNoticeAction {
+  margin-top: 8px;
 }
 
 /* PR daily-review-bundled (@kenji audit finding #5): semantic width

@@ -84,6 +84,7 @@ import { CODEX_SUBSCRIPTION_UNSUPPORTED_CHATGPT_MODELS, PROVIDER_DEFAULTS } from
 import {
   Alert,
   AlertDescription,
+  BOT_BRAND,
   Button,
   DialogContent,
   DialogRoot,
@@ -292,18 +293,9 @@ function groupedNav(): Array<{ group: SettingsNavGroup; items: SettingsNavItem[]
  * `configDocUrl` is the official developer doc surfaced inline as a
  * "查看配置文档 →" link.
  */
-const BOT_BRAND: Record<
-  BotProvider,
-  { color: string; glyph: string; iconifyId: string; configDocUrl?: string }
-> = {
-  telegram: { color: '#229ED9', glyph: 'T', iconifyId: 'simple-icons:telegram', configDocUrl: 'https://core.telegram.org/bots/tutorial' },
-  feishu:   { color: '#00C6B7', glyph: '飞', iconifyId: 'simple-icons:lark', configDocUrl: 'https://open.feishu.cn/document/server-docs/bot-v3' },
-  wecom:    { color: '#0089FF', glyph: '企', iconifyId: 'simple-icons:wechat', configDocUrl: 'https://developer.work.weixin.qq.com/document/' },
-  wechat:   { color: '#07C160', glyph: '微', iconifyId: 'simple-icons:wechat', configDocUrl: 'https://developers.weixin.qq.com/doc/offiaccount/Getting_Started/Overview.html' },
-  discord:  { color: '#5865F2', glyph: 'D', iconifyId: 'simple-icons:discord', configDocUrl: 'https://discord.com/developers/docs/intro' },
-  dingtalk: { color: '#1372FB', glyph: '钉', iconifyId: 'simple-icons:dingtalk', configDocUrl: 'https://open.dingtalk.com/document/' },
-  qq:       { color: '#EB1923', glyph: 'Q', iconifyId: 'simple-icons:tencentqq', configDocUrl: 'https://bot.q.qq.com/wiki/' },
-};
+// BOT_BRAND moved to `packages/ui/src/bot-brand.ts` so the Plan Reminder
+// delivery picker can use the same brand metadata as Settings here (@kenji
+// audit 2026-06-25 msg `e4cfbfb0` finding #2). Imported via `@maka/ui`.
 
 // PR-BOT-WECHAT-SCAN-LOGIN-0 (WAWQAQ msg `2fa6ada6`): help copy
 // rewritten per reference screenshots — short product sentence pointing
@@ -1655,7 +1647,7 @@ function DailyReviewSettingsPage(props: { onOpenDailyReview?: () => void }) {
       </header>
 
       {loadError ? (
-        <Alert variant="error" style={{ marginTop: 12 }}>
+        <Alert variant="error" className="settingsSurfaceAlert">
           <AlertDescription>读取每日回顾设置失败：{loadError}</AlertDescription>
         </Alert>
       ) : null}
@@ -3921,46 +3913,48 @@ function MemorySettingsPage(props: {
 
   return (
     <div className="settingsStructuredPage">
-      <div className="settingsFormRow">
-        <div>
-          <strong>本地 MEMORY.md</strong>
-          <small>透明 Markdown 文件，保存在当前本机工作区。这里的内容不会自动从聊天里抽取。</small>
+      <div className="settingsRows">
+        <div className="settingsFormRow">
+          <div>
+            <strong>本地 MEMORY.md</strong>
+            <small>透明 Markdown 文件，保存在当前本机工作区。这里的内容不会自动从聊天里抽取。</small>
+          </div>
+          <span className="settingsConnectionBadge" data-tone={memoryStatusTone(effective.status)}>
+            {memoryStatusLabel(effective.status)}
+          </span>
+          <Switch
+            ariaLabel="启用本地 MEMORY.md"
+            checked={effective.enabled}
+            disabled={memoryControlsDisabled}
+            onChange={(enabled) => void setEnabled(enabled)}
+          />
         </div>
-        <span className="settingsConnectionBadge" data-tone={memoryStatusTone(effective.status)}>
-          {memoryStatusLabel(effective.status)}
-        </span>
-        <Switch
-          ariaLabel="启用本地 MEMORY.md"
-          checked={effective.enabled}
-          disabled={memoryControlsDisabled}
-          onChange={(enabled) => void setEnabled(enabled)}
-        />
-      </div>
 
-      <div className="settingsFormRow">
-        <div>
-          <strong>模型上下文可读取</strong>
-          <small>默认关闭。开启后才允许发送消息时把本地记忆加入 prompt；隐身模式下仍会禁用。</small>
+        <div className="settingsFormRow">
+          <div>
+            <strong>模型上下文可读取</strong>
+            <small>默认关闭。开启后才允许发送消息时把本地记忆加入 prompt；隐身模式下仍会禁用。</small>
+          </div>
+          <Switch
+            ariaLabel="允许模型上下文读取本地记忆"
+            checked={effective.agentReadEnabled}
+            disabled={memoryControlsDisabled || !effective.enabled}
+            onChange={(enabled) => void setAgentReadEnabled(enabled)}
+          />
         </div>
-        <Switch
-          ariaLabel="允许模型上下文读取本地记忆"
-          checked={effective.agentReadEnabled}
-          disabled={memoryControlsDisabled || !effective.enabled}
-          onChange={(enabled) => void setAgentReadEnabled(enabled)}
-        />
-      </div>
 
-      <div className="settingsFormRow">
-        <div>
-          <strong>项目指令文件</strong>
-          <small>读取当前工作区的 AGENTS.md / CLAUDE.md / GEMINI.md；按低优先级指令注入，可随时关闭。</small>
+        <div className="settingsFormRow">
+          <div>
+            <strong>项目指令文件</strong>
+            <small>读取当前工作区的 AGENTS.md / CLAUDE.md / GEMINI.md；按低优先级指令注入，可随时关闭。</small>
+          </div>
+          <Switch
+            ariaLabel="启用项目指令文件"
+            checked={props.settings.workspaceInstructions.enabled}
+            disabled={memoryControlsDisabled}
+            onChange={(enabled) => void setWorkspaceInstructionsEnabled(enabled)}
+          />
         </div>
-        <Switch
-          ariaLabel="启用项目指令文件"
-          checked={props.settings.workspaceInstructions.enabled}
-          disabled={memoryControlsDisabled}
-          onChange={(enabled) => void setWorkspaceInstructionsEnabled(enabled)}
-        />
       </div>
 
       {workspaceInstructionState && (
@@ -6037,7 +6031,7 @@ function UsageSettingsPage(props: {
       {usageDraft.activeTab === 'requests' && !usageDraft.showDetails ? (
         <div className="settingsNotice">
           当前仅显示汇总指标。打开详情记录后，可以查看逐条模型请求和工具调用，按模型、工具或状态筛选，并用于排查费用与失败请求。
-          <div className="settingsActionRow" style={{ marginTop: 8 }}>
+          <div className="settingsActionRow settingsNoticeAction">
             <Button type="button" variant="ghost" size="sm" onClick={() => void updateUsage({ showDetails: true })}>
               显示明细
             </Button>

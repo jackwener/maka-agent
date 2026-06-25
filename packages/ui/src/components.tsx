@@ -47,7 +47,9 @@ import {
   Trash2,
   Wifi,
   X,
+  IconifyIcon,
 } from './icons.js';
+import { BOT_BRAND } from './bot-brand.js';
 import { redactSecrets } from './redact.js';
 import { DeepResearchEmptyHero, EmptyChatHero } from './chat-empty-hero.js';
 import {
@@ -1990,9 +1992,17 @@ function DailyReviewTopList(props: { title: string; entries: ReadonlyArray<Daily
   );
 }
 
+// PR audit2-bundled (@kenji msg `e4cfbfb0` finding #2): the third
+// tuple slot lets callers pass a leading icon (e.g. the real IM brand
+// logo) so the Plan Reminder delivery picker reads identically to
+// Settings → 机器人对话, instead of falling back to plain Chinese text.
+type PlanReminderOption<T extends string> =
+  | readonly [T, string]
+  | readonly [T, string, ReactNode];
+
 function PlanReminderSelect<T extends string>(props: {
   value: T;
-  options: ReadonlyArray<readonly [T, string]>;
+  options: ReadonlyArray<PlanReminderOption<T>>;
   onChange(value: T): void;
   ariaLabel: string;
   disabled?: boolean;
@@ -2012,11 +2022,22 @@ function PlanReminderSelect<T extends string>(props: {
       <SelectPortal>
         <SelectPositioner alignItemWithTrigger={false} sideOffset={6}>
           <SelectPopup className="maka-plan-select-popup">
-            {props.options.map(([value, label]) => (
-              <SelectItem key={value} value={value}>
-                {label}
-              </SelectItem>
-            ))}
+            {props.options.map((option) => {
+              const [value, label] = option;
+              const icon = option.length === 3 ? option[2] : null;
+              return (
+                <SelectItem key={value} value={value}>
+                  {icon ? (
+                    <span className="maka-plan-select-option">
+                      <span className="maka-plan-select-option-icon" aria-hidden="true">{icon}</span>
+                      <span>{label}</span>
+                    </span>
+                  ) : (
+                    label
+                  )}
+                </SelectItem>
+              );
+            })}
           </SelectPopup>
         </SelectPositioner>
       </SelectPortal>
@@ -2694,7 +2715,19 @@ function PlanReminderPanel(props: {
                       onChange={(value) => setDeliveryPlatform(value)}
                       disabled={formInteractionDisabled}
                       ariaLabel="平台"
-                      options={BOT_DELIVERY_PROVIDERS.map((provider) => [provider, botDisplayLabel(provider)] as const)}
+                      options={BOT_DELIVERY_PROVIDERS.map((provider) => {
+                        const brand = BOT_BRAND[provider];
+                        const icon = (
+                          <IconifyIcon
+                            icon={brand.iconifyId}
+                            width="100%"
+                            height="100%"
+                            aria-hidden="true"
+                            fallback={<>{brand.glyph}</>}
+                          />
+                        );
+                        return [provider, botDisplayLabel(provider), icon] as const;
+                      })}
                     />
                   </label>
                   <label className="maka-plan-field">
