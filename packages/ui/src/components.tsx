@@ -2007,6 +2007,30 @@ function PlanReminderSelect<T extends string>(props: {
   ariaLabel: string;
   disabled?: boolean;
 }) {
+  // PR audit3 (@kenji msg `232aec0f` finding #2): the dropdown items
+  // already render the brand icon, but the collapsed `<SelectValue />`
+  // was falling back to the plain label string — open dropdown showed
+  // a logo, but the picked value collapsed back to text. Build a
+  // value→{label,icon} lookup and have `SelectValue`'s function child
+  // render the icon + label together so the selected state matches the
+  // option state.
+  const optionByValue = new Map<T, { label: string; icon: ReactNode | null }>();
+  for (const option of props.options) {
+    const [value, label] = option;
+    optionByValue.set(value, {
+      label,
+      icon: option.length === 3 ? option[2] : null,
+    });
+  }
+  const renderOptionRow = (label: string, icon: ReactNode | null, className = 'maka-plan-select-option') =>
+    icon ? (
+      <span className={className}>
+        <span className="maka-plan-select-option-icon" aria-hidden="true">{icon}</span>
+        <span>{label}</span>
+      </span>
+    ) : (
+      <>{label}</>
+    );
   return (
     <SelectRoot
       value={props.value}
@@ -2017,7 +2041,13 @@ function PlanReminderSelect<T extends string>(props: {
       }}
     >
       <SelectTrigger className="maka-plan-select w-full" aria-label={props.ariaLabel}>
-        <SelectValue />
+        <SelectValue>
+          {(value: T) => {
+            const entry = optionByValue.get(value);
+            if (!entry) return null;
+            return renderOptionRow(entry.label, entry.icon);
+          }}
+        </SelectValue>
       </SelectTrigger>
       <SelectPortal>
         <SelectPositioner alignItemWithTrigger={false} sideOffset={6}>
@@ -2027,14 +2057,7 @@ function PlanReminderSelect<T extends string>(props: {
               const icon = option.length === 3 ? option[2] : null;
               return (
                 <SelectItem key={value} value={value}>
-                  {icon ? (
-                    <span className="maka-plan-select-option">
-                      <span className="maka-plan-select-option-icon" aria-hidden="true">{icon}</span>
-                      <span>{label}</span>
-                    </span>
-                  ) : (
-                    label
-                  )}
+                  {renderOptionRow(label, icon)}
                 </SelectItem>
               );
             })}

@@ -5025,7 +5025,7 @@ button:active {
 
 .maka-help-modal {
   width: min(560px, calc(100vw - 48px));
-  max-height: calc(100vh - 96px);
+  max-height: calc(100dvh - 96px);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.05);
@@ -13118,7 +13118,7 @@ button:active {
   align-content: start;
   justify-items: center;
   width: 100%;
-  min-height: calc(100vh - 84px);
+  min-height: calc(100dvh - 84px);
   padding: clamp(40px, 7vh, 76px) 28px 48px;
 }
 
