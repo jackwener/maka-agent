@@ -965,6 +965,13 @@ function AppShell() {
       && activeIdRef.current === owner.sessionId;
   }
 
+  function isNewChatSendSurfaceActive(owner: ComposerImportOwner): boolean {
+    return owner.navSection === 'sessions'
+      && owner.sessionId === undefined
+      && navSelectionRef.current.section === 'sessions'
+      && activeIdRef.current === undefined;
+  }
+
   useEffect(() => {
     activeIdRef.current = activeId;
   }, [activeId]);
@@ -1902,6 +1909,7 @@ function AppShell() {
 
   async function send(text: string): Promise<boolean> {
     const initialSessionId = activeIdRef.current;
+    const newChatOwner = initialSessionId ? null : captureComposerImportOwner();
     let optimisticSessionId: string | undefined;
     let optimisticTurnId: string | undefined;
     try {
@@ -1914,14 +1922,18 @@ function AppShell() {
             ? { llmConnectionSlug: validPendingNewChatModel.llmConnectionSlug, model: validPendingNewChatModel.model }
             : {}),
         });
-        setNavSelection({ section: 'sessions', filter: 'chats' });
-        setActiveId(session.id);
         upsertSessionSummary(session);
         optimisticSessionId = session.id;
         optimisticTurnId = turnId;
-        showOptimisticUserMessage(session.id, turnId, text, { replaceCurrentMessages: true });
+        if (newChatOwner && isNewChatSendSurfaceActive(newChatOwner)) {
+          setNavSelection({ section: 'sessions', filter: 'chats' });
+          setActiveId(session.id);
+          showOptimisticUserMessage(session.id, turnId, text, { replaceCurrentMessages: true });
+        }
         await window.maka.sessions.send(session.id, { type: 'send', turnId, text });
-        await refreshMessagesUntilTurn(session.id, turnId);
+        if (activeIdRef.current === session.id) {
+          await refreshMessagesUntilTurn(session.id, turnId);
+        }
         await refreshSessions();
         return true;
       }
@@ -1939,7 +1951,9 @@ function AppShell() {
       const feedbackSessionId = optimisticSessionId ?? initialSessionId;
       const sendStillOwnsCurrentSurface = feedbackSessionId
         ? activeIdRef.current === feedbackSessionId
-        : activeIdRef.current === initialSessionId;
+        : newChatOwner
+          ? isNewChatSendSurfaceActive(newChatOwner)
+          : activeIdRef.current === initialSessionId;
       if (!sendStillOwnsCurrentSurface) return false;
       if (isNoRealConnectionError(error)) {
         const reason = noRealConnectionReasonFromError(error);

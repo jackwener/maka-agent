@@ -93,4 +93,31 @@ describe('home composer new-chat model picker', () => {
       'send() must forward the validated picked model to sessions.create when one was chosen',
     );
   });
+
+  it('does not let stale new-chat send creation steal the active session after navigation', async () => {
+    const renderer = await readRepo('apps/desktop/src/renderer/main.tsx');
+    const sendBlock = renderer.match(/async function send\(text: string\): Promise<boolean> \{[\s\S]*?\n  async function importTextFilePrompt/)?.[0] ?? '';
+
+    assert.match(
+      renderer,
+      /function isNewChatSendSurfaceActive\(owner: ComposerImportOwner\): boolean \{[\s\S]*owner\.sessionId === undefined[\s\S]*navSelectionRef\.current\.section === 'sessions'[\s\S]*activeIdRef\.current === undefined[\s\S]*\}/,
+      'new-chat sends must capture the empty-chat surface before async session creation',
+    );
+    assert.match(
+      sendBlock,
+      /const newChatOwner = initialSessionId \? null : captureComposerImportOwner\(\);/,
+      'send() must capture the no-active-session composer owner before sessions.create()',
+    );
+    assert.match(sendBlock, /upsertSessionSummary\(session\);/);
+    assert.match(
+      sendBlock,
+      /if \(newChatOwner && isNewChatSendSurfaceActive\(newChatOwner\)\) \{[\s\S]*setNavSelection\(\{ section: 'sessions', filter: 'chats' \}\);[\s\S]*setActiveId\(session\.id\);[\s\S]*showOptimisticUserMessage\(session\.id, turnId, text, \{ replaceCurrentMessages: true \}\);[\s\S]*\}/,
+      'newly-created sessions may only become active if the user is still on the original empty new-chat surface',
+    );
+    assert.match(
+      sendBlock,
+      /await window\.maka\.sessions\.send\(session\.id, \{ type: 'send', turnId, text \}\);[\s\S]*if \(activeIdRef\.current === session\.id\) \{[\s\S]*await refreshMessagesUntilTurn\(session\.id, turnId\);[\s\S]*\}[\s\S]*await refreshSessions\(\);/,
+      'background new-chat sends should continue and refresh the list, but must not poll messages unless the created session is active',
+    );
+  });
 });
