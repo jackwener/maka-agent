@@ -7423,8 +7423,36 @@ button:active {
   margin-top: 10px;
 }
 
-.settingsRow > .settingsTimeInput {
+/* PR daily-review-bundled (WAWQAQ msg `afbe542d` 2026-06-25 +
+   @kenji audit finding #6): the Daily Review settings page used to
+   stack a banner + intro hero card + settings rows + "try it now"
+   hero card — too much promo chrome for a workbench settings
+   surface. The unified `.settingsPageFooterActions` is a single
+   right-aligned action row that the page renders below the rows
+   (open Daily Review · generate now · deep). Keep the action set
+   visible and uniform regardless of how many ops the page exposes. */
+.settingsPageFooterActions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+/* PR daily-review-bundled (@kenji audit finding #5): semantic width
+   bucket on the row, not a class selector keyed off the input
+   className. Different settings rows ask for different control
+   widths (time-pickers want compact, free-text selects want a 320px
+   cap); keying off the row makes the contract local and obvious. */
+.settingsRow[data-control-width="compact"] > input,
+.settingsRow[data-control-width="compact"] > .settingsTimeInput {
   max-width: 140px;
+  justify-self: end;
+}
+
+.settingsRow[data-control-width="select"] > .settingsBaseSelectTrigger {
+  max-width: 320px;
+  width: 100%;
   justify-self: end;
 }
 
@@ -7851,19 +7879,10 @@ button:active {
 .settingsField[data-orient="horizontal"] > .settingsBaseSelectTrigger {
   max-width: 320px;
 }
-/* WAWQAQ msg `0951e3b1` 2026-06-25: "每日分析里面也没办法选择分析模型。
-   选择模型的那个组件框也特别丑，特别长，完全就不对。"
-   `.settingsRow` has a 2-column grid `minmax(150px, 0.36fr) 1fr`, so the
-   right control column can be ~500px+ on a wide page. With `w-full` on
-   the Select trigger, the dropdown stretched the full right column —
-   "特别长". Cap it the same way `.settingsField[data-orient="horizontal"]`
-   does (320px) and right-align via `justify-self: end` so the trigger
-   visually matches the Switches in adjacent rows. */
-.settingsRow > .settingsBaseSelectTrigger {
-  max-width: 320px;
-  width: 100%;
-  justify-self: end;
-}
+/* WAWQAQ msg `0951e3b1` 2026-06-25 + @kenji audit #5 (msg `26a221be`):
+   moved to `.settingsRow[data-control-width="select"] >
+   .settingsBaseSelectTrigger` so the contract lives on the row, not on
+   a global class selector. See the data-control-width block above. */
 /* The horizontal row above the first one shouldn't carry a top border;
    below the last one the section footer takes over. The default
    border-bottom is fine for the inter-row hairlines. */

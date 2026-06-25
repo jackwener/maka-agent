@@ -1654,34 +1654,6 @@ function DailyReviewSettingsPage(props: { onOpenDailyReview?: () => void }) {
         </span>
       </header>
 
-      <div className="settingsFeatureStatusHero">
-        <span className="settingsFeatureStatusIcon" aria-hidden="true">
-          <CalendarDays size={24} strokeWidth={1.5} />
-        </span>
-        <div>
-          <div className="settingsFeatureStatusHeroHeading">
-            <h3>每日回顾</h3>
-            <span className="settingsFeatureStatusBadge">
-              {hasConfigIpc ? '本地 + LLM' : '本地汇总'}
-            </span>
-          </div>
-          <p>
-            打开右侧 Content 区里的「每日回顾」可以查看活跃会话、模型用量、工具调用，以及（开启后）LLM
-            生成的对话摘要 / 遗漏提醒等回顾内容。
-          </p>
-          {props.onOpenDailyReview && (
-            <div className="settingsFeatureStatusHeroActions">
-              <Button
-                type="button"
-                onClick={props.onOpenDailyReview}
-              >
-                打开每日回顾
-              </Button>
-            </div>
-          )}
-        </div>
-      </div>
-
       {loadError ? (
         <Alert variant="error" style={{ marginTop: 12 }}>
           <AlertDescription>读取每日回顾设置失败：{loadError}</AlertDescription>
@@ -1702,7 +1674,7 @@ function DailyReviewSettingsPage(props: { onOpenDailyReview?: () => void }) {
           />
         </div>
 
-        <div className="settingsRow">
+        <div className="settingsRow" data-control-width="compact">
           <div>
             <strong>执行时间</strong>
             <small>默认 08:00 本地时间触发。</small>
@@ -1756,7 +1728,7 @@ function DailyReviewSettingsPage(props: { onOpenDailyReview?: () => void }) {
           />
         </div>
 
-        <div className="settingsRow">
+        <div className="settingsRow" data-control-width="select">
           <div>
             <strong>分析模型</strong>
             <small>
@@ -1806,17 +1778,18 @@ function DailyReviewSettingsPage(props: { onOpenDailyReview?: () => void }) {
         </div>
       </div>
 
-      {hasRunOnceIpc && (
-        <div className="settingsFeatureStatusHero" style={{ marginTop: 12 }}>
-          <span className="settingsFeatureStatusIcon" aria-hidden="true">
-            <CalendarDays size={20} strokeWidth={1.5} />
-          </span>
-          <div>
-            <div className="settingsFeatureStatusHeroHeading">
-              <h3>想先看看效果？</h3>
-            </div>
-            <p>无需开启自动执行，基于当前工作区的对话记录立即生成一份报告。</p>
-            <div className="settingsFeatureStatusHeroActions">
+      {(props.onOpenDailyReview || hasRunOnceIpc) && (
+        <div className="settingsPageFooterActions" role="toolbar" aria-label="每日回顾操作">
+          {props.onOpenDailyReview && (
+            <Button
+              type="button"
+              onClick={props.onOpenDailyReview}
+            >
+              打开每日回顾
+            </Button>
+          )}
+          {hasRunOnceIpc && (
+            <>
               <Button
                 type="button"
                 onClick={() => void triggerRun('daily')}
@@ -1831,8 +1804,8 @@ function DailyReviewSettingsPage(props: { onOpenDailyReview?: () => void }) {
               >
                 {runningMode === 'deep' ? '生成中…' : '生成深度分析'}
               </Button>
-            </div>
-          </div>
+            </>
+          )}
         </div>
       )}
     </section>
