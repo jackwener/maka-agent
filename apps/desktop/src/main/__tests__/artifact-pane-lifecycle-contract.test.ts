@@ -33,6 +33,11 @@ describe('ArtifactPane async lifecycle contract', () => {
     );
     assert.match(
       src,
+      /const artifactPaneSessionIdRef = useRef<string \| undefined>\(sessionId\);[\s\S]*artifactPaneSessionIdRef\.current = sessionId;/,
+      'ArtifactPane must track the latest active session so async action continuations cannot update a stale chat surface',
+    );
+    assert.match(
+      src,
       /useEffect\(\(\) => \{[\s\S]*artifactPaneMountedRef\.current = true;[\s\S]*return \(\) => \{[\s\S]*artifactPaneMountedRef\.current = false;[\s\S]*artifactListRequestSeqRef\.current \+= 1;[\s\S]*pendingArtifactListRetryRef\.current = false;[\s\S]*pendingArtifactActionRef\.current = null;[\s\S]*\};[\s\S]*\}, \[\]\)/,
       'ArtifactPane unmount must invalidate list responses, release pending owners, and be StrictMode replay safe',
     );
@@ -142,13 +147,29 @@ describe('ArtifactPane async lifecycle contract', () => {
       'artifact action failure helper must not directly echo raw Error.message',
     );
     assert.match(openBlock, /catch \(error\) \{[\s\S]*toast\.error\('无法在 Finder 中打开生成文件', artifactActionErrorMessage\(error\)\)/);
-    assert.match(openBlock, /const result = await window\.maka\.app\.openArtifactPath\(artifactId\);[\s\S]*if \(!artifactPaneMountedRef\.current\) return;/);
+    assert.match(openBlock, /const actionSessionId = sessionId;[\s\S]*const result = await window\.maka\.app\.openArtifactPath\(artifactId\);[\s\S]*if \(!isArtifactActionSurfaceActive\(actionSessionId\)\) return;/);
     assert.match(copyBlock, /catch \(error\) \{[\s\S]*toast\.error\('复制失败', artifactActionErrorMessage\(error\)\)/);
-    assert.match(copyBlock, /const result = await window\.maka\.artifacts\.readText\(artifactId\);[\s\S]*if \(!artifactPaneMountedRef\.current\) return;[\s\S]*await navigator\.clipboard\.writeText\(result\.text\);[\s\S]*if \(!artifactPaneMountedRef\.current\) return;/);
+    assert.match(copyBlock, /const actionSessionId = sessionId;[\s\S]*const result = await window\.maka\.artifacts\.readText\(artifactId\);[\s\S]*if \(!isArtifactActionSurfaceActive\(actionSessionId\)\) return;[\s\S]*await navigator\.clipboard\.writeText\(result\.text\);[\s\S]*if \(!isArtifactActionSurfaceActive\(actionSessionId\)\) return;/);
     assert.match(saveBlock, /catch \(error\) \{[\s\S]*toast\.error\('另存失败', artifactActionErrorMessage\(error\)\)/);
-    assert.match(saveBlock, /const result = await window\.maka\.app\.saveArtifactAs\(artifactId\);[\s\S]*if \(!artifactPaneMountedRef\.current\) return;/);
+    assert.match(saveBlock, /const actionSessionId = sessionId;[\s\S]*const result = await window\.maka\.app\.saveArtifactAs\(artifactId\);[\s\S]*if \(!isArtifactActionSurfaceActive\(actionSessionId\)\) return;/);
     assert.match(deleteBlock, /catch \(error\) \{[\s\S]*toast\.error\(`删除 \$\{name\} 失败`, artifactActionErrorMessage\(error\)\)/);
-    assert.match(deleteBlock, /if \(!artifactPaneMountedRef\.current\) return;[\s\S]*await window\.maka\.artifacts\.delete\(artifactId\);[\s\S]*await refresh\(\);[\s\S]*if \(!artifactPaneMountedRef\.current\) return;/);
+    assert.match(deleteBlock, /const actionSessionId = sessionId;[\s\S]*if \(!isArtifactActionSurfaceActive\(actionSessionId\)\) return;[\s\S]*await window\.maka\.artifacts\.delete\(artifactId\);[\s\S]*await refresh\(\);[\s\S]*if \(!isArtifactActionSurfaceActive\(actionSessionId\)\) return;/);
+  });
+
+  it('drops stale artifact action continuations after switching sessions', async () => {
+    const src = await readFile(ARTIFACT_PANE_SOURCE, 'utf8');
+    const actionOwnerBlock = src.match(/function isArtifactActionSurfaceActive[\s\S]*?async function openInFinder/)?.[0] ?? '';
+
+    assert.match(
+      actionOwnerBlock,
+      /function isArtifactActionSurfaceActive\(actionSessionId: string \| undefined\): boolean \{[\s\S]*actionSessionId &&[\s\S]*artifactPaneMountedRef\.current &&[\s\S]*artifactPaneSessionIdRef\.current === actionSessionId &&[\s\S]*recordsSessionIdRef\.current === actionSessionId/,
+      'artifact actions must verify both the mounted surface and the active records session before post-await side effects',
+    );
+    assert.doesNotMatch(
+      src,
+      /await navigator\.clipboard\.writeText\(result\.text\);[\s\S]*if \(!artifactPaneMountedRef\.current\) return;/,
+      'copy must not write stale artifact text just because the pane component remains mounted',
+    );
   });
 
   it('gates artifact toolbar actions while async work is pending', async () => {

@@ -91,9 +91,12 @@ export function ArtifactPane(props: { sessionId: string | undefined }) {
   const [pendingArtifactAction, setPendingArtifactAction] = useState<string | null>(null);
   const artifactListRequestSeqRef = useRef(0);
   const artifactPaneMountedRef = useRef(true);
+  const artifactPaneSessionIdRef = useRef<string | undefined>(sessionId);
   const recordsSessionIdRef = useRef<string | undefined>(undefined);
   const pendingArtifactListRetryRef = useRef(false);
   const pendingArtifactActionRef = useRef<string | null>(null);
+
+  artifactPaneSessionIdRef.current = sessionId;
 
   // ---- live data ---------------------------------------------------------
 
@@ -211,6 +214,15 @@ export function ArtifactPane(props: { sessionId: string | undefined }) {
     }
   }
 
+  function isArtifactActionSurfaceActive(actionSessionId: string | undefined): boolean {
+    return Boolean(
+      actionSessionId &&
+        artifactPaneMountedRef.current &&
+        artifactPaneSessionIdRef.current === actionSessionId &&
+        recordsSessionIdRef.current === actionSessionId,
+    );
+  }
+
   async function retryArtifactListRefresh() {
     if (pendingArtifactListRetryRef.current) return;
     pendingArtifactListRetryRef.current = true;
@@ -224,14 +236,15 @@ export function ArtifactPane(props: { sessionId: string | undefined }) {
   }
 
   async function openInFinder(artifactId: string) {
+    const actionSessionId = sessionId;
     try {
       const result = await window.maka.app.openArtifactPath(artifactId);
-      if (!artifactPaneMountedRef.current) return;
+      if (!isArtifactActionSurfaceActive(actionSessionId)) return;
       if (!result.ok) {
         toast.error('无法在 Finder 中打开生成文件', openPathFailureCopy(result.reason));
       }
     } catch (error) {
-      if (!artifactPaneMountedRef.current) return;
+      if (!isArtifactActionSurfaceActive(actionSessionId)) return;
       toast.error('无法在 Finder 中打开生成文件', artifactActionErrorMessage(error));
     }
   }
@@ -242,26 +255,28 @@ export function ArtifactPane(props: { sessionId: string | undefined }) {
     // call doesn't leak base64 into the clipboard.
     const record = activeRecords.find((entry) => entry.id === artifactId);
     if (!record || !isTextKind(record.kind)) return;
+    const actionSessionId = sessionId;
     try {
       const result = await window.maka.artifacts.readText(artifactId);
-      if (!artifactPaneMountedRef.current) return;
+      if (!isArtifactActionSurfaceActive(actionSessionId)) return;
       if (!result.ok) {
         toast.error('复制失败', '无法读取生成文件文本内容。');
         return;
       }
       await navigator.clipboard.writeText(result.text);
-      if (!artifactPaneMountedRef.current) return;
+      if (!isArtifactActionSurfaceActive(actionSessionId)) return;
       toast.success('已复制生成文件文本', `${record.name} · ${formatBytes(record.sizeBytes)}`);
     } catch (error) {
-      if (!artifactPaneMountedRef.current) return;
+      if (!isArtifactActionSurfaceActive(actionSessionId)) return;
       toast.error('复制失败', artifactActionErrorMessage(error));
     }
   }
 
   async function saveAs(artifactId: string) {
+    const actionSessionId = sessionId;
     try {
       const result = await window.maka.app.saveArtifactAs(artifactId);
-      if (!artifactPaneMountedRef.current) return;
+      if (!isArtifactActionSurfaceActive(actionSessionId)) return;
       if (result.ok) {
         const record = activeRecords.find((entry) => entry.id === artifactId);
         toast.success('已另存生成文件', record?.name ?? result.saved);
@@ -270,12 +285,13 @@ export function ArtifactPane(props: { sessionId: string | undefined }) {
       if (result.reason === 'canceled') return;
       toast.error('另存失败', saveArtifactFailureCopy(result.reason));
     } catch (error) {
-      if (!artifactPaneMountedRef.current) return;
+      if (!isArtifactActionSurfaceActive(actionSessionId)) return;
       toast.error('另存失败', artifactActionErrorMessage(error));
     }
   }
 
   async function deleteArtifact(artifactId: string) {
+    const actionSessionId = sessionId;
     const record = activeRecords.find((entry) => entry.id === artifactId);
     const name = record?.name ?? '生成文件';
     const ok = await toast.confirm({
@@ -286,14 +302,14 @@ export function ArtifactPane(props: { sessionId: string | undefined }) {
       destructive: true,
     });
     if (!ok) return;
-    if (!artifactPaneMountedRef.current) return;
+    if (!isArtifactActionSurfaceActive(actionSessionId)) return;
     try {
       await window.maka.artifacts.delete(artifactId);
       await refresh();
-      if (!artifactPaneMountedRef.current) return;
+      if (!isArtifactActionSurfaceActive(actionSessionId)) return;
       toast.success(`已删除 ${name}`);
     } catch (error) {
-      if (!artifactPaneMountedRef.current) return;
+      if (!isArtifactActionSurfaceActive(actionSessionId)) return;
       toast.error(`删除 ${name} 失败`, artifactActionErrorMessage(error));
     }
   }
