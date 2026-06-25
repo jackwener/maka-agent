@@ -6143,11 +6143,9 @@ button:active {
   margin-inline: auto;
   box-sizing: border-box;
   /* Composer outer chrome uses the universal page-card recipe (atlas §4
-     + maka-tokens.css --card-*) but with a slightly larger 10px radius
-     since the composer reads as a "hero card" rather than a flush page
-     surface — 6px would feel too tight for a 72px+ tall floating panel. */
+     + maka-tokens.css --card-*) at the documented large-panel ceiling. */
   border: 1px solid var(--card-border-color);
-  border-radius: 16px;
+  border-radius: 12px;
   padding: 10px 12px 8px;
   background: var(--card-bg);
   box-shadow:
@@ -6522,9 +6520,8 @@ button:active {
 }
 
 .maka-composer-workspace-row {
-  /* PR-PARCHMENT-HOME-2: must share the new composer card measure
-     (620px) so the "选择工作目录 ▾" pill stays aligned with the card
-     left edge above it. */
+  /* Must share the composer card measure so the "选择工作目录 ▾" pill stays
+     aligned with the card left edge above it. */
   width: min(var(--maka-chat-measure, 680px), 100%);
   display: flex;
   justify-content: flex-start;

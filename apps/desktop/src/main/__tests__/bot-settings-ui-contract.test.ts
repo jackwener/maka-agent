@@ -15,10 +15,11 @@ describe('Bot settings UI contract', () => {
   it('keeps platform rows scannable with brand badges and status dots', async () => {
     const settings = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
     const styles = await readRepo('apps/desktop/src/renderer/styles.css');
+    const brand = await readRepo('packages/ui/src/bot-brand.ts');
 
-    assert.match(settings, /const BOT_BRAND\b/, 'Bot settings must keep per-platform brand presentation metadata');
+    assert.match(settings, /BOT_BRAND,\n\s+Button,/, 'Bot settings must import shared per-platform brand presentation metadata');
     for (const provider of ['telegram', 'feishu', 'wecom', 'wechat', 'discord', 'dingtalk', 'qq']) {
-      assert.match(settings, new RegExp(`${provider}:\\s*\\{[\\s\\S]*?configDocUrl:`), `${provider} needs a visible configuration-document link target`);
+      assert.match(brand, new RegExp(`${provider}:\\s*\\{[\\s\\S]*?configDocUrl:`), `${provider} needs a visible configuration-document link target`);
       assert.match(styles, new RegExp(`\\.settingsBotHero\\[data-provider="${provider}"\\]`), `${provider} hero must export a brand color CSS variable`);
     }
     assert.match(settings, /function BotBrandLogo\b/, 'Bot settings must use the shared brand-logo component');

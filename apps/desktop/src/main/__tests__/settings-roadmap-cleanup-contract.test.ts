@@ -52,10 +52,10 @@ describe('Settings coming-soon cleanup contract', () => {
     assert.doesNotMatch(settings, /V0\.1|V0\.2|capture smoke|之后会加|后续版本开放|阶段开放/, 'feature status pages must not read like demo-stage roadmap copy');
     // PR-DAILY-REVIEW-FULL-0: Settings → 每日回顾 became a real config form
     // (enable toggle, execute time, section toggles, deep analysis, manual
-    // trigger). The page still keeps a status badge ("本地汇总" or "本地 + LLM"
-    // depending on whether the backend pipeline is wired), but the body is
-    // no longer a static "shipped features" list.
-    assert.match(settings, /本地汇总/, 'Daily Review status badge should still describe the shipped local aggregate mode when the pipeline is not yet wired');
+    // trigger). The page status now describes the wired automatic analysis
+    // path and keeps the local-only fallback copy in the same branch.
+    assert.match(settings, /每天自动分析本机对话，生成摘要、遗漏提醒和建议。模型按需消耗。/, 'Daily Review status should describe the shipped automatic analysis mode');
+    assert.match(settings, /当前版本仅本地数字聚合，定时生成 \/ LLM 摘要尚未连接到后端。/, 'Daily Review fallback should still describe the local aggregate mode when the pipeline is not wired');
     assert.match(settings, /启用每日回顾/, 'Daily Review settings must surface the auto-run enable toggle');
     assert.match(settings, /执行时间/, 'Daily Review settings must surface the configurable execute time');
     assert.match(settings, /对话摘要/, 'Daily Review settings must expose the 对话摘要 section toggle');

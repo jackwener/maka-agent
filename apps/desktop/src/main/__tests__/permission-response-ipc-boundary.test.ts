@@ -481,7 +481,7 @@ describe('permission response IPC boundary', () => {
     );
     assert.match(
       refreshUntilTurn,
-      /readMessages\(sessionId\)[\s\S]*hasSentUserTurn = next\.some\(\(message\) => message\.type === 'user' && message\.turnId === turnId\)[\s\S]*hasSentUserTurn && activeIdRef\.current === sessionId[\s\S]*setMessages\(next\)/,
+      /readMessages\(sessionId\)[\s\S]*if \(activeIdRef\.current !== sessionId\) return;[\s\S]*hasSentUserTurn = next\.some\(\(message\) => message\.type === 'user' && message\.turnId === turnId\)[\s\S]*if \(hasSentUserTurn\) \{[\s\S]*setMessages\(next\)/,
       'the visible-message wait must be tied to the exact turnId sent by the Composer',
     );
     assert.match(

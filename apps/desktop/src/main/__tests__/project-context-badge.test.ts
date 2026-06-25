@@ -113,11 +113,7 @@ describe('project context workspace picker', () => {
     // alone — no more "选择工作目录 ai ▾" doubled string.
     assert.match(ui, /\? <span className="maka-composer-workspace-current">\{props\.workspacePicker\.label\}<\/span>[\s\S]*?: <span>选择工作目录<\/span>/);
     assert.match(ui, /当前分支 \$\{props\.workspacePicker\.branch\}/);
-    // PR #190 review: composer card measure narrowed from 680 → 620
-    // to match the first-run hero composer width; the workspace-row
-    // pill tracks the new measure so it stays aligned with the card
-    // left edge. (Was 750→680 in PR-PARCHMENT-HOME-2, now 680→620.)
-    assert.match(styles, /\.maka-composer-workspace-row\s*\{[\s\S]*?width:\s*min\(620px,\s*80vw\)/);
+    assert.match(styles, /\.maka-composer-workspace-row\s*\{[\s\S]*?width:\s*min\(var\(--maka-chat-measure,\s*680px\),\s*100%\)/);
     assert.match(styles, /\.maka-composer-workspace-picker\s*\{/);
     assert.match(styles, /-webkit-app-region:\s*no-drag/);
     assert.match(renderer, /basenameFromPath\(appInfo\.projectPath\)/);

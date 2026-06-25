@@ -105,10 +105,12 @@ describe('Settings form accessibility labels', () => {
 
   it('keeps migrated Settings text fields and action buttons on shared UI primitives', async () => {
     const settings = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
+    const settingsSelect = await readRepo('packages/ui/src/primitives/settings-select.tsx');
     const passwordInput = await readRepo('apps/desktop/src/renderer/settings/password-input.tsx');
     const providersPanel = await readRepo('apps/desktop/src/renderer/settings/ProvidersPanel.tsx');
 
-    assert.match(settings, /SelectItem,[\s\S]*SelectPopup,[\s\S]*SelectPortal,[\s\S]*SelectPositioner,[\s\S]*SelectRoot,[\s\S]*SelectTrigger,[\s\S]*SelectValue,/);
+    assert.match(settings, /SettingsSelect,/);
+    assert.match(settingsSelect, /SelectItem,[\s\S]*SelectPopup,[\s\S]*SelectPortal,[\s\S]*SelectPositioner,[\s\S]*SelectRoot,[\s\S]*SelectTrigger,[\s\S]*SelectValue,/);
     assert.match(passwordInput, /import \{ Button, Input, useToast \} from '@maka\/ui';/);
     // ProvidersPanel sources its UI from the shared @maka/ui primitives;
     // tolerant of single- vs multi-line import formatting.
@@ -116,8 +118,8 @@ describe('Settings form accessibility labels', () => {
     for (const name of ['Button', 'PrimitiveTabs', 'PrimitiveTabsList', 'PrimitiveTabsTrigger', 'Input', 'RelativeTime', 'Textarea', 'useToast', 'useModalA11y']) {
       assert.ok(providersPanelUiImport.includes(name), `ProvidersPanel should import ${name} from @maka/ui`);
     }
-    assert.match(settings, /function SettingsSelect<T extends string>/);
-    assert.match(settings, /<SelectPositioner alignItemWithTrigger=\{false\} sideOffset=\{6\}>/);
+    assert.match(settingsSelect, /export function SettingsSelect<T extends string>/);
+    assert.match(settingsSelect, /<SelectPositioner alignItemWithTrigger=\{false\} sideOffset=\{6\}>/);
 
     // ThemeSettingsPage uses native <button> on purpose for the radio-card
     // pickers (mode / palette): the cards are a custom grid with a preview
