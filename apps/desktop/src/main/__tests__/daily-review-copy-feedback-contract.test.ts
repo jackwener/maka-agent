@@ -96,7 +96,7 @@ describe('Daily Review copy feedback contract', () => {
     assert.match(panelBlock, /const pendingDailyReviewActionRef = useRef<string \| null>\(null\)/);
     assert.match(
       panelBlock,
-      /useEffect\(\(\) => \{\s*dailyReviewMountedRef\.current = true;[\s\S]*?return \(\) => \{\s*dailyReviewMountedRef\.current = false;\s*pendingDailyReviewActionRef\.current = null;\s*\};\s*\}, \[\]\)/,
+      /useEffect\(\(\) => \{\s*dailyReviewMountedRef\.current = true;[\s\S]*?return \(\) => \{\s*dailyReviewMountedRef\.current = false;\s*pendingDailyReviewActionRef\.current = null;\s*(?:archiveLoadRequestRef\.current \+= 1;\s*)?\};\s*\}, \[\]\)/,
       'Daily Review export pending ownership must be released when the main panel unmounts or StrictMode replays cleanup',
     );
     assert.match(panelBlock, /const dailyReviewActionBusy = pendingDailyReviewAction !== null/);
@@ -123,6 +123,46 @@ describe('Daily Review copy feedback contract', () => {
       main,
       /onSaveDailyReviewMarkdown=\{\(input\) => saveDailyReviewMarkdown\(input, \{ shouldShowFeedback: isDailyReviewSurfaceActive \}\)\}/,
       'Daily Review save feedback must be gated to the active Daily Review surface',
+    );
+  });
+
+  it('guards Daily Review archive body loads against stale async responses', async () => {
+    const ui = await readFile(resolve(REPO_ROOT, 'packages/ui/src/components.tsx'), 'utf8');
+    const panelBlock = ui.match(/function DailyReviewPanel[\s\S]*?function PlanReminderPanel/)?.[0] ?? '';
+    const archiveLoadBlock = panelBlock.match(/useEffect\(\(\) => \{\s*const getArchive = props\.bridge\.getArchive;[\s\S]*?\}, \[archiveReloadToken, selectedArchiveId, props\.bridge\]\);/)?.[0] ?? '';
+
+    assert.match(panelBlock, /const archiveLoadRequestRef = useRef\(0\)/);
+    assert.match(
+      panelBlock,
+      /return \(\) => \{\s*dailyReviewMountedRef\.current = false;\s*pendingDailyReviewActionRef\.current = null;\s*archiveLoadRequestRef\.current \+= 1;\s*\};/,
+      'Daily Review archive loads must be invalidated when the panel unmounts',
+    );
+    assert.match(
+      panelBlock,
+      /function chooseDailyReviewArchive\(archiveId: string\) \{\s*archiveLoadRequestRef\.current \+= 1;\s*setSelectedArchiveId\(archiveId\);\s*setSelectedArchive\(null\);\s*setArchiveLoading\(Boolean\(props\.bridge\.getArchive\)\);\s*setArchiveError\(null\);\s*\}/,
+      'Archive row selection must synchronously invalidate the previous body request before React effect cleanup runs',
+    );
+    assert.match(panelBlock, /onClick=\{\(\) => chooseDailyReviewArchive\(archive\.id\)\}/);
+    assert.match(panelBlock, /chooseDailyReviewArchive\(result\.archiveId\);/);
+    assert.match(
+      archiveLoadBlock,
+      /if \(!getArchive \|\| !selectedArchiveId\) \{\s*archiveLoadRequestRef\.current \+= 1;\s*setSelectedArchive\(null\);/,
+      'Disabling or clearing the archive selection must invalidate any pending body load',
+    );
+    assert.match(
+      archiveLoadBlock,
+      /const archiveId = selectedArchiveId;\s*const archiveRequestId = \+\+archiveLoadRequestRef\.current;[\s\S]*getArchive\(archiveId\)/,
+      'Each archive body load must capture both the selected id and a request token',
+    );
+    assert.match(
+      archiveLoadBlock,
+      /\.then\(\(next\) => \{\s*if \(cancelled\) return;\s*if \(archiveLoadRequestRef\.current !== archiveRequestId\) return;\s*setSelectedArchive\(next\);/,
+      'Older successful archive body loads must not overwrite the current selection',
+    );
+    assert.match(
+      archiveLoadBlock,
+      /\.catch\(\(err: unknown\) => \{\s*if \(cancelled\) return;\s*if \(archiveLoadRequestRef\.current !== archiveRequestId\) return;\s*setSelectedArchive\(null\);/,
+      'Older failed archive body loads must not clear or error the current selection',
     );
   });
 

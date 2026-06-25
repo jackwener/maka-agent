@@ -1435,6 +1435,7 @@ function DailyReviewPanel(props: {
   const dailyReviewMountedRef = useRef(true);
   const summaryScopeKeyRef = useRef<string | null>(null);
   const pendingDailyReviewActionRef = useRef<string | null>(null);
+  const archiveLoadRequestRef = useRef(0);
   const currentSummaryScopeKey = dailyReviewScopeKey(offsetDays, range);
   const visibleSummary = summaryScopeKey === currentSummaryScopeKey ? summary : null;
   const canLoadArchives = Boolean(props.bridge.listArchives && props.bridge.getArchive);
@@ -1444,8 +1445,17 @@ function DailyReviewPanel(props: {
     return () => {
       dailyReviewMountedRef.current = false;
       pendingDailyReviewActionRef.current = null;
+      archiveLoadRequestRef.current += 1;
     };
   }, []);
+
+  function chooseDailyReviewArchive(archiveId: string) {
+    archiveLoadRequestRef.current += 1;
+    setSelectedArchiveId(archiveId);
+    setSelectedArchive(null);
+    setArchiveLoading(Boolean(props.bridge.getArchive));
+    setArchiveError(null);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -1507,21 +1517,27 @@ function DailyReviewPanel(props: {
   useEffect(() => {
     const getArchive = props.bridge.getArchive;
     if (!getArchive || !selectedArchiveId) {
+      archiveLoadRequestRef.current += 1;
       setSelectedArchive(null);
       setArchiveLoading(false);
       return;
     }
     let cancelled = false;
+    const archiveId = selectedArchiveId;
+    const archiveRequestId = ++archiveLoadRequestRef.current;
+    setSelectedArchive(null);
     setArchiveLoading(true);
     setArchiveError(null);
-    getArchive(selectedArchiveId)
+    getArchive(archiveId)
       .then((next) => {
         if (cancelled) return;
+        if (archiveLoadRequestRef.current !== archiveRequestId) return;
         setSelectedArchive(next);
         setArchiveLoading(false);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
+        if (archiveLoadRequestRef.current !== archiveRequestId) return;
         setSelectedArchive(null);
         setArchiveError(dailyReviewPanelErrorMessage(err));
         setArchiveLoading(false);
@@ -1576,7 +1592,7 @@ function DailyReviewPanel(props: {
     await runDailyReviewAction(`run:${mode}`, async () => {
       try {
         const result = await runOnce({ mode });
-        setSelectedArchiveId(result.archiveId);
+        chooseDailyReviewArchive(result.archiveId);
         setArchiveReloadToken((n) => n + 1);
         setReloadToken((n) => n + 1);
       } catch (err) {
@@ -1697,7 +1713,7 @@ function DailyReviewPanel(props: {
                       variant="quiet"
                       className="maka-daily-review-archive-row"
                       data-active={selectedArchiveId === archive.id ? 'true' : undefined}
-                      onClick={() => setSelectedArchiveId(archive.id)}
+                      onClick={() => chooseDailyReviewArchive(archive.id)}
                     >
                       <span className="maka-daily-review-archive-row-title">
                         {formatDailyReviewArchiveTitle(archive)}
