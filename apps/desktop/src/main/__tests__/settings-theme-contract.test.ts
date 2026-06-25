@@ -2,6 +2,7 @@ import { strict as assert } from 'node:assert';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
+import { readRendererContractCss } from './contract-css-helpers.js';
 
 const repoRoot = process.cwd().endsWith('apps/desktop')
   ? join(process.cwd(), '..', '..')
@@ -171,7 +172,7 @@ describe('Settings theme page contract', () => {
   });
 
   it('keeps shared Button chrome from collapsing theme choice cards', async () => {
-    const css = await readRepo('apps/desktop/src/renderer/styles.css');
+    const css = await readRendererContractCss();
 
     assert.match(
       css,

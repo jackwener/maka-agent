@@ -2,9 +2,8 @@ import assert from 'node:assert/strict';
 import { readdir, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { describe, it } from 'node:test';
+import { REPO_ROOT, readAllRendererCss } from './css-test-helpers.js';
 
-const REPO_ROOT = resolve(process.cwd(), '..', '..');
-const STYLES_PATH = resolve(REPO_ROOT, 'apps', 'desktop', 'src', 'renderer', 'styles.css');
 const SOURCE_ROOTS = [
   resolve(REPO_ROOT, 'apps', 'desktop', 'src', 'renderer'),
   resolve(REPO_ROOT, 'packages', 'ui', 'src'),
@@ -54,7 +53,7 @@ function collectClassSelectors(styles: string): string[] {
 
 describe('renderer style pruning contract', () => {
   it('does not keep CSS for retired renderer hooks', async () => {
-    const styles = await readFile(STYLES_PATH, 'utf8');
+    const styles = await readAllRendererCss();
     const retiredHooks = [
       'connectionStatus',
       'maka-indeterminate-bar',
@@ -82,7 +81,7 @@ describe('renderer style pruning contract', () => {
 
   it('does not add unaccounted orphan class selectors to styles.css', async () => {
     const [styles, sourceFiles] = await Promise.all([
-      readFile(STYLES_PATH, 'utf8'),
+      readAllRendererCss(),
       Promise.all(SOURCE_ROOTS.map((root) => readSourceFiles(root))).then((groups) => groups.flat()),
     ]);
     const source = sourceFiles.join('\n');
@@ -94,7 +93,7 @@ describe('renderer style pruning contract', () => {
     assert.deepEqual(
       orphanSelectors,
       [],
-      `styles.css contains class selectors with no renderer/@maka/ui source consumer. ` +
+      `renderer styles contain class selectors with no renderer/@maka/ui source consumer. ` +
         `Delete the style, move it next to the consuming primitive, or add a documented runtime hook allowlist entry: ${orphanSelectors.join(', ')}`,
     );
   });

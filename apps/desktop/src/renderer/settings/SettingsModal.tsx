@@ -1595,7 +1595,7 @@ function DailyReviewSettingsPage(props: { onOpenDailyReview?: () => void }) {
         <span>
           {hasConfigIpc
             ? '每天自动分析本机对话，生成摘要、遗漏提醒和建议。模型按需消耗。'
-            : '当前版本仅本地数字聚合，定时生成 / LLM 摘要尚未连接到后端。'}
+            : '当前版本仍以本地汇总为主；定时生成 / LLM 摘要尚未连接到后端。'}
         </span>
       </header>
 

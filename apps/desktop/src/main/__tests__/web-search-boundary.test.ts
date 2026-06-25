@@ -13,6 +13,7 @@ import { strict as assert } from 'node:assert';
 import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 import { join, resolve } from 'node:path';
+import { readAllRendererCss } from './css-test-helpers.js';
 
 const REPO_ROOT = resolve(process.cwd(), '..', '..');
 
@@ -283,7 +284,7 @@ describe('web-search renderer boundary (PR-WEB-SEARCH-TAVILY-0)', () => {
 
   it('Settings web-search simple controls use grouped Settings row cards instead of naked form blocks', async () => {
     const settings = await readFile(join(REPO_ROOT, 'apps/desktop/src/renderer/settings/SettingsModal.tsx'), 'utf8');
-    const styles = await readFile(join(REPO_ROOT, 'apps/desktop/src/renderer/styles.css'), 'utf8');
+    const styles = await readAllRendererCss();
     const page = settings.match(/function WebSearchSettingsPage[\s\S]*?function webSearchQueryDisabledReason/);
 
     assert.ok(page, 'Web search settings page block must exist');

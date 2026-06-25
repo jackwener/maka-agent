@@ -1,10 +1,6 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
 import { describe, it } from 'node:test';
-
-const REPO_ROOT = resolve(process.cwd(), '..', '..');
-const STYLES_PATH = resolve(REPO_ROOT, 'apps', 'desktop', 'src', 'renderer', 'styles.css');
+import { readAllRendererCss } from './css-test-helpers.js';
 
 /**
  * Returns the number of `@layer` blocks enclosing the first occurrence of
@@ -55,9 +51,9 @@ describe('renderer style layer cascade contract', () => {
    * `inline-flex justify-center`, collapsing every sidebar button (nav rows,
    * session rows, settings) to flex-centered content. Keep these override
    * rules unlayered (or in a layer declared AFTER utilities) so they win.
-   */
+  */
   it('keeps .maka-nav-row out of any @layer so it beats Tailwind button utilities', async () => {
-    const styles = await readFile(STYLES_PATH, 'utf8');
+    const styles = await readAllRendererCss();
     const layers = enclosingLayerCount(styles, '.maka-nav-row {');
     assert.notEqual(layers, -1, '.maka-nav-row { rule not found in styles.css');
     assert.equal(
@@ -65,6 +61,50 @@ describe('renderer style layer cascade contract', () => {
       0,
       `.maka-nav-row is nested in ${layers} @layer block(s); it must stay unlayered to ` +
         'override the cva button base utilities (inline-flex/justify-center). See #257 regression.',
+    );
+  });
+
+  it('keeps .settingsHealthRefresh out of any @layer so it can override secondary Button utilities', async () => {
+    const styles = await readAllRendererCss();
+    const layers = enclosingLayerCount(styles, '.settingsHealthRefresh {');
+    assert.notEqual(layers, -1, '.settingsHealthRefresh { rule not found in renderer CSS');
+    assert.equal(
+      layers,
+      0,
+      '.settingsHealthRefresh must stay unlayered because it overrides the shared secondary Button utility stack (background/border/padding/color).',
+    );
+  });
+
+  it('keeps .settingsPermissionRefresh out of any @layer so it can override secondary Button utilities', async () => {
+    const styles = await readAllRendererCss();
+    const layers = enclosingLayerCount(styles, '.settingsPermissionRefresh {');
+    assert.notEqual(layers, -1, '.settingsPermissionRefresh { rule not found in renderer CSS');
+    assert.equal(
+      layers,
+      0,
+      '.settingsPermissionRefresh must stay unlayered because it overrides the shared secondary Button utility stack (background/border/padding/color).',
+    );
+  });
+
+  it('keeps .settingsBotList button out of any @layer so the bot nav can override shared Button utilities', async () => {
+    const styles = await readAllRendererCss();
+    const layers = enclosingLayerCount(styles, '.settingsBotList button {');
+    assert.notEqual(layers, -1, '.settingsBotList button { rule not found in renderer CSS');
+    assert.equal(
+      layers,
+      0,
+      '.settingsBotList button must stay unlayered because the bot nav uses shared Button primitives and overrides their utility layout/background stack.',
+    );
+  });
+
+  it('keeps the darwin glass .maka-nav-row color override out of any @layer so it beats quiet Button text utilities', async () => {
+    const styles = await readAllRendererCss();
+    const layers = enclosingLayerCount(styles, 'html[data-os="darwin"] .maka-nav-row {');
+    assert.notEqual(layers, -1, 'darwin .maka-nav-row glass rule not found in renderer CSS');
+    assert.equal(
+      layers,
+      0,
+      'html[data-os="darwin"] .maka-nav-row must stay unlayered because the glass theme needs to override shared quiet Button text utilities on the same element.',
     );
   });
 });

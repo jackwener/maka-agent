@@ -2,6 +2,7 @@ import { strict as assert } from 'node:assert';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { describe, it } from 'node:test';
+import { readRendererContractCss } from './contract-css-helpers.js';
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../../../..');
 
@@ -58,7 +59,7 @@ describe('PR-SESSION-STICKY-MODEL-0 contract', () => {
     const renderer = await readFile(resolve(REPO_ROOT, 'apps/desktop/src/renderer/main.tsx'), 'utf8');
     const ui = await readFile(resolve(REPO_ROOT, 'packages/ui/src/components.tsx'), 'utf8');
     const uiPrimitives = await readFile(resolve(REPO_ROOT, 'packages/ui/src/ui.tsx'), 'utf8');
-    const styles = await readFile(resolve(REPO_ROOT, 'apps/desktop/src/renderer/styles.css'), 'utf8');
+    const styles = await readRendererContractCss();
 
     assert.match(main, /ipcMain\.handle\('sessions:setModel'[\s\S]*normalizeSessionModelSelection\(input\)/);
     assert.match(main, /getReadyConnection\(llmConnectionSlug, model\)/, 'model switch must reuse the send-path readiness gate');

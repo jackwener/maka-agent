@@ -27,6 +27,7 @@ import { strict as assert } from 'node:assert';
 import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 import { join, resolve } from 'node:path';
+import { readRendererContractCss } from './contract-css-helpers.js';
 
 // Cwd is `apps/desktop` when the test runs (per the existing
 // sidebar-scroll-contract pattern).
@@ -389,8 +390,7 @@ describe('terminal truncation handoff contract', () => {
   });
 
   it('styles the terminal truncation handoff distinctly from raw terminal output', async () => {
-    const stylesPath = join(process.cwd(), 'src', 'renderer', 'styles.css');
-    const src = await readFile(stylesPath, 'utf8');
+    const src = await readRendererContractCss();
 
     assert.match(src, /\.maka-tool-terminal-truncated-note\s*\{/, 'Missing truncated terminal note style.');
     assert.match(
@@ -495,8 +495,7 @@ describe('turn footer copy feedback contract', () => {
   });
 
   it('styles footer copy pending and failure states', async () => {
-    const stylesPath = join(process.cwd(), 'src', 'renderer', 'styles.css');
-    const src = await readFile(stylesPath, 'utf8');
+    const src = await readRendererContractCss();
 
     assert.match(
       src,
@@ -539,8 +538,7 @@ describe('tool error copy feedback contract', () => {
   });
 
   it('styles tool-error copy pending and failure states', async () => {
-    const stylesPath = join(process.cwd(), 'src', 'renderer', 'styles.css');
-    const src = await readFile(stylesPath, 'utf8');
+    const src = await readRendererContractCss();
 
     assert.match(
       src,

@@ -1,0 +1,433 @@
+.settingsBotList {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  border-right: 1px solid var(--border);
+  padding-right: 22px;
+}
+
+.settingsBotList button {
+  min-height: 44px;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--foreground-70);
+  padding: 7px 10px;
+  text-align: left;
+}
+
+.settingsBotList button[data-active="true"] {
+  background: var(--active);
+  color: var(--foreground);
+}
+
+.settingsBotList em {
+  font-size: 10px;
+  font-style: normal;
+  color: var(--foreground-55);
+}
+
+.settingsBotList em[data-tone="info"] { color: var(--accent); }
+.settingsBotList em[data-tone="success"] { color: var(--success-text); }
+.settingsBotList em[data-tone="warning"] { color: var(--info-text); }
+.settingsBotList em[data-tone="destructive"] { color: var(--destructive-text); }
+
+/* PR-PLACEHOLDER-SWEEP-0: planned-only platforms render their tab
+   muted so users don't mistake them for credentialed-and-ready
+   options. Clicking still navigates so the user can read the
+   unavailable-state notice on the detail pane. */
+.settingsBotList button[data-support="planned"] {
+  opacity: 0.55;
+}
+.settingsBotList button[data-support="planned"]:hover {
+  opacity: 0.75;
+}
+.settingsBotList button[data-support="planned"][data-active="true"] {
+  opacity: 1;
+}
+.settingsBotList button[data-support="planned"] em {
+  border: 1px solid var(--foreground-15);
+  border-radius: 999px;
+  padding: 0 6px;
+  color: var(--foreground-50);
+  font-style: normal;
+  letter-spacing: 0.04em;
+}
+
+/* PR-BOT-SETTINGS-UI-0 (WAWQAQ msg `51c7b4ff`): brand-tinted monogram
+   badge. `--bot-brand-color` is the per-platform brand color set
+   inline by BotBrandLogo. Background uses ~14% tint so the brand
+   reads clearly without overpowering the row. */
+@layer components {
+  .settingsBotLogo {
+    position: relative;
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 9px;
+    background: color-mix(in srgb, var(--bot-brand-color, var(--accent)) 14%, var(--background));
+    color: var(--bot-brand-color, var(--accent));
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0;
+    flex-shrink: 0;
+  }
+
+  .settingsBotLogo[data-large="true"] {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    font-size: 20px;
+  }
+
+  .settingsBotLogoStatusDot {
+    position: absolute;
+    right: -2px;
+    bottom: -2px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--foreground-30);
+    box-shadow: 0 0 0 2px var(--background);
+  }
+  .settingsBotLogo[data-large="true"] .settingsBotLogoStatusDot {
+    width: 11px;
+    height: 11px;
+    right: -3px;
+    bottom: -3px;
+    box-shadow: 0 0 0 2.5px var(--background);
+  }
+  .settingsBotLogoStatusDot[data-tone="info"] { background: var(--accent); }
+  .settingsBotLogoStatusDot[data-tone="success"] { background: var(--success); }
+  .settingsBotLogoStatusDot[data-tone="warning"] { background: var(--info); }
+  .settingsBotLogoStatusDot[data-tone="destructive"] { background: var(--destructive); }
+
+  .settingsBotDetail {
+    display: grid;
+    align-content: start;
+    gap: 14px;
+  }
+
+  /* PR-BOT-SETTINGS-UI-0 (WAWQAQ msg `51c7b4ff`): brand-tinted hero
+     card. Background uses the brand color at ~7% so the platform
+     identity is visible without overpowering the form. Telegram-style
+     light blue, WeChat green, Discord purple, etc. */
+  .settingsBotHero {
+    min-height: 76px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 14px;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--bot-brand-color, var(--accent)) 7%, var(--background));
+    border: 1px solid color-mix(in srgb, var(--bot-brand-color, var(--accent)) 14%, transparent);
+    padding: 16px 18px;
+  }
+
+  .settingsBotHero[data-support="planned"] {
+    background: var(--foreground-5);
+    border-color: var(--border);
+  }
+
+  /* Re-export the brand color on the hero card so child logo + accents
+     pick up the right CSS var without needing a second prop pass. */
+  .settingsBotHero[data-provider="telegram"] { --bot-brand-color: #229ED9; }
+  .settingsBotHero[data-provider="feishu"]   { --bot-brand-color: #00C6B7; }
+  .settingsBotHero[data-provider="wecom"]    { --bot-brand-color: #0089FF; }
+  .settingsBotHero[data-provider="wechat"]   { --bot-brand-color: #07C160; }
+  .settingsBotHero[data-provider="discord"]  { --bot-brand-color: #5865F2; }
+  .settingsBotHero[data-provider="dingtalk"] { --bot-brand-color: #1372FB; }
+  .settingsBotHero[data-provider="qq"]       { --bot-brand-color: #EB1923; }
+
+  .settingsBotHeroBody {
+    min-width: 0;
+  }
+
+  .settingsBotHero h3 {
+    margin: 0 0 4px;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .settingsBotHero small,
+  .settingsHelpText {
+    color: var(--foreground-55);
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+
+  .settingsBotEnableHint {
+    display: block;
+    margin-top: 4px;
+    color: var(--warning-text, var(--foreground-70));
+  }
+
+  .settingsBotConfigDocLink {
+    color: var(--bot-brand-color, var(--accent));
+    text-decoration: none;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .settingsBotConfigDocLink:hover {
+    text-decoration: underline;
+  }
+
+  .settingsBotStatusPill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 9px 2px 7px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--foreground) 5%, transparent);
+    color: var(--foreground-70);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+
+  .settingsBotStatusPillDot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--foreground-40);
+  }
+  .settingsBotStatusPill[data-tone="info"] .settingsBotStatusPillDot { background: var(--accent); }
+  .settingsBotStatusPill[data-tone="success"] { color: var(--success-text); }
+  .settingsBotStatusPill[data-tone="success"] .settingsBotStatusPillDot { background: var(--success); }
+  .settingsBotStatusPill[data-tone="warning"] { color: var(--info-text); }
+  .settingsBotStatusPill[data-tone="warning"] .settingsBotStatusPillDot { background: var(--info); }
+  .settingsBotStatusPill[data-tone="destructive"] { color: var(--destructive-text); }
+  .settingsBotStatusPill[data-tone="destructive"] .settingsBotStatusPillDot { background: var(--destructive); }
+
+  .settingsHelpText {
+    margin: 0;
+  }
+
+  .settingsBotStatusGrid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    margin: 0;
+  }
+
+  .settingsBotStatusGrid div {
+    min-height: 52px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--foreground-3);
+    padding: 10px 12px;
+  }
+
+  @media (max-width: 1100px) {
+    .settingsBotStatusGrid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  .settingsBotStatusGrid dt {
+    margin-bottom: 4px;
+    color: var(--foreground-45);
+    font-size: 11px;
+  }
+
+  .settingsBotStatusGrid dd {
+    margin: 0;
+    color: var(--foreground);
+    font-size: 12px;
+    word-break: break-word;
+  }
+
+  .settingsBotReason {
+    border-left: 2px solid var(--accent);
+    color: var(--foreground-60);
+    font-size: 12px;
+    line-height: 1.5;
+    padding-left: 10px;
+  }
+
+  /* PR-BOT-CHAT-POLISH-0: error tone for persisted lastError so the
+     user can spot a failed test past the toast lifetime. */
+  .settingsBotReason[data-tone="error"] {
+    border-left-color: var(--destructive, var(--warning));
+    color: var(--destructive-text, var(--info-text));
+  }
+}
+
+.settingsUsagePage {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.settingsUsageToolbar,
+.settingsUsageFilters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.settingsSegmented {
+  justify-self: start;
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: 999px;
+  background: var(--foreground-5);
+  padding: 2px;
+}
+
+.settingsSegmented button {
+  min-height: 22px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--foreground-60);
+  padding: 0 8px;
+  font-size: 11px;
+}
+
+.settingsSegmented button[data-pressed] {
+  background: var(--background);
+  color: var(--foreground);
+  box-shadow: 0 1px 2px oklch(0 0 0 / 0.08);
+}
+
+.settingsUsageSummary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.settingsMetricCard {
+  min-height: 52px;
+  display: grid;
+  align-content: center;
+  gap: 2px;
+  border-radius: 8px;
+  background: var(--foreground-5);
+  padding: 6px 10px;
+}
+
+.settingsMetricCard small,
+.settingsMetricCard span {
+  color: var(--foreground-50);
+  font-size: 10px;
+}
+
+.settingsMetricCard strong {
+  font-size: 14px;
+}
+
+.settingsStatsTable {
+  width: 100%;
+  border-collapse: collapse;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 11px;
+}
+
+.settingsStatsTable th,
+.settingsStatsTable td {
+  border-bottom: 1px solid var(--border);
+  color: var(--foreground-60);
+  padding: 5px 8px;
+  text-align: left;
+}
+
+.settingsStatsTable th {
+  color: var(--foreground-70);
+  font-weight: 600;
+}
+
+.settingsCloseButton {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--foreground-50);
+  line-height: 1;
+}
+
+.settingsCloseButton svg {
+  width: 14px;
+  height: 14px;
+}
+
+.settingsCloseButton:hover {
+  background: var(--foreground-5);
+  color: var(--foreground);
+}
+
+.settingsRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  display: grid;
+  grid-template-columns: minmax(150px, 0.36fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  border: 0;
+  border-bottom: 1px solid oklch(from var(--foreground) l c h / 0.06);
+  border-radius: 0;
+  background: transparent;
+  transition: background var(--duration-base) var(--ease-out-strong);
+}
+
+.settingsBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 18px;
+  border-radius: 4px;
+  background: var(--foreground-5);
+  color: var(--foreground-60);
+  padding: 0 6px;
+  font-size: 10px;
+}
+
+/* PR-SETTINGS-GROUPED-CARD-0 (WAWQAQ msg `1abecd66`): same grouped-
+   card pattern as `.settingsStructuredPage` — outer card + hairline
+   dividers, no per-row chrome. */
+.settingsRows {
+  display: grid;
+  gap: 0;
+  border: 1px solid oklch(from var(--foreground) l c h / 0.08);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* Per-connection card on AccountSettingsPage. Status badge tone derives
+ * from the closed-form ConnectionUiStatus enum:
+ *   neutral / info / success / warning / destructive.
+ */
+.settingsConnectionList {
+  /* PR-CONNECTION-LIST-A11Y-0 (round 17/30): switched from
+     `<div role="list">` to semantic `<ul>`. Reset the UA's
+     default bullet + 40px padding-left so the grid layout
+     stays the same. */
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.settingsConnectionList > li {
+  margin: 0;
+  padding: 0;
+}

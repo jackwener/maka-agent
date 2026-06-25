@@ -32,8 +32,8 @@ import { strict as assert } from 'node:assert';
 import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 import { join } from 'node:path';
+import { readRendererContractCss } from './contract-css-helpers.js';
 
-const STYLES_PATH = join(process.cwd(), 'src', 'renderer', 'styles.css');
 const TOKENS_PATH = join(process.cwd(), 'src', 'renderer', 'maka-tokens.css');
 const MAIN_TS_PATH = join(process.cwd(), 'src', 'main', 'main.ts');
 
@@ -72,13 +72,16 @@ describe('app-region hygiene contract (PR-SIDEBAR-IA-0 Phase 3 P0 fixup v5)', ()
 
   for (const host of FORBIDDEN_DRAG_HOSTS) {
     it(`'${host}' selector does NOT carry -webkit-app-region: drag (would steal OS resize hit area)`, async () => {
-      for (const path of [STYLES_PATH, TOKENS_PATH]) {
-        const src = await readFile(path, 'utf8');
+      const stylesSources = [
+        ['renderer CSS', await readRendererContractCss()],
+        [TOKENS_PATH, await readFile(TOKENS_PATH, 'utf8')],
+      ] as const;
+      for (const [sourceLabel, src] of stylesSources) {
         const offender = findRuleWithBoth(src, host, '-webkit-app-region: drag');
         assert.equal(
           offender,
           null,
-          `selector '${host}' must NOT declare \`-webkit-app-region: drag\` in ${path} — full-window containers steal the OS resize hit area (WAWQAQ ${'`5b85fdb1`'}, xuan ${'`eea556cd`'}). Found rule:\n${offender}`,
+          `selector '${host}' must NOT declare \`-webkit-app-region: drag\` in ${sourceLabel} — full-window containers steal the OS resize hit area (WAWQAQ ${'`5b85fdb1`'}, xuan ${'`eea556cd`'}). Found rule:\n${offender}`,
         );
       }
     });
@@ -97,15 +100,18 @@ describe('app-region hygiene contract (PR-SIDEBAR-IA-0 Phase 3 P0 fixup v5)', ()
       /-nav-window($|[\s,{])/,
       /-toolbar($|[\s,{])/,
     ];
-    for (const path of [STYLES_PATH, TOKENS_PATH]) {
-      const src = await readFile(path, 'utf8');
+    const stylesSources = [
+      ['renderer CSS', await readRendererContractCss()],
+      [TOKENS_PATH, await readFile(TOKENS_PATH, 'utf8')],
+    ] as const;
+    for (const [sourceLabel, src] of stylesSources) {
       const dragRules = findRulesWithDeclaration(src, '-webkit-app-region: drag');
       for (const rule of dragRules) {
         const selector = rule.selector;
         const ok = allowedNamePatterns.some((pattern) => pattern.test(selector));
         assert.ok(
           ok,
-          `\`-webkit-app-region: drag\` on selector '${selector}' (in ${path}) is outside the allowlisted narrow strips. Allowed naming: *-header / *-tab-bar / *-drag-strip / *-nav-window / *-toolbar. Add the class to the allowlist only after confirming it sits in a narrow strip, NOT a full-window container.`,
+          `\`-webkit-app-region: drag\` on selector '${selector}' (in ${sourceLabel}) is outside the allowlisted narrow strips. Allowed naming: *-header / *-tab-bar / *-drag-strip / *-nav-window / *-toolbar. Add the class to the allowlist only after confirming it sits in a narrow strip, NOT a full-window container.`,
         );
       }
     }

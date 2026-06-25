@@ -8,16 +8,9 @@
  */
 
 import { strict as assert } from 'node:assert';
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { deriveStaleSessionIds } from '../../renderer/stale-sessions.js';
-
-// Test runs from the desktop workspace root via `node --test dist/...`,
-// so `process.cwd()` is `apps/desktop`. Source styles.css lives at
-// `src/renderer/styles.css` — we read the source (not a built artifact)
-// because the renderer CSS isn't compiled into dist for the test build.
-const STYLES_PATH = join(process.cwd(), 'src', 'renderer', 'styles.css');
+import { readRendererContractCss } from './contract-css-helpers.js';
 
 function session(partial: { id: string; backend?: string; slug?: string }): {
   id: string;
@@ -125,7 +118,7 @@ describe('stale session CSS contract (@kenji review gate)', () => {
   // `staleSessionIds.has(session.id)` (independent of active state).
 
   it('inactive stale row dims, active stale row restores opacity', async () => {
-    const css = await readFile(STYLES_PATH, 'utf8');
+    const css = await readRendererContractCss();
     // Inactive stale dimming rule must exist.
     assert.match(
       css,
@@ -141,7 +134,7 @@ describe('stale session CSS contract (@kenji review gate)', () => {
   });
 
   it('stale pill is never hidden by any CSS rule (active state preserves warning signal)', async () => {
-    const css = await readFile(STYLES_PATH, 'utf8');
+    const css = await readRendererContractCss();
     // Any rule that targets `.maka-list-row-stale-pill` AND applies
     // display: none / visibility: hidden / opacity: 0 is a regression on
     // the @kenji gate. Scan the CSS body for those patterns.

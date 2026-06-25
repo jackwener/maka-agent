@@ -2,6 +2,7 @@ import { strict as assert } from 'node:assert';
 import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 import { join } from 'node:path';
+import { readRendererContractCss } from './contract-css-helpers.js';
 
 const repoRoot = process.cwd().endsWith('apps/desktop')
   ? join(process.cwd(), '..', '..')
@@ -13,13 +14,16 @@ async function readRepo(path: string): Promise<string> {
 
 describe('Bot settings UI contract', () => {
   it('keeps platform rows scannable with brand badges and status dots', async () => {
-    const settings = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
-    const styles = await readRepo('apps/desktop/src/renderer/styles.css');
-    const brand = await readRepo('packages/ui/src/bot-brand.ts');
+    const [settings, botBrand] = await Promise.all([
+      readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx'),
+      readRepo('packages/ui/src/bot-brand.ts'),
+    ]);
+    const styles = await readRendererContractCss();
 
     assert.match(settings, /BOT_BRAND,\n\s+Button,/, 'Bot settings must import shared per-platform brand presentation metadata');
+    assert.match(botBrand, /export const BOT_BRAND:/, 'Shared bot brand metadata must stay exported from @maka/ui');
     for (const provider of ['telegram', 'feishu', 'wecom', 'wechat', 'discord', 'dingtalk', 'qq']) {
-      assert.match(brand, new RegExp(`${provider}:\\s*\\{[\\s\\S]*?configDocUrl:`), `${provider} needs a visible configuration-document link target`);
+      assert.match(botBrand, new RegExp(`${provider}:\\s*\\{[\\s\\S]*?configDocUrl:`), `${provider} needs a visible configuration-document link target`);
       assert.match(styles, new RegExp(`\\.settingsBotHero\\[data-provider="${provider}"\\]`), `${provider} hero must export a brand color CSS variable`);
     }
     assert.match(settings, /function BotBrandLogo\b/, 'Bot settings must use the shared brand-logo component');
@@ -32,7 +36,7 @@ describe('Bot settings UI contract', () => {
 
   it('keeps the detail hero as a branded current-state surface with external docs link', async () => {
     const settings = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
-    const styles = await readRepo('apps/desktop/src/renderer/styles.css');
+    const styles = await readRendererContractCss();
 
     assert.match(settings, /className="settingsBotHero"\s+data-provider=\{selected\}\s+data-support=\{support\}/, 'Selected platform detail must render the brand-aware hero card');
     assert.match(settings, /<BotStatusPill tone=\{copy\.tone\} label=\{copy\.label\}/, 'Hero title must include an inline current-state pill');
@@ -60,7 +64,7 @@ describe('Bot settings UI contract', () => {
 
   it('keeps runtime channel onboarding as test-then-enable-then-restart', async () => {
     const settings = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
-    const styles = await readRepo('apps/desktop/src/renderer/styles.css');
+    const styles = await readRendererContractCss();
     const updateChannelBlock = settings.match(/async function updateChannelFor\(provider: BotProvider, patch: Partial<typeof channel>\): Promise<boolean>[\s\S]*?async function updateChannel\(patch: Partial<typeof channel>\): Promise<boolean>/)?.[0] ?? '';
     const testChannelBlock = settings.match(/async function testChannel\(\)[\s\S]*?\n\s*\/\*\*/)?.[0] ?? '';
     const testAndConnectBlock = settings.match(/async function testAndConnect\(\)[\s\S]*?\n\s*async function restartBotProvider/)?.[0] ?? '';
@@ -122,7 +126,7 @@ describe('Bot settings UI contract', () => {
 
   it('keeps bot allowlist validation copy text-only and Chinese-first', async () => {
     const settings = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
-    const styles = await readRepo('apps/desktop/src/renderer/styles.css');
+    const styles = await readRendererContractCss();
     const allowlistBlock = settings.match(/function BotAllowedUserIdsField[\s\S]*?function botConnectionLabel/)?.[0] ?? '';
 
     assert.match(
@@ -234,7 +238,7 @@ describe('Bot settings UI contract', () => {
 
   it('opens an in-app WeChat QR login modal instead of handing scan login off to a toast', async () => {
     const settings = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
-    const styles = await readRepo('apps/desktop/src/renderer/styles.css');
+    const styles = await readRendererContractCss();
     const main = await readRepo('apps/desktop/src/main/main.ts');
     const preload = await readRepo('apps/desktop/src/preload/preload.ts');
     const globalTypes = await readRepo('apps/desktop/src/global.d.ts');

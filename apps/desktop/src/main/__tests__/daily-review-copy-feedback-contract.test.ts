@@ -2,6 +2,7 @@ import { strict as assert } from 'node:assert';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { describe, it } from 'node:test';
+import { readRendererContractCss } from './contract-css-helpers.js';
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../../../..');
 
@@ -69,7 +70,7 @@ describe('Daily Review copy feedback contract', () => {
 
   it('renders Daily Review controls through shared button variants without legacy button classes', async () => {
     const ui = await readFile(resolve(REPO_ROOT, 'packages/ui/src/components.tsx'), 'utf8');
-    const css = await readFile(resolve(REPO_ROOT, 'apps/desktop/src/renderer/styles.css'), 'utf8');
+    const css = await readRendererContractCss();
     const panelBlock = ui.match(/function DailyReviewPanel[\s\S]*?function PlanReminderPanel/)?.[0] ?? '';
 
     assert.match(panelBlock, /<UiButton[\s\S]*?variant="ghost"[\s\S]*?size="icon-sm"[\s\S]*?className="maka-daily-review-stepper"/);

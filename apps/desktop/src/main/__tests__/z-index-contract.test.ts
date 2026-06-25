@@ -15,11 +15,8 @@
 
 import { strict as assert } from 'node:assert';
 import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
 import { describe, it } from 'node:test';
-
-const REPO_ROOT = resolve(import.meta.dirname, '../../../../..');
-const STYLES_FILE = resolve(REPO_ROOT, 'apps/desktop/src/renderer/styles.css');
+import { REPO_ROOT, TOKENS_FILE, readAllRendererCss, stripCssComments } from './css-test-helpers.js';
 
 /** Sites where a bare integer z-index is intentional. Local stacking
  *  inside a single container, no global side-effects. Each entry is
@@ -33,13 +30,9 @@ const BARE_ALLOWLIST: ReadonlyArray<{ selector: string; value: number; reason: s
   },
 ];
 
-function stripCssComments(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, '');
-}
-
 describe('PR-FE-BUG-HUNT-9 z-index contract', () => {
-  it('every bare `z-index: <integer>` in styles.css is either tokenized or explicitly allowlisted', async () => {
-    const stripped = stripCssComments(await readFile(STYLES_FILE, 'utf8'));
+  it('every bare `z-index: <integer>` in renderer CSS is either tokenized or explicitly allowlisted', async () => {
+    const stripped = stripCssComments(await readAllRendererCss());
 
     // Find all bare integer z-index occurrences. Skip `var(...)`.
     const bareMatches = [...stripped.matchAll(/z-index:\s*(\d+)\s*;/g)];
@@ -72,21 +65,21 @@ describe('PR-FE-BUG-HUNT-9 z-index contract', () => {
       }
     }
 
-    assert.deepEqual(
+      assert.deepEqual(
       violations,
       [],
       `Found bare z-index sites not on the allowlist. Either tokenize the value (use one of --z-* in maka-tokens.css) or add an entry to BARE_ALLOWLIST with a justification. Sites: ${JSON.stringify(violations, null, 2)}`,
     );
   });
 
-  it('every allowlisted bare z-index is actually present in styles.css', async () => {
-    const stripped = stripCssComments(await readFile(STYLES_FILE, 'utf8'));
+  it('every allowlisted bare z-index is actually present in renderer CSS', async () => {
+    const stripped = stripCssComments(await readAllRendererCss());
     for (const entry of BARE_ALLOWLIST) {
       const selectorIdx = stripped.indexOf(entry.selector);
       assert.notEqual(
         selectorIdx,
         -1,
-        `Allowlist entry's selector \`${entry.selector}\` is no longer in styles.css. Remove the stale entry from BARE_ALLOWLIST.`,
+        `Allowlist entry's selector \`${entry.selector}\` is no longer in renderer CSS. Remove the stale entry from BARE_ALLOWLIST.`,
       );
       const ruleBlock = stripped.slice(selectorIdx, selectorIdx + 600);
       assert.match(
@@ -98,7 +91,6 @@ describe('PR-FE-BUG-HUNT-9 z-index contract', () => {
   });
 
   it('semantic z-* tokens stay defined in maka-tokens.css', async () => {
-    const TOKENS_FILE = resolve(REPO_ROOT, 'apps/desktop/src/renderer/maka-tokens.css');
     const tokens = await readFile(TOKENS_FILE, 'utf8');
     const required = [
       '--z-base',

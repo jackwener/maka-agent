@@ -2,6 +2,7 @@ import { strict as assert } from 'node:assert';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
+import { readRendererContractCss } from './contract-css-helpers.js';
 
 const REPO_ROOT = join(process.cwd(), '..', '..');
 
@@ -23,7 +24,7 @@ describe('local MEMORY.md Settings UI contract', () => {
 
   it('renders stable entry metadata so local memory stays white-box', async () => {
     const src = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
-    const css = await readRepo('apps/desktop/src/renderer/styles.css');
+    const css = await readRendererContractCss();
     const listBlock = src.match(/function MemoryEntryList\([\s\S]*?function filterLocalMemoryEntries/)?.[0] ?? '';
 
     assert.match(listBlock, /settingsMemoryEntryFacts/);
@@ -77,7 +78,7 @@ describe('local MEMORY.md Settings UI contract', () => {
 
   it('previews the send-time memory prompt context from the core helper', async () => {
     const src = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
-    const css = await readRepo('apps/desktop/src/renderer/styles.css');
+    const css = await readRendererContractCss();
     const pageBlock = src.match(/function MemorySettingsPage\([\s\S]*?function MemoryEntryList/)?.[0] ?? '';
 
     assert.match(src, /LOCAL_MEMORY_PROMPT_MAX_CHARS/);
@@ -107,7 +108,7 @@ describe('local MEMORY.md Settings UI contract', () => {
 
   it('filters memory entries locally across title content id origin timestamps and tags', async () => {
     const src = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
-    const css = await readRepo('apps/desktop/src/renderer/styles.css');
+    const css = await readRendererContractCss();
     const pageBlock = src.match(/function MemorySettingsPage\([\s\S]*?function MemoryEntryList/)?.[0] ?? '';
 
     assert.match(src, /function filterLocalMemoryEntries/);
@@ -144,7 +145,7 @@ describe('local MEMORY.md Settings UI contract', () => {
   });
 
   it('keeps archived entries visually available without using hidden placeholder copy', async () => {
-    const css = await readRepo('apps/desktop/src/renderer/styles.css');
+    const css = await readRendererContractCss();
 
     assert.match(css, /\.settingsMemoryEntryGroup\[data-archived="true"\]/);
     assert.doesNotMatch(css, /coming soon|todo|not implemented/i);
@@ -358,7 +359,7 @@ describe('local MEMORY.md Settings UI contract', () => {
 
   it('keeps archive and restore draft-only when MEMORY.md has unsaved edits', async () => {
     const src = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
-    const css = await readRepo('apps/desktop/src/renderer/styles.css');
+    const css = await readRendererContractCss();
     const updateBlock = src.match(/async function updateMemoryEntryStatus[\s\S]*?\n  }\n\n  const effective =/)?.[0] ?? '';
     const listBlock = src.match(/function MemoryEntryList\([\s\S]*?function filterLocalMemoryEntries/)?.[0] ?? '';
 
@@ -392,7 +393,7 @@ describe('local MEMORY.md Settings UI contract', () => {
 
   it('tells the user when saving MEMORY.md redacted sensitive fields', async () => {
     const src = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
-    const css = await readRepo('apps/desktop/src/renderer/styles.css');
+    const css = await readRendererContractCss();
     const saveBlock = src.match(/async function save\(\) \{[\s\S]*?\n  \}\n\n  async function reset/)?.[0] ?? '';
     const pageBlock = src.match(/function MemorySettingsPage\([\s\S]*?function MemoryEntryList/)?.[0] ?? '';
 
@@ -409,7 +410,7 @@ describe('local MEMORY.md Settings UI contract', () => {
 
   it('summarizes parsed memory entry counts after save', async () => {
     const src = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
-    const css = await readRepo('apps/desktop/src/renderer/styles.css');
+    const css = await readRendererContractCss();
     const saveBlock = src.match(/async function save\(\) \{[\s\S]*?\n  \}\n\n  async function reset/)?.[0] ?? '';
     const pageBlock = src.match(/function MemorySettingsPage\([\s\S]*?function MemoryEntryList/)?.[0] ?? '';
 
@@ -434,7 +435,7 @@ describe('local MEMORY.md Settings UI contract', () => {
 
   it('shows whether the visible MEMORY.md draft has unsaved changes', async () => {
     const src = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
-    const css = await readRepo('apps/desktop/src/renderer/styles.css');
+    const css = await readRendererContractCss();
     const pageBlock = src.match(/function MemorySettingsPage\([\s\S]*?function MemoryEntryList/)?.[0] ?? '';
 
     assert.match(pageBlock, /const memoryDraftDirty = draft !== effective\.content/);
@@ -462,7 +463,7 @@ describe('local MEMORY.md Settings UI contract', () => {
 
   it('shows a clear safe-mode reason when draft entry preview is paused', async () => {
     const src = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
-    const css = await readRepo('apps/desktop/src/renderer/styles.css');
+    const css = await readRendererContractCss();
     const pageBlock = src.match(/function MemorySettingsPage\([\s\S]*?function MemoryEntryList/)?.[0] ?? '';
 
     assert.match(pageBlock, /const memoryEntryPreviewBlockedReason =/);
@@ -576,6 +577,8 @@ describe('local MEMORY.md Settings UI contract', () => {
     assert.match(service, /async restoreLatestBackup/);
     assert.match(service, /\`\$\{this\.file\}\.reset\.bak\`/);
     assert.match(service, /await this\.backupRestoreUndo\(\)/);
+    assert.match(service, /await this\.backup\('restore\.bak'\)/);
+    assert.match(service, /realpath\(backupInfo\.path\)/);
     assert.match(service, /const backupContent = await readFile\(backup\)/);
     assert.match(service, /await writeFile\(this\.file, backupContent, \{ mode: 0o600 \}\)/);
     assert.match(service, /await chmod\(this\.file, 0o600\)/);
@@ -597,7 +600,7 @@ describe('local MEMORY.md Settings UI contract', () => {
     const core = await readRepo('packages/core/src/local-memory.ts');
     const service = await readRepo('apps/desktop/src/main/local-memory-service.ts');
     const src = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
-    const css = await readRepo('apps/desktop/src/renderer/styles.css');
+    const css = await readRendererContractCss();
     const pageBlock = src.match(/function MemorySettingsPage\([\s\S]*?function MemoryEntryList/)?.[0] ?? '';
 
     assert.match(core, /interface LocalMemoryBackupInfo/);
@@ -632,7 +635,7 @@ describe('local MEMORY.md Settings UI contract', () => {
 
   it('shows validated MEMORY.md backup candidates as metadata only', async () => {
     const src = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
-    const css = await readRepo('apps/desktop/src/renderer/styles.css');
+    const css = await readRendererContractCss();
     const pageBlock = src.match(/function MemorySettingsPage\([\s\S]*?function MemoryEntryList/)?.[0] ?? '';
 
     assert.match(pageBlock, /effective\.backups && effective\.backups\.length > 1/);

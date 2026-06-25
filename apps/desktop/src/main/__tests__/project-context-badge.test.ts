@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { resolveProjectGitInfo, resolveProjectRoot } from '../project-context.js';
+import { readRendererContractCss } from './contract-css-helpers.js';
 
 const repoRoot = process.cwd().endsWith('apps/desktop')
   ? join(process.cwd(), '..', '..')
@@ -101,7 +102,7 @@ describe('project context workspace picker', () => {
 
   it('renders the guarded project picker below the composer', async () => {
     const ui = await readRepo('packages/ui/src/components.tsx');
-    const styles = await readRepo('apps/desktop/src/renderer/styles.css');
+    const styles = await readRendererContractCss();
     const renderer = await readRepo('apps/desktop/src/renderer/main.tsx');
 
     assert.match(ui, /workspacePicker\?:\s*\{/);
@@ -113,6 +114,9 @@ describe('project context workspace picker', () => {
     // alone — no more "选择工作目录 ai ▾" doubled string.
     assert.match(ui, /\? <span className="maka-composer-workspace-current">\{props\.workspacePicker\.label\}<\/span>[\s\S]*?: <span>选择工作目录<\/span>/);
     assert.match(ui, /当前分支 \$\{props\.workspacePicker\.branch\}/);
+    // Workspace picker must track the shared chat/composer measure token,
+    // not a bespoke hard-coded width, so future measure updates keep the
+    // row aligned with the composer card automatically.
     assert.match(styles, /\.maka-composer-workspace-row\s*\{[\s\S]*?width:\s*min\(var\(--maka-chat-measure,\s*680px\),\s*100%\)/);
     assert.match(styles, /\.maka-composer-workspace-picker\s*\{/);
     assert.match(styles, /-webkit-app-region:\s*no-drag/);

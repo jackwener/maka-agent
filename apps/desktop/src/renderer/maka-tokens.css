@@ -284,6 +284,14 @@
   --h-toolbar: 40px;
   --h-composer-min: 56px;
 
+  /* titlebar control baseline (macOS traffic-light center) */
+  --maka-titlebar-control-safe-left: 94px;
+  --maka-titlebar-control-safe-top: 20px;
+
+  /* session list geometry */
+  --w-sessionlist: 240px;
+  --h-list-header: 52px;
+
 }
 
 /* =============================================================================

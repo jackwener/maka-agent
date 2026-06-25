@@ -1,0 +1,333 @@
+@layer components {
+  .settingsConnectionRow {
+    display: grid;
+    gap: 6px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--foreground-2);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  }
+
+  .settingsConnectionRow[data-status="verified"] {
+    border-color: oklch(from var(--success) l c h / 0.24);
+    background: oklch(from var(--success) l c h / 0.04);
+  }
+  .settingsConnectionRow[data-status="needs_reauth"] {
+    border-color: oklch(from var(--info) l c h / 0.30);
+    background: oklch(from var(--info) l c h / 0.06);
+  }
+  .settingsConnectionRow[data-status="error"] {
+    border-color: oklch(from var(--destructive) l c h / 0.30);
+    background: oklch(from var(--destructive) l c h / 0.05);
+  }
+  .settingsConnectionRow[data-status="not_configured"] {
+    border-color: oklch(from var(--info) l c h / 0.20);
+    background: oklch(from var(--info) l c h / 0.03);
+  }
+
+  /* PR-OAUTH-SUBSCRIPTION-0: Claude subscription card states. */
+  .settingsConnectionRow[data-status="not_logged_in"] {
+    border-color: var(--border);
+    background: var(--foreground-2);
+  }
+  .settingsConnectionRow[data-status="authorizing"],
+  .settingsConnectionRow[data-status="refreshing"] {
+    border-color: oklch(from var(--info) l c h / 0.30);
+    background: oklch(from var(--info) l c h / 0.04);
+  }
+  .settingsConnectionRow[data-status="authenticated"] {
+    border-color: oklch(from var(--success) l c h / 0.24);
+    background: oklch(from var(--success) l c h / 0.04);
+  }
+  .settingsConnectionRow[data-status="refresh_failed"],
+  .settingsConnectionRow[data-status="quota_unavailable"] {
+    border-color: oklch(from var(--warning, var(--info)) l c h / 0.30);
+    background: oklch(from var(--warning, var(--info)) l c h / 0.05);
+  }
+  .settingsConnectionRow[data-status="provider_rejected"] {
+    border-color: oklch(from var(--destructive) l c h / 0.30);
+    background: oklch(from var(--destructive) l c h / 0.05);
+  }
+
+  .settingsQuotaSection {
+    display: grid;
+    gap: 4px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: oklch(from var(--foreground) l c h / 0.03);
+  }
+  .settingsQuotaRow {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .settingsOauthPastePanel {
+    display: grid;
+    gap: 8px;
+    margin-top: 4px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    background: oklch(from var(--foreground) l c h / 0.04);
+  }
+  .settingsOauthPastePanel textarea {
+    width: 100%;
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--mono-font, monospace);
+    font-size: 12px;
+    resize: vertical;
+  }
+  .settingsErrorText {
+    color: var(--destructive-text, var(--destructive, red));
+  }
+  .settingsConnectionRow[data-status="disabled"] {
+    opacity: 0.72;
+  }
+
+  .settingsConnectionRow[data-default="true"] {
+    box-shadow: 0 0 0 2px oklch(from var(--accent) l c h / 0.12);
+  }
+
+  .settingsConnectionRowName {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .settingsConnectionDefaultBadge {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 7px;
+    border-radius: 4px;
+    background: oklch(from var(--accent) l c h / 0.14);
+    color: var(--accent);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0;
+  }
+
+  .settingsConnectionRowHead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .settingsConnectionRowText {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .settingsConnectionRowText strong {
+    color: var(--foreground);
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .settingsConnectionRowText small {
+    color: var(--foreground-50);
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+
+  .settingsConnectionBadge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 20px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0;
+    background: var(--foreground-5);
+    color: var(--foreground-60);
+    white-space: nowrap;
+  }
+
+  .settingsConnectionBadge[data-tone="success"] {
+    background: oklch(from var(--success) l c h / 0.12);
+    color: var(--success);
+  }
+  .settingsConnectionBadge[data-tone="info"] {
+    background: oklch(from var(--info) l c h / 0.14);
+    color: var(--info-text);
+  }
+  .settingsConnectionBadge[data-tone="warning"] {
+    background: oklch(from var(--info) l c h / 0.18);
+    color: var(--info-text);
+    font-weight: 700;
+  }
+  .settingsConnectionBadge[data-tone="destructive"] {
+    background: oklch(from var(--destructive) l c h / 0.15);
+    color: var(--destructive);
+    font-weight: 700;
+  }
+
+  .settingsConnectionDetail {
+    margin: 0;
+    color: var(--foreground-70);
+    font-size: 11px;
+    line-height: 1.45;
+  }
+
+  .settingsAuthContract {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--foreground-3);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  }
+
+  .settingsAuthContractText {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .settingsAuthContractText strong {
+    color: var(--foreground);
+    font-size: 12px;
+    font-weight: 650;
+  }
+
+  .settingsAuthContractText span {
+    color: var(--foreground-60);
+    font-size: 11px;
+    line-height: 1.45;
+  }
+
+  .settingsAuthContractBadge,
+  .settingsAuthActionPill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 20px;
+    border-radius: 4px;
+    white-space: nowrap;
+    font-size: 11px;
+    font-weight: 650;
+  }
+
+  .settingsAuthContractBadge {
+    padding: 2px 9px;
+    background: var(--foreground-5);
+    color: var(--foreground-60);
+  }
+
+  .settingsAuthContractBadge[data-tone="success"],
+  .settingsAuthActionPill[data-tone="success"] {
+    background: oklch(from var(--success) l c h / 0.12);
+    color: var(--success);
+  }
+
+  .settingsAuthContractBadge[data-tone="info"],
+  .settingsAuthActionPill[data-tone="info"] {
+    background: oklch(from var(--info) l c h / 0.14);
+    color: var(--info-text);
+  }
+
+  .settingsAuthContractBadge[data-tone="warning"],
+  .settingsAuthActionPill[data-tone="warning"] {
+    background: oklch(from var(--info) l c h / 0.18);
+    color: var(--info-text);
+  }
+
+  .settingsAuthContractBadge[data-tone="destructive"],
+  .settingsAuthActionPill[data-tone="destructive"] {
+    background: oklch(from var(--destructive) l c h / 0.14);
+    color: var(--destructive);
+  }
+
+  .settingsConnectionMeta {
+    margin: 0;
+    display: flex;
+    gap: 12px;
+    color: var(--foreground-50);
+    font-size: 11px;
+    font-family: var(--font-mono);
+  }
+
+  .settingsInlineFileState {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .settingsInlineTextButton {
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: var(--accent);
+    font: inherit;
+  }
+
+  .settingsInlineTextButton:hover {
+    text-decoration: underline;
+  }
+
+  .settingsConnectionActions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .settingsAuthActionPill {
+    padding: 2px 9px;
+    background: var(--foreground-5);
+    color: var(--foreground-60);
+  }
+
+  .settingsAuthActionPill[data-kind="preview"] {
+    border: 1px dashed oklch(from var(--info) l c h / 0.30);
+  }
+
+  /* PR-SETTINGS-GROUPED-CARD-0: rows flush inside outer card, hairline
+     divider, last-child no border. Matches the reference grouped-list
+     pattern. */
+
+  .settingsRow:last-child {
+    border-bottom: 0;
+  }
+
+  .settingsRow:hover {
+    background: oklch(from var(--foreground) l c h / 0.025);
+  }
+
+  .settingsRow > div {
+    min-width: 0;
+  }
+
+  .settingsRow small {
+    display: block;
+    margin-top: 4px;
+    color: var(--foreground-55);
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .providersPanel {
+    min-height: 420px;
+    display: grid;
+    grid-template-columns: minmax(190px, 0.82fr) minmax(0, 1.5fr);
+    gap: 12px;
+  }
+
+  .settingsSurface[data-modal="true"] .providersPanel {
+    min-height: 480px;
+    grid-template-columns: minmax(190px, 0.7fr) minmax(250px, 1fr);
+  }
+}

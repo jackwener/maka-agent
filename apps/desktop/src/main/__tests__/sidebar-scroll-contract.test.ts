@@ -22,20 +22,19 @@ import { strict as assert } from 'node:assert';
 import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 import { join } from 'node:path';
+import { readRendererContractCss } from './contract-css-helpers.js';
 
 // Test runs from the desktop workspace root via `node --test dist/...`,
 // so `process.cwd()` is `apps/desktop`. Source styles.css lives at
 // `src/renderer/styles.css` — we read the source (not a built artifact)
 // because the renderer CSS isn't compiled into dist for the test build.
-const STYLES_PATH = join(process.cwd(), 'src', 'renderer', 'styles.css');
-
 describe('sidebar session list CSS scroll contract (PR-SIDEBAR-IA-0 Phase 1)', () => {
   it('.maka-session-list is a grid with auto + minmax(0, 1fr) rows', async () => {
     // The grid layout is what makes `.maka-list-stack` a constrained
     // scroll body. Without `minmax(0, 1fr)` on the second row, the
     // stack grows to its content height and the overlay viewport becomes
     // a no-op (the original P0).
-    const css = await readFile(STYLES_PATH, 'utf8');
+    const css = await readRendererContractCss();
     // Grab the .maka-session-list rule body. Permissive whitespace
     // matching so a future formatter pass doesn't break the test.
     const ruleBody = extractRuleBody(css, '.maka-session-list');
@@ -49,7 +48,7 @@ describe('sidebar session list CSS scroll contract (PR-SIDEBAR-IA-0 Phase 1)', (
   });
 
   it('.maka-session-list has min-height: 0 to allow the grid row to shrink below content', async () => {
-    const css = await readFile(STYLES_PATH, 'utf8');
+    const css = await readRendererContractCss();
     const ruleBody = extractRuleBody(css, '.maka-session-list');
     assert.ok(ruleBody);
     assert.match(
@@ -60,7 +59,7 @@ describe('sidebar session list CSS scroll contract (PR-SIDEBAR-IA-0 Phase 1)', (
   });
 
   it('.maka-list-stack uses OverlayScrollbars host + viewport/content split so the scroll body engages', async () => {
-    const css = await readFile(STYLES_PATH, 'utf8');
+    const css = await readRendererContractCss();
     const ruleBody = extractRuleBody(css, '.maka-list-stack');
     const viewportBody = extractRuleBody(css, '.maka-list-stackViewport');
     const contentBody = extractRuleBody(css, '.maka-list-stackContent');
@@ -95,7 +94,7 @@ describe('sidebar session list CSS scroll contract (PR-SIDEBAR-IA-0 Phase 1)', (
     // pins it so a later phase that reshuffles the panel template
     // (e.g. adding a new section) doesn't accidentally remove the
     // minmax(0, 1fr) cell.
-    const css = await readFile(STYLES_PATH, 'utf8');
+    const css = await readRendererContractCss();
     const ruleBody = extractRuleBody(css, '.maka-session-panel');
     assert.ok(ruleBody, '.maka-session-panel rule must exist');
     assert.match(
@@ -106,7 +105,7 @@ describe('sidebar session list CSS scroll contract (PR-SIDEBAR-IA-0 Phase 1)', (
   });
 
   it('keeps the sidebar shell flat without a shadow-like gray resize gutter', async () => {
-    const css = await readFile(STYLES_PATH, 'utf8');
+    const css = await readRendererContractCss();
     const listPanel = extractRuleBody(css, '.maka-panel-list.maka-floating-panel');
     const sessionPanel = extractRuleBody(css, '.maka-session-panel');
     const resizeHandle = extractRuleBody(css, '.maka-resize-handle');
@@ -183,10 +182,12 @@ function extractRuleBody(css: string, selector: string): string | undefined {
  */
 function matchesSelectorLine(line: string, selector: string): boolean {
   // The selector must appear at the START of the line (allowing only
-  // whitespace before) and be followed by a delimiter that proves it's
-  // not a longer class name (space, comma, or `{`).
+  // whitespace before). After trimming the suffix, the remainder must
+  // start a selector-list delimiter (`,`), an opening block (`{`), or
+  // end immediately — descendant selectors like
+  // `.maka-session-list .child` must NOT match.
   const trimmed = line.trimStart();
   if (!trimmed.startsWith(selector)) return false;
-  const next = trimmed.charAt(selector.length);
-  return next === ' ' || next === '\t' || next === ',' || next === '{' || next === '';
+  const rest = trimmed.slice(selector.length).trimStart();
+  return rest === '' || rest.startsWith(',') || rest.startsWith('{');
 }

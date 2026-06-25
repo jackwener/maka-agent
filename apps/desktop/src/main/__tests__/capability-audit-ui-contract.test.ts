@@ -6,6 +6,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { deriveCapabilityAuditReport } from '@maka/core';
 import { CapabilityAuditStrip } from '@maka/ui';
+import { readRendererContractCss } from './contract-css-helpers.js';
 
 const repoRoot = process.cwd().endsWith('apps/desktop')
   ? join(process.cwd(), '..', '..')
@@ -76,7 +77,7 @@ describe('capability audit visible system contract', () => {
   });
 
   it('keeps the audit strip as a full-width band with responsive metrics', async () => {
-    const styles = await readFile(join(repoRoot, 'apps', 'desktop', 'src', 'renderer', 'styles.css'), 'utf8');
+    const styles = await readRendererContractCss();
 
     assert.match(styles, /\.maka-capability-audit-strip\s*\{[\s\S]*display:\s*flex/);
     assert.match(styles, /\.maka-capability-audit-metrics\s*\{[\s\S]*grid-template-columns:\s*repeat\(3, minmax\(92px, 1fr\)\)/);

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
+import { readRendererContractCss } from './contract-css-helpers.js';
 
 const repoRoot = process.cwd().endsWith('apps/desktop')
   ? join(process.cwd(), '..', '..')
@@ -28,7 +29,7 @@ describe('Command palette accessibility and visible copy', () => {
 
   it('uses shared primitive InputGroup for the palette input shell without restoring the old flex wrapper', async () => {
     const src = await readRepo('apps/desktop/src/renderer/command-palette.tsx');
-    const styles = await readRepo('apps/desktop/src/renderer/styles.css');
+    const styles = await readRendererContractCss();
     const inputWrapStyle = styles.match(/\.maka-palette-input-wrap\s*\{[\s\S]*?\}/)?.[0] ?? '';
 
     assert.match(
@@ -64,7 +65,7 @@ describe('Command palette accessibility and visible copy', () => {
   });
 
   it('keeps command palette chrome compact, non-selectable, and tactile without blocking text entry', async () => {
-    const styles = await readRepo('apps/desktop/src/renderer/styles.css');
+    const styles = await readRendererContractCss();
     const modalStyle = styles.match(/\.maka-palette-modal\s*\{[\s\S]*?\}/)?.[0] ?? '';
     const inputStyle = styles.match(/\.maka-palette-input\s*\{[\s\S]*?\}/)?.[0] ?? '';
     const rowStyle = styles.match(/\.maka-palette-item\s*\{[\s\S]*?\}/)?.[0] ?? '';

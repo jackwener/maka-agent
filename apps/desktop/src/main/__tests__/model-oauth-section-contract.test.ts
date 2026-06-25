@@ -17,6 +17,7 @@ import { strict as assert } from 'node:assert';
 import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 import { resolve } from 'node:path';
+import { readRendererContractCss } from './contract-css-helpers.js';
 
 const REPO_ROOT = resolve(process.cwd(), '..', '..');
 const PROVIDERS_PANEL_SOURCE = resolve(
@@ -275,7 +276,7 @@ describe('Model OAuth catalog contract (PR-MODEL-OAUTH-ALL-0 + PR-CLAUDE-CARD-MO
 
   it('provider config sheets expose their own accessible close button', async () => {
     const src = await readFile(PROVIDERS_PANEL_SOURCE, 'utf8');
-    const styles = await readFile(resolve(REPO_ROOT, 'apps', 'desktop', 'src', 'renderer', 'styles.css'), 'utf8');
+    const styles = await readRendererContractCss();
     const overlay = src.match(/function ProviderConfigSheetOverlay[\s\S]*?function ProviderCatalogCard/)?.[0] ?? '';
 
     assert.match(overlay, /className="providerConfigSheetClose"/);
@@ -475,7 +476,7 @@ describe('Model OAuth catalog contract (PR-MODEL-OAUTH-ALL-0 + PR-CLAUDE-CARD-MO
 
   it('keeps OAuth cards visually aligned with domestic and overseas provider cards', async () => {
     const src = await readFile(PROVIDERS_PANEL_SOURCE, 'utf8');
-    const styles = await readFile(resolve(REPO_ROOT, 'apps', 'desktop', 'src', 'renderer', 'styles.css'), 'utf8');
+    const styles = await readRendererContractCss();
     const sectionMatch = src.match(/function ModelOAuthSection[\s\S]*?function providerOAuthAriaLabel/);
     assert.ok(sectionMatch, 'ModelOAuthSection render block must exist');
     const section = sectionMatch[0]!;
@@ -920,7 +921,7 @@ describe('Model OAuth catalog contract (PR-MODEL-OAUTH-ALL-0 + PR-CLAUDE-CARD-MO
       /className="providerOAuthError" role="alert"/,
       'the OAuth tab must expose refresh failures as an accessible inline alert',
     );
-    const styles = await readFile(resolve(REPO_ROOT, 'apps', 'desktop', 'src', 'renderer', 'styles.css'), 'utf8');
+    const styles = await readRendererContractCss();
     assert.match(styles, /\.providerOAuthError\s*\{/, 'OAuth refresh alert must have a stable style hook');
   });
 

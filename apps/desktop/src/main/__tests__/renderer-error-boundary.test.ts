@@ -2,10 +2,11 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readAllRendererCss } from './css-test-helpers.js';
 
 test('renderer error boundary exposes a redacted copyable diagnostic report', async () => {
   const source = await readFile(join(process.cwd(), 'src/renderer/error-boundary.tsx'), 'utf8');
-  const css = await readFile(join(process.cwd(), 'src/renderer/styles.css'), 'utf8');
+  const css = await readAllRendererCss();
 
   assert.match(source, /import\s+\{[^}]*\bredactSecrets\b[^}]*\}\s+from\s+'@maka\/ui'/);
   assert.match(source, /import\s+\{[^}]*\bButton as UiButton\b[^}]*\}\s+from\s+'@maka\/ui'/);

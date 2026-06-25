@@ -12,8 +12,8 @@ import { strict as assert } from 'node:assert';
 import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 import { join } from 'node:path';
+import { readRendererContractCss } from './contract-css-helpers.js';
 
-const STYLES_PATH = join(process.cwd(), 'src', 'renderer', 'styles.css');
 const TOKENS_PATH = join(process.cwd(), 'src', 'renderer', 'maka-tokens.css');
 
 /** Only the link-styled in-app nav button may carry the hand cursor. */
@@ -38,7 +38,7 @@ function selectorsWithHandCursor(css: string): string[] {
 
 describe('native cursor convention contract', () => {
   it('styles.css: cursor:pointer lives only on the link-styled nav button', async () => {
-    const css = await readFile(STYLES_PATH, 'utf8');
+    const css = await readRendererContractCss();
     assert.deepEqual(
       selectorsWithHandCursor(css),
       [...CURSOR_POINTER_ALLOWLIST].sort(),

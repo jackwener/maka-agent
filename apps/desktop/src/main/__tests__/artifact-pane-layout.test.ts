@@ -8,15 +8,12 @@
  */
 
 import { strict as assert } from 'node:assert';
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { describe, it } from 'node:test';
-
-const STYLES_PATH = join(process.cwd(), 'src', 'renderer', 'styles.css');
+import { readRendererContractCss } from './contract-css-helpers.js';
 
 describe('ArtifactPane narrow layout CSS contract', () => {
   it('uses a bottom-sheet layout at narrow widths instead of squeezing the chat column', async () => {
-    const css = await readFile(STYLES_PATH, 'utf8');
+    const css = await readRendererContractCss();
     assert.match(
       css,
       /@media\s*\(max-width:\s*990px\)\s*\{[\s\S]*?\.maka-detail-with-artifacts\s*\{[\s\S]*?display:\s*grid[\s\S]*?grid-template-rows:\s*minmax\(0,\s*1fr\)\s*auto/,
@@ -30,7 +27,7 @@ describe('ArtifactPane narrow layout CSS contract', () => {
   });
 
   it('collapsed narrow pane stays a short strip so the composer remains reachable', async () => {
-    const css = await readFile(STYLES_PATH, 'utf8');
+    const css = await readRendererContractCss();
     assert.match(
       css,
       /@media\s*\(max-width:\s*990px\)\s*\{[\s\S]*?\.maka-artifact-pane\[data-collapsed="true"\]\s*\{[\s\S]*?min-height:\s*34px[\s\S]*?max-height:\s*34px/,

@@ -2,6 +2,7 @@ import { strict as assert } from 'node:assert';
 import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { describe, it } from 'node:test';
+import { readRendererContractCss } from './contract-css-helpers.js';
 
 // Chrome icon-size contract (PR-ICON-SCALE).
 //
@@ -29,7 +30,7 @@ describe('icon system contract (single chrome size token)', () => {
   });
 
   it('routes nav glyphs through the token, not hardcoded px', async () => {
-    const styles = await readFile(join(rendererDir, 'styles.css'), 'utf8');
+    const styles = await readRendererContractCss();
     // PR-DELETE-ORPHAN-CSS: `.maka-nav-primary-icon` was an orphan
     // class (no TSX consumer); deleted alongside the dead CSS sweep.
     // The icon-token check now covers `.maka-nav-icon` and the
@@ -53,7 +54,7 @@ describe('icon system contract (single chrome size token)', () => {
   });
 
   it('forbids a blanket svg.lucide size rule (no app-wide resize hammer)', async () => {
-    const styles = await readFile(join(rendererDir, 'styles.css'), 'utf8');
+    const styles = await readRendererContractCss();
     const blanket = ruleBody(styles, 'svg.lucide');
     assert.ok(
       !blanket || !/\b(width|height)\s*:/.test(blanket),

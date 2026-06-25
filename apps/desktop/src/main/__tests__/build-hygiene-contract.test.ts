@@ -19,11 +19,27 @@ describe('build-hygiene contract (PR-BUILD-HYGIENE-0)', () => {
     assert.ok(scripts.clean, 'root package.json must define `clean`');
     assert.ok(scripts.rebuild, 'root package.json must define `rebuild`');
     assert.ok(scripts['check:stale'], 'root package.json must define `check:stale`');
+    assert.ok(scripts['check:release'], 'root package.json must define `check:release`');
     assert.match(scripts.clean!, /clean-build\.mjs/);
     assert.match(scripts['check:stale']!, /check-stale-dist\.mjs/);
+    assert.match(
+      scripts['check:release']!,
+      /check:stale/,
+      '`check:release` must continue to gate on stale build output checks.',
+    );
+    assert.match(
+      scripts['check:release']!,
+      /check:officecli-bundle/,
+      '`check:release` must continue to gate on OfficeCLI bundle integrity.',
+    );
+    assert.match(
+      scripts['check:release']!,
+      /check-dead-css\.mjs --check/,
+      '`check:release` must continue to gate on the Round G dead-CSS baseline check.',
+    );
   });
 
-  it('clean-build.mjs and check-stale-dist.mjs exist under scripts/', () => {
+  it('build hygiene scripts exist under scripts/', () => {
     assert.ok(
       existsSync(join(REPO_ROOT, 'scripts', 'clean-build.mjs')),
       'scripts/clean-build.mjs must exist',
@@ -31,6 +47,14 @@ describe('build-hygiene contract (PR-BUILD-HYGIENE-0)', () => {
     assert.ok(
       existsSync(join(REPO_ROOT, 'scripts', 'check-stale-dist.mjs')),
       'scripts/check-stale-dist.mjs must exist',
+    );
+    assert.ok(
+      existsSync(join(REPO_ROOT, 'scripts', 'check-dead-css.mjs')),
+      'scripts/check-dead-css.mjs must exist',
+    );
+    assert.ok(
+      existsSync(join(REPO_ROOT, 'scripts', 'check-dead-css-baseline.json')),
+      'scripts/check-dead-css-baseline.json must exist',
     );
   });
 });

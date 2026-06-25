@@ -25,15 +25,9 @@ import { strict as assert } from 'node:assert';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { describe, it } from 'node:test';
+import { REPO_ROOT, TOKENS_FILE, readAllRendererCss, stripCssComments } from './css-test-helpers.js';
 
-const REPO_ROOT = resolve(import.meta.dirname, '../../../../..');
-const STYLES_FILE = resolve(REPO_ROOT, 'apps/desktop/src/renderer/styles.css');
-const TOKENS_FILE = resolve(REPO_ROOT, 'apps/desktop/src/renderer/maka-tokens.css');
-const DOC_FILE = resolve(REPO_ROOT, 'docs/design-system.md');
-
-function stripCssComments(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, '');
-}
+const DOC_FILE = `${REPO_ROOT}/docs/design-system.md`;
 
 /** Returns every `border-radius: <N>px` site whose N > 12 and N !== 999. */
 function findOversizedRadii(css: string): string[] {
@@ -46,13 +40,13 @@ function findOversizedRadii(css: string): string[] {
 }
 
 describe('PR-RADIUS-CONTRACT-CONVERGE-0 contract', () => {
-  it('styles.css has no border-radius > 12px (except 999px pill)', async () => {
-    const styles = await readFile(STYLES_FILE, 'utf8');
+  it('renderer CSS has no border-radius > 12px (except 999px pill)', async () => {
+    const styles = await readAllRendererCss();
     const offenders = findOversizedRadii(styles);
     assert.deepEqual(
       offenders,
       [],
-      `styles.css must keep radius ≤ 12px per docs/design-system.md §1.4. Found offending values: ${offenders.join(', ')}.`,
+      `renderer CSS must keep radius ≤ 12px per docs/design-system.md §1.4. Found offending values: ${offenders.join(', ')}.`,
     );
   });
 

@@ -26,6 +26,7 @@ import {
   readTextFileForPromptImport,
   readTextFilesForPromptImport,
 } from '../text-file-import.js';
+import { readRendererContractCss } from './contract-css-helpers.js';
 
 describe('text file context import', () => {
   it('appends imported context without replacing an existing draft', () => {
@@ -325,7 +326,7 @@ describe('text file context import', () => {
     const onboardingSource = await readFile(join(process.cwd(), 'src/renderer/OnboardingHero.tsx'), 'utf8');
     const uiSource = await readFile(join(process.cwd(), '../../packages/ui/src/components.tsx'), 'utf8');
     const cssSource = await readFile(join(process.cwd(), 'src/renderer/maka-tokens.css'), 'utf8');
-    const stylesSource = await readFile(join(process.cwd(), 'src/renderer/styles.css'), 'utf8');
+    const stylesSource = await readRendererContractCss();
     const textFilePromptBlock = mainSource.match(/async function importTextFilePrompt[\s\S]*?async function importTextFileIntoComposer/)?.[0] ?? '';
     const textFileComposerBlock = mainSource.match(/async function importTextFileIntoComposer\(\)[\s\S]*?function droppedTextFilePreflightFailureCopy/)?.[0] ?? '';
     const droppedPromptBlock = mainSource.match(/async function importDroppedTextFilesPrompt[\s\S]*?async function importDroppedTextFilesIntoComposer/)?.[0] ?? '';

@@ -1,0 +1,595 @@
+.providerEditor h3 {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.providerEditor p {
+  margin: 0;
+  color: var(--foreground-50);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.catalogTabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.catalogTab {
+  min-height: 38px;
+  display: grid;
+  gap: 2px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--foreground-3);
+  color: var(--foreground);
+  padding: 6px 8px;
+  text-align: left;
+}
+
+.catalogTab:hover {
+  background: var(--foreground-5);
+}
+
+.catalogTab[data-active="true"] {
+  border-color: oklch(from var(--accent) l c h / 0.16);
+  background: oklch(from var(--accent) l c h / 0.08);
+}
+
+.catalogTabs strong {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.catalogTabs small {
+  color: var(--foreground-50);
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+/* Provider catalog + OAuth login render as governed Item rows (media ·
+ * content · actions) — the same shadcn primitive the enabled connections
+ * use — inside a seamless hairline list. This replaces the hand-written
+ * .providerCatalogCard grid so the whole 模型 page speaks one component
+ * language (component governance). */
+.catalogGrid {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  align-content: start;
+  overflow: auto;
+}
+
+.providerCatalogRow {
+  gap: 12px;
+  padding: 11px 6px;
+}
+
+/* Gated providers (preview / not-yet-open) stay inert and muted; the
+ * provider-surface gate forbids rendering them as actionable. */
+.providerCatalogRow[data-disabled="true"] {
+  opacity: 0.66;
+  cursor: not-allowed;
+  filter: grayscale(0.28);
+}
+
+.providerCatalogTitle {
+  font-weight: 600;
+}
+
+/* Trailing badge + chevron live in ItemActions (a direct child of the row),
+ * so they sit vertically centered against the full two-line row rather than
+ * pinned to the title line. */
+.providerCatalogActions {
+  gap: 10px;
+}
+
+.providerCatalogCount {
+  margin-left: 8px;
+  color: var(--foreground-50);
+  font-size: 12px;
+}
+
+.providerCatalogChevron {
+  flex: 0 0 auto;
+  color: var(--foreground-40);
+}
+
+/* category / preview / login badges — compact squared corners, never pills */
+.providerCatalogBadge {
+  flex: 0 0 auto;
+  width: fit-content;
+  border-radius: 4px;
+  background: var(--foreground-5);
+  color: var(--foreground-60);
+  padding: 2px 7px;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.providerEditor {
+  display: grid;
+  gap: 12px;
+}
+
+.providerUnavailableNotice {
+  display: grid;
+  gap: 4px;
+  border: 1px solid oklch(from var(--info) l c h / 0.22);
+  border-radius: 12px;
+  background: oklch(from var(--info) l c h / 0.10);
+  color: var(--info-text);
+  padding: 12px;
+}
+
+.providerUnavailableNotice span {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* Direct child only: this is the sheet's own title/badges header. The
+ * descendant form (`.providerEditor header`) also matched the nested
+ * `.modelTableHeader`, leaking the close-button padding-right onto the
+ * model card and pushing its refresh button 36px off the right edge. */
+.providerEditor > header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+  /* Reserve the top-right corner for the absolutely-positioned sheet
+   * close button (.providerConfigSheetClose: 32px wide at right:14px,
+   * intruding ~30px into the 16px-padded content box). Without this the
+   * right-aligned header badges (默认 / 国内) slide under the X. */
+  padding-right: 36px;
+}
+
+.providerEditor label {
+  display: grid;
+  gap: 6px;
+  color: var(--foreground-60);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.providerEditor input,
+.providerEditor select {
+  min-width: 0;
+  min-height: 36px;
+  border: 1px solid var(--border);
+  /* PR-UI-LAYOUT-22: provider editor inputs (used in the
+   * ConfigureProvider sheet) brought up to the LAYOUT-11/21 focus
+   * ring family. Was: radius 6 + border-only focus.
+   * Now: radius 8 + min-height 36 + 3px halo + smoother transition.
+   * Matches connectionForm inputs visually so users see the same
+   * "this is a focused input" signal everywhere. */
+  border-radius: 8px;
+  background: var(--background-elevated);
+  color: var(--foreground);
+  padding: 0 12px;
+  outline: none;
+  font-size: 13px;
+  transition: border-color 140ms var(--ease-out-strong), box-shadow 140ms var(--ease-out-strong), background 140ms var(--ease-out-strong);
+}
+
+.providerEditor input:focus,
+.providerEditor select:focus {
+  border-color: oklch(from var(--accent) l c h / 0.42);
+  background: var(--background);
+  box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.10);
+}
+
+.providerActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.providerHeaderBadges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.providerExternalLink {
+  width: fit-content;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  /* PR-UI-LAYOUT-33: explicit padding + radius so the focus halo
+   * has a defined shape. Was a borderless inline link with no
+   * focus-visible — keyboard users couldn't see it. */
+  padding: 2px 6px;
+  margin: -2px -6px;
+  border-radius: 6px;
+  transition: background var(--duration-quick) var(--ease-out-strong), box-shadow var(--duration-quick) var(--ease-out-strong), text-decoration-color var(--duration-quick) var(--ease-out-strong);
+}
+
+.providerExternalLink:hover {
+  text-decoration: underline;
+}
+
+.providerExternalLink:focus-visible {
+  outline: none;
+  background: oklch(from var(--accent) l c h / 0.06);
+  box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.14);
+}
+
+/* UI-02 model table: per-row default radio, capability chips, search box,
+ * source/fetchedAt header. Replaces the legacy <select> + refresh button
+ * pair. The whole block is itself a "workspace" inside the connection
+ * editor, not a form field. */
+.modelTable {
+  display: grid;
+  /* Single column that fills the card. Without an explicit 1fr the
+   * implicit `auto` track sizes to content and the header row stops
+   * short of the card edge, so the right-aligned refresh button never
+   * reaches the right margin. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--foreground-2);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.modelTableHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.modelTableHeaderText {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.modelTableHeaderText strong {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.modelTableHeaderText small {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--foreground-60);
+}
+
+.modelTable[data-source="fetched"] .modelTableHeaderText small {
+  color: var(--success-text);
+}
+
+.modelTable[data-source="fallback"] .modelTableHeaderText small {
+  color: var(--info-text);
+}
+
+.modelTableHeaderText .modelTableStickyHint {
+  color: var(--foreground-50);
+}
+
+.modelTableSearch {
+  width: 100%;
+  padding: 7px 11px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 12px;
+  font-family: var(--font-mono);
+  transition: border-color 140ms var(--ease-out-strong), box-shadow 140ms var(--ease-out-strong);
+}
+
+.modelTableSearch:focus {
+  outline: none;
+  /* PR-UI-LAYOUT-22: brought into the focus-ring family — was
+   * border-color only, now 3px accent halo to match the rest. */
+  border-color: oklch(from var(--accent) l c h / 0.42);
+  box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.10);
+}
+
+.modelTableEmpty {
+  padding: 18px;
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--foreground-60);
+  font-size: 12px;
+  line-height: 1.55;
+  text-align: center;
+}
+
+/* Surfaced when a search filter hides the currently-selected default
+ * (per @kenji PR91 follow-up). Click to clear the search. */
+.modelTableDefaultHint {
+  display: block;
+  text-align: left;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid oklch(from var(--accent) l c h / 0.22);
+  background: oklch(from var(--accent) l c h / 0.06);
+  color: var(--foreground);
+  font-size: 11px;
+  line-height: 1.5;
+  width: 100%;
+}
+
+.modelTableDefaultHint:hover {
+  background: oklch(from var(--accent) l c h / 0.10);
+}
+
+.modelTableDefaultHint code {
+  font-family: var(--font-mono);
+  background: transparent;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.modelTableList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+  max-height: 280px;
+  overflow: auto;
+}
+
+.modelTableRow {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--foreground);
+  text-align: left;
+  transition: background var(--duration-base) var(--ease-out-strong), border-color var(--duration-base) var(--ease-out-strong), box-shadow var(--duration-base) var(--ease-out-strong);
+}
+
+.modelTableRow:hover {
+  background: var(--background);
+  border-color: var(--border);
+}
+
+.modelTableRow:focus-visible {
+  outline: none;
+  background: var(--background);
+  border-color: oklch(from var(--accent) l c h / 0.42);
+  box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.14);
+}
+
+.modelTableRow[data-default="true"] {
+  background: oklch(from var(--accent) l c h / 0.06);
+  border-color: oklch(from var(--accent) l c h / 0.30);
+}
+
+.modelTableRowRadio {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid var(--foreground-40);
+  background: transparent;
+  position: relative;
+}
+
+.modelTableRow[data-default="true"] .modelTableRowRadio {
+  border-color: var(--accent);
+}
+
+.modelTableRow[data-default="true"] .modelTableRowRadio::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.modelTableRowId {
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.modelTableChips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-self: end;
+}
+
+.modelTableChip {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--foreground-5);
+  color: var(--foreground-60);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.modelTableDefaultBadge {
+  padding: 1px 7px;
+  border-radius: 4px;
+  background: oklch(from var(--accent) l c h / 0.14);
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.providerError {
+  color: var(--destructive-text);
+}
+
+/* PR-SETTINGS-PAGE-BODY-0: label / value typography aligned with the
+   reference recipe (text-sm font-medium for label; quaternary tone for
+   the right-side value text). */
+.settingsRow strong {
+  color: var(--foreground);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.settingsRow > span {
+  /* PR-SETTINGS-MOTION-TYPO-TOKENS-0 (round 15/15): `tabular-nums` so
+     numeric values (version strings, model IDs, counts) align cleanly
+     when stacked vertically. baseline-ui + /typeset both require this
+     for any numeric data. */
+  min-width: 0;
+  color: var(--foreground-60);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+@media (max-width: 980px) {
+  .app {
+    grid-template-columns: 1fr;
+    padding: 0;
+    gap: 0;
+  }
+
+  .mainColumn {
+    border: 0;
+    border-radius: 0;
+  }
+}
+
+@media (max-width: 980px) {
+  .catalogGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Provider market refresh */
+.providersMarketPanel,
+.settingsSurface[data-modal="true"] .providersMarketPanel {
+  position: relative;
+  min-height: 500px;
+  display: block;
+}
+
+.providerMarket {
+  min-height: 500px;
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  gap: 14px;
+}
+
+/* Account-bound OAuth providers live under the OAuth catalog tab, as
+   a peer of 国内 / 海外 / 本地 instead of a pinned standalone section.
+   Keep the same catalog grid/card chrome across every provider tab so
+   OAuth, 国内, 海外, and 本地 do not look like unrelated surfaces. */
+.providerOAuthCatalog {
+  min-height: 0;
+  display: grid;
+  gap: 12px;
+  overflow: auto;
+  padding-right: 4px;
+}
+.providerOAuthError {
+  border: 1px solid color-mix(in srgb, var(--warning) 32%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--warning) 10%, var(--background));
+  color: var(--warning-text);
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 9px 11px;
+}
+.providerOAuthGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  overflow: auto;
+}
+
+.providerOAuthCardBadge {
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.providerOAuthCard[data-logged-in="true"] .providerOAuthCardBadge {
+  background: color-mix(in srgb, var(--success) 16%, var(--background));
+  color: var(--success-text);
+}
+
+.providerOAuthCardDescription {
+  display: -webkit-box;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.enabledStrip {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.enabledStripHeader {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.enabledStripHeader h3,
+.providerMarketHeader h3,
+.customProviderEntry h3 {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.enabledStripHeader span,
+.providerMarketHeader p,
+.customProviderEntry p {
+  margin: 0;
+  color: var(--foreground-50);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+/* Empty / load-error CTA shown when there are no connections yet. */
+.enabledEmptyChip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  background: var(--background);
+  color: var(--foreground);
+  padding: 12px 14px;
+  text-align: left;
+}
+
+.enabledEmptyChip:hover {
+  border-color: oklch(from var(--accent) l c h / 0.16);
+  background: var(--background-elevated);
+}
+
+.enabledEmptyChip strong { font-size: 12px; font-weight: 700; }
+.enabledEmptyChip small { margin-top: 2px; color: var(--foreground-50); font-size: 11px; }
+

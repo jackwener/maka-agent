@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
+import { readRendererContractCss } from './contract-css-helpers.js';
 
 const repoRoot = join(process.cwd(), '..', '..');
 
@@ -52,7 +53,7 @@ describe('renderer utility surfaces use shared UI primitives', () => {
   it('keeps artifact preview loading indicators on shared primitive Spinner', async () => {
     const legacySource = await readFile(join(process.cwd(), 'src/renderer/artifact-preview.tsx'), 'utf8');
     const registrySource = await readFile(join(process.cwd(), 'src/renderer/artifact-preview-registry-shell.tsx'), 'utf8');
-    const styles = await readFile(join(process.cwd(), 'src/renderer/styles.css'), 'utf8');
+    const styles = await readRendererContractCss();
 
     for (const [label, source] of [
       ['legacy preview', legacySource],

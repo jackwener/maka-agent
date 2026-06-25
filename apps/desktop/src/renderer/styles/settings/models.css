@@ -1,0 +1,1174 @@
+/* ---- Enabled models: provider → connection hierarchy (Base UI Accordion).
+ * Each provider is a collapsible row; its connections live in the panel, so
+ * the list reads as provider over connection instead of a flat peer list.
+ * Problem providers open by default (see defaultOpenGroups). ---- */
+/* Seamless list: no card box (it was the heaviest element on the page and
+ * clashed with the catalog below). Hairline top/bottom bounds the group;
+ * whitespace + the logo plates carry the structure. */
+.enabledAccordion {
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.enabledProvider + .enabledProvider {
+  border-top: 1px solid oklch(from var(--foreground) l c h / 0.06);
+}
+
+.enabledProviderHead { margin: 0; }
+
+.enabledProviderTrigger {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  /* pad-x 6 + logo 32 + gap 11 = 49 → connection name (pl-[49px]) sits
+   * directly under the provider name; pr keeps the rollup status right
+   * edge aligned with the connection status (pr-[32px] = 6 + chevron 15 +
+   * meta gap 11). */
+  padding: 11px 6px;
+  background: transparent;
+  border: 0;
+  color: var(--foreground);
+  font: inherit;
+  text-align: left;
+  transition: background-color 130ms ease;
+}
+
+.enabledProviderTrigger:hover { background: var(--hover); }
+
+.enabledProviderName {
+  font-size: 13.5px;
+  font-weight: 620;
+  letter-spacing: -0.002em;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.enabledProviderMeta {
+  margin-left: auto;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.enabledChevron {
+  color: var(--foreground-40);
+  transition: transform 160ms var(--ease-out-strong);
+}
+
+.enabledProviderTrigger[data-panel-open] .enabledChevron,
+.enabledProvider[data-open] .enabledChevron {
+  transform: rotate(90deg);
+}
+
+/* status line, shared by the provider rollup and each connection row;
+ * the dot inherits the text color via currentColor. */
+.enabledRollup,
+.enabledConnStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  color: var(--foreground-50);
+}
+
+.enabledStatusDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: 0 0 auto;
+}
+
+.enabledRollup.is-ok,
+.enabledConnStatus.is-verified { color: var(--success); }
+.enabledRollup.is-warn,
+.enabledConnStatus.is-needs_reauth { color: var(--info); }
+.enabledRollup.is-err,
+.enabledConnStatus.is-error { color: var(--destructive); }
+.enabledRollup.is-idle,
+.enabledConnStatus.is-untested { color: var(--foreground-50); }
+
+.enabledProviderPanel {
+  background: oklch(from var(--foreground) l c h / 0.02);
+  border-top: 1px solid oklch(from var(--foreground) l c h / 0.07);
+}
+
+.enabledProviderPanel ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.enabledProviderPanel li + li .enabledConnRow {
+  border-top: 1px solid oklch(from var(--foreground) l c h / 0.07);
+}
+
+.enabledConnRow[data-default="true"] {
+  background: oklch(from var(--accent) l c h / 0.07);
+}
+
+.enabledConnRow[data-disabled="true"] {
+  opacity: 0.6;
+}
+
+.enabledConnTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.enabledDefaultTag {
+  font-size: 11px;
+  font-weight: 650;
+  color: var(--accent);
+  background: oklch(from var(--accent) l c h / 0.14);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+
+.providerMarketHeader {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.catalogPillTabs,
+.settingsSurface[data-modal="true"] .catalogPillTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.catalogPillTabs button {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--foreground-5);
+  color: var(--foreground-60);
+  padding: 0 15px;
+}
+
+.catalogPillTabs button:hover {
+  background: var(--foreground-10);
+  color: var(--foreground);
+}
+
+.catalogPillTabs button[data-active="true"] {
+  border-color: oklch(from var(--accent) l c h / 0.22);
+  background: oklch(from var(--accent) l c h / 0.13);
+  color: var(--accent);
+}
+
+/* Base UI's Tabs renders a sliding rounded-md indicator behind the active
+ * tab. These pills supply their own active fill, and the indicator's square
+ * radius pokes out from behind the 999px pill (the warped selected look).
+ * Hide it; the pill background is the single source of the active state. */
+.catalogPillTabs [data-slot="tab-indicator"] {
+  display: none;
+}
+
+.catalogPillTabs strong {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.providerMarketGrid,
+.settingsSurface[data-modal="true"] .providerMarketGrid {
+  grid-template-columns: 1fr;
+  overflow: auto;
+}
+
+.providerMarketGrid .providerCatalogRow + .providerCatalogRow,
+.providerOAuthGrid .providerCatalogRow + .providerCatalogRow {
+  border-top: 1px solid oklch(from var(--foreground) l c h / 0.06);
+}
+
+/* Logo plates match the enabled list (compact 32px) so the page reads as
+ * one column of provider rows top to bottom. */
+.providerCatalogRow .providerLogo {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+}
+
+/* Gated providers carry a real trailing state badge in ItemActions (not an
+ * absolute ::after), tinted by the gate reason. The row itself is a plain
+ * div Item with no render prop, so it is inert — the provider-surface gate
+ * never lets a gated provider read as clickable. */
+.providerCatalogRow[data-status="unavailable"] .providerCatalogBadge.is-state {
+  background: oklch(from var(--info) l c h / 0.14);
+  color: var(--info-text);
+}
+
+.providerCatalogRow[data-status="experimental"] .providerCatalogBadge.is-state {
+  background: oklch(from var(--warning) l c h / 0.14);
+  color: var(--warning-text);
+}
+
+/* PR-UI-13 (@yuejing 2026-05-22): ProviderLogo size normalization.
+ *
+ * Audit §3.8 — "OnboardingHero (compact) 跟 ProvidersPanel (default)
+ * 大小不同，底图比例感觉不统一". Root cause: the compact override
+ * only resized width/height/border-radius, but inherited the default
+ * `0 8px 16px` drop shadow — at 32px the shadow extends ~25% beyond
+ * the icon, visually drifting from the default size. Border-radius
+ * ratios also drifted (29.5% default vs 31.25% compact vs 33% micro).
+ *
+ * Fix: pin a single ~27-28% border-radius ratio across all three
+ * sizes (md / sm / xs) and scale the drop shadow proportionally.
+ * Inner SVG keeps the existing 72% ratio so brand marks read the
+ * same at every size.
+ */
+/* Neutral, theme-aware plate. Provider identity now comes from the
+   official brand mark (provider-brand-marks.tsx), so the plate stays a
+   quiet foreground wash in both light and dark — no per-provider tints. */
+.providerLogo {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px; /* 27.3% — anchor ratio */
+  background: var(--foreground-5);
+  color: var(--foreground);
+  box-shadow: inset 0 0 0 1px oklch(from var(--foreground) l c h / 0.06);
+}
+
+.providerLogo[data-compact="true"] {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px; /* 28.1% — matches md ratio */
+}
+
+/* Color marks keep their own fill; monochrome marks declare
+   `fill="currentColor"` and inherit the plate color (= foreground). */
+.providerLogo svg {
+  width: 64%;
+  height: 64%;
+  display: block;
+}
+
+
+.customProviderEntry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+.customProviderEntry button {
+  flex: 0 0 auto;
+  min-height: 36px;
+  border: 1px dashed oklch(from var(--accent) l c h / 0.34);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--accent);
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.providerConfigOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: flex-end;
+  background: oklch(0.95 0.01 90 / 0.64);
+  backdrop-filter: blur(2px);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.providerConfigSheet {
+  position: relative;
+  width: min(430px, 100%);
+  min-height: 100%;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--background);
+  box-shadow: 0 18px 46px oklch(0 0 0 / 0.14);
+  padding: 16px;
+}
+
+/* Position + circular shape only. Size, centering, and every rest/hover/
+ * focus state come from the governed Button (variant="quiet" size="icon-sm"),
+ * so there is nothing to hand-maintain here. The earlier hand-written rules
+ * leaned on undefined --settings-surface-* / --text* tokens, which is why the
+ * button had no hover feedback at all. */
+.providerConfigSheetClose {
+  position: absolute;
+  /* Center on the header's first line, aligned with the title and the
+   * right-aligned status badges (~25px from the sheet top). */
+  top: 10px;
+  right: 14px;
+  border-radius: 999px;
+}
+
+/* ──────────────────────────────────────────────────────────────────────── */
+/* §9.1 ArtifactPane — right-side preview for assistant-produced files.     */
+/* Sits inside the existing detail panel; flex-row keeps the chat column    */
+/* flush with the composer while the pane occupies a fixed right strip.    */
+/* Returns null when no live artifacts → the row collapses gracefully.     */
+/* ──────────────────────────────────────────────────────────────────────── */
+
+.maka-detail-with-artifacts {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  flex: 1 1 auto;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.maka-detail-with-artifacts > .mainColumn {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* P3 BrowserPanel — a right-side split: a chrome toolbar (address bar + nav)
+   over a strip the native WebContentsView floats above. The strip itself is
+   empty by design (the native layer paints there); only the empty state shows
+   when no page is loaded. */
+.maka-browser-panel {
+  flex: 0 0 auto;
+  width: 520px;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border);
+  background: var(--background);
+  overflow: hidden;
+  min-width: 0;
+}
+
+.maka-browser-toolbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.maka-browser-navbtn {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1;
+}
+
+.maka-browser-navbtn:hover:not(:disabled) {
+  background: var(--surface-hover, rgba(127, 127, 127, 0.12));
+}
+
+.maka-browser-navbtn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.maka-browser-address {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface, var(--background));
+  color: var(--text);
+  font-size: 12px;
+}
+
+.maka-browser-strip {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.maka-browser-empty {
+  color: var(--text-muted, #888);
+}
+
+.maka-browser-empty-hint {
+  max-width: 280px;
+}
+
+.maka-artifact-pane {
+  flex: 0 0 auto;
+  width: 320px;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  border-left: 1px solid var(--border);
+  background: var(--background);
+  overflow: hidden;
+}
+
+.maka-artifact-pane[data-collapsed="true"] {
+  width: 28px;
+  grid-template-rows: auto;
+}
+
+.maka-artifact-pane-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  min-height: 28px;
+}
+
+.maka-artifact-pane[data-collapsed="true"] .maka-artifact-pane-header {
+  border-bottom: 0;
+}
+
+.maka-artifact-pane-collapse {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: var(--foreground-70);
+  border-radius: 6px;
+  padding: 0;
+  transition: background var(--duration-quick) var(--ease-out-strong), color var(--duration-quick) var(--ease-out-strong), box-shadow var(--duration-quick) var(--ease-out-strong);
+}
+
+.maka-artifact-pane-collapse:hover {
+  background: var(--foreground-3);
+  color: var(--foreground);
+  border-color: oklch(from var(--foreground) l c h / 0.08);
+}
+
+.maka-artifact-pane-collapse:focus-visible {
+  outline: none;
+  border-color: oklch(from var(--accent) l c h / 0.42);
+  box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.14);
+}
+
+.maka-artifact-pane-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--foreground);
+}
+
+.maka-artifact-pane-count {
+  font-size: 10px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: oklch(from var(--foreground) l c h / 0.05);
+  color: var(--foreground-60);
+  font-variant-numeric: tabular-nums;
+}
+
+.maka-artifact-list-error {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+  margin: 8px;
+  padding: 9px;
+  border: 1px solid oklch(from var(--warning) l c h / 0.28);
+  border-radius: 8px;
+  background: oklch(from var(--warning) l c h / 0.08);
+  color: var(--foreground);
+  font-size: 12px;
+}
+
+.maka-artifact-list-error svg {
+  color: var(--warning);
+}
+
+.maka-artifact-list-error strong {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.maka-artifact-list-error p {
+  margin: 0;
+  color: var(--foreground-70);
+  overflow-wrap: anywhere;
+}
+
+.maka-artifact-error-retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 12px;
+}
+
+.maka-artifact-error-retry:hover {
+  background: var(--foreground-5);
+}
+
+.maka-artifact-error-retry:disabled {
+  cursor: default;
+  opacity: 0.56;
+}
+
+.maka-artifact-error-retry:disabled:hover {
+  background: var(--background);
+}
+
+.maka-artifact-error-retry[data-pending="true"] {
+  opacity: 0.78;
+}
+
+.maka-artifact-error-retry:focus-visible {
+  outline: none;
+  border-color: oklch(from var(--accent) l c h / 0.42);
+  box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.14);
+}
+
+.maka-artifact-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 4px 0;
+  overflow-y: auto;
+  border-bottom: 1px solid var(--border);
+  max-height: 40%;
+}
+
+.maka-artifact-list-item {
+  margin: 0;
+}
+
+/* PR-ARTIFACT-ROW-TACTILE-0 (WAWQAQ msg `ed67a267`, skills round
+   task #116): Emil agents-with-taste — every clickable row needs
+   `:active { scale(0.97) }` so press feels physical, and a subtle
+   transform on hover gives spatial feedback. Without it, rows feel
+   like inert color blocks. Transitions limited to transform +
+   background (GPU-friendly, no reflow). */
+.maka-artifact-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  margin: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--foreground);
+  text-align: left;
+  font-size: 11px;
+  transition:
+    background 140ms var(--ease-out-strong),
+    border-color 140ms var(--ease-out-strong),
+    transform var(--duration-quick) var(--ease-out-strong);
+}
+
+.maka-artifact-row:hover {
+  background: var(--foreground-5);
+}
+
+.maka-artifact-row:active:not([data-deleted="true"]) {
+  transform: scale(0.98);
+}
+
+.maka-artifact-row[data-selected="true"] {
+  background: oklch(from var(--accent) l c h / 0.10);
+  border-color: oklch(from var(--accent) l c h / 0.24);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .maka-artifact-row {
+    transition: background 0ms, border-color 0ms;
+  }
+  .maka-artifact-row:active:not([data-deleted="true"]) {
+    transform: none;
+  }
+}
+
+.maka-artifact-row[data-deleted="true"] {
+  opacity: 0.6;
+}
+
+.maka-artifact-row-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+}
+
+.maka-artifact-row-name {
+  font-weight: 500;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.maka-artifact-row-meta {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  font-size: 10px;
+  color: oklch(from var(--foreground) l c h / 0.62);
+  font-variant-numeric: tabular-nums;
+}
+
+.maka-artifact-row-size {
+  font-weight: 600;
+}
+
+.maka-artifact-row-badge {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+.maka-artifact-preview {
+  position: relative;
+  overflow: auto;
+  padding: 6px 10px;
+  background: var(--background);
+  min-height: 0;
+}
+
+.maka-artifact-preview[data-empty="true"] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: oklch(from var(--foreground) l c h / 0.5);
+  font-size: 11px;
+}
+
+.maka-artifact-preview-empty {
+  font-size: 11px;
+}
+
+.maka-artifact-preview-file {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.maka-artifact-preview-diff {
+  margin: 0;
+  font-size: 11px;
+}
+
+.maka-artifact-preview-html {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+  gap: 6px;
+}
+
+.maka-artifact-preview-html-iframe {
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: white;
+  /* iframe sandbox attribute on the JSX side carries the real boundary;
+     this is only visual. NEVER ship `allow-same-origin` here. */
+}
+
+.maka-artifact-preview-external-links-bar {
+  font-size: 10px;
+  padding: 4px 6px;
+  border-radius: 5px;
+  background: oklch(from var(--info) l c h / 0.10);
+  color: var(--info-text);
+  border: 1px solid oklch(from var(--info) l c h / 0.20);
+}
+
+.maka-artifact-preview-image {
+  /* PR-UI-RENDER-3a: bounded image container. The img child uses
+     object-fit: contain so an oversized intrinsic resolution can't
+     stretch the column; max-width/height keep it inside the pane. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  max-height: 70vh;
+  overflow: hidden;
+}
+
+.maka-artifact-preview-image img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+/* PR-UI-RENDER-3a — Unsupported preview card. Shown when the
+   registry resolves an artifact to `kind: 'unsupported'`. Same
+   tone family as the existing failure cards (info, not destructive
+   — it's not an error, just an unsupported format). */
+.maka-artifact-preview-unsupported {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: 10px;
+  border: 1px dashed oklch(from var(--info) l c h / 0.32);
+  background: oklch(from var(--info) l c h / 0.06);
+  color: var(--foreground-80);
+}
+
+.maka-artifact-preview-unsupported-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.maka-artifact-preview-unsupported-body {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--foreground-70);
+}
+
+.maka-artifact-preview-unsupported-meta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 16px;
+  margin: 0;
+  padding: 0;
+  font-size: 0.8rem;
+  color: var(--foreground-70);
+}
+.maka-artifact-preview-unsupported-meta > div {
+  display: contents;
+}
+.maka-artifact-preview-unsupported-meta dt {
+  color: var(--foreground-60);
+  font-weight: 500;
+}
+.maka-artifact-preview-unsupported-meta dd {
+  margin: 0;
+  word-break: break-word;
+}
+
+.maka-artifact-preview-unsupported-cta {
+  align-self: flex-start;
+}
+
+.maka-artifact-preview-pdf {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  height: 100%;
+  gap: 6px;
+}
+
+.maka-artifact-preview-pdf embed {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: white;
+  min-height: 240px;
+}
+
+.maka-artifact-preview-pdf-fallback {
+  margin: 0;
+  font-size: 11px;
+  color: oklch(from var(--foreground) l c h / 0.6);
+}
+
+.maka-artifact-preview-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: oklch(from var(--foreground) l c h / 0.65);
+}
+
+.maka-artifact-preview-spinner {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+.maka-artifact-preview-fail {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.maka-artifact-preview-fail[data-tone="destructive"] {
+  background: oklch(from var(--destructive) l c h / 0.08);
+  border-color: oklch(from var(--destructive) l c h / 0.22);
+  color: var(--destructive-text);
+}
+
+.maka-artifact-preview-fail[data-tone="info"] {
+  background: oklch(from var(--info) l c h / 0.08);
+  border-color: oklch(from var(--info) l c h / 0.22);
+  color: var(--info-text);
+}
+
+.maka-artifact-preview-fail-title {
+  font-weight: 600;
+}
+
+.maka-artifact-preview-fail-body {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.55;
+}
+
+.maka-artifact-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--background);
+  box-shadow: none;
+}
+
+.maka-artifact-toolbar-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.maka-artifact-toolbar-danger-group {
+  margin-left: auto;
+}
+
+.maka-artifact-toolbar-separator {
+  min-height: 22px;
+  background: var(--border);
+}
+
+.maka-artifact-toolbar-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--border);
+  background: var(--background);
+  color: var(--foreground);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 11.5px;
+}
+
+.maka-artifact-toolbar-button:hover {
+  background: var(--foreground-5);
+}
+
+.maka-artifact-toolbar-button:disabled {
+  cursor: default;
+  opacity: 0.56;
+}
+
+.maka-artifact-toolbar-button:disabled:hover {
+  background: var(--background);
+}
+
+.maka-artifact-toolbar-button[data-pending="true"] {
+  opacity: 0.78;
+}
+
+.maka-artifact-toolbar-destructive {
+  color: var(--destructive-text);
+  border-color: oklch(from var(--destructive) l c h / 0.32);
+}
+
+.maka-artifact-toolbar-destructive:hover {
+  background: oklch(from var(--destructive) l c h / 0.10);
+}
+
+/* Narrow window: ArtifactPane becomes a bottom sheet below the composer
+   instead of continuing to shrink the chat column. This keeps the send path
+   visible and usable while preserving artifact access on small windows. */
+@media (max-width: 990px) {
+  .maka-detail-with-artifacts {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+
+  .maka-artifact-pane {
+    width: 100%;
+    min-height: 220px;
+    max-height: min(42dvh, 360px);
+    grid-template-rows: auto minmax(82px, 0.8fr) minmax(0, 1fr) auto;
+    border-left: 0;
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -8px 24px oklch(0 0 0 / 0.08);
+  }
+
+  .maka-artifact-pane[data-collapsed="true"] {
+    width: 100%;
+    min-height: 34px;
+    max-height: 34px;
+    grid-template-rows: auto;
+  }
+
+  .maka-artifact-list {
+    max-height: none;
+    padding: 6px;
+  }
+
+  .maka-artifact-preview {
+    min-height: 120px;
+  }
+
+  .maka-artifact-toolbar {
+    max-height: 76px;
+    overflow-y: auto;
+  }
+}
+
+
+/* PR109d-c: Aborted turn marker. Sits above the assistant message body
+ * to surface "(已中断)" + muted Ban icon when turn.status === aborted.
+ * Uses muted tone — aborted is dormant history, NOT an error state
+ * (per @kenji review #2: aborted does NOT use destructive red). */
+.maka-turn[data-search-highlight="true"] {
+  border-radius: 12px;
+  outline: 1px solid oklch(from var(--accent) l c h / 0.34);
+  outline-offset: 6px;
+  background: oklch(from var(--accent) l c h / 0.045);
+}
+
+.maka-turn-aborted-marker {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 2px 0 4px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--foreground-5);
+  color: var(--foreground-60);
+  font-size: 12px;
+  font-style: italic;
+  width: fit-content;
+}
+.maka-turn-aborted-marker em {
+  font-style: italic;
+}
+
+
+/* PR109d-b: Turn footer action row. Sits below the assistant message
+ * bubble; icon+text buttons for 重试/重新生成/分支/复制. Disabled
+ * buttons remain rendered (per @kenji review: user should see what
+ * actions exist on the turn) but click handlers no-op. */
+.maka-turn-footer {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 2px;
+  padding: 0;
+  flex-wrap: wrap;
+  opacity: 0.72;
+}
+/* PR-UI-PIXEL-6 (2026-06-21): turn-footer actions read as subtle borderless
+   ghost buttons (reference's footer is icon-light, no bordered pills) — the
+   border only appears implicitly via the hover fill. */
+.maka-turn-footer-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--foreground-50);
+  font-size: 12px;
+  transition: background 120ms ease, color 120ms ease, opacity 120ms ease;
+}
+.maka-turn-footer:hover,
+.maka-turn-footer:focus-within {
+  opacity: 1;
+}
+.maka-turn-footer-action:hover:not(:disabled) {
+  background: oklch(from var(--foreground) l c h / 0.05);
+  color: var(--foreground);
+}
+.maka-turn-footer-action:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.maka-turn-footer-action:disabled,
+.maka-turn-footer-action[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.maka-turn-footer-action[data-pending] {
+  opacity: 0.78;
+  cursor: progress;
+}
+.maka-turn-footer-action[data-copy-feedback="copied"] {
+  color: var(--accent);
+}
+.maka-turn-footer-action[data-copy-feedback="failed"] {
+  color: var(--destructive);
+}
+
+/* PR-CHAT-CHROME-FOLLOWUP-0: footer actions render uniformly — icon +
+ * label, always visible, at the shared 12px chrome size. This supersedes
+ * the PR-UI-17 primary/secondary collapse, which hid branch/copy (and,
+ * after #212, retry/regenerate too) behind a hover-to-expand width
+ * animation. That left an unclear, undeclared priority split and made
+ * the most common action — copy — hard to find. The strip stays quiet at
+ * rest via the toolbar's 0.72 opacity and lifts to full on hover/focus;
+ * the label is no longer width-collapsed. `data-priority` is retained on
+ * the element for downstream styling but no longer drives visibility. */
+
+
+/* PR109e-d: Failed turn banner. Lives above the assistant message body
+ * when turn.status === failed. Uses destructive tone — failed IS a
+ * fault state (distinct from aborted which is dormant muted).
+ * Copy is generalized Chinese (errorClass → Chinese phrase) per
+ * @kenji gate #3 — never exposes the raw enum identifier. */
+.maka-turn-failed-banner {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 2px 0 6px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: oklch(from var(--destructive) l c h / 0.10);
+  border: 1px solid oklch(from var(--destructive) l c h / 0.28);
+  color: var(--destructive);
+  font-size: 12px;
+  width: fit-content;
+}
+.maka-turn-failed-icon {
+  display: inline-flex;
+  align-items: center;
+}
+.maka-turn-failed-recovery {
+  color: var(--text-muted);
+}
+.maka-turn-failed-recovery::before {
+  content: "·";
+  margin-right: 6px;
+  color: var(--border-strong);
+}
+
+/* PR109e-e: Lineage badges. Forward badges sit at the top of the turn
+ * ("重试自 turn X"); reverse badges sit at the bottom ("已重试 →
+ * turn Y"). Same visual treatment + interactive button so screen
+ * readers and keyboard users can navigate. */
+.maka-turn-lineage-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin: 2px 0 4px;
+  opacity: 0.82;
+}
+.maka-turn-lineage-row-reverse {
+  margin-top: 4px;
+}
+.maka-turn-lineage-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  border: 0;
+  background: oklch(from var(--foreground) l c h / 0.05);
+  color: var(--foreground-48);
+  font-size: 9px;
+  transition: background 150ms var(--ease-out-strong), color 150ms var(--ease-out-strong);
+}
+.maka-turn-lineage-badge:hover {
+  background: oklch(from var(--foreground) l c h / 0.08);
+  color: var(--foreground);
+}
+.maka-turn-lineage-badge:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.maka-turn-lineage-badge[data-direction="forward"] {
+  background: oklch(from var(--info) l c h / 0.06);
+  color: oklch(from var(--info-text) calc(l - 0.06) c h);
+}
+.maka-turn-lineage-badge[data-direction="reverse"] {
+  background: oklch(from var(--brand-deep) l c h / 0.06);
+  color: oklch(from var(--brand-deep) calc(l - 0.04) c h);
+}
+
+/* PR109f: branched session banner. Renders above the chat scroll area
+   when the active session has a parentSessionId. Inline button-styled
+   pill that the user can click to jump back to the parent session.
+
+   Visual style: info-tinted background, GitBranch icon, single line.
+   `data-from-aborted` shifts the tone to muted-warning so the user
+   sees that the branch starts from before an abort. */
+.maka-session-branch-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  margin: 6px 12px 4px;
+  border-radius: 999px;
+  border: 1px solid oklch(from var(--info) l c h / 0.20);
+  background: oklch(from var(--info) l c h / 0.06);
+  color: var(--info-text);
+  font-size: 11px;
+  line-height: 1.4;
+  transition: background var(--duration-base) var(--ease-out-strong), color var(--duration-base) var(--ease-out-strong), border-color var(--duration-base) var(--ease-out-strong);
+  align-self: flex-start;
+}
+.maka-session-branch-banner:hover {
+  background: oklch(from var(--info) l c h / 0.14);
+  border-color: oklch(from var(--info) l c h / 0.38);
+  color: var(--info);
+}
+.maka-session-branch-banner:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.maka-session-branch-banner[data-from-aborted] {
+  /* Muted-warning tone so the user sees the branch starts from before
+     the cancel point, not from the abort itself. */
+  border-color: oklch(from var(--warning, var(--info)) l c h / 0.28);
+  background: oklch(from var(--warning, var(--info)) l c h / 0.08);
+  color: var(--warning-text);
+}
+.maka-session-branch-banner[data-from-aborted]:hover {
+  background: oklch(from var(--warning) l c h / 0.14);
+  border-color: oklch(from var(--warning) l c h / 0.42);
+  color: var(--warning);
+}
+

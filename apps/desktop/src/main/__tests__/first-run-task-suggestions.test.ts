@@ -2,6 +2,7 @@ import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { readAllRendererCss } from './css-test-helpers.js';
 import {
   FIRST_RUN_TASK_SUGGESTION_MILESTONES,
   FIRST_RUN_TASK_SUGGESTIONS,
@@ -169,7 +170,7 @@ describe('FIRST_RUN_TASK_SUGGESTIONS', () => {
 
   it('fails soft when first-run checklist status probes reject', async () => {
     const source = await readFile(join(process.cwd(), 'src/renderer/FirstRunChecklist.tsx'), 'utf8');
-    const styles = await readFile(join(process.cwd(), 'src/renderer/styles.css'), 'utf8');
+    const styles = await readAllRendererCss();
     const refreshBlock = source.match(/const refreshChecklistStatus = useCallback[\s\S]*?useEffect/)?.[0] ?? '';
     const effectBlock = source.match(/useEffect\(\(\) => \{[\s\S]*?return \(\) => \{[\s\S]*?cancelled = true;[\s\S]*?\};[\s\S]*?\}, \[refreshChecklistStatus\]\);/)?.[0] ?? '';
 

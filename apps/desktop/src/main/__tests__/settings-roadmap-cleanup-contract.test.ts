@@ -2,6 +2,7 @@ import { strict as assert } from 'node:assert';
 import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 import { join } from 'node:path';
+import { readRendererContractCss } from './contract-css-helpers.js';
 
 const repoRoot = process.cwd().endsWith('apps/desktop')
   ? join(process.cwd(), '..', '..')
@@ -24,7 +25,7 @@ describe('Settings coming-soon cleanup contract', () => {
     const settings = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
     const providers = await readRepo('apps/desktop/src/renderer/settings/ProvidersPanel.tsx');
     const palette = await readRepo('apps/desktop/src/renderer/command-palette.tsx');
-    const styles = await readRepo('apps/desktop/src/renderer/styles.css');
+    const styles = await readRendererContractCss();
     const providerCatalog = await readRepo('packages/core/src/llm-connections.ts');
     assert.doesNotMatch(settings, /comingSoon\??:/, 'Settings nav items must not carry stale comingSoon flags');
     // PR-SETTINGS-NAV-REGROUP-0 (WAWQAQ msg `a9ef0d5d`): `settingsNavBadge`

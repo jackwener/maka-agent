@@ -55,6 +55,9 @@
   min-height: 0;
 }
 
+/* Justified: the Agents shell reuses shared sidebar/session-panel primitives,
+   but this surface must read as a transparent rail. Keep these `!important`
+   resets until the primitive chrome is split from layout. */
 .agents-sidebar {
   background: transparent !important;
   contain: layout paint style;
@@ -148,20 +151,8 @@
   flex-direction: column;
 }
 
-.agents-chat-split-row {
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  gap: 10px;
-}
-
 .agents-inner-view-clamp {
   width: min(100%, 1024px);
-  margin-inline: auto;
-}
-
-.agents-settings-wide-content {
-  width: min(100%, 1120px);
   margin-inline: auto;
 }
 

@@ -2,6 +2,7 @@ import { strict as assert } from 'node:assert';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
+import { readRendererContractCss } from './contract-css-helpers.js';
 
 const REPO_ROOT = join(process.cwd(), '..', '..');
 
@@ -77,7 +78,7 @@ describe('deep research visible surface contract', () => {
   });
 
   it('ships styling for the header mode pill', async () => {
-    const css = await readRepo('apps/desktop/src/renderer/styles.css');
+    const css = await readRendererContractCss();
 
     assert.match(css, /\.maka-chat-header-mode-pill\s*\{/);
     assert.match(css, /white-space:\s*nowrap/);

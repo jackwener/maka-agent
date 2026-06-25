@@ -17,6 +17,7 @@ import { describe, it } from 'node:test';
 import { readFile } from 'node:fs/promises';
 import type { OnboardingState } from '@maka/core';
 import { getOnboardingHeroCopy, getOnboardingSetupSteps } from '../../renderer/onboarding-hero-copy.js';
+import { readRendererContractCss } from './contract-css-helpers.js';
 
 // Every OnboardingState.kind string. Any rendered field MUST NOT
 // contain one of these as a substring — Chinese-only copy.
@@ -290,7 +291,7 @@ describe('getOnboardingSetupSteps — first-run AI setup guide', () => {
 
   it('renderer uses the setup helper rather than a disconnected static checklist', async () => {
     const hero = await readFile(new URL('../../../src/renderer/OnboardingHero.tsx', import.meta.url), 'utf8');
-    const styles = await readFile(new URL('../../../src/renderer/styles.css', import.meta.url), 'utf8');
+    const styles = await readRendererContractCss();
 
     assert.match(hero, /import \{ getOnboardingSetupSteps, type OnboardingSetupStep \} from '\.\/onboarding-hero-copy'/);
     assert.match(hero, /function SetupProgress\(props: \{ steps: readonly OnboardingSetupStep\[\] \}\)/);

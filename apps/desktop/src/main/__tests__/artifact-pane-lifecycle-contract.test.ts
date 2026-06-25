@@ -10,13 +10,14 @@ import { strict as assert } from 'node:assert';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
+import { readRendererContractCss } from './contract-css-helpers.js';
 
 const ARTIFACT_PANE_SOURCE = join(process.cwd(), 'src', 'renderer', 'artifact-pane.tsx');
 
 describe('ArtifactPane async lifecycle contract', () => {
   it('drops stale artifact list responses when the active session changes', async () => {
     const src = await readFile(ARTIFACT_PANE_SOURCE, 'utf8');
-    const css = await readFile(join(process.cwd(), 'src', 'renderer', 'styles.css'), 'utf8');
+    const css = await readRendererContractCss();
     const refreshBlock = src.match(/const refresh = useCallback\(async \(\) => \{[\s\S]*?\}, \[sessionId, toast\]\);/)?.[0] ?? '';
     const subscriptionEffect = src.match(/useEffect\(\(\) => \{[\s\S]*?window\.maka\.artifacts\.subscribeChanges[\s\S]*?\}, \[sessionId, refresh\]\);/)?.[0] ?? '';
     const retryBlock = src.match(/async function retryArtifactListRefresh[\s\S]*?async function openInFinder/)?.[0] ?? '';
@@ -153,7 +154,7 @@ describe('ArtifactPane async lifecycle contract', () => {
 
   it('gates artifact toolbar actions while async work is pending', async () => {
     const src = await readFile(ARTIFACT_PANE_SOURCE, 'utf8');
-    const css = await readFile(join(process.cwd(), 'src', 'renderer', 'styles.css'), 'utf8');
+    const css = await readRendererContractCss();
     const gateBlock = src.match(/async function runArtifactAction[\s\S]*?async function openInFinder/)?.[0] ?? '';
     const toolbarBlock = src.match(/<Toolbar className="maka-artifact-toolbar"[\s\S]*?\n            <\/Toolbar>/)?.[0] ?? '';
 

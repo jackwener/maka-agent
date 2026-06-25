@@ -2,6 +2,7 @@ import { strict as assert } from 'node:assert';
 import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 import { join } from 'node:path';
+import { readRendererContractCss } from './contract-css-helpers.js';
 
 const repoRoot = process.cwd().endsWith('apps/desktop')
   ? join(process.cwd(), '..', '..')
@@ -17,7 +18,7 @@ describe('fixed toast position contract', () => {
     const coreIndex = await readRepo('packages/core/src/index.ts');
     const settingsModal = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
     const rendererMain = await readRepo('apps/desktop/src/renderer/main.tsx');
-    const styles = await readRepo('apps/desktop/src/renderer/styles.css');
+    const styles = await readRendererContractCss();
 
     assert.doesNotMatch(coreSettings, /\bTOAST_POSITIONS\b|\bToastPosition\b|\bisToastPosition\b|toastPosition\?:/, 'core settings must not expose a toast position setting');
     assert.doesNotMatch(coreIndex, /\bTOAST_POSITIONS\b|\bToastPosition\b|\bisToastPosition\b/, 'core public exports must not expose removed toast position contracts');

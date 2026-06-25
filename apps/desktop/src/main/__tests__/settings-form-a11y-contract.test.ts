@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
+import { readRendererContractCss } from './contract-css-helpers.js';
 
 const repoRoot = process.cwd().endsWith('apps/desktop')
   ? join(process.cwd(), '..', '..')
@@ -37,7 +38,7 @@ function openingTags(source: string, tagName: 'input' | 'select' | 'textarea'): 
 
 describe('Settings form accessibility labels', () => {
   it('keeps Settings secondary surfaces close to reference implementation card geometry', async () => {
-    const styles = await readRepo('apps/desktop/src/renderer/styles.css');
+    const styles = await readRendererContractCss();
     const connectionRow = styles.match(/\.settingsConnectionRow\s*\{[\s\S]*?\}/)?.[0] ?? '';
     const connectionBadge = styles.match(/\.settingsConnectionBadge\s*\{[\s\S]*?\}/)?.[0] ?? '';
     const settingsBadge = styles.match(/\.settingsBadge\s*\{[\s\S]*?\}/)?.[0] ?? '';
@@ -251,7 +252,7 @@ describe('Settings form accessibility labels', () => {
   });
 
   it('keeps the Settings active nav row neutral without a leading accent rail', async () => {
-    const styles = await readRepo('apps/desktop/src/renderer/styles.css');
+    const styles = await readRendererContractCss();
     const activeRule = styles.match(/\.settingsNavItem\[data-active="true"\]\s*\{[\s\S]*?\n\}/)?.[0] ?? '';
 
     assert.match(activeRule, /background:\s*oklch\(from var\(--foreground\) l c h \/ 0\.065\);/);

@@ -24,16 +24,7 @@ import { strict as assert } from 'node:assert';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { describe, it } from 'node:test';
-
-const REPO_ROOT = resolve(import.meta.dirname, '../../../../..');
-const TOKENS_FILE = resolve(REPO_ROOT, 'apps/desktop/src/renderer/maka-tokens.css');
-const STYLES_FILE = resolve(REPO_ROOT, 'apps/desktop/src/renderer/styles.css');
-
-/** Strip CSS block comments so banned strings inside `/* ... *\/`
- *  documentation don't trip the contract. */
-function stripCssComments(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, '');
-}
+import { REPO_ROOT, TOKENS_FILE, readAllRendererCss, stripCssComments } from './css-test-helpers.js';
 
 describe('PR-MOTION-TOKEN-CONVERGE-0 contract', () => {
   it('bare cubic-bezier(0.16, 1, 0.3, 1) appears ONLY in the --ease-out-strong token declaration', async () => {
@@ -46,12 +37,12 @@ describe('PR-MOTION-TOKEN-CONVERGE-0 contract', () => {
     const RAW_CURVE = /cubic-bezier\(0\.16,\s*1,\s*0\.3,\s*1\)/g;
     const TOKEN_DECL = /--ease-out-strong:\s*cubic-bezier\(0\.16,\s*1,\s*0\.3,\s*1\)\s*;?/g;
 
-    const styles = stripCssComments(await readFile(STYLES_FILE, 'utf8'));
+    const styles = stripCssComments(await readAllRendererCss());
     const stylesMatches = styles.match(RAW_CURVE) ?? [];
     assert.equal(
       stylesMatches.length,
       0,
-      `styles.css must not spell the canonical curve directly — use var(--ease-out-strong). Found ${stylesMatches.length} site(s).`,
+      `renderer CSS must not spell the canonical curve directly — use var(--ease-out-strong). Found ${stylesMatches.length} site(s).`,
     );
 
     const tokensRaw = await readFile(TOKENS_FILE, 'utf8');
@@ -73,9 +64,9 @@ describe('PR-MOTION-TOKEN-CONVERGE-0 contract', () => {
   });
 
   it('`transition: all` is banned in renderer CSS — properties must be enumerated', async () => {
-    const styles = stripCssComments(await readFile(STYLES_FILE, 'utf8'));
+    const styles = stripCssComments(await readAllRendererCss());
     const tokens = stripCssComments(await readFile(TOKENS_FILE, 'utf8'));
-    for (const [name, body] of [['styles.css', styles] as const, ['maka-tokens.css', tokens] as const]) {
+    for (const [name, body] of [['renderer CSS', styles] as const, ['maka-tokens.css', tokens] as const]) {
       const matches = body.match(/transition:\s*all\b/g) ?? [];
       assert.equal(
         matches.length,

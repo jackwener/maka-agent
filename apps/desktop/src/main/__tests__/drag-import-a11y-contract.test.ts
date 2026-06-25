@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
+import { readRendererContractCss } from './contract-css-helpers.js';
 
 const repoRoot = process.cwd().endsWith('apps/desktop')
   ? join(process.cwd(), '..', '..')
@@ -29,7 +30,7 @@ describe('drag import accessibility status', () => {
   });
 
   it('keeps the hidden live status accessible instead of display-none', async () => {
-    const styles = await readRepo('apps/desktop/src/renderer/styles.css');
+    const styles = await readRendererContractCss();
     const match = styles.match(/\.maka-visually-hidden\s*{(?<body>[\s\S]*?)}/);
     assert.ok(match?.groups?.body, 'styles.css must define .maka-visually-hidden');
     assert.match(match.groups.body, /position:\s*absolute\s*!important;/);

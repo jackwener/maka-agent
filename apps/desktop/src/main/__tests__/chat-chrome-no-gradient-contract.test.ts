@@ -45,15 +45,13 @@ import { strict as assert } from 'node:assert';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { describe, it } from 'node:test';
+import { readRendererContractCss } from './contract-css-helpers.js';
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../../../..');
 
 describe('PR-CHAT-CHROME-FIX-1 no-gradient + visible-radius contract', () => {
   it('.appFrame and .maka-shell-2col paint a flat neutral shell, not a gradient', async () => {
-    const css = await readFile(
-      resolve(REPO_ROOT, 'apps/desktop/src/renderer/styles.css'),
-      'utf8',
-    );
+    const css = await readRendererContractCss();
 
     for (const selector of ['.appFrame', '.maka-shell-2col']) {
       const ruleBody = extractRuleBody(css, selector);
@@ -77,10 +75,7 @@ describe('PR-CHAT-CHROME-FIX-1 no-gradient + visible-radius contract', () => {
   });
 
   it('html[data-os="darwin"] .maka-session-panel does not paint a gradient or a border-right', async () => {
-    const css = await readFile(
-      resolve(REPO_ROOT, 'apps/desktop/src/renderer/styles.css'),
-      'utf8',
-    );
+    const css = await readRendererContractCss();
 
     const ruleMatch = css.match(
       /html\[data-os="darwin"\]\s+\.maka-session-panel\s*\{([\s\S]*?)\n\}/,
@@ -99,10 +94,7 @@ describe('PR-CHAT-CHROME-FIX-1 no-gradient + visible-radius contract', () => {
   });
 
   it('content surface has a 12px radius and a real drop-shadow', async () => {
-    const css = await readFile(
-      resolve(REPO_ROOT, 'apps/desktop/src/renderer/styles.css'),
-      'utf8',
-    );
+    const css = await readRendererContractCss();
 
     const ruleMatch = css.match(
       /\.maka-panel-detail\.maka-floating-panel\s*\{([\s\S]*?)\n\}/,

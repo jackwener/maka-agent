@@ -2,6 +2,7 @@ import { strict as assert } from 'node:assert';
 import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 import { resolve } from 'node:path';
+import { readRendererContractCss } from './contract-css-helpers.js';
 
 const REPO_ROOT = resolve(process.cwd(), '..', '..');
 
@@ -49,7 +50,7 @@ describe('OverlayScrollbars integration contract', () => {
   });
 
   it('loads vendor CSS and defines the Maka theme tokens', async () => {
-    const styles = await repoFile('apps/desktop/src/renderer/styles.css');
+    const styles = await readRendererContractCss();
     const tokens = await repoFile('apps/desktop/src/renderer/maka-tokens.css');
 
     assert.match(styles, /@import "overlayscrollbars\/overlayscrollbars\.css";/, 'renderer CSS must load OverlayScrollbars vendor styles');

@@ -2,6 +2,7 @@ import { strict as assert } from 'node:assert';
 import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 import { join, resolve } from 'node:path';
+import { readAllRendererCss } from './css-test-helpers.js';
 
 const REPO_ROOT = resolve(process.cwd(), '..', '..');
 const CAPABILITY_SNAPSHOT = join(REPO_ROOT, 'apps', 'desktop', 'src', 'main', 'capability-snapshot.ts');
@@ -43,7 +44,7 @@ describe('Office document capability contract', () => {
   it('renders capability guidance as visible action copy', async () => {
     const [settings, styles] = await Promise.all([
       readFile(join(REPO_ROOT, 'apps', 'desktop', 'src', 'renderer', 'settings', 'SettingsModal.tsx'), 'utf8'),
-      readFile(join(REPO_ROOT, 'apps', 'desktop', 'src', 'renderer', 'styles.css'), 'utf8'),
+      readAllRendererCss(),
     ]);
 
     assert.match(settings, /capability\.guidance\.length > 0/);
@@ -130,14 +131,18 @@ describe('Office document capability contract', () => {
     assert.match(checkScript, /officeCliVersionMatches/);
     assert.match(packageJson, /"prepare:officecli": "node scripts\/prepare-officecli\.mjs"/);
     assert.match(packageJson, /"check:officecli-bundle": "node scripts\/check-officecli-bundle\.mjs"/);
-    assert.match(packageJson, /"check:release": "npm run check:stale && npm run check:officecli-bundle"/);
+    assert.match(
+      packageJson,
+      /"check:release": "npm run check:stale && npm run check:officecli-bundle(?: && [^"]+)*"/,
+      'release checks must continue to gate on stale dist and OfficeCLI bundle integrity before any additional release checks',
+    );
   });
 
   it('renders Office document tool results through a structured preview, not raw JSON', async () => {
     const [events, components, styles] = await Promise.all([
       readFile(CORE_EVENTS, 'utf8'),
       readFile(UI_COMPONENTS, 'utf8'),
-      readFile(join(REPO_ROOT, 'apps', 'desktop', 'src', 'renderer', 'styles.css'), 'utf8'),
+      readAllRendererCss(),
     ]);
 
     assert.match(events, /kind:\s*'office_document'/);
