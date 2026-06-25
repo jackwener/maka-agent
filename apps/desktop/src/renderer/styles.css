@@ -665,12 +665,6 @@ button:active {
   padding: 0 2px;
 }
 
-/* PR-SIDEBAR-IA-0 Phase 2 fixup (xuan `71687cc7`): the
- * `.maka-session-archive-link` style block was removed alongside
- * the archive link button. Archived/Pinned access will be a
- * separate, deliberate, lightweight control in a future PR per
- * kenji `9f683ea8` — not a hidden affordance in this packet. */
-
 .maka-session-panel-header {
   display: grid;
   gap: 5px;
@@ -691,13 +685,6 @@ button:active {
   padding-left: calc(var(--maka-titlebar-control-safe-left) - 10px);
   -webkit-app-region: drag;
 }
-
-/* PR-SIDEBAR-WORDMARK-KILL-0 (WAWQAQ msg `1fae5521` 2026-06-24
-   "现在侧边栏左上角有Maka这个单词，好丑啊"): removed `.maka-sidebar-brand`
-   along with its JSX usage. PR #190 added a Georgia serif "Maka"
-   wordmark in the sidebar drag strip; the brand identity already
-   lives in the macOS dock icon + window title, so the wordmark was
-   redundant chrome. */
 
 .maka-sidebar-search-button,
 .maka-sidebar-toggle {
@@ -754,19 +741,6 @@ button:active {
 .maka-session-panel[data-collapsed="true"] .maka-empty-state {
   display: none !important;
 }
-
-/* PR-SIDEBAR-IA-0 Phase 2 fixup v3 (xuan `dce5a6fb` #3): the
- * `.maka-session-filter` rule was removed alongside the visible
- * Chats/Pinned/Archived switcher. No consumer remains in
- * `SessionListPanel`; keeping the rule was dead-style cruft that
- * would mislead readers grepping for `session-filter`. Future
- * Pinned/Archived access lands in a separate PR with its own
- * deliberate styling. */
-
-/* PR-UX-POLISH-1 commit 4 (WAWQAQ msg `e0dbad11` + kenji msg
- * `2844f64f`): `.maka-session-search` + `.maka-session-search-clear`
- * rules deleted. The in-list filter input they styled was removed;
- * all search lives in the top-level `搜索` modal. */
 
 .maka-session-list {
   /* PR-SIDEBAR-IA-0 Phase 1 (xuan msg `dc790a54`, kenji msg `0f7bb872`):
@@ -832,12 +806,6 @@ button:active {
   color: currentColor;
 }
 
-/* PR-UX-POLISH-1 commit 4 (WAWQAQ `e0dbad11` + kenji `2844f64f`):
- * `.maka-session-panel-help-chip` was removed — the sidebar footer
- * is for product nav/state, not for help affordances. Keyboard
- * discoverability now lives in the Command Palette via the
- * `查看快捷键` entry. */
-
 .maka-session-panel[data-collapsed="true"] .maka-nav-primary {
   width: 28px;
   min-width: 28px;
@@ -902,10 +870,6 @@ button:active {
   transition:
     background var(--duration-base) var(--ease-out-strong),
     color var(--duration-base) var(--ease-out-strong);
-}
-
-.maka-nav-row[aria-expanded="true"] .maka-nav-disclosure {
-  transform: rotate(90deg);
 }
 
 .maka-nav-row:hover {
@@ -995,10 +959,6 @@ button:active {
 
 .maka-session-panel[data-collapsed="true"] .maka-nav-row span:nth-child(2),
 .maka-session-panel[data-collapsed="true"] .maka-nav-row small {
-  display: none;
-}
-
-.maka-session-panel[data-collapsed="true"] .maka-nav-tree {
   display: none;
 }
 
@@ -7438,13 +7398,6 @@ button:active {
   margin: 0;
 }
 
-.settingsFeatureStatusHeroActions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 10px;
-}
-
 /* PR daily-review-bundled (WAWQAQ msg `afbe542d` 2026-06-25 +
    @kenji audit finding #6): the Daily Review settings page used to
    stack a banner + intro hero card + settings rows + "try it now"
@@ -9014,13 +8967,6 @@ button:active {
   font-weight: 600;
 }
 
-.settingsSurface[data-modal="true"] .settingsHeader {
-  min-height: 48px;
-  padding: 12px 18px 8px;
-  border-bottom: 0;
-  background: var(--background);
-}
-
 .settingsCloseButton {
   width: 24px;
   height: 24px;
@@ -9423,10 +9369,6 @@ button:active {
   color: var(--foreground-55);
   font-size: 12px;
   line-height: 1.4;
-}
-
-.settingsSurface[data-modal="true"] .settingsCardProviders {
-  min-height: 100%;
 }
 
 .providersPanel {
@@ -13889,48 +13831,6 @@ button:active {
   transform: none;
   min-height: 120px;
   align-content: center;
-}
-
-/* =============================================================================
-   Ported keyframes from upstream reference design (atlas §12.4).
-   - streaming-fade-in: per-token fade-in for streamed Markdown.
-   - indeterminate-slide: horizontal sweep for indeterminate progress bars.
-   Both are CSS-only here; future PRs can wire them to actual surfaces.
-============================================================================= */
-
-@keyframes maka-streaming-token-fade-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-@keyframes maka-indeterminate-slide {
-  from { left: -40%; }
-  to   { left: 100%; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .maka-streaming-token-fade-in,
-  .maka-indeterminate-bar::after {
-    animation: none;
-  }
-}
-
-[data-maka-visual-smoke="true"] .maka-streaming-token-fade-in,
-[data-maka-visual-smoke="true"] .maka-indeterminate-bar::after {
-  animation: none;
-}
-
-/* =============================================================================
-   Settings narrow-viewport heading variant — atlas §12.5 ports the
-   `.agents-settings-page-title-narrow` pattern: when the page card is narrow
-   (sidebar at full width on a small viewport), drop the H1 from --text-3xl
-   to --text-2xl so it doesn't blow up the header rail.
-============================================================================= */
-
-@media (max-width: 1100px) {
-  .settingsHeader h1 {
-    font-size: 24px;
-    letter-spacing: -0.008em;
-    line-height: 1.2;
-  }
 }
 
 /* =============================================================================
