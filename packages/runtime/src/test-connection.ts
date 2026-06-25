@@ -5,12 +5,9 @@ import {
   type LlmConnection,
 } from '@maka/core/llm-connections';
 import { proxiedFetch } from './bots/proxied-fetch.js';
-import { anthropicV1Url } from './subscription-auth.js';
+import { anthropicV1Url, claudeSubscriptionHeaders } from './subscription-auth.js';
 
 const CONNECTION_TEST_TIMEOUT_MS = 15_000;
-const CLAUDE_SUBSCRIPTION_BETA =
-  'oauth-2025-04-20,interleaved-thinking-2025-05-14,redact-thinking-2026-02-12,context-management-2025-06-27,prompt-caching-scope-2026-01-05,claude-code-20250219';
-const CLAUDE_SUBSCRIPTION_USER_AGENT = 'claude-cli/2.1.153 (external, cli)';
 
 export async function testConnection(
   connection: LlmConnection,
@@ -59,11 +56,8 @@ async function probeAnthropic(
 ): Promise<ConnectionTestResult> {
   const headers: Record<string, string> = connection.providerType === 'claude-subscription'
     ? {
+        ...claudeSubscriptionHeaders(),
         Authorization: `Bearer ${secret}`,
-        'User-Agent': CLAUDE_SUBSCRIPTION_USER_AGENT,
-        'anthropic-beta': CLAUDE_SUBSCRIPTION_BETA,
-        'anthropic-dangerous-direct-browser-access': 'true',
-        'x-app': 'cli',
         'anthropic-version': '2023-06-01',
         'content-type': 'application/json',
       }

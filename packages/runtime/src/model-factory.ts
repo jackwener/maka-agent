@@ -4,7 +4,11 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import type { LanguageModelV3 } from '@ai-sdk/provider';
 import { effectiveBaseUrl, type LlmConnection } from '@maka/core/llm-connections';
-import { anthropicV1BaseUrl, codexSubscriptionHeaders } from './subscription-auth.js';
+import {
+  anthropicV1BaseUrl,
+  claudeSubscriptionHeaders,
+  codexSubscriptionHeaders,
+} from './subscription-auth.js';
 
 export interface ModelFactoryInput {
   connection: LlmConnection;
@@ -15,10 +19,6 @@ export interface ModelFactoryInput {
 
 const ANTHROPIC_BETA =
   'interleaved-thinking-2025-05-14,fine-grained-tool-streaming-2025-05-14';
-const CLAUDE_SUBSCRIPTION_BETA =
-  'oauth-2025-04-20,interleaved-thinking-2025-05-14,redact-thinking-2026-02-12,context-management-2025-06-27,prompt-caching-scope-2026-01-05,claude-code-20250219';
-const CLAUDE_SUBSCRIPTION_USER_AGENT = 'claude-cli/2.1.153 (external, cli)';
-
 export function getAIModel(input: ModelFactoryInput): LanguageModelV3 {
   const { connection, apiKey, modelId, fetch } = input;
   const baseURL = effectiveBaseUrl(connection);
@@ -43,12 +43,7 @@ export function getAIModel(input: ModelFactoryInput): LanguageModelV3 {
         authToken: apiKey,
         baseURL: anthropicV1BaseUrl(baseURL),
         fetch,
-        headers: {
-          'anthropic-beta': CLAUDE_SUBSCRIPTION_BETA,
-          'User-Agent': CLAUDE_SUBSCRIPTION_USER_AGENT,
-          'anthropic-dangerous-direct-browser-access': 'true',
-          'x-app': 'cli',
-        },
+        headers: claudeSubscriptionHeaders(),
       }).chat(modelId);
 
     case 'codex-subscription':

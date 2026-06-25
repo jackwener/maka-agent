@@ -33,17 +33,55 @@ describe('Claude subscription runtime wiring', () => {
     assert.match(caseRegion, /baseURL:\s*anthropicV1BaseUrl\(baseURL\)/, 'Claude OAuth must pass the AI SDK a /v1 Anthropic base URL');
     assert.match(caseRegion, /fetch,/, 'Claude OAuth must accept the desktop cloak fetch wrapper');
     assert.doesNotMatch(caseRegion, /throw new Error/, 'Claude OAuth must not remain in the experimental throw branch');
-    assert.match(caseRegion, /anthropic-beta[\s\S]*CLAUDE_SUBSCRIPTION_BETA/, 'Claude OAuth must send the Claude Code beta header set');
     assert.match(
       caseRegion,
-      /CLAUDE_SUBSCRIPTION_USER_AGENT/,
-      'Claude OAuth runtime sends must use the pinned Claude Code user-agent',
+      /headers:\s*claudeSubscriptionHeaders\(\)/,
+      'Claude OAuth must use the centralized Claude Code subscription header helper',
     );
     assert.match(
-      src,
+      caseRegion,
+      /claudeSubscriptionHeaders/,
+      'Claude OAuth runtime sends must use the pinned Claude Code user-agent',
+    );
+  });
+
+  test('Claude subscription header constants have one runtime source of truth', async () => {
+    const [authSrc, factorySrc, fetcherSrc, testConnectionSrc] = await Promise.all([
+      readFile(new URL('../../src/subscription-auth.ts', import.meta.url), 'utf8'),
+      readFile(new URL('../../src/model-factory.ts', import.meta.url), 'utf8'),
+      readFile(new URL('../../src/model-fetcher.ts', import.meta.url), 'utf8'),
+      readFile(new URL('../../src/test-connection.ts', import.meta.url), 'utf8'),
+    ]);
+
+    assert.match(
+      authSrc,
       /CLAUDE_SUBSCRIPTION_USER_AGENT\s*=\s*'claude-cli\/2\.1\.153 \(external, cli\)'/,
       'Claude OAuth runtime user-agent must track the current installed Claude Code OAuth contract',
     );
+    assert.match(authSrc, /CLAUDE_SUBSCRIPTION_BETA[\s\S]*oauth-2025-04-20/);
+    assert.match(authSrc, /function claudeSubscriptionHeaders\(\)/);
+
+    for (const [name, source] of [
+      ['model-factory.ts', factorySrc],
+      ['model-fetcher.ts', fetcherSrc],
+      ['test-connection.ts', testConnectionSrc],
+    ] as const) {
+      assert.match(
+        source,
+        /claudeSubscriptionHeaders/,
+        `${name} must use the centralized Claude subscription headers helper`,
+      );
+      assert.doesNotMatch(
+        source,
+        /claude-cli\/2\.1\.153|oauth-2025-04-20/,
+        `${name} must not duplicate Claude subscription header literals`,
+      );
+      assert.doesNotMatch(
+        source,
+        /const CLAUDE_SUBSCRIPTION_(?:BETA|USER_AGENT)/,
+        `${name} must not redeclare Claude subscription header constants`,
+      );
+    }
   });
 
   test('model factory gives API-key Anthropic the /v1 SDK base without changing Kimi', async () => {
