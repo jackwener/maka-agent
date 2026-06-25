@@ -34,6 +34,7 @@ export * from './primitives/kbd.js';
 export * from './primitives/menu.js';
 export * from './primitives/group.js';
 export * from './primitives/frame.js';
+export * from './primitives/choice-card.js';
 export * from './primitives/preview-card.js';
 export * from './primitives/settings-select.js';
 export * from './primitives/input-group.js';

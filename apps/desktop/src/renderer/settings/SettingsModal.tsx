@@ -86,6 +86,8 @@ import {
   AlertDescription,
   BOT_BRAND,
   Button,
+  ChoiceCard,
+  ChoiceCardGroup,
   DialogContent,
   DialogRoot,
   Input,
@@ -2789,42 +2791,32 @@ function ThemeSettingsPage(props: {
   return (
     <div className="settingsStructuredPage">
       <h3 className="settingsSubheading">主题</h3>
-      <div
+      <ChoiceCardGroup
         className="settingsThemeOptions settingsThemeOptionsPreview"
-        role="radiogroup"
         aria-label="主题"
-        onKeyDown={(event) => onSettingsRadioGroupKeyDown(
-          event,
-          THEME_OPTIONS.map((option) => option.value),
-          props.themePref,
-          (next) => void setTheme(next),
-        )}
+        value={props.themePref}
+        onValueChange={(next) => void setTheme(next as typeof props.themePref)}
       >
         {THEME_OPTIONS.map((option) => (
-          // Native <button> on purpose: .settingsThemeOption is a vertically
-          // stacked radio card (preview tile on top, label below). The shared
-          // <Button> primitive bakes in `h-9 inline-flex bg-primary text-white`
-          // utilities that collapse the card to 36px and paint it black —
-          // exactly what WAWQAQ msg 5f75daf6 called out as "稀奇古怪稀巴烂".
-          <button
+          // Base UI Radio.Root via ChoiceCard primitive (Round C,
+          // PR round-c-choice-card-primitive). Keyboard arrow nav,
+          // focus management, and `data-checked` are owned by the
+          // primitive; the card chrome stays in `.settingsThemeOption*`
+          // CSS so the regression test that catches `<Button>` shrinking
+          // the card to a 36px black pill is no longer needed.
+          <ChoiceCard
             key={option.value}
-            type="button"
-            role="radio"
-            aria-checked={props.themePref === option.value}
-            data-active={props.themePref === option.value}
-            data-radio-value={option.value}
-            tabIndex={radioTabIndex(option.value, props.themePref, THEME_OPTIONS.map((item) => item.value))}
+            value={option.value}
             className="settingsThemeOption settingsThemeOptionPreview"
-            onClick={() => void setTheme(option.value)}
           >
             <ThemePreviewMock variant={option.value} />
             <span className="settingsThemeLabel">
               <strong>{option.label}</strong>
               <small>{option.help}</small>
             </span>
-          </button>
+          </ChoiceCard>
         ))}
-      </div>
+      </ChoiceCardGroup>
 
       <h3 className="settingsSubheading">调色板</h3>
       {/* PR-PALETTE-PICKER-GROUPS-0: 11 palettes in a flat grid is
@@ -2835,41 +2827,27 @@ function ThemeSettingsPage(props: {
       {PALETTE_GROUPS.map((group) => (
         <div key={group.id} className="settingsPaletteGroup">
           <h4 className="settingsPaletteGroupHeading">{group.label}</h4>
-          <div
+          <ChoiceCardGroup
             className="settingsThemeOptions settingsPaletteOptions"
-            role="radiogroup"
             aria-label={group.label}
-            onKeyDown={(event) => onSettingsRadioGroupKeyDown(
-              event,
-              group.palettes,
-              currentPalette,
-              (next) => void setPalette(next),
-            )}
+            value={currentPalette}
+            onValueChange={(next) => void setPalette(next as ThemePalette)}
           >
             {group.palettes.map((palette) => (
-              // Native <button>: same reason as the mode picker above —
-              // the swatch+label is a custom grid layout that the shared
-              // <Button> primitive fights with its Tailwind utilities.
-              <button
+              <ChoiceCard
                 key={palette}
-                type="button"
-                role="radio"
-                aria-checked={currentPalette === palette}
-                data-active={currentPalette === palette}
+                value={palette}
                 data-palette={palette}
-                data-radio-value={palette}
-                tabIndex={radioTabIndex(palette, currentPalette, group.palettes)}
                 className="settingsThemeOption settingsPaletteOption"
-                onClick={() => void setPalette(palette)}
               >
                 <span className={`settingsPaletteSwatch settingsPaletteSwatch-${palette}`} aria-hidden="true" />
                 <span className="settingsThemeLabel">
                   <strong>{PALETTE_LABEL[palette]}</strong>
                   <small>{PALETTE_HELP[palette]}</small>
                 </span>
-              </button>
+              </ChoiceCard>
             ))}
-          </div>
+          </ChoiceCardGroup>
         </div>
       ))}
 

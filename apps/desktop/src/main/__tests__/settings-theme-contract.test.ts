@@ -71,50 +71,80 @@ describe('Settings theme page contract', () => {
     const themePage = src.match(/function ThemeSettingsPage\([\s\S]*?function WebSearchSettingsPage/)?.[0] ?? '';
     const segmentedBlock = src.match(/function Segmented[\s\S]*?function Switch/)?.[0] ?? '';
 
+    // `onSettingsRadioGroupKeyDown` + `nextRadioId` + `focusRadioValue` +
+    // `radioTabIndex` still exist because `Segmented` (the inline
+    // [value, label] pill picker) keeps native-button + manual keyboard
+    // nav — it has no card chrome to protect, so flipping it would not
+    // earn its keep here. Verify the helper logic is intact.
     assert.match(helperBlock, /nextRadioId\(current, values, event\.key\)/);
     assert.match(helperBlock, /event\.preventDefault\(\)/);
     assert.match(helperBlock, /onChange\(next\)/);
     assert.match(helperBlock, /const group = event\.currentTarget/);
     assert.match(helperBlock, /setTimeout\(\(\) => focusRadioValue\(group, next\), 0\)/);
-    assert.match(themePage, /aria-label="主题"[\s\S]*onKeyDown=\{\(event\) => onSettingsRadioGroupKeyDown/);
-    assert.match(themePage, /aria-label=\{group\.label\}[\s\S]*onKeyDown=\{\(event\) => onSettingsRadioGroupKeyDown/);
-    assert.match(themePage, /data-radio-value=\{option\.value\}[\s\S]*tabIndex=\{radioTabIndex\(option\.value, props\.themePref/);
-    assert.match(themePage, /data-radio-value=\{palette\}[\s\S]*tabIndex=\{radioTabIndex\(palette, currentPalette, group\.palettes\)\}/);
+
+    // Theme + palette pickers now delegate keyboard navigation to the
+    // Base UI `RadioGroup` inside `ChoiceCardGroup`. Both groups must
+    // pass `value` + `onValueChange` (not `onKeyDown`) and must NOT
+    // reach back to the legacy helpers.
+    assert.match(themePage, /<ChoiceCardGroup[\s\S]*aria-label="主题"[\s\S]*value=\{props\.themePref\}[\s\S]*onValueChange/);
+    assert.match(themePage, /<ChoiceCardGroup[\s\S]*aria-label=\{group\.label\}[\s\S]*value=\{currentPalette\}[\s\S]*onValueChange/);
+    assert.doesNotMatch(themePage, /onSettingsRadioGroupKeyDown|radioTabIndex|data-radio-value/);
     assert.doesNotMatch(themePage, /界面密度|props\.density|setDensity|onDensityChange/);
+
+    // `Segmented` still uses the legacy helpers. Pin them so a future
+    // sweep doesn't accidentally drop them while the Segmented call
+    // sites are still around.
     assert.match(segmentedBlock, /if \(props\.disabled\) return;[\s\S]*onSettingsRadioGroupKeyDown\(event, values, props\.value, props\.onChange\)/);
     assert.match(segmentedBlock, /aria-disabled=\{props\.disabled \? 'true' : undefined\}/);
     assert.match(segmentedBlock, /disabled=\{props\.disabled\}/);
     assert.match(segmentedBlock, /data-radio-value=\{value\}[\s\S]*tabIndex=\{radioTabIndex\(value, props\.value, values\)\}/);
   });
 
-  it('keeps theme and palette radio cards on native <button>, not <Button>', async () => {
-    // Regression guard for WAWQAQ msg 5f75daf6 — commit b40d097 swapped
-    // these cards onto packages/ui's <Button>, which bakes in
-    // `h-9 inline-flex bg-primary text-primary-foreground` Tailwind
-    // utilities that collapse each card to a 36px-tall black pill and
-    // hide the swatch + label. The radio-card pattern needs the custom
-    // grid layout in `.settingsThemeOption`, so it must stay on
-    // a native <button> element.
+  it('uses the ChoiceCard primitive (not native <button> or shared <Button>) for theme + palette cards', async () => {
+    // Regression history:
+    //   1. Original `<Button>` migration (commit b40d097, WAWQAQ msg
+    //      5f75daf6) baked `h-9 inline-flex bg-primary` utilities into
+    //      the cards, collapsing each to a 36px black pill. Reverted
+    //      to native `<button role="radio">` + manual keyboard nav.
+    //   2. Round C (PR round-c-choice-card-primitive, WAWQAQ msg
+    //      4f598b19) replaces the native `<button>` with a Base UI
+    //      `Radio.Root`-backed `ChoiceCard` primitive. The primitive
+    //      intentionally applies NO layout/background utilities so the
+    //      existing `.settingsThemeOption*` chrome rules still own the
+    //      visuals; the migration only moves semantics (data-checked,
+    //      keyboard nav, focus) into Base UI.
+    // This test pins step 2 and prevents regressing back to either
+    // shared `<Button>` (which still has the 36px-pill problem) or
+    // hand-rolled native `<button>` (which loses Base UI's keyboard
+    // and focus contract).
     const src = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
     const themePage = src.match(/function ThemeSettingsPage\([\s\S]*?function WebSearchSettingsPage/)?.[0] ?? '';
-    // Source order: each radio-card block opens with `<button` (not `<Button`)
-    // and the className appears later. The `\b` boundary keeps `<button` from
-    // matching `<Button`. Strip `//` line comments and `/* */` block comments
-    // first so the regression-explainer comments don't confuse the count.
     const themePageNoComments = themePage
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .replace(/\/\/[^\n]*/g, '');
     const lcButtonCount = (themePageNoComments.match(/<button\b/g) ?? []).length;
     const ucButtonCount = (themePageNoComments.match(/<Button\b/g) ?? []).length;
+    const choiceCardCount = (themePageNoComments.match(/<ChoiceCard\b/g) ?? []).length;
+    const choiceCardGroupCount = (themePageNoComments.match(/<ChoiceCardGroup\b/g) ?? []).length;
+    assert.equal(
+      lcButtonCount,
+      0,
+      `Theme/palette cards must use the ChoiceCard primitive, not native <button> (found ${lcButtonCount} <button> occurrences in the page)`,
+    );
     assert.equal(
       ucButtonCount,
       0,
-      `Theme/palette radio cards must use native <button>, not <Button> from packages/ui (found ${ucButtonCount} <Button> occurrences in the page)`,
+      `Theme/palette cards must use the ChoiceCard primitive, not the shared <Button> (found ${ucButtonCount} <Button> occurrences — see the b40d097 regression note)`,
     );
     assert.equal(
-      lcButtonCount,
+      choiceCardCount,
       2,
-      `Expected exactly 2 native <button> elements (mode picker, palette picker), found ${lcButtonCount}`,
+      `Expected exactly 2 <ChoiceCard> elements (one per .map for theme + palette), found ${choiceCardCount}`,
+    );
+    assert.equal(
+      choiceCardGroupCount,
+      2,
+      `Expected exactly 2 <ChoiceCardGroup> elements (theme group + palette group), found ${choiceCardGroupCount}`,
     );
     assert.match(themePage, /className="settingsThemeOption settingsThemeOptionPreview"/);
     assert.match(themePage, /className="settingsThemeOption settingsPaletteOption"/);

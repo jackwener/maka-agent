@@ -8149,7 +8149,7 @@ button:active {
   background: var(--foreground-3);
 }
 
-.settingsThemeOption[data-active="true"] {
+.settingsThemeOption[data-checked] {
   border-color: oklch(from var(--accent) l c h / 0.45);
   background: oklch(from var(--accent) l c h / 0.06);
 }
