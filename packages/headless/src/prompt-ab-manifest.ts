@@ -78,7 +78,12 @@ export async function ensurePromptAbRunManifest(
   manifest: PromptAbRunManifest,
 ): Promise<PromptAbRunManifest> {
   try {
-    return await ensureAbRunManifest(path, manifest);
+    const resumed = await ensureAbRunManifest(path, manifest);
+    return {
+      ...resumed,
+      experimentKind: 'prompt',
+      arms: manifest.arms,
+    };
   } catch (error) {
     if (error instanceof Error && error.message.startsWith('A/B run manifest does not match existing run id:')) {
       throw new Error(error.message.replace('A/B run manifest', 'prompt A/B run manifest').replace('Use a new run id', 'Use a new MAKA_PROMPT_AB_RUN_ID'));

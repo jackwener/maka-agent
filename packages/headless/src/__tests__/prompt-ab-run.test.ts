@@ -187,6 +187,8 @@ describe('prompt A/B run manifest', () => {
       const resumed = await ensurePromptAbRunManifest(manifestPath, current);
 
       assert.equal(resumed.fingerprint, legacyManifest.fingerprint);
+      assert.equal(resumed.experimentKind, 'prompt');
+      assert.deepEqual(resumed.arms, current.arms);
       await assert.rejects(
         ensurePromptAbRunManifest(manifestPath, buildPromptAbRunManifest({
           ...input,
