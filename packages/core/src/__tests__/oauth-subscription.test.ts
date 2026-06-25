@@ -82,9 +82,9 @@ describe('pkceCodeChallenge (RFC 7636 §4.2)', () => {
 describe('buildClaudeAuthorizationUrl', () => {
   const config: ClaudeAuthorizationConfig = {
     clientId: 'test-client-id',
-    authorizeEndpoint: 'https://claude.ai/oauth/authorize',
-    redirectUri: 'https://console.anthropic.com/oauth/code/callback',
-    scope: 'org:create_api_key user:profile user:inference',
+    authorizeEndpoint: 'https://claude.com/cai/oauth/authorize',
+    redirectUri: 'https://platform.claude.com/oauth/code/callback',
+    scope: 'user:sessions:claude_code user:mcp_servers user:file_upload',
   };
 
   it('emits all required PKCE + OAuth params', () => {

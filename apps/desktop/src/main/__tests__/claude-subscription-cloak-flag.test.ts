@@ -62,6 +62,11 @@ describe('cloaked request module isolation (xuan G-X4)', () => {
     // actually built here.
     const src = await readFile(CLOAK_SOURCE, 'utf8');
     assert.match(src, /claude-cli\//, 'cloak module must build the Claude Code UA');
+    assert.match(
+      src,
+      /CLAUDE_CODE_PRODUCT_VERSION\s*=\s*'2\.1\.153'/,
+      'cloak module must track the current Claude Code product version',
+    );
     assert.match(src, /X-Stainless-/, 'cloak module must build Stainless headers');
     assert.match(src, /You are Claude Code/, 'cloak module must inject the Claude Code system prefix');
     // PR-CLAUDE-OAUTH-RUNTIME-VERSION-PIN-0: pin the Runtime-Version
@@ -171,6 +176,35 @@ describe('cloaked request module isolation (xuan G-X4)', () => {
     );
   });
 
+  it('OAuth authorize flow tracks current Claude Code subscription endpoints and scopes', async () => {
+    const src = await readFile(SERVICE_SOURCE, 'utf8');
+    assert.match(
+      src,
+      /CLAUDE_AUTHORIZE_ENDPOINT\s*=\s*'https:\/\/claude\.com\/cai\/oauth\/authorize'/,
+      'Claude subscription auth must use Claude Code subscription authorize route, not the stale claude.ai endpoint',
+    );
+    assert.match(
+      src,
+      /CLAUDE_REDIRECT_URI\s*=\s*'https:\/\/platform\.claude\.com\/oauth\/code\/callback'/,
+      'Claude subscription auth must use the current platform callback route',
+    );
+    assert.match(
+      src,
+      /CLAUDE_TOKEN_ENDPOINT\s*=\s*'https:\/\/platform\.claude\.com\/v1\/oauth\/token'/,
+      'Claude subscription token exchange must use the current platform token endpoint',
+    );
+    assert.match(
+      src,
+      /CLAUDE_SCOPE\s*=\s*'user:sessions:claude_code user:mcp_servers user:file_upload'/,
+      'Claude subscription auth must request the current Claude Code account scopes',
+    );
+    assert.doesNotMatch(
+      src,
+      /https:\/\/console\.anthropic\.com\/(?:oauth\/code\/callback|v1\/oauth\/token)|org:create_api_key user:profile user:inference/,
+      'Claude subscription auth must not regress to the stale console Anthropic OAuth route',
+    );
+  });
+
   it('token exchange failures do not consume pending authorization or collapse into generic auth copy', async () => {
     const src = await readFile(SERVICE_SOURCE, 'utf8');
     const completeStart = src.indexOf('async completeAuthorization(');
@@ -194,7 +228,7 @@ describe('cloaked request module isolation (xuan G-X4)', () => {
   it('OAuth token endpoint UA matches the claude-cli/X.Y.Z shape Anthropic accepts (PR-CLAUDE-CARD-MOVE-0)', async () => {
     // WAWQAQ msg a62a4c1c reported "Authorization failed / Invalid
     // request format" after login. Root cause was that the OAuth
-    // token endpoint (https://console.anthropic.com/v1/oauth/token)
+    // token endpoint (https://platform.claude.com/v1/oauth/token)
     // rejected our `maka-desktop/0.1.0 (oauth-subscription)` UA. The
     // The upstream Claude Code OAuth path sends
     // `claude-cli/X.Y.Z (external, cli)`. This is distinct from the
@@ -205,6 +239,11 @@ describe('cloaked request module isolation (xuan G-X4)', () => {
       src,
       /OAUTH_USER_AGENT\s*=\s*`claude-cli\/\$\{CLAUDE_SUBSCRIPTION_PRODUCT_VERSION\}\s+\(external,\s*cli\)`/,
       'OAuth UA constant must match claude-cli/X.Y.Z (external, cli) shape',
+    );
+    assert.match(
+      src,
+      /CLAUDE_SUBSCRIPTION_PRODUCT_VERSION\s*=\s*'2\.1\.153'/,
+      'OAuth UA product version should track the current installed Claude Code OAuth contract',
     );
     assert.doesNotMatch(
       src,

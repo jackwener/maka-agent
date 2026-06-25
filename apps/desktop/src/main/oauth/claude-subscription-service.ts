@@ -45,21 +45,23 @@ import {
 } from '@maka/core';
 
 // =============================================================
-// Endpoints + client id — reverse-engineered from the upstream
-// Claude.ai web client. Verified against the external reference at
-// main.js:15913-15919.
+// Endpoints + client id — mirror Claude Code's current OAuth
+// login flow. Verified against the installed Claude Code 2.1.153
+// binary constants (`CLAUDE_AI_AUTHORIZE_URL`, `TOKEN_URL`) after
+// the older Claude.ai / console.anthropic.com OAuth route started
+// rejecting new auth attempts.
 // =============================================================
 const CLAUDE_CLIENT_ID = '9d1c250a-e61b-44d9-88ed-5944d1962f5e';
-const CLAUDE_AUTHORIZE_ENDPOINT = 'https://claude.ai/oauth/authorize';
-const CLAUDE_REDIRECT_URI = 'https://console.anthropic.com/oauth/code/callback';
-const CLAUDE_TOKEN_ENDPOINT = 'https://console.anthropic.com/v1/oauth/token';
+const CLAUDE_AUTHORIZE_ENDPOINT = 'https://claude.com/cai/oauth/authorize';
+const CLAUDE_REDIRECT_URI = 'https://platform.claude.com/oauth/code/callback';
+const CLAUDE_TOKEN_ENDPOINT = 'https://platform.claude.com/v1/oauth/token';
 const CLAUDE_USAGE_ENDPOINT = 'https://api.anthropic.com/api/oauth/usage';
 const CLAUDE_PROFILE_ENDPOINT = 'https://api.anthropic.com/api/oauth/profile';
-const CLAUDE_SCOPE = 'org:create_api_key user:profile user:inference';
+const CLAUDE_SCOPE = 'user:sessions:claude_code user:mcp_servers user:file_upload';
 
 // Anthropic's OAuth token endpoint rejects requests whose
 // User-Agent does not match the `claude-cli/X.Y.Z (external, cli)`
-// shape (verified against the external reference at main.js:15919).
+// shape (verified against Claude Code 2.1.153).
 // WAWQAQ msg a62a4c1c reported "Invalid request format" after
 // login; the symptom was the OAuth endpoint rejecting our previous
 // `maka-desktop/0.1.0 (oauth-subscription)` UA. The cloak path is a
@@ -67,7 +69,7 @@ const CLAUDE_SCOPE = 'org:create_api_key user:profile user:inference';
 // now defaults on for the visible OAuth model path. WAWQAQ
 // already accepted the ToS implication of the OAuth flow at all
 // (msg `fd421634`, baked into `isSubscriptionExperimentalEnabled`).
-export const CLAUDE_SUBSCRIPTION_PRODUCT_VERSION = '2.1.88';
+export const CLAUDE_SUBSCRIPTION_PRODUCT_VERSION = '2.1.153';
 const OAUTH_USER_AGENT = `claude-cli/${CLAUDE_SUBSCRIPTION_PRODUCT_VERSION} (external, cli)`;
 
 // =============================================================

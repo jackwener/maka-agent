@@ -233,7 +233,7 @@ export function pkceCodeChallenge(verifier: string, sha256: Sha256Digest): strin
 export interface ClaudeAuthorizationConfig {
   /** Anthropic-registered OAuth client_id. */
   clientId: string;
-  /** Authorization endpoint (e.g. https://claude.ai/oauth/authorize). */
+  /** Authorization endpoint (e.g. https://claude.com/cai/oauth/authorize). */
   authorizeEndpoint: string;
   /** Redirect URI registered with the client_id. */
   redirectUri: string;

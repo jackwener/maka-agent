@@ -38,7 +38,7 @@
 
 import { randomUUID } from 'node:crypto';
 
-const CLAUDE_CODE_PRODUCT_VERSION = '2.1.88';
+const CLAUDE_CODE_PRODUCT_VERSION = '2.1.153';
 const CLAUDE_CODE_UA = `claude-cli/${CLAUDE_CODE_PRODUCT_VERSION} (external, cli)`;
 const CLAUDE_CODE_SYSTEM_PREFIX = "You are Claude Code, Anthropic's official CLI for Claude.";
 

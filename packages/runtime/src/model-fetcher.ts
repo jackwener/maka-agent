@@ -11,7 +11,7 @@ import { anthropicV1Url } from './subscription-auth.js';
 const MODEL_FETCH_TIMEOUT_MS = 10_000;
 const CLAUDE_SUBSCRIPTION_BETA =
   'oauth-2025-04-20,interleaved-thinking-2025-05-14,redact-thinking-2026-02-12,context-management-2025-06-27,prompt-caching-scope-2026-01-05,claude-code-20250219';
-const CLAUDE_SUBSCRIPTION_USER_AGENT = 'claude-cli/2.1.88 (external, cli)';
+const CLAUDE_SUBSCRIPTION_USER_AGENT = 'claude-cli/2.1.153 (external, cli)';
 
 export async function fetchProviderModels(
   connection: LlmConnection,

@@ -34,6 +34,16 @@ describe('Claude subscription runtime wiring', () => {
     assert.match(caseRegion, /fetch,/, 'Claude OAuth must accept the desktop cloak fetch wrapper');
     assert.doesNotMatch(caseRegion, /throw new Error/, 'Claude OAuth must not remain in the experimental throw branch');
     assert.match(caseRegion, /anthropic-beta[\s\S]*CLAUDE_SUBSCRIPTION_BETA/, 'Claude OAuth must send the Claude Code beta header set');
+    assert.match(
+      caseRegion,
+      /CLAUDE_SUBSCRIPTION_USER_AGENT/,
+      'Claude OAuth runtime sends must use the pinned Claude Code user-agent',
+    );
+    assert.match(
+      src,
+      /CLAUDE_SUBSCRIPTION_USER_AGENT\s*=\s*'claude-cli\/2\.1\.153 \(external, cli\)'/,
+      'Claude OAuth runtime user-agent must track the current installed Claude Code OAuth contract',
+    );
   });
 
   test('model factory gives API-key Anthropic the /v1 SDK base without changing Kimi', async () => {
