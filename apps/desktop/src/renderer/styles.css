@@ -61,6 +61,7 @@
      rewritten to point at the canonical token. */
 }
 
+@layer base {
 :root {
   /* PR-REFERENCE-PIXEL-3 (WAWQAQ msg `f79de85f` round 3): match
      reference implementation's `[data-agents-page] { --sidebar-width: 240px }`
@@ -191,7 +192,9 @@ button:active {
   transition-duration: 0.01ms !important;
   caret-color: transparent !important;
 }
+}
 
+@layer components {
 .appFrame {
   height: 100dvh;
   padding: 0;
@@ -13926,3 +13929,5 @@ html[data-theme="dark-parchment"] [data-banner-logo] :is(path, circle)[stroke*="
    eliminates the escape hatch + the raw z-index. If a future scroll
    edge needs a fade we'll add a named class with an explicit
    contract instead. */
+
+}
