@@ -3,7 +3,7 @@
  * by plain unit tests. The electron-bound view lives in controller.ts.
  */
 
-import type { BrowserState, BrowserViewRect } from '@maka/core';
+import { normalizeBrowserAddressInput, type BrowserState, type BrowserViewRect } from '@maka/core';
 
 export type { BrowserState, BrowserViewRect };
 
@@ -14,14 +14,8 @@ export type { BrowserState, BrowserViewRect };
  * surfaces. Returns the parsed (normalized) URL string, or null if not allowed.
  */
 export function parseNavigable(input: string): string | null {
-  let url: URL;
-  try {
-    url = new URL(input);
-  } catch {
-    return null;
-  }
-  if (url.protocol === 'http:' || url.protocol === 'https:') return url.toString();
-  return null;
+  const result = normalizeBrowserAddressInput(input);
+  return result.ok ? result.url : null;
 }
 
 // Page-provided non-web links are handed to the OS only for this tight set of

@@ -9,9 +9,18 @@ describe('renderer utility surfaces use shared UI primitives', () => {
   it('keeps browser chrome on Button/Input instead of raw form controls', async () => {
     const source = await readFile(join(process.cwd(), 'src/renderer/browser-panel.tsx'), 'utf8');
 
-    assert.match(source, /import \{[^}]*\bButton\b[^}]*\bInput\b[^}]*\} from '@maka\/ui';/);
+    assert.match(source, /import \{ normalizeBrowserAddressInput, type BrowserState \} from '@maka\/core';/);
+    assert.match(source, /import \{[^}]*\bButton\b[^}]*\bInput\b[^}]*\buseToast\b[^}]*\} from '@maka\/ui';/);
     assert.doesNotMatch(source, /<button\b/, 'BrowserPanel nav controls must use shared Button');
     assert.doesNotMatch(source, /<input\b/, 'BrowserPanel address bar must use shared Input');
+    assert.doesNotMatch(source, /const full = \/\^\[a-z\]\+/, 'BrowserPanel must not keep renderer-only address prefix regex');
+    assert.match(
+      source,
+      /const result = normalizeBrowserAddressInput\(address\);[\s\S]*if \(!result\.ok\) \{[\s\S]*toast\.error\('无法打开地址', browserAddressFailureCopy\(result\.reason\)\);[\s\S]*return;[\s\S]*window\.maka\.browser\.navigate\(sessionId, result\.url\)/,
+      'BrowserPanel must validate addresses with the shared helper before invoking browser navigation',
+    );
+    assert.match(source, /嵌入式浏览器只支持打开 HTTP\/HTTPS 网页地址。/);
+    assert.match(source, /这个地址无法识别，请检查网址后重试。/);
     for (const label of [
       '浏览器后退',
       '浏览器前进',

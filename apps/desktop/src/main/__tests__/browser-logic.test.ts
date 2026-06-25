@@ -14,10 +14,12 @@ describe('browser logic', () => {
   it('parseNavigable accepts only http(s) and normalizes', () => {
     assert.equal(parseNavigable('https://example.com'), 'https://example.com/');
     assert.equal(parseNavigable('http://a.test/x?y=1'), 'http://a.test/x?y=1');
+    assert.equal(parseNavigable('example.com'), 'https://example.com/');
     assert.equal(parseNavigable('file:///etc/passwd'), null);
     assert.equal(parseNavigable('javascript:alert(1)'), null);
     assert.equal(parseNavigable('about:blank'), null);
     assert.equal(parseNavigable('not a url'), null);
+    assert.equal(parseNavigable('http://'), null);
   });
 
   it('safeExternalUrl passes only mailto/tel', () => {

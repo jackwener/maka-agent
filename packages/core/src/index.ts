@@ -121,7 +121,13 @@ export type {
 export { AGENT_RUN_STATUSES } from './agent-run.js';
 
 // browser.ts
-export type { BrowserState, BrowserViewRect } from './browser.js';
+export type {
+  BrowserAddressInputFailureReason,
+  BrowserAddressInputResult,
+  BrowserState,
+  BrowserViewRect,
+} from './browser.js';
+export { normalizeBrowserAddressInput } from './browser.js';
 
 // session-event-health.ts
 export type {

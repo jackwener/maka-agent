@@ -15,7 +15,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Globe, RotateCw, X } from '@maka/ui/icons';
-import type { BrowserState } from '@maka/core';
+import { normalizeBrowserAddressInput, type BrowserState } from '@maka/core';
 import {
   Button,
   Empty,
@@ -24,6 +24,7 @@ import {
   EmptyMedia,
   EmptyTitle,
   Input,
+  useToast,
 } from '@maka/ui';
 
 const EMPTY_STATE: BrowserState = {
@@ -37,8 +38,18 @@ const EMPTY_STATE: BrowserState = {
   hasPage: false,
 };
 
+function browserAddressFailureCopy(reason: 'unsupported_scheme' | 'invalid_url'): string {
+  switch (reason) {
+    case 'unsupported_scheme':
+      return '嵌入式浏览器只支持打开 HTTP/HTTPS 网页地址。';
+    case 'invalid_url':
+      return '这个地址无法识别，请检查网址后重试。';
+  }
+}
+
 export function BrowserPanel(props: { sessionId: string; hidden: boolean }) {
   const { sessionId, hidden } = props;
+  const toast = useToast();
   const stripRef = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<BrowserState>(EMPTY_STATE);
   // The address input is editable; it only snaps to the live URL when the user
@@ -108,13 +119,17 @@ export function BrowserPanel(props: { sessionId: string; hidden: boolean }) {
   }, [sessionId, showView]);
 
   const go = useCallback(() => {
-    const url = address.trim();
-    if (!url) return;
-    // Bare hostnames get https://; anything already schemed passes through and
-    // main rejects non-web schemes.
-    const full = /^[a-z]+:\/\//i.test(url) ? url : `https://${url}`;
-    void window.maka.browser.navigate(sessionId, full);
-  }, [address, sessionId]);
+    const result = normalizeBrowserAddressInput(address);
+    if (!result.ok) {
+      if (result.reason !== 'empty') {
+        toast.error('无法打开地址', browserAddressFailureCopy(result.reason));
+      }
+      return;
+    }
+    void window.maka.browser.navigate(sessionId, result.url).catch(() => {
+      toast.error('浏览器导航失败', '页面暂时无法打开，请稍后重试。');
+    });
+  }, [address, sessionId, toast]);
 
   return (
     <div className="maka-browser-panel" aria-label="嵌入式浏览器">
