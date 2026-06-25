@@ -1964,10 +1964,9 @@ button:active {
   line-height: 1;
 }
 .maka-onboarding-quickchat-submit {
-  min-width: auto;
-}
-
-.maka-onboarding-quickchat-submit {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1982,12 +1981,6 @@ button:active {
   box-shadow:
     inset 0 1px 0 oklch(1 0 0 / 0.16),
     0 10px 20px oklch(from var(--accent) l c h / 0.22);
-}
-
-.maka-onboarding-quickchat-submit {
-  position: absolute;
-  right: 18px;
-  bottom: 18px;
 }
 
 .maka-onboarding-quickchat-submit:hover:not(:disabled) {
