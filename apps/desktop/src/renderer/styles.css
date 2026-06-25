@@ -1091,6 +1091,7 @@ button:active {
   color: inherit;
   padding: 3px 8px 3px 10px;
   text-align: left;
+  transition: transform 160ms var(--ease-out-strong);
 }
 
 .maka-list-row-actions {
@@ -1502,10 +1503,13 @@ button:active {
   justify-items: start;
   text-align: left;
   gap: 4px;
+  justify-items: center;
+  text-align: center;
 }
 
 .maka-onboarding-ready .maka-onboarding-eyebrow {
   justify-content: flex-start;
+  display: none;
 }
 
 .maka-onboarding-eyebrow {
@@ -1965,9 +1969,6 @@ button:active {
 }
 .maka-onboarding-quickchat-submit {
   min-width: auto;
-}
-
-.maka-onboarding-quickchat-submit {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1982,9 +1983,6 @@ button:active {
   box-shadow:
     inset 0 1px 0 oklch(1 0 0 / 0.16),
     0 10px 20px oklch(from var(--accent) l c h / 0.22);
-}
-
-.maka-onboarding-quickchat-submit {
   position: absolute;
   right: 18px;
   bottom: 18px;
@@ -2315,10 +2313,6 @@ button:active {
 
 .maka-list-row:hover .maka-list-row-name {
   color: var(--foreground);
-}
-
-.maka-list-row-main {
-  transition: transform 160ms var(--ease-out-strong);
 }
 
 .maka-list-row:hover .maka-list-row-main {
@@ -2876,6 +2870,8 @@ button:active {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  flex-wrap: wrap;
+  row-gap: 10px;
 }
 
 .maka-plan-tabs-list {
@@ -3184,6 +3180,7 @@ button:active {
 
 .maka-plan-compact-select {
   width: 124px;
+  gap: 0;
 }
 
 .maka-plan-sort-select {
@@ -3201,14 +3198,6 @@ button:active {
 .maka-panel-detail[data-agents-view="cron"] .maka-plan-tabs-bar .maka-plan-search,
 .maka-panel-detail[data-agents-view="cron"] .maka-plan-tabs-bar .maka-plan-compact-select:not(.maka-plan-sort-select) {
   display: none;
-}
-
-.maka-plan-compact-select {
-  gap: 0;
-}
-.maka-plan-tabs-bar {
-  flex-wrap: wrap;
-  row-gap: 10px;
 }
 
 .maka-plan-search input {
@@ -7167,6 +7156,7 @@ button:active {
   justify-content: initial;
   font-size: 14px;
   transition: background-color var(--duration-base) var(--ease-out-strong), color var(--duration-base) var(--ease-out-strong);
+  grid-template-columns: 20px minmax(0, 1fr) auto;
 }
 
 .settingsNavItem > .settingsNavGlyph {
@@ -7269,10 +7259,6 @@ button:active {
   white-space: nowrap;
   font-size: 12px;
   font-weight: 600;
-}
-
-.settingsNavItem {
-  grid-template-columns: 20px minmax(0, 1fr) auto;
 }
 
 .settingsFeatureStatusPage {
@@ -8965,6 +8951,16 @@ button:active {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  display: grid;
+  grid-template-columns: minmax(150px, 0.36fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  border: 0;
+  border-bottom: 1px solid oklch(from var(--foreground) l c h / 0.06);
+  border-radius: 0;
+  background: transparent;
+  transition: background var(--duration-base) var(--ease-out-strong);
 }
 
 .settingsBadge {
@@ -9309,18 +9305,6 @@ button:active {
 /* PR-SETTINGS-GROUPED-CARD-0: rows flush inside outer card, hairline
    divider, last-child no border. Matches the reference grouped-list
    pattern. */
-.settingsRow {
-  display: grid;
-  grid-template-columns: minmax(150px, 0.36fr) minmax(0, 1fr);
-  align-items: center;
-  gap: 16px;
-  padding: 16px 20px;
-  border: 0;
-  border-bottom: 1px solid oklch(from var(--foreground) l c h / 0.06);
-  border-radius: 0;
-  background: transparent;
-  transition: background var(--duration-base) var(--ease-out-strong);
-}
 
 .settingsRow:last-child {
   border-bottom: 0;
@@ -9543,6 +9527,7 @@ button:active {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .providerHeaderBadges {
@@ -9788,10 +9773,6 @@ button:active {
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0;
-}
-
-.providerActions {
-  flex-wrap: wrap;
 }
 
 .providerError {
@@ -13034,15 +13015,6 @@ button:active {
   width: min(760px, 100%);
   padding: 0;
   gap: 0;
-}
-
-.maka-onboarding-ready header {
-  justify-items: center;
-  text-align: center;
-}
-
-.maka-onboarding-ready .maka-onboarding-eyebrow {
-  display: none;
 }
 
 .maka-first-run-checklist {
