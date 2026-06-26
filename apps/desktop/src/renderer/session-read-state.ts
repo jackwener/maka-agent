@@ -18,9 +18,8 @@ export function rememberSessionReadBoundary(
   boundaries: SessionReadBoundaries,
   sessionId: string,
   messages: readonly StoredMessage[],
-  fallbackLastMessageAt?: number,
 ): void {
-  const boundary = latestMessageTs(messages) ?? fallbackLastMessageAt;
+  const boundary = latestMessageTs(messages);
   if (boundary === undefined) return;
   boundaries[sessionId] = Math.max(boundaries[sessionId] ?? 0, boundary);
 }
@@ -38,6 +37,16 @@ export function applySessionReadOverrides(
     return { ...session, hasUnread: false };
   });
   return changed ? next : [...sessions];
+}
+
+export function applyLocalSessionRead(
+  boundaries: SessionReadBoundaries,
+  sessions: readonly SessionSummary[],
+  sessionId: string,
+  readMessages: readonly StoredMessage[],
+): SessionSummary[] {
+  rememberSessionReadBoundary(boundaries, sessionId, readMessages);
+  return applySessionReadOverrides(sessions, boundaries);
 }
 
 export function createSessionListRefresher(options: SessionListRefresherOptions): SessionListRefresher {

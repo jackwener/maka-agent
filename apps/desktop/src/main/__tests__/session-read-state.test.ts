@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { SessionSummary, StoredMessage } from '@maka/core';
 import {
+  applyLocalSessionRead,
   applySessionReadOverrides,
   createSessionListRefresher,
   rememberSessionReadBoundary,
@@ -29,6 +30,34 @@ describe('renderer session read state', () => {
     ], readBoundaries);
 
     assert.equal(next?.hasUnread, true);
+  });
+
+  it('keeps newer unread when an older local read result arrives later', () => {
+    const readBoundaries: SessionReadBoundaries = {};
+
+    const [next] = applyLocalSessionRead(
+      readBoundaries,
+      [session({ id: 's1', hasUnread: true, lastMessageAt: 250 })],
+      's1',
+      [messageAt(200)],
+    );
+
+    assert.equal(next?.lastMessageAt, 250);
+    assert.equal(next?.hasUnread, true);
+  });
+
+  it('clears unread when a local read reaches the current last message', () => {
+    const readBoundaries: SessionReadBoundaries = {};
+
+    const [next] = applyLocalSessionRead(
+      readBoundaries,
+      [session({ id: 's1', hasUnread: true, lastMessageAt: 200 })],
+      's1',
+      [messageAt(200)],
+    );
+
+    assert.equal(next?.lastMessageAt, 200);
+    assert.equal(next?.hasUnread, false);
   });
 
   it('keeps a newer unread list when an older list response arrives later', async () => {

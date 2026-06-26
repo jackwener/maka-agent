@@ -99,7 +99,7 @@ import {
   recordSessionEventStreamEvent,
 } from './session-event-health';
 import { safeLocalStorageGet, safeLocalStorageSet } from './browser-storage';
-import { createSessionListRefresher, rememberSessionReadBoundary, type SessionListRefresher, type SessionReadBoundaries } from './session-read-state';
+import { applyLocalSessionRead, createSessionListRefresher, type SessionListRefresher, type SessionReadBoundaries } from './session-read-state';
 import './styles.css';
 
 const NO_REAL_CONNECTION_CODE = 'NO_REAL_CONNECTION';
@@ -1295,20 +1295,8 @@ function AppShell() {
   }
 
   function markSessionReadLocally(sessionId: string, readMessages: readonly StoredMessage[]): void {
-    rememberSessionReadBoundary(
-      sessionReadBoundariesRef.current,
-      sessionId,
-      readMessages,
-      sessionsRef.current.find((session) => session.id === sessionId)?.lastMessageAt,
-    );
     setSessions((current) => {
-      let changed = false;
-      const next = current.map((session) => {
-        if (session.id !== sessionId || !session.hasUnread) return session;
-        changed = true;
-        return { ...session, hasUnread: false };
-      });
-      if (!changed) return current;
+      const next = applyLocalSessionRead(sessionReadBoundariesRef.current, current, sessionId, readMessages);
       sessionsRef.current = next;
       return next;
     });
