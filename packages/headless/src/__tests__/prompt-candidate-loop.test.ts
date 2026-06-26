@@ -97,6 +97,7 @@ describe('prompt candidate loop', () => {
           summary: 'tightened output instruction',
           promptHash: hashSystemPrompt('candidate prompt\n'),
           heldInTaskSetHash: expectedHeldInTaskSetHash(['task-a']),
+          heldInTaskIds: ['task-a'],
           candidateRationaleHash: expectedCandidateRationaleHash(committedCandidateRationale),
           candidateRationale: committedCandidateRationale,
         },
@@ -275,6 +276,49 @@ describe('prompt candidate loop', () => {
       validCandidateRationale({ riskTasks: ['held-out-secret'] }),
       /candidateRationale.riskTasks contains non-held-in task id: held-out-secret/,
     );
+  });
+
+  test('rejects candidateRationale evidence refs outside the current RSI analysis', async () => {
+    await withDir(async (dir) => {
+      const programPath = join(dir, 'program.md');
+      const systemPromptPath = join(dir, 'system_prompt.md');
+      const resultsTsvPath = join(dir, 'results.tsv');
+      await writeFile(programPath, 'Improve the prompt conservatively.\n', 'utf8');
+      await writeFile(systemPromptPath, 'original prompt\n', 'utf8');
+      await writeFile(resultsTsvPath, 'task_id\tpassed\ntask-a\tfalse\n', 'utf8');
+
+      await assert.rejects(
+        runPromptCandidateRound({
+          runId: 'run-1',
+          roundId: 'round-1',
+          agentCwdPath: await testAgentCwd(dir),
+          programPath,
+          systemPromptPath,
+          resultsTsvPath,
+          resultsJsonlPath: join(dir, 'results.jsonl'),
+          heldInTaskIds: ['task-a'],
+          heldInDigests: [{ taskId: 'task-a', summary: 'failed held-in task' }],
+          rsiAnalysis: {
+            heldInTaskSetHash: 'sha256:held-in',
+            transitionVsLastKept: [],
+            transitionVsPreviousCandidate: [],
+            coverageRegressionTaskIds: [],
+            errorClassDistribution: [],
+            toolFailureClusters: [],
+            signals: [{ id: 'rsi-sig:known', kind: 'coverage_regression', taskIds: ['task-a'] }],
+          },
+          metaAgent: async () => candidatePromptResult({
+            candidateRationale: validCandidateRationale({ evidenceRefs: ['rsi-sig:unknown'] }),
+          }),
+          git: gitNoop(dir),
+          now: () => 100,
+          newId: idFactory(),
+        }),
+        /candidateRationale.evidenceRefs contains unknown analysis signal id: rsi-sig:unknown/,
+      );
+
+      assert.equal(await readFile(systemPromptPath, 'utf8'), 'original prompt\n');
+    });
   });
 
   test('rejects unsafe or oversized candidateRationale text before writing', async () => {
@@ -1296,7 +1340,7 @@ describe('prompt candidate loop', () => {
     assert.match(prompt, /task-a/);
     assert.match(prompt, /original prompt/);
     assert.match(prompt, /candidateRationale/);
-    assert.equal(prompt.includes('evidenceRefs'), false);
+    assert.match(prompt, /evidenceRefs/);
 
     const metaAgent = createScriptedMetaAgent({
       complete: async ({ prompt: renderedPrompt }) => {
@@ -1798,6 +1842,7 @@ function candidatePromptResult(input: {
 function validCandidateRationale(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     failurePattern: 'coverage_regression',
+    evidenceRefs: [],
     hypothesis: 'coverage fell after the previous prompt change',
     targetedFix: 'keep the completion criteria explicit and conservative',
     predictedFixes: [],

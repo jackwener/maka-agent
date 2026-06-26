@@ -86,6 +86,7 @@ describe('runPromptOptimizationLoop', () => {
             summary: `tuned for ${promptInput.roundId}`,
             candidateRationale: {
               failurePattern: 'coverage_regression',
+              evidenceRefs: [],
               hypothesis: 'avoid losing held-in scored artifacts',
               targetedFix: 'state artifact completion constraints plainly',
               predictedFixes: ['hin-1'],
@@ -105,6 +106,7 @@ describe('runPromptOptimizationLoop', () => {
       assert.deepEqual(promptInputs[1]?.promptAttribution?.riskTasks, [
         { taskId: 'hin-0', outcome: 'regressed' },
       ]);
+      assert.equal('decisionReason' in (promptInputs[1]?.promptAttribution ?? {}), false);
       assert.equal(JSON.stringify(promptInputs[1]?.promptAttribution).includes('hout-'), false);
       assert.equal(JSON.stringify(promptInputs[1]?.promptAttribution).includes('held_out'), false);
 
@@ -120,6 +122,50 @@ describe('runPromptOptimizationLoop', () => {
         ));
         assert.ok(attributionIndex > decisionIndex);
       }
+    });
+  });
+
+  test('does not teach held-out coverage discard reasons to the next prompt', async () => {
+    await withHarness(async (harness) => {
+      const promptInputs: MetaAgentPromptInput[] = [];
+      const heldInTasks = makeTasks('hin', 20);
+      const heldOutTasks = makeTasks('hout', 2);
+      const rewardFor = (roundId: string, taskId: string): number => {
+        if (taskId.startsWith('hout-')) return 1;
+        if (roundId.startsWith('baseline-')) return taskIndex(taskId) < 10 ? 1 : 0;
+        return 1;
+      };
+
+      await runLoop(harness, {
+        heldInTasks,
+        heldOutTasks,
+        rewardFor,
+        rounds: 2,
+        baselineRuns: 2,
+        shouldFail: (roundId, taskId) => roundId === 'round-0' && taskId === 'hout-1',
+        metaAgent: async (promptInput) => {
+          promptInputs.push(promptInput);
+          return {
+            systemPrompt: `candidate prompt ${promptInput.roundId}\n`,
+            summary: `tuned for ${promptInput.roundId}`,
+            candidateRationale: {
+              failurePattern: 'coverage_regression',
+              evidenceRefs: [],
+              hypothesis: 'avoid losing held-in scored artifacts',
+              targetedFix: 'state artifact completion constraints plainly',
+              predictedFixes: ['hin-19'],
+              riskTasks: [],
+            },
+          };
+        },
+      });
+
+      assert.equal(promptInputs.length, 2);
+      const visible = JSON.stringify(promptInputs[1]?.promptAttribution);
+      assert.equal('decisionReason' in (promptInputs[1]?.promptAttribution ?? {}), false);
+      assert.equal(visible.includes('coverage_regressed'), false);
+      assert.equal(visible.includes('held_out'), false);
+      assert.equal(visible.includes('hout-'), false);
     });
   });
 
@@ -555,6 +601,7 @@ function fakeMetaAgent(): MetaAgent {
     summary: `tuned for ${promptInput.roundId}`,
     candidateRationale: {
       failurePattern: 'coverage_regression',
+      evidenceRefs: [],
       hypothesis: 'stable held-in coverage can improve with a clearer prompt',
       targetedFix: 'make the success criteria explicit without adding task-specific answers',
       predictedFixes: [],

@@ -20,6 +20,7 @@ export interface RsiControllerAttribution {
   candidateCommitSha: string;
   heldInTaskSetHash: string;
   candidateRationaleHash: string;
+  evidenceRefs: string[];
   predictedFixes: Array<{ taskId: string; outcome: RsiPredictedFixOutcome }>;
   riskTasks: Array<{ taskId: string; outcome: RsiRiskTaskOutcome }>;
   unexpectedHeldInFlips: RsiTaskTransition[];
@@ -32,7 +33,6 @@ export interface RsiControllerAttribution {
 
 export interface RsiPromptAttribution {
   candidateCommitSha: string;
-  decisionReason: PromptAcceptanceResult['reason'] | 'discarded_by_controller_safety_gate';
   predictedFixes: Array<{ taskId: string; outcome: RsiPredictedFixOutcome }>;
   riskTasks: Array<{ taskId: string; outcome: RsiRiskTaskOutcome }>;
   unexpectedHeldInFlips: RsiTaskTransition[];
@@ -83,6 +83,7 @@ export function buildRsiControllerAttribution(
     candidateCommitSha: input.candidateCommitSha,
     heldInTaskSetHash: input.analysis.heldInTaskSetHash,
     candidateRationaleHash: input.candidateRationaleHash,
+    evidenceRefs: sortedUnique(input.candidateRationale.evidenceRefs),
     predictedFixes,
     riskTasks,
     unexpectedHeldInFlips: input.analysis.transitionVsLastKept
@@ -112,18 +113,11 @@ export async function appendRsiControllerAttribution(
 export function projectRsiPromptAttribution(attribution: RsiControllerAttribution): RsiPromptAttribution {
   return {
     candidateCommitSha: attribution.candidateCommitSha,
-    decisionReason: promptSafeDecisionReason(attribution.decision.reason),
     predictedFixes: attribution.predictedFixes,
     riskTasks: attribution.riskTasks,
     unexpectedHeldInFlips: attribution.unexpectedHeldInFlips,
     rootCauseSignalMatch: attribution.rootCauseSignalMatch,
   };
-}
-
-function promptSafeDecisionReason(
-  reason: PromptAcceptanceResult['reason'],
-): RsiPromptAttribution['decisionReason'] {
-  return reason === 'held_out_regressed' ? 'discarded_by_controller_safety_gate' : reason;
 }
 
 function eventsByTask(
@@ -168,7 +162,10 @@ function rootCauseSignalMatch(
   rationale: PromptCandidateRationale,
   analysis: RsiRoundAnalysis,
 ): RsiRootCauseSignalMatch {
-  const signalKinds = new Set(analysis.signals.map((signal) => signal.kind));
+  if (rationale.evidenceRefs.length === 0) return 'unknown';
+  const referenced = new Set(rationale.evidenceRefs);
+  const referencedSignals = analysis.signals.filter((signal) => referenced.has(signal.id));
+  const signalKinds = new Set(referencedSignals.map((signal) => signal.kind));
   if (rationale.failurePattern === 'coverage_regression') {
     return signalKinds.has('coverage_regression') ? 'matched' : 'contradicted';
   }
@@ -176,7 +173,7 @@ function rootCauseSignalMatch(
     return signalKinds.has('tool_failure_cluster') ? 'matched' : 'contradicted';
   }
   if (rationale.failurePattern === 'max_tokens' || rationale.failurePattern === 'verification_failed') {
-    return analysis.errorClassDistribution.some((group) => group.errorClass === rationale.failurePattern)
+    return referencedSignals.some((signal) => signal.kind === 'error_class' && signal.errorClass === rationale.failurePattern)
       ? 'matched'
       : 'contradicted';
   }

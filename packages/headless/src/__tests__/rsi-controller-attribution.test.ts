@@ -13,6 +13,7 @@ describe('RSI controller attribution', () => {
   test('compares candidate rationale predictions to held-in outcomes', () => {
     const rationale: PromptCandidateRationale = {
       failurePattern: 'coverage_regression',
+      evidenceRefs: ['rsi-sig:coverage'],
       hypothesis: 'restore coverage for the unstable held-in task',
       targetedFix: 'keep artifact creation requirements explicit',
       predictedFixes: ['task-a', 'task-b'],
@@ -69,6 +70,7 @@ describe('RSI controller attribution', () => {
     assert.deepEqual(attribution.unexpectedHeldInFlips, [
       { taskId: 'task-d', from: 'fail', to: 'pass' },
     ]);
+    assert.deepEqual(attribution.evidenceRefs, ['rsi-sig:coverage']);
     assert.equal(attribution.rootCauseSignalMatch, 'matched');
     assert.equal(JSON.stringify(attribution).includes('held-out-secret'), false);
   });
@@ -83,6 +85,7 @@ describe('RSI controller attribution', () => {
         candidateRationaleHash: 'sha256:rationale',
         candidateRationale: {
           failurePattern: 'other',
+          evidenceRefs: [],
           hypothesis: 'unknown held-in behavior changed',
           targetedFix: 'make prompt wording simpler',
           predictedFixes: [],
@@ -122,7 +125,7 @@ describe('RSI controller attribution', () => {
     });
   });
 
-  test('projects held-out safety decisions as generic prompt feedback', () => {
+  test('projects prompt attribution without controller decision reasons', () => {
     const attribution = buildRsiControllerAttribution({
       runId: 'run-1',
       roundId: 'round-0',
@@ -130,6 +133,7 @@ describe('RSI controller attribution', () => {
       candidateRationaleHash: 'sha256:rationale',
       candidateRationale: {
         failurePattern: 'other',
+        evidenceRefs: [],
         hypothesis: 'unknown held-in behavior changed',
         targetedFix: 'make prompt wording simpler',
         predictedFixes: [],
@@ -152,8 +156,41 @@ describe('RSI controller attribution', () => {
 
     const promptAttribution = projectRsiPromptAttribution(attribution);
 
-    assert.equal(promptAttribution.decisionReason, 'discarded_by_controller_safety_gate');
+    assert.equal('decisionReason' in promptAttribution, false);
     assert.equal(JSON.stringify(promptAttribution).includes('held_out_regressed'), false);
+    assert.equal(JSON.stringify(promptAttribution).includes('coverage_regressed'), false);
+  });
+
+  test('keeps root cause match unknown when the rationale cites no evidence refs', () => {
+    const attribution = buildRsiControllerAttribution({
+      runId: 'run-1',
+      roundId: 'round-0',
+      candidateCommitSha: 'commit-1',
+      candidateRationaleHash: 'sha256:rationale',
+      candidateRationale: {
+        failurePattern: 'coverage_regression',
+        evidenceRefs: [],
+        hypothesis: 'coverage fell after the previous prompt change',
+        targetedFix: 'make prompt wording simpler',
+        predictedFixes: [],
+        riskTasks: [],
+      },
+      analysis: {
+        heldInTaskSetHash: 'sha256:held-in',
+        transitionVsLastKept: [],
+        transitionVsPreviousCandidate: [],
+        coverageRegressionTaskIds: ['task-a'],
+        errorClassDistribution: [],
+        toolFailureClusters: [],
+        signals: [{ id: 'rsi-sig:coverage', kind: 'coverage_regression', taskIds: ['task-a'] }],
+      },
+      heldInTaskIds: ['task-a'],
+      lastKeptEvents: [completed({ taskId: 'task-a', passed: true })],
+      candidateEvents: [completed({ taskId: 'task-a', passed: false, scored: false })],
+      decision: acceptanceResult({ decision: 'discard', reason: 'coverage_regressed' }),
+    });
+
+    assert.equal(attribution.rootCauseSignalMatch, 'unknown');
   });
 });
 

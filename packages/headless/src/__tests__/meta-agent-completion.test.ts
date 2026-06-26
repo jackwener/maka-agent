@@ -22,6 +22,7 @@ const connection: LlmConnection = {
 const base = { connection, apiKey: 'unused', modelId: 'deepseek-v4-flash' } as const;
 const candidateRationale = {
   failurePattern: 'coverage_regression',
+  evidenceRefs: [],
   hypothesis: 'coverage fell after the previous prompt change',
   targetedFix: 'keep the completion criteria explicit and conservative',
   predictedFixes: [],

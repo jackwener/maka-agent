@@ -458,12 +458,47 @@ describe('prompt structural smoke report', () => {
     assert.deepEqual(wrongOrderReport.failures, ['rsi_attribution_missing']);
     assert.deepEqual(wrongOrderReport.roundsWithoutRsiAttribution, ['round-1']);
   });
+
+  test('fails R2 smoke when attribution hashes or held-in task scope are invalid', () => {
+    const hashMismatch = [
+      committedEvent('round-1'),
+      completedEvent('round-1', 'task-1', 0.1),
+      decisionEvent('round-1', 'discard', 'held_in_within_noise', 'run-1', { decision: 'clean' }),
+      attributionEvent('round-1', { candidateRationaleHash: 'sha256:wrong-rationale' }),
+    ];
+    const hashReport = promptStructuralSmokeReport({
+      events: hashMismatch,
+      minimumRounds: 1,
+      requireRsiR2Evidence: true,
+    });
+
+    assert.equal(hashReport.status, 'fail');
+    assert.deepEqual(hashReport.failures, ['rsi_attribution_malformed']);
+    assert.deepEqual(hashReport.roundsWithMalformedRsiAttribution, ['round-1']);
+
+    const taskScopeMismatch = [
+      committedEvent('round-1', 'run-1', promptHashForRound('round-1'), ['task-1']),
+      completedEvent('round-1', 'task-1', 0.1),
+      decisionEvent('round-1', 'discard', 'held_in_within_noise', 'run-1', { decision: 'clean' }),
+      attributionEvent('round-1', { predictedFixes: [{ taskId: 'held-out-secret', outcome: 'improved' }] }),
+    ];
+    const taskScopeReport = promptStructuralSmokeReport({
+      events: taskScopeMismatch,
+      minimumRounds: 1,
+      requireRsiR2Evidence: true,
+    });
+
+    assert.equal(taskScopeReport.status, 'fail');
+    assert.deepEqual(taskScopeReport.failures, ['rsi_attribution_task_scope_invalid']);
+    assert.deepEqual(taskScopeReport.roundsWithOutOfScopeRsiAttribution, ['round-1']);
+  });
 });
 
 function committedEvent(
   roundId: string,
   runId = 'run-1',
   promptHash = promptHashForRound(roundId),
+  heldInTaskIds: readonly string[] = [`task-${roundId.slice('round-'.length)}`],
 ): FixedPromptWalEvent {
   return {
     schemaVersion: 1,
@@ -476,6 +511,7 @@ function committedEvent(
     summary: `candidate ${roundId}`,
     promptHash,
     heldInTaskSetHash: 'sha256:held-in-task-set',
+    heldInTaskIds,
     candidateRationaleHash: 'sha256:candidate-rationale',
     candidateRationale: candidateRationale(),
   };
@@ -484,6 +520,7 @@ function committedEvent(
 function candidateRationale() {
   return {
     failurePattern: 'coverage_regression' as const,
+    evidenceRefs: [],
     hypothesis: 'held-in coverage can improve with a clearer prompt',
     targetedFix: 'make success criteria explicit without task-specific answers',
     predictedFixes: [],
@@ -549,8 +586,8 @@ function completedEvent(
   };
 }
 
-function attributionEvent(roundId: string): FixedPromptWalEvent {
-  return {
+function attributionEvent(roundId: string, overrides: Partial<Extract<FixedPromptWalEvent, { type: 'rsi_controller_attribution' }>> = {}): FixedPromptWalEvent {
+  const event: Extract<FixedPromptWalEvent, { type: 'rsi_controller_attribution' }> = {
     schemaVersion: 1,
     type: 'rsi_controller_attribution',
     id: `attribution-${roundId}`,
@@ -560,12 +597,14 @@ function attributionEvent(roundId: string): FixedPromptWalEvent {
     candidateCommitSha: `candidate-${roundId}`,
     heldInTaskSetHash: 'sha256:held-in-task-set',
     candidateRationaleHash: 'sha256:candidate-rationale',
+    evidenceRefs: [],
     predictedFixes: [],
     riskTasks: [],
     unexpectedHeldInFlips: [],
     decision: { decision: 'discard', reason: 'held_in_within_noise' },
     rootCauseSignalMatch: 'unknown',
   };
+  return { ...event, ...overrides };
 }
 
 function promptHashForRound(roundId: string): string {

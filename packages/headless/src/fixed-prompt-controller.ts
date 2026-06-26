@@ -151,6 +151,7 @@ export interface PromptCandidateCommittedEvent {
   summary: string;
   promptHash: string;
   heldInTaskSetHash: string;
+  heldInTaskIds: readonly string[];
   candidateRationaleHash: string;
   candidateRationale: PromptCandidateRationale;
 }
@@ -168,6 +169,7 @@ export type PromptCandidateFailurePattern = typeof PROMPT_CANDIDATE_FAILURE_PATT
 
 export interface PromptCandidateRationale {
   failurePattern: PromptCandidateFailurePattern;
+  evidenceRefs: readonly string[];
   hypothesis: string;
   targetedFix: string;
   predictedFixes: readonly string[];
@@ -214,6 +216,7 @@ export interface RsiControllerAttributionEvent {
   candidateCommitSha: string;
   heldInTaskSetHash: string;
   candidateRationaleHash: string;
+  evidenceRefs: readonly string[];
   predictedFixes: Array<{ taskId: string; outcome: RsiPredictedFixOutcome }>;
   riskTasks: Array<{ taskId: string; outcome: RsiRiskTaskOutcome }>;
   unexpectedHeldInFlips: Array<{ taskId: string; from: string; to: string }>;
