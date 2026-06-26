@@ -1656,9 +1656,12 @@ function DailyReviewSettingsPage(props: { onOpenDailyReview?: () => void }) {
             value={effectiveConfig?.executeTime ?? '08:00'}
             disabled={formDisabled || savingKey === 'executeTime'}
             onChange={(event) => {
-              const value = event.target.value;
-              if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(value)) return;
-              void patchConfig('executeTime', { executeTime: value });
+              // Native time-pickers only fire `change` once the value
+              // is a complete HH:MM (or cleared); the earlier hand-
+              // rolled regex would silently drop any intermediate
+              // state the user typed (e.g. `08:0`), making the picker
+              // feel stuck. Trust the browser.
+              void patchConfig('executeTime', { executeTime: event.target.value });
             }}
           />
         </div>
@@ -1750,6 +1753,26 @@ function DailyReviewSettingsPage(props: { onOpenDailyReview?: () => void }) {
 
       {(props.onOpenDailyReview || hasRunOnceIpc) && (
         <div className="settingsPageFooterActions" role="toolbar" aria-label="每日回顾操作">
+          {hasRunOnceIpc && (
+            <>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => void triggerRun('deep')}
+                disabled={runningMode !== null}
+              >
+                {runningMode === 'deep' ? '生成中…' : '生成深度分析'}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => void triggerRun('daily')}
+                disabled={runningMode !== null}
+              >
+                {runningMode === 'daily' ? '生成中…' : '生成每日回顾'}
+              </Button>
+            </>
+          )}
           {props.onOpenDailyReview && (
             <Button
               type="button"
@@ -1757,24 +1780,6 @@ function DailyReviewSettingsPage(props: { onOpenDailyReview?: () => void }) {
             >
               打开每日回顾
             </Button>
-          )}
-          {hasRunOnceIpc && (
-            <>
-              <Button
-                type="button"
-                onClick={() => void triggerRun('daily')}
-                disabled={runningMode !== null}
-              >
-                {runningMode === 'daily' ? '生成中…' : '生成每日回顾'}
-              </Button>
-              <Button
-                type="button"
-                onClick={() => void triggerRun('deep')}
-                disabled={runningMode !== null}
-              >
-                {runningMode === 'deep' ? '生成中…' : '生成深度分析'}
-              </Button>
-            </>
           )}
         </div>
       )}

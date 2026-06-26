@@ -333,7 +333,7 @@ export const TooltipPopup = forwardRef<HTMLDivElement, React.ComponentPropsWitho
   return (
     <BaseTooltip.Popup
       ref={ref}
-      className={cn('z-50 rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-maka-panel', className)}
+      className={cn('z-[var(--z-overlay)] rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-maka-panel', className)}
       {...props}
     />
   );
@@ -371,7 +371,14 @@ export const SelectPopup = forwardRef<HTMLDivElement, React.ComponentPropsWithou
   { className, ...props },
   ref,
 ) {
-  return <BaseSelect.Popup ref={ref} className={cn('z-50 min-w-40 rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-maka-panel', className)} {...props} />;
+  // The Settings modal uses `--z-modal` (200) — the previous bare
+  // popup layer (Tailwind utility worth 50) was below it, so any
+  // `<SettingsSelect>` opened inside a modal (e.g. Daily Review
+  // → 分析模型) rendered its popup beneath the modal content and
+  // read as "can't select". Pin the popup to `--z-overlay` (300)
+  // so it always floats above the modal it was triggered from
+  // (WAWQAQ msg `d3ea9a33` 2026-06-26).
+  return <BaseSelect.Popup ref={ref} className={cn('z-[var(--z-overlay)] min-w-40 rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-maka-panel', className)} {...props} />;
 });
 export const SelectGroup = forwardRef<HTMLDivElement, React.ComponentPropsWithoutRef<typeof BaseSelect.Group>>(function SelectGroup(
   { className, ...props },
@@ -784,7 +791,7 @@ export const PopoverPopup = forwardRef<
   return (
     <BasePopover.Popup
       ref={ref}
-      className={cn('z-50 rounded-lg border border-border bg-popover p-3 text-sm text-popover-foreground shadow-maka-panel', className)}
+      className={cn('z-[var(--z-overlay)] rounded-lg border border-border bg-popover p-3 text-sm text-popover-foreground shadow-maka-panel', className)}
       {...props}
     />
   );
