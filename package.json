@@ -13,6 +13,7 @@
   ],
   "scripts": {
     "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
     "dev": "npm run build && npm --workspace @maka/desktop run start",
     "dev:hmr": "npm --workspace @maka/desktop run dev:hmr --",
     "build": "npm run build --workspaces --if-present",
