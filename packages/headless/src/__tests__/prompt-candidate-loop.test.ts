@@ -30,6 +30,10 @@ describe('prompt candidate loop', () => {
       await writeFile(programPath, 'Improve the prompt conservatively.\n', 'utf8');
       await writeFile(systemPromptPath, 'original prompt\n', 'utf8');
       await writeFile(resultsTsvPath, 'task_id\tpassed\ntask-a\tfalse\nheld-out-secret\ttrue\n', 'utf8');
+      const candidateRationale = validCandidateRationale({
+        predictedFixes: ['task-a'],
+        riskTasks: ['task-a'],
+      });
 
       let seenInput: MetaAgentPromptInput | undefined;
       await runPromptCandidateRound({
@@ -57,7 +61,7 @@ describe('prompt candidate loop', () => {
         ],
         metaAgent: async (input): Promise<MetaAgentPromptResult> => {
           seenInput = input;
-          return candidatePromptResult({ summary: 'tightened output instruction' });
+          return candidatePromptResult({ summary: 'tightened output instruction', candidateRationale });
         },
         git: gitNoop(dir),
         now: () => 100,
@@ -85,6 +89,7 @@ describe('prompt candidate loop', () => {
           commitSha: 'commit-1',
           summary: 'tightened output instruction',
           promptHash: hashSystemPrompt('candidate prompt\n'),
+          candidateRationale,
         },
       ]);
     });

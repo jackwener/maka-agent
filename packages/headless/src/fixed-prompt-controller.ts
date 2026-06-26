@@ -150,6 +150,24 @@ export interface PromptCandidateCommittedEvent {
   commitSha: string;
   summary: string;
   promptHash: string;
+  candidateRationale: PromptCandidateRationale;
+}
+
+export type PromptCandidateFailurePattern =
+  | 'coverage_regression'
+  | 'tool_failed'
+  | 'max_tokens'
+  | 'runtime_error'
+  | 'verification_failed'
+  | 'other';
+
+export interface PromptCandidateRationale {
+  failurePattern: PromptCandidateFailurePattern;
+  evidenceRefs: readonly string[];
+  hypothesis: string;
+  targetedFix: string;
+  predictedFixes: readonly string[];
+  riskTasks: readonly string[];
 }
 
 export type PromptCandidateRewardHackScan =

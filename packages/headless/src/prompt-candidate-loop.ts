@@ -9,6 +9,7 @@ import {
   FIXED_PROMPT_WAL_SCHEMA_VERSION,
   hashSystemPrompt,
   type PromptCandidateCommittedEvent,
+  type PromptCandidateRationale,
 } from './fixed-prompt-controller.js';
 
 const execFileAsync = promisify(execFile);
@@ -71,14 +72,7 @@ export type RewardHackScanResult =
 
 export type CandidateFailurePattern = typeof CANDIDATE_FAILURE_PATTERNS[number];
 
-export interface CandidateRationale {
-  failurePattern: CandidateFailurePattern;
-  evidenceRefs: readonly string[];
-  hypothesis: string;
-  targetedFix: string;
-  predictedFixes: readonly string[];
-  riskTasks: readonly string[];
-}
+export type CandidateRationale = PromptCandidateRationale;
 
 export interface MetaAgentPromptInput {
   runId: string;
@@ -183,7 +177,7 @@ export async function runPromptCandidateRound(
     resultsTsv,
     heldInDigests: input.heldInDigests,
   });
-  validateCandidateRationale(result.candidateRationale, input.heldInTaskIds);
+  const candidateRationale = validateCandidateRationale(result.candidateRationale, input.heldInTaskIds);
 
   await writeFile(input.systemPromptPath, result.systemPrompt, 'utf8');
   let commitSha: string;
@@ -203,6 +197,7 @@ export async function runPromptCandidateRound(
       commitSha,
       summary: result.summary,
       systemPrompt: result.systemPrompt,
+      candidateRationale,
     }));
   } catch (error) {
     await input.git.rollbackCommit(commitSha);
@@ -446,10 +441,11 @@ export function parseMetaAgentResult(raw: string): MetaAgentPromptResult {
   return { systemPrompt, summary, candidateRationale };
 }
 
-function validateCandidateRationale(value: unknown, heldInTaskIds: readonly string[]): void {
+function validateCandidateRationale(value: unknown, heldInTaskIds: readonly string[]): CandidateRationale {
   const candidateRationale = parseCandidateRationaleShape(value);
   validateHeldInTaskIds(candidateRationale.predictedFixes, 'predictedFixes', heldInTaskIds);
   validateHeldInTaskIds(candidateRationale.riskTasks, 'riskTasks', heldInTaskIds);
+  return candidateRationale;
 }
 
 function parseCandidateRationaleShape(value: unknown): CandidateRationale {
@@ -539,6 +535,7 @@ function promptCandidateCommittedEvent(input: {
   commitSha: string;
   summary: string;
   systemPrompt: string;
+  candidateRationale: CandidateRationale;
 }): PromptCandidateCommittedEvent {
   return {
     schemaVersion: FIXED_PROMPT_WAL_SCHEMA_VERSION,
@@ -550,6 +547,7 @@ function promptCandidateCommittedEvent(input: {
     commitSha: input.commitSha,
     summary: input.summary,
     promptHash: hashSystemPrompt(input.systemPrompt),
+    candidateRationale: input.candidateRationale,
   };
 }
 
