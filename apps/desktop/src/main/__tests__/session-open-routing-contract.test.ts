@@ -108,4 +108,17 @@ describe('session open routing contract', () => {
     assert.match(activeLoad, /markSessionReadLocally\(activeId\);/);
     assert.match(refreshMessages, /markSessionReadLocally\(sessionId\);/);
   });
+
+  it('keeps persisted mark-read at the renderer message-read IPC boundary', async () => {
+    const main = await readFile(resolve(REPO_ROOT, 'apps/desktop/src/main/main.ts'), 'utf8');
+    const readMessagesHandler = main.match(/ipcMain\.handle\('sessions:readMessages'[\s\S]*?\n  \}\);/)?.[0] ?? '';
+    const searchHandler = main.match(/ipcMain\.handle\('search:thread'[\s\S]*?\n  \}\);/)?.[0] ?? '';
+    const gatewayDeps = main.match(/const openGateway = new OpenGatewayService\(\{[\s\S]*?\n\}\);/)?.[0] ?? '';
+
+    assert.match(readMessagesHandler, /runtime\.getMessages\(sessionId\)/);
+    assert.match(readMessagesHandler, /runtime\.markSessionRead\(sessionId\)/);
+    assert.doesNotMatch(searchHandler, /markSessionRead/);
+    assert.match(gatewayDeps, /readMessages: \(sessionId\) => runtime\.getMessages\(sessionId\)/);
+    assert.doesNotMatch(gatewayDeps, /markSessionRead/);
+  });
 });

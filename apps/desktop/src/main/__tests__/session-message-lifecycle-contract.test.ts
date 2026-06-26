@@ -30,7 +30,7 @@ describe('active session message lifecycle contract', () => {
     );
     assert.match(
       activeSessionEffect,
-      /if \(!disposed && activeIdRef\.current === activeId\) setMessages\(next\)/,
+      /if \(!disposed && activeIdRef\.current === activeId\) \{[\s\S]*markSessionReadLocally\(activeId\);[\s\S]*setMessages\(next\);[\s\S]*\}/,
       'late active-session reads may set messages only while the same session is still active',
     );
     assert.match(

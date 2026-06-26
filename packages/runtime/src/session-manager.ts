@@ -250,9 +250,7 @@ export class SessionManager {
   }
 
   async getMessages(sessionId: string): Promise<StoredMessage[]> {
-    const view = await this.readModel().getSessionView(sessionId);
-    await this.markSessionRead(sessionId).catch(() => {});
-    return view.messages;
+    return (await this.readModel().getSessionView(sessionId)).messages;
   }
 
   async listTurns(sessionId: string): Promise<TurnRecord[]> {
@@ -356,7 +354,7 @@ export class SessionManager {
     if (header) this.runtimeKernel.updateCachedHeader(sessionId, header);
   }
 
-  private async markSessionRead(sessionId: string): Promise<void> {
+  async markSessionRead(sessionId: string): Promise<void> {
     const header = await this.deps.store.readHeader(sessionId);
     if (!header.hasUnread) return;
     const next = await this.deps.store.updateHeader(sessionId, { hasUnread: false });

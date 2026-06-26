@@ -2622,8 +2622,12 @@ function registerIpc(): void {
     emitSessionsChanged('created', session.id);
     return session;
   });
-  ipcMain.handle('sessions:readMessages', (_event, sessionId: string) =>
-    visualSmokeFixture ? store.readMessages(sessionId) : runtime.getMessages(sessionId));
+  ipcMain.handle('sessions:readMessages', async (_event, sessionId: string) => {
+    if (visualSmokeFixture) return store.readMessages(sessionId);
+    const messages = await runtime.getMessages(sessionId);
+    await runtime.markSessionRead(sessionId).catch(() => {});
+    return messages;
+  });
   ipcMain.handle('sessions:listTurns', (_event, sessionId: string) => runtime.listTurns(sessionId));
   // PR-SEARCH-2: local thread search. Renderer-facing channel; the pure
   // helper in `./search/thread-search.ts` enforces all gates (G1 snippet
