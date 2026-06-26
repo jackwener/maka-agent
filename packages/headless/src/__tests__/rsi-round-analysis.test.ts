@@ -145,11 +145,22 @@ describe('RSI round analysis', () => {
       const runtimeEventsPath = join(dir, 'runtime.jsonl');
       const traceEventsPath = join(dir, 'trace.jsonl');
 
-      await writeJsonl(runtimeEventsPath, [functionCall('call-a', 'Bash', { z: 1, a: 1, b: 1 })]);
-      await writeJsonl(traceEventsPath, [
-        toolFailed('call-a', 'Bash', 'TimeoutError'),
-        toolFailed('call-a', 'Bash', 'TimeoutError'),
-      ]);
+      await writeJsonl(runtimeEventsPath, [functionCall('call-a', 'Bash', {
+        j: 1,
+        i: 1,
+        h: 1,
+        g: 1,
+        f: 1,
+        e: 1,
+        d: 1,
+        c: 1,
+        b: 1,
+        a: 1,
+      })]);
+      await writeJsonl(
+        traceEventsPath,
+        Array.from({ length: 1001 }, () => toolFailed('call-a', 'Bash', 'TimeoutError')),
+      );
 
       const analysis = await analyzeRsiRound({
         heldInTaskIds: ['task-a'],
@@ -157,11 +168,56 @@ describe('RSI round analysis', () => {
         candidateEvents: [
           plumbingFailed({ taskId: 'task-a', errorClass: 'missing_prompt_hash', runtimeEventsPath, traceEventsPath }),
         ],
-        limits: { maxToolFailureArgsKeys: 2, maxToolFailureEventsPerTask: 1 },
       });
 
       assert.deepEqual(analysis.toolFailureClusters, [
-        { name: 'Bash', errorClass: 'TimeoutError', argsPreview: 'a,b', count: 1, taskIds: ['task-a'] },
+        { name: 'Bash', errorClass: 'TimeoutError', argsPreview: 'a,b,c,d,e,f,g,h', count: 1000, taskIds: ['task-a'] },
+      ]);
+    });
+  });
+
+  test('keeps trace-derived clusters when runtime artifacts are unavailable', async () => {
+    await withDir(async (dir) => {
+      const missingRuntimePath = join(dir, 'missing-runtime.jsonl');
+      const traceEventsPath = join(dir, 'trace.jsonl');
+
+      await writeJsonl(traceEventsPath, [toolFailed('call-a', 'Bash', 'TimeoutError')]);
+
+      const analysis = await analyzeRsiRound({
+        heldInTaskIds: ['task-a'],
+        lastKeptEvents: [],
+        candidateEvents: [
+          completed({ taskId: 'task-a', passed: false, runtimeEventsPath: missingRuntimePath, traceEventsPath }),
+        ],
+      });
+
+      assert.deepEqual(analysis.toolFailureClusters, [
+        { name: 'Bash', errorClass: 'TimeoutError', count: 1, taskIds: ['task-a'] },
+      ]);
+      assert.deepEqual(traceUnavailableSignals(analysis), [
+        { kind: 'trace_unavailable', taskIds: ['task-a'], source: 'runtime', reason: 'missing_file' },
+      ]);
+    });
+  });
+
+  test('signals missing trace paths instead of silently skipping artifact events', async () => {
+    await withDir(async (dir) => {
+      const runtimeEventsPath = join(dir, 'runtime.jsonl');
+
+      await writeJsonl(runtimeEventsPath, [functionCall('call-a', 'Bash', { command: 'exit 1' })]);
+
+      const analysis = await analyzeRsiRound({
+        heldInTaskIds: ['task-a', 'task-b'],
+        lastKeptEvents: [],
+        candidateEvents: [
+          completed({ taskId: 'task-a', passed: false, runtimeEventsPath }),
+          plumbingFailed({ taskId: 'task-b', errorClass: 'missing_prompt_hash', runtimeEventsPath }),
+        ],
+      });
+
+      assert.deepEqual(analysis.toolFailureClusters, []);
+      assert.deepEqual(traceUnavailableSignals(analysis), [
+        { kind: 'trace_unavailable', taskIds: ['task-a', 'task-b'], source: 'trace', reason: 'missing_path' },
       ]);
     });
   });
@@ -172,45 +228,34 @@ describe('RSI round analysis', () => {
       const taskATrace = join(dir, 'task-a-trace.jsonl');
       const taskBRuntime = join(dir, 'task-b-runtime.jsonl');
       const taskBTrace = join(dir, 'task-b-trace.jsonl');
-      const taskCRuntime = join(dir, 'task-c-missing-runtime.jsonl');
-      const taskCTrace = join(dir, 'task-c-trace.jsonl');
       const taskDRuntime = join(dir, 'task-d-runtime.jsonl');
       const taskDTrace = join(dir, 'task-d-trace.jsonl');
 
       await writeJsonl(taskARuntime, [functionCall('call-a', 'Read', { path: '/app/file.txt' })]);
       await writeFile(taskATrace, '{not-json}\n', 'utf8');
       await writeJsonl(taskBRuntime, [functionCall('call-b', 'Bash', { command: 'exit 1' })]);
-      await writeJsonl(taskBTrace, [
-        toolFailed('call-b', 'Bash', 'TimeoutError'),
-        toolFailed('call-b', 'Bash', 'TimeoutError'),
-      ]);
-      await writeJsonl(taskCTrace, [toolFailed('call-c', 'Read', 'FileError')]);
+      await writeJsonl(
+        taskBTrace,
+        Array.from({ length: 10001 }, () => toolFailed('call-b', 'Bash', 'TimeoutError')),
+      );
       await writeJsonl(taskDRuntime, [functionCall('call-d', 'Glob', { pattern: '*.ts' })]);
-      await writeFile(taskDTrace, `${'x'.repeat(240)}\n`, 'utf8');
+      await writeFile(taskDTrace, `${'x'.repeat(1_000_001)}\n`, 'utf8');
 
       const analysis = await analyzeRsiRound({
-        heldInTaskIds: ['task-a', 'task-b', 'task-c', 'task-d'],
+        heldInTaskIds: ['task-a', 'task-b', 'task-d'],
         lastKeptEvents: [],
         candidateEvents: [
           completed({ taskId: 'task-a', passed: false, runtimeEventsPath: taskARuntime, traceEventsPath: taskATrace }),
           completed({ taskId: 'task-b', passed: false, runtimeEventsPath: taskBRuntime, traceEventsPath: taskBTrace }),
-          completed({ taskId: 'task-c', passed: false, runtimeEventsPath: taskCRuntime, traceEventsPath: taskCTrace }),
           completed({ taskId: 'task-d', passed: false, runtimeEventsPath: taskDRuntime, traceEventsPath: taskDTrace }),
         ],
-        limits: { maxToolFailureJsonlBytes: 180, maxToolFailureJsonlLines: 1 },
       });
 
       assert.deepEqual(analysis.toolFailureClusters, []);
-      assert.deepEqual(
-        analysis.signals
-          .filter((signal) => (signal as { kind: string }).kind === 'trace_unavailable')
-          .map(({ id: _id, ...signal }) => signal),
-        [
-          { kind: 'trace_unavailable', taskIds: ['task-c'], source: 'runtime', reason: 'missing_file' },
-          { kind: 'trace_unavailable', taskIds: ['task-b', 'task-d'], source: 'trace', reason: 'input_limit_exceeded' },
-          { kind: 'trace_unavailable', taskIds: ['task-a'], source: 'trace', reason: 'invalid_jsonl' },
-        ],
-      );
+      assert.deepEqual(traceUnavailableSignals(analysis), [
+        { kind: 'trace_unavailable', taskIds: ['task-b', 'task-d'], source: 'trace', reason: 'input_limit_exceeded' },
+        { kind: 'trace_unavailable', taskIds: ['task-a'], source: 'trace', reason: 'invalid_jsonl' },
+      ]);
     });
   });
 
@@ -272,9 +317,26 @@ describe('RSI round analysis', () => {
       'coverage_regression',
       'error_class',
       'error_class',
+      'trace_unavailable',
+    ]);
+    assert.deepEqual(traceUnavailableSignals(first), [
+      { kind: 'trace_unavailable', taskIds: ['task-a', 'task-b'], source: 'trace', reason: 'missing_path' },
     ]);
   });
 });
+
+type TraceUnavailableSignal = {
+  kind: 'trace_unavailable';
+  taskIds: string[];
+  source: string;
+  reason: string;
+};
+
+function traceUnavailableSignals(analysis: Awaited<ReturnType<typeof analyzeRsiRound>>): TraceUnavailableSignal[] {
+  return analysis.signals
+    .filter((signal): signal is typeof signal & { kind: 'trace_unavailable' } => signal.kind === 'trace_unavailable')
+    .map(({ id: _id, ...signal }) => signal);
+}
 
 function completed(input: {
   taskId: string;

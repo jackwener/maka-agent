@@ -31,7 +31,7 @@ export interface RsiToolFailureCluster {
 
 export type RsiTraceUnavailableSource = 'runtime' | 'trace';
 
-export type RsiTraceUnavailableReason = 'missing_file' | 'invalid_jsonl' | 'input_limit_exceeded' | 'unreadable';
+export type RsiTraceUnavailableReason = 'missing_path' | 'missing_file' | 'invalid_jsonl' | 'input_limit_exceeded' | 'unreadable';
 
 export type RsiAnalysisSignal =
   | {
@@ -84,10 +84,6 @@ export interface AnalyzeRsiRoundInput {
   candidateEvents: readonly FixedPromptTaskWalEvent[];
   limits?: {
     maxToolFailureClusters?: number;
-    maxToolFailureJsonlBytes?: number;
-    maxToolFailureJsonlLines?: number;
-    maxToolFailureEventsPerTask?: number;
-    maxToolFailureArgsKeys?: number;
   };
 }
 
@@ -289,10 +285,9 @@ async function toolFailureClusters(
   if (limits.maxClusters === 0) return { clusters: [], traceUnavailable: [] };
   for (const taskId of heldInTaskIds) {
     const event = events.get(taskId);
-    if (!event || !hasToolFailureArtifacts(event)) continue;
-    const callsById = await functionCallsById(event.runtimeEventsPath, limits);
-    if (!callsById.ok) {
-      addTraceUnavailable(traceUnavailable, taskId, 'runtime', callsById.reason);
+    if (!event || !hasRuntimePath(event)) continue;
+    if (!hasTracePath(event)) {
+      addTraceUnavailable(traceUnavailable, taskId, 'trace', 'missing_path');
       continue;
     }
     const traceEvents = await readBoundedJsonl(event.traceEventsPath, limits);
@@ -300,10 +295,13 @@ async function toolFailureClusters(
       addTraceUnavailable(traceUnavailable, taskId, 'trace', traceEvents.reason);
       continue;
     }
+    const callsById = await functionCallsById(event.runtimeEventsPath, limits);
+    if (!callsById.ok) addTraceUnavailable(traceUnavailable, taskId, 'runtime', callsById.reason);
+    const calls = callsById.ok ? callsById.value : new Map<string, { name: string; argsPreview: string }>();
     let failureEvents = 0;
     for (const traceEvent of traceEvents.events) {
       if (failureEvents >= limits.maxEventsPerTask) break;
-      const failure = toolFailureDigest(traceEvent, callsById.value);
+      const failure = toolFailureDigest(traceEvent, calls);
       if (!failure) continue;
       failureEvents += 1;
       const key = [failure.name, failure.errorClass ?? '', failure.argsPreview ?? ''].join('\0');
@@ -438,22 +436,21 @@ function addTraceUnavailable(
   groups.set(key, current);
 }
 
-function hasToolFailureArtifacts(event: FixedPromptTaskWalEvent): event is FixedPromptTaskWalEvent & {
-  runtimeEventsPath: string;
-  traceEventsPath: string;
-} {
-  return 'runtimeEventsPath' in event
-    && typeof event.runtimeEventsPath === 'string'
-    && typeof event.traceEventsPath === 'string';
+function hasRuntimePath(event: FixedPromptTaskWalEvent): event is FixedPromptTaskWalEvent & { runtimeEventsPath: string } {
+  return 'runtimeEventsPath' in event && typeof event.runtimeEventsPath === 'string';
+}
+
+function hasTracePath(event: FixedPromptTaskWalEvent): event is FixedPromptTaskWalEvent & { traceEventsPath: string } {
+  return 'traceEventsPath' in event && typeof event.traceEventsPath === 'string';
 }
 
 function normalizeToolFailureLimits(limits: AnalyzeRsiRoundInput['limits']): NormalizedToolFailureLimits {
   return {
     maxClusters: nonNegativeInt(limits?.maxToolFailureClusters, DEFAULT_MAX_TOOL_FAILURE_CLUSTERS),
-    maxJsonlBytes: nonNegativeInt(limits?.maxToolFailureJsonlBytes, DEFAULT_MAX_TOOL_FAILURE_JSONL_BYTES),
-    maxJsonlLines: nonNegativeInt(limits?.maxToolFailureJsonlLines, DEFAULT_MAX_TOOL_FAILURE_JSONL_LINES),
-    maxEventsPerTask: nonNegativeInt(limits?.maxToolFailureEventsPerTask, DEFAULT_MAX_TOOL_FAILURE_EVENTS_PER_TASK),
-    maxArgsKeys: nonNegativeInt(limits?.maxToolFailureArgsKeys, DEFAULT_MAX_TOOL_FAILURE_ARGS_KEYS),
+    maxJsonlBytes: DEFAULT_MAX_TOOL_FAILURE_JSONL_BYTES,
+    maxJsonlLines: DEFAULT_MAX_TOOL_FAILURE_JSONL_LINES,
+    maxEventsPerTask: DEFAULT_MAX_TOOL_FAILURE_EVENTS_PER_TASK,
+    maxArgsKeys: DEFAULT_MAX_TOOL_FAILURE_ARGS_KEYS,
   };
 }
 
