@@ -21,6 +21,10 @@ describe('RSI R2 safety primitives', () => {
     assert.equal(promptSafeToken('tool with spaces', 'fallback'), 'fallback');
     assert.equal(promptSafeToken('x'.repeat(65), 'fallback'), 'fallback');
     assert.equal(promptSafeToken('工具', 'fallback'), 'fallback');
+    assert.throws(
+      () => promptSafeToken('tool with spaces', 'bad fallback'),
+      /fallback must be prompt-safe/i,
+    );
   });
 
   test('validates bounded prompt text before it can become durable feedback', () => {
@@ -46,6 +50,15 @@ describe('RSI R2 safety primitives', () => {
       }),
       /hypothesis contains forbidden code_fence/i,
     );
+    for (const unsafe of ['/app/tests/test.sh', 'runtime-events.jsonl', 'resultsJsonlPath', 'results.tsv']) {
+      assert.throws(
+        () => validateRsiPromptText(unsafe, {
+          fieldName: 'hypothesis',
+          maxChars: 80,
+        }),
+        /hypothesis contains forbidden/i,
+      );
+    }
     assert.throws(
       () => validateRsiPromptText('line one\nline two', {
         fieldName: 'hypothesis',
@@ -70,9 +83,23 @@ describe('RSI R2 safety primitives', () => {
       }),
       ['task-a', 'task-b'],
     );
+    assert.deepEqual(
+      canonicalRsiTokenList(['task_a', 'task-a', 'task.A', 'task:a', 'Task-a', 'task-A'], {
+        fieldName: 'evidenceRefs',
+        maxItems: 6,
+      }),
+      ['Task-a', 'task-A', 'task-a', 'task.A', 'task:a', 'task_a'],
+    );
 
     assert.throws(
       () => canonicalRsiTokenList(['task-a', 'task-b', 'task-c'], {
+        fieldName: 'riskTasks',
+        maxItems: 2,
+      }),
+      /riskTasks exceeds 2 items/i,
+    );
+    assert.throws(
+      () => canonicalRsiTokenList(Array(100).fill('task-a'), {
         fieldName: 'riskTasks',
         maxItems: 2,
       }),
@@ -96,7 +123,11 @@ describe('RSI R2 safety primitives', () => {
       hashRsiHeldInTaskSet(['task-a', 'task-b']),
       hashRsiHeldInTaskSet(['task-a', 'task-c']),
     );
-    assert.match(hashRsiHeldInTaskSet(['task-a']), /^sha256:[a-f0-9]{16}$/);
+    assert.equal(
+      hashRsiHeldInTaskSet(['task_a', 'task-a', 'task.A', 'task:a', 'Task-a', 'task-A']),
+      'sha256:afb9a3f239bb32247e4d013a0249f11cca97d3ba192710080ed43a7dce9089d0',
+    );
+    assert.match(hashRsiHeldInTaskSet(['task-a']), /^sha256:[a-f0-9]{64}$/);
     assert.throws(
       () => hashRsiHeldInTaskSet(['held out task']),
       /heldInTaskIds\[0\] must be prompt-safe/i,

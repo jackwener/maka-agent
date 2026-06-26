@@ -28,7 +28,8 @@ const FORBIDDEN_TEXT_PATTERNS: Array<{ name: string; pattern: RegExp }> = [
   { name: 'held_out', pattern: /held[-_ ]?out/i },
   { name: 'expected_output', pattern: /expected[-_ ]?output/i },
   { name: 'verifier', pattern: /\bverifier\b/i },
-  { name: 'test_path', pattern: /(?:^|[\s"'`])(?:\.\/)?tests\//i },
+  { name: 'test_path', pattern: /(?:^|[\s"'`])(?:\.\/|\/app\/)?tests\//i },
+  { name: 'controller_artifact', pattern: /\b(?:runtime-events|results)\.(?:jsonl|tsv)\b|\bresultsJsonlPath\b/i },
 ];
 
 export function isRsiR2FailurePattern(value: unknown): value is RsiR2FailurePattern {
@@ -37,6 +38,9 @@ export function isRsiR2FailurePattern(value: unknown): value is RsiR2FailurePatt
 }
 
 export function promptSafeToken(value: string, fallback: string): string {
+  if (!PROMPT_SAFE_TOKEN_RE.test(fallback)) {
+    throw new Error('fallback must be prompt-safe');
+  }
   return PROMPT_SAFE_TOKEN_RE.test(value) ? value : fallback;
 }
 
@@ -59,17 +63,21 @@ export function canonicalRsiTokenList(
   values: readonly string[],
   options: CanonicalRsiTokenListOptions,
 ): string[] {
+  if (values.length > options.maxItems) {
+    throw new Error(`${options.fieldName} exceeds ${options.maxItems} items`);
+  }
   const canonical = values.map((value, index) => {
     if (!PROMPT_SAFE_TOKEN_RE.test(value)) {
       throw new Error(`${options.fieldName}[${index}] must be prompt-safe`);
     }
     return value;
   });
-  const deduped = [...new Set(canonical)].sort((a, b) => a.localeCompare(b));
-  if (deduped.length > options.maxItems) {
-    throw new Error(`${options.fieldName} exceeds ${options.maxItems} items`);
-  }
+  const deduped = [...new Set(canonical)].sort(comparePromptSafeTokens);
   return deduped;
+}
+
+function comparePromptSafeTokens(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
 }
 
 export function hashRsiHeldInTaskSet(taskIds: readonly string[]): string {
@@ -79,7 +87,6 @@ export function hashRsiHeldInTaskSet(taskIds: readonly string[]): string {
   });
   const digest = createHash('sha256')
     .update(JSON.stringify(canonical))
-    .digest('hex')
-    .slice(0, 16);
+    .digest('hex');
   return `sha256:${digest}`;
 }
