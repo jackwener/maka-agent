@@ -175,7 +175,8 @@ class FileSessionStore implements SessionStore {
     let nextHeader: SessionHeader | undefined;
     await this.withQueue(sessionId, async () => {
       const { header, messages } = await this.readFilePartsUnlocked(sessionId);
-      if (!Number.isFinite(readThroughTs) || !header.hasUnread || (header.lastMessageAt !== undefined && header.lastMessageAt > readThroughTs)) {
+      const effectiveLastMessageAt = maxTimestamp(header.lastMessageAt, latestVisibleMessageAt(messages));
+      if (!Number.isFinite(readThroughTs) || !header.hasUnread || (effectiveLastMessageAt !== undefined && effectiveLastMessageAt > readThroughTs)) {
         nextHeader = header;
         return;
       }

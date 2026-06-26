@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { describe, test } from 'node:test';
-import type { CreateSessionInput, SessionHeader } from '@maka/core';
+import type { CreateSessionInput, SessionHeader, StoredMessage } from '@maka/core';
 import { createSessionStore } from '../session-store.js';
 
 describe('FileSessionStore CRUD', () => {
@@ -84,6 +84,25 @@ describe('FileSessionStore CRUD', () => {
       assert.equal(cleared.hasUnread, false);
       assert.equal((await store.readHeader(header.id)).hasUnread, false);
     });
+  });
+
+  test('markSessionReadThrough uses visible message timestamps when header lastMessageAt is stale', async () => {
+    for (const headerLastMessageAt of [100, undefined]) {
+      await withStore(async (store) => {
+        const header = await store.create(makeInput({ name: 'Stale unread' }));
+        await store.appendMessage(header.id, assistantMessageAt(250));
+        await store.updateHeader(header.id, { hasUnread: true, lastMessageAt: headerLastMessageAt });
+
+        const unchanged = await store.markSessionReadThrough(header.id, 200);
+        assert.equal(unchanged.hasUnread, true);
+        assert.equal((await store.list())[0]?.lastMessageAt, 250);
+        assert.equal((await store.readHeader(header.id)).hasUnread, true);
+
+        const cleared = await store.markSessionReadThrough(header.id, 250);
+        assert.equal(cleared.hasUnread, false);
+        assert.equal((await store.readHeader(header.id)).hasUnread, false);
+      });
+    }
   });
 
   test('rename trims whitespace, rejects empty strings, and caps absurd lengths', async () => {
@@ -718,6 +737,17 @@ function makeRawHeader(overrides: Partial<SessionHeader> = {}): SessionHeader {
     permissionMode: 'ask',
     schemaVersion: 1,
     ...overrides,
+  };
+}
+
+function assistantMessageAt(ts: number): StoredMessage {
+  return {
+    type: 'assistant',
+    id: `assistant-${ts}`,
+    turnId: `turn-${ts}`,
+    ts,
+    text: 'ok',
+    modelId: 'fake-model',
   };
 }
 
