@@ -4011,7 +4011,7 @@ async function collectBotReply(
       safeSendToRenderer(`sessions:event:${sessionId}`, event);
       if (event.type === 'text_complete') latestText = event.text;
       if (event.type === 'permission_request') {
-        earlyReply ??= '这条请求需要在 Maka 桌面端审批后才能继续。';
+        return '这条请求需要在 Maka 桌面端审批后才能继续。';
       }
       if (event.type === 'error') {
         earlyReply = `Maka 处理失败：${event.message}`;
