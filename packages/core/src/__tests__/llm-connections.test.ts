@@ -14,6 +14,7 @@
 import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
 import {
+  PROVIDER_DEFAULTS,
   normalizeConnectionBaseUrl,
   validateConnectionBaseUrl,
 } from '../llm-connections.js';
@@ -44,6 +45,7 @@ describe('validateConnectionBaseUrl (PR-UI-IPC-1, @kenji msg 35260e29)', () => {
         'https://generativelanguage.googleapis.com',
         'https://api.deepseek.com',
         'https://api.z.ai/api/coding/paas/v4',
+        'https://api.kimi.com/coding/v1',
         'https://api.moonshot.cn/v1',
       ];
       for (const url of canonical) {
@@ -179,6 +181,15 @@ describe('validateConnectionBaseUrl (PR-UI-IPC-1, @kenji msg 35260e29)', () => {
       assert.equal(validateConnectionBaseUrl('HTTPS://api.example.com'), null);
       assert.equal(validateConnectionBaseUrl('Http://localhost:8000'), null);
     });
+  });
+});
+
+describe('provider URL defaults', () => {
+  it('keeps Kimi Coding Plan separate from Moonshot API key access', () => {
+    assert.equal(PROVIDER_DEFAULTS['kimi-coding-plan'].baseUrl, 'https://api.kimi.com/coding/v1');
+    assert.equal(PROVIDER_DEFAULTS['kimi-coding-plan'].signupUrl, 'https://www.kimi.com/code/console');
+    assert.equal(PROVIDER_DEFAULTS.moonshot.baseUrl, 'https://api.moonshot.cn/v1');
+    assert.equal(PROVIDER_DEFAULTS.moonshot.signupUrl, 'https://platform.kimi.com/console/api-keys');
   });
 });
 
