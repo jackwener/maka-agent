@@ -2075,15 +2075,22 @@
 }
 
 .maka-model-switcher-popup {
-  width: min(330px, calc(100vw - 32px));
-  min-width: min(300px, calc(100vw - 32px));
+  /* Hug the widest row instead of a fixed slab: short model ids
+     (`gpt-5.5`) no longer sit in a half-empty 330px box. Floor keeps it
+     from getting cramped; cap tames long custom model names and narrow
+     viewports. */
+  width: max-content;
+  min-width: 200px;
+  max-width: min(320px, calc(100vw - 32px));
   max-height: min(420px, var(--available-height));
   padding: 8px;
   border-radius: 12px;
   background: var(--background);
-  box-shadow:
-    0 1px 2px oklch(from var(--foreground) l c h / 0.04),
-    0 14px 34px oklch(from var(--foreground) l c h / 0.13);
+  /* Reuse the governed panel-elevation token. A bespoke shadow derived from
+     `--foreground` turned WHITE in dark mode (foreground is near-white there),
+     painting a luminous ring around the menu. `--shadow-maka-panel` is a fixed
+     dark slate, stable across themes, and matches every other popover/dialog. */
+  box-shadow: var(--shadow-maka-panel);
 }
 
 /* Provider grouping heading. Type is governed to the shared scale: same
