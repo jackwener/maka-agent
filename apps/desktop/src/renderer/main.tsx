@@ -35,6 +35,10 @@ import { PROVIDER_DEFAULTS } from '@maka/core';
 import {
   applyAssistantComplete,
   applyAssistantDelta,
+  drainAssistantStreamSlot,
+  markAssistantStreamSlotDraining,
+  settleAssistantStreamSlot,
+  type AssistantStreamSlot,
   applyThinkingComplete,
   applyThinkingDelta,
   applyToolOutputChunk,
@@ -293,12 +297,6 @@ function AppShell() {
   // `truncated` is monotonic while deltas are streaming; `text_complete`
   // replaces the slot with the final payload, so the flag then reflects the
   // final visible text until `clearStreaming` resets the slot.
-  type AssistantStreamSlot = {
-    text: string;
-    truncated: boolean;
-    phase: 'streaming' | 'draining';
-    messageId?: string;
-  };
   const [streamingBySession, setStreamingBySessionState] = useState<Record<string, AssistantStreamSlot>>({});
   // Session event handlers are subscribed per activeId; read live stream slots from this ref to avoid stale render closures.
   const streamingBySessionRef = useRef<Record<string, AssistantStreamSlot>>({});
@@ -2252,41 +2250,22 @@ function AppShell() {
       void refreshMessages(sessionId);
       return;
     }
-    setStreamingBySession((current) => ({
-      ...current,
-      [sessionId]: {
-        text: applied.text,
-        truncated: applied.truncated,
-        phase: 'draining',
-        ...(messageId ? { messageId } : {}),
-      },
-    }));
+    setStreamingBySession((current) => drainAssistantStreamSlot(current, sessionId, text, messageId));
     clearThinking(sessionId);
   }
 
   function markAssistantStreamingComplete(sessionId: string) {
-    setStreamingBySession((current) => {
-      const prev = current[sessionId];
-      if (!prev?.text || prev.phase === 'draining') return current;
-      return {
-        ...current,
-        [sessionId]: { ...prev, phase: 'draining' },
-      };
-    });
+    setStreamingBySession((current) => markAssistantStreamSlotDraining(current, sessionId));
     clearThinking(sessionId);
   }
 
   async function settleAssistantStreaming(sessionId: string, messageId?: string) {
-    const currentSlot = streamingBySessionRef.current[sessionId];
-    if (!currentSlot || currentSlot.phase !== 'draining') return;
-    if (messageId && currentSlot.messageId && currentSlot.messageId !== messageId) return;
-    const refreshed = await refreshMessages(sessionId);
-    if (!refreshed) return;
-    setStreamingBySession((current) => {
-      const prev = current[sessionId];
-      if (!prev || prev.phase !== 'draining') return current;
-      if (messageId && prev.messageId && prev.messageId !== messageId) return current;
-      return { ...current, [sessionId]: { text: '', truncated: false, phase: 'streaming' } };
+    await settleAssistantStreamSlot({
+      sessionId,
+      messageId,
+      getCurrent: () => streamingBySessionRef.current,
+      refreshMessages: () => refreshMessages(sessionId),
+      setCurrent: setStreamingBySession,
     });
   }
 

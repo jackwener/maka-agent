@@ -321,11 +321,13 @@ describe('SessionManager permission mode updates', () => {
     const iterator = manager.sendMessage(session.id, { turnId: 'turn-1', text: 'hello' })[Symbol.asyncIterator]();
 
     expect((await iterator.next()).value?.type).toBe('text_delta');
-    expect((await iterator.next()).value?.type).toBe('text_complete');
+    const textComplete = (await iterator.next()).value;
+    expect(textComplete?.type).toBe('text_complete');
     expect((await iterator.next()).value?.type).toBe('complete');
 
     const messages = await manager.getMessages(session.id);
     expect(messages.map((message) => message.type)).toEqual(['user', 'assistant', 'turn_state']);
+    expect(messages[1]?.id).toBe(textComplete?.type === 'text_complete' ? textComplete.messageId : undefined);
 
     await iterator.next();
   });

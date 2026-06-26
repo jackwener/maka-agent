@@ -75,6 +75,15 @@ export interface ApplyAssistantResult {
   truncated: boolean;
 }
 
+export interface AssistantStreamSlot {
+  text: string;
+  truncated: boolean;
+  phase: 'streaming' | 'draining';
+  messageId?: string;
+}
+
+export type AssistantStreamSlots = Record<string, AssistantStreamSlot>;
+
 /**
  * Apply a single `text_delta` to the prior accumulated assistant
  * text. Pure: no React state, no DOM, no IPC.
@@ -214,4 +223,56 @@ export function applyAssistantComplete(
     redacted: redactionHappened,
     truncated: totalTruncated,
   };
+}
+
+export function drainAssistantStreamSlot(
+  current: AssistantStreamSlots,
+  sessionId: string,
+  text: string,
+  messageId?: string,
+): AssistantStreamSlots {
+  const applied = applyAssistantComplete(text);
+  return {
+    ...current,
+    [sessionId]: {
+      text: applied.text,
+      truncated: applied.truncated,
+      phase: 'draining',
+      ...(messageId ? { messageId } : {}),
+    },
+  };
+}
+
+export function markAssistantStreamSlotDraining(
+  current: AssistantStreamSlots,
+  sessionId: string,
+): AssistantStreamSlots {
+  const prev = current[sessionId];
+  if (!prev?.text || prev.phase === 'draining') return current;
+  return {
+    ...current,
+    [sessionId]: { ...prev, phase: 'draining' },
+  };
+}
+
+export async function settleAssistantStreamSlot(input: {
+  sessionId: string;
+  messageId?: string;
+  getCurrent: () => AssistantStreamSlots;
+  refreshMessages: () => Promise<boolean>;
+  setCurrent: (updater: (current: AssistantStreamSlots) => AssistantStreamSlots) => void;
+}): Promise<void> {
+  const currentSlot = input.getCurrent()[input.sessionId];
+  if (!isMatchingDrainingSlot(currentSlot, input.messageId)) return;
+  await input.refreshMessages().catch(() => false);
+  input.setCurrent((current) => {
+    const prev = current[input.sessionId];
+    if (prev !== currentSlot) return current;
+    return { ...current, [input.sessionId]: { text: '', truncated: false, phase: 'streaming' } };
+  });
+}
+
+function isMatchingDrainingSlot(slot: AssistantStreamSlot | undefined, messageId?: string): slot is AssistantStreamSlot {
+  if (!slot || slot.phase !== 'draining') return false;
+  return !(messageId && slot.messageId && slot.messageId !== messageId);
 }
