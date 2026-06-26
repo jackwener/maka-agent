@@ -4001,6 +4001,7 @@ async function collectBotReply(
   let userAppendBroadcasted = false;
   let finalAppendBroadcasted = false;
   let latestText = '';
+  let earlyReply: string | undefined;
   try {
     for await (const event of iterator) {
       if (!userAppendBroadcasted) {
@@ -4010,10 +4011,10 @@ async function collectBotReply(
       safeSendToRenderer(`sessions:event:${sessionId}`, event);
       if (event.type === 'text_complete') latestText = event.text;
       if (event.type === 'permission_request') {
-        return '这条请求需要在 Maka 桌面端审批后才能继续。';
+        earlyReply ??= '这条请求需要在 Maka 桌面端审批后才能继续。';
       }
       if (event.type === 'error') {
-        return `Maka 处理失败：${event.message}`;
+        earlyReply = `Maka 处理失败：${event.message}`;
       }
       if (isStatusChangingSessionEvent(event)) {
         emitSessionsChanged('status-change', sessionId);
@@ -4045,7 +4046,7 @@ async function collectBotReply(
     }
     return `Maka 处理失败：${errorMessage(error)}`;
   }
-  return latestText;
+  return earlyReply ?? latestText;
 }
 
 function isFinalSessionEvent(event: SessionEvent): boolean {

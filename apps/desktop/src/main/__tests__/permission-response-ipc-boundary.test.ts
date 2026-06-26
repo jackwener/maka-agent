@@ -280,6 +280,16 @@ describe('permission response IPC boundary', () => {
       /isFinalSessionEvent\(event\)[\s\S]*emitSessionsChanged\('message-appended', sessionId\)/,
       'bot reply final refresh must not race ahead of AgentRun.finalize() header writes',
     );
+    assert.doesNotMatch(
+      collectBotReply,
+      /event\.type === 'permission_request'[\s\S]*return '这条请求需要在 Maka 桌面端审批后才能继续。'/,
+      'bot permission handoff must drain to the terminal event before returning a bridge reply',
+    );
+    assert.doesNotMatch(
+      collectBotReply,
+      /event\.type === 'error'[\s\S]*return `Maka 处理失败：\$\{event\.message\}`/,
+      'bot error replies must drain before returning so the final refresh follows finalize()',
+    );
   });
 
   it('scopes session event error feedback to the active chat surface', async () => {
