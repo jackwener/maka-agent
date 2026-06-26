@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { ArtifactStore } from '@maka/storage';
 import {
-  ARCHIVED_TOOL_RESULT_PLACEHOLDER_KIND,
   type ToolResultArchiveReaderInput,
   type ToolResultArchiveReadResult,
   type ToolResultArchiveRecorderInput,
@@ -14,10 +13,11 @@ export async function persistArchivedToolResultToArtifacts(
   const id = stableToolResultArchiveArtifactId(event);
   const existing = await artifactStore.get(id);
   if (existing?.status === 'live') {
-    const read = await readArchivedToolResultFromArtifacts(artifactStore, {
-      ...event,
-      kind: ARCHIVED_TOOL_RESULT_PLACEHOLDER_KIND,
+    const read = await readArchivedToolResultArtifact(artifactStore, {
       artifactId: id,
+      sessionId: event.sessionId,
+      bodySha256: event.bodySha256,
+      originalBytes: event.originalBytes,
     });
     if (!read.ok) throw new Error(`tool result archive artifact id conflict: ${read.reason}`);
     return { artifactId: id };
@@ -40,6 +40,13 @@ export async function persistArchivedToolResultToArtifacts(
 export async function readArchivedToolResultFromArtifacts(
   artifactStore: Pick<ArtifactStore, 'get' | 'readText'>,
   event: ToolResultArchiveReaderInput,
+): Promise<ToolResultArchiveReadResult> {
+  return readArchivedToolResultArtifact(artifactStore, event);
+}
+
+async function readArchivedToolResultArtifact(
+  artifactStore: Pick<ArtifactStore, 'get' | 'readText'>,
+  event: Pick<ToolResultArchiveReaderInput, 'artifactId' | 'sessionId' | 'bodySha256' | 'originalBytes' | 'maxBytes'>,
 ): Promise<ToolResultArchiveReadResult> {
   const record = await artifactStore.get(event.artifactId);
   if (!record) return { ok: false, reason: 'not_found' };

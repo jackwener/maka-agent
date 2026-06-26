@@ -89,7 +89,10 @@ import {
   type PrepareStepResultLike,
   type RepairableAiSdkToolCall,
 } from './model-adapter.js';
-import { rewriteActiveToolResultsInMessages } from './active-tool-result-prune.js';
+import {
+  rewriteActiveToolResultsInMessages,
+  type ActiveToolResultPruneDiagnosticPatch,
+} from './active-tool-result-prune.js';
 import type { ToolArtifactRecorder } from './tool-artifacts.js';
 import { RunTrace, type RunTraceRecorder } from './run-trace.js';
 import { computeCost } from './telemetry/cost.js';
@@ -547,9 +550,15 @@ export class AiSdkBackend implements AgentBackend {
       (input.runtimeContext ?? []).filter((event) => event.turnId !== turnId),
     );
     const providerTools = plan.providerTools;
+    let activeToolResultPruneDiagnosticPatch: ActiveToolResultPruneDiagnosticPatch = {};
     const prepareStep = composePrepareStep(
       plan.prepareStep,
-      this.buildActiveToolResultPrunePrepareStep(turnId),
+      this.buildActiveToolResultPrunePrepareStep(turnId, (patch) => {
+        activeToolResultPruneDiagnosticPatch = mergeActiveToolResultPruneDiagnosticPatches(
+          activeToolResultPruneDiagnosticPatch,
+          patch,
+        );
+      }),
     );
     // Tool names the repair path matches a mis-cased call against — follows the
     // current step's snapshot so a group loaded mid-turn is repairable on the
@@ -895,6 +904,12 @@ export class AiSdkBackend implements AgentBackend {
       } finally {
         watchdog?.stop();
         if (this.currentWatchdog === watchdog) this.currentWatchdog = null;
+        if (hasActiveToolResultPruneDiagnosticPatch(activeToolResultPruneDiagnosticPatch)) {
+          contextBudgetForTelemetry = {
+            ...(contextBudgetForTelemetry ?? minimalContextBudgetDiagnostic()),
+            ...activeToolResultPruneDiagnosticPatch,
+          } as ContextBudgetDiagnostic;
+        }
         this.input.recordLlmCall?.({
           sessionId: this.sessionId,
           turnId,
@@ -1298,7 +1313,10 @@ export class AiSdkBackend implements AgentBackend {
     };
   }
 
-  private buildActiveToolResultPrunePrepareStep(turnId: string): PrepareStepFunctionLike | undefined {
+  private buildActiveToolResultPrunePrepareStep(
+    turnId: string,
+    onDiagnosticPatch?: (patch: ActiveToolResultPruneDiagnosticPatch) => void,
+  ): PrepareStepFunctionLike | undefined {
     const policy = this.input.contextBudget?.activeToolResultPrune;
     if (policy?.enabled !== true) return undefined;
 
@@ -1323,6 +1341,9 @@ export class AiSdkBackend implements AgentBackend {
           }));
         },
       });
+      if (hasActiveToolResultPruneDiagnosticPatch(rewritten.diagnosticPatch)) {
+        onDiagnosticPatch?.(rewritten.diagnosticPatch);
+      }
       return rewritten.rewritten > 0 ? { messages: rewritten.messages } : undefined;
     };
   }
@@ -1940,6 +1961,46 @@ function mergeContextBudgetDiagnosticPatches(
   if (!left) return right;
   if (!right) return left;
   return mergeContextBudgetDiagnostic(left as ContextBudgetDiagnostic, right);
+}
+
+function mergeActiveToolResultPruneDiagnosticPatches(
+  left: ActiveToolResultPruneDiagnosticPatch,
+  right: ActiveToolResultPruneDiagnosticPatch,
+): ActiveToolResultPruneDiagnosticPatch {
+  return {
+    ...sumOptionalCounts('activePrunedToolResults', left, right),
+    ...sumOptionalCounts('activeArchiveFailures', left, right),
+    ...sumOptionalCounts('activeEstimatedTokensSaved', left, right),
+  };
+}
+
+function sumOptionalCounts<K extends keyof ActiveToolResultPruneDiagnosticPatch>(
+  key: K,
+  left: ActiveToolResultPruneDiagnosticPatch,
+  right: ActiveToolResultPruneDiagnosticPatch,
+): Pick<ActiveToolResultPruneDiagnosticPatch, K> | Record<string, never> {
+  const total = (left[key] ?? 0) + (right[key] ?? 0);
+  return total > 0 ? { [key]: total } as Pick<ActiveToolResultPruneDiagnosticPatch, K> : {};
+}
+
+function hasActiveToolResultPruneDiagnosticPatch(
+  patch: ActiveToolResultPruneDiagnosticPatch,
+): boolean {
+  return (patch.activePrunedToolResults ?? 0) > 0
+    || (patch.activeArchiveFailures ?? 0) > 0
+    || (patch.activeEstimatedTokensSaved ?? 0) > 0;
+}
+
+function minimalContextBudgetDiagnostic(): ContextBudgetDiagnostic {
+  return {
+    enabled: true,
+    estimatedTokensBefore: 0,
+    estimatedTokensAfter: 0,
+    keptTurns: 0,
+    droppedTurns: 0,
+    keptEvents: 0,
+    droppedEvents: 0,
+  };
 }
 
 function mergeCountRecords(

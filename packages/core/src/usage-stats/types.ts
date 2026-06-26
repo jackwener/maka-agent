@@ -214,6 +214,9 @@ export interface ContextBudgetDiagnostic {
   archiveWriteFailures?: number;
   unarchivedToolResults?: number;
   archivePlaceholderReasonCounts?: Record<string, number>;
+  activePrunedToolResults?: number;
+  activeArchiveFailures?: number;
+  activeEstimatedTokensSaved?: number;
   archiveRetrievalMode?: 'eager' | 'history_search_gated';
   archiveRetrievalEligibleTurns?: number;
   retrievedArchiveToolResults?: number;

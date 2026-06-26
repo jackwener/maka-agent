@@ -58,8 +58,6 @@ export interface ActiveToolResultPrunePolicy {
   maxCurrentResultEstimatedTokens?: number;
   /** Do not rewrite before this SDK step. Defaults to 1, so step 0 is untouched. */
   minStepNumber?: number;
-  /** Defaults to true: archive failure keeps the original payload. */
-  archiveRequired?: boolean;
 }
 
 export interface ArchiveRetrievalPolicy {

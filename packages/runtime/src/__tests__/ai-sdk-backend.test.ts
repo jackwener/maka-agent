@@ -1716,6 +1716,71 @@ describe('AiSdkBackend usage telemetry', () => {
     assert.equal(llmRecords[0]?.rawFinishReason, 'stop');
   });
 
+  test('records active tool-result prune diagnostics in usage telemetry', async () => {
+    const llmRecords: LlmCallRecord[] = [];
+    const largeBody = 'SECRET_PAYLOAD_SHOULD_BE_ARCHIVED'.repeat(200);
+    let streamCalls = 0;
+    const model = new MockLanguageModelV3({
+      doStream: async () => {
+        streamCalls += 1;
+        const chunks: LanguageModelV3StreamPart[] = streamCalls === 1
+          ? [
+              { type: 'stream-start', warnings: [] },
+              {
+                type: 'tool-call',
+                toolCallId: 'tool-1',
+                toolName: 'Read',
+                input: JSON.stringify({ path: 'notes.md' }),
+              },
+              {
+                type: 'finish',
+                finishReason: { unified: 'tool-calls', raw: 'tool_calls' },
+                usage: { inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 1, text: 1, reasoning: 0 } },
+              },
+            ]
+          : [
+              { type: 'stream-start', warnings: [] },
+              { type: 'finish', finishReason: { unified: 'stop', raw: 'stop' }, usage: { inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 1, text: 1, reasoning: 0 } } },
+            ];
+        return { stream: simulateReadableStream({ chunks, initialDelayInMs: null, chunkDelayInMs: null }) };
+      },
+    });
+    const backend = new AiSdkBackend({
+      sessionId: 'session-1',
+      header: header(),
+      appendMessage: async () => {},
+      connection: connection(),
+      apiKey: 'sk-test',
+      modelId: 'mock-model-id',
+      permissionEngine: new PermissionEngine({ newId: () => 'permission-id', now: () => 1 }),
+      modelFactory: () => model,
+      tools: [{
+        name: 'Read',
+        description: 'Read description',
+        parameters: z.object({ path: z.string() }),
+        permissionRequired: false,
+        impl: async () => ({ body: largeBody }),
+      }],
+      contextBudget: {
+        activeToolResultPrune: { enabled: true, maxCurrentResultEstimatedTokens: 1 },
+      },
+      archiveToolResult: async () => ({ artifactId: 'artifact-tool-1' }),
+      newId: idGenerator(),
+      now: monotonicClock(),
+      recordLlmCall: (record) => {
+        llmRecords.push(record);
+      },
+    });
+
+    await drain(backend.send({ turnId: 'turn-1', text: 'hi', context: [] }));
+
+    const contextBudget = llmRecords[0]?.contextBudget as Record<string, unknown> | undefined;
+    assert.equal(streamCalls, 2);
+    assert.equal(contextBudget?.activePrunedToolResults, 1);
+    assert.equal(contextBudget?.activeArchiveFailures, undefined);
+    assert.ok((contextBudget?.activeEstimatedTokensSaved as number | undefined ?? 0) > 0);
+  });
+
   test('normalizes cache and reasoning tokens to messages, events, and telemetry', async () => {
     const messages: unknown[] = [];
     const events: SessionEvent[] = [];
