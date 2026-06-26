@@ -182,8 +182,8 @@ describe('FIRST_RUN_TASK_SUGGESTIONS', () => {
     assert.match(source, /const statusRefreshPendingRef = useRef\(false\)/);
     assert.match(
       source,
-      /useEffect\(\(\) => \{[\s\S]*checklistMountedRef\.current = true;[\s\S]*return \(\) => \{[\s\S]*checklistMountedRef\.current = false;[\s\S]*\};[\s\S]*\}, \[\]\)/,
-      'first-run checklist must restore mounted state during StrictMode replay',
+      /useEffect\(\(\) => \{[\s\S]*checklistMountedRef\.current = true;[\s\S]*return \(\) => \{[\s\S]*checklistMountedRef\.current = false;[\s\S]*statusRefreshPendingRef\.current = false;[\s\S]*\};[\s\S]*\}, \[\]\)/,
+      'first-run checklist must restore mounted state during StrictMode replay and release refresh ownership on unmount',
     );
     assert.match(source, /const isChecklistUnmounted = useCallback\(\(\) => !checklistMountedRef\.current, \[\]\)/);
     assert.match(refreshBlock, /isCancelled: \(\) => boolean = isChecklistUnmounted/);

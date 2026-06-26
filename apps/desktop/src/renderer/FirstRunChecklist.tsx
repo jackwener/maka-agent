@@ -64,6 +64,7 @@ export function FirstRunChecklist(props: FirstRunChecklistProps) {
     checklistMountedRef.current = true;
     return () => {
       checklistMountedRef.current = false;
+      statusRefreshPendingRef.current = false;
     };
   }, []);
 
