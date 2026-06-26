@@ -459,6 +459,26 @@ describe('prompt structural smoke report', () => {
     assert.deepEqual(wrongOrderReport.roundsWithoutRsiAttribution, ['round-1']);
   });
 
+  test('fails R2 smoke when attribution is appended after the next candidate starts', () => {
+    const events = [
+      committedEvent('round-1'),
+      completedEvent('round-1', 'task-1', 0.1),
+      decisionEvent('round-1', 'discard', 'held_in_within_noise', 'run-1', { decision: 'clean' }),
+      committedEvent('round-2'),
+      attributionEvent('round-1'),
+    ];
+
+    const report = promptStructuralSmokeReport({
+      events,
+      minimumRounds: 1,
+      requireRsiR2Evidence: true,
+    });
+
+    assert.equal(report.status, 'fail');
+    assert.deepEqual(report.failures, ['rsi_attribution_missing']);
+    assert.deepEqual(report.roundsWithoutRsiAttribution, ['round-1']);
+  });
+
   test('fails R2 smoke when attribution hashes or held-in task scope are invalid', () => {
     const hashMismatch = [
       committedEvent('round-1'),

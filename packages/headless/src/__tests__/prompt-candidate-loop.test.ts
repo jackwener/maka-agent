@@ -165,6 +165,66 @@ describe('prompt candidate loop', () => {
     });
   });
 
+  test('projects prompt attribution before exposing it to the meta-agent or rendered prompt', async () => {
+    await withDir(async (dir) => {
+      const programPath = join(dir, 'program.md');
+      const systemPromptPath = join(dir, 'system_prompt.md');
+      const resultsTsvPath = join(dir, 'results.tsv');
+      await writeFile(programPath, 'Improve the prompt conservatively.\n', 'utf8');
+      await writeFile(systemPromptPath, 'original prompt\n', 'utf8');
+      await writeFile(resultsTsvPath, 'task_id\tpassed\ntask-a\tfalse\n', 'utf8');
+
+      const unsafePromptAttribution = {
+        candidateCommitSha: 'commit-secret',
+        predictedFixes: [{ taskId: 'task-a', outcome: 'improved' }],
+        riskTasks: [],
+        unexpectedHeldInFlips: [],
+        decision: { decision: 'discard', reason: 'held_out_regressed' },
+        decisionReason: 'coverage_regressed',
+        rootCauseSignalMatch: 'matched',
+      };
+
+      let seenInput: MetaAgentPromptInput | undefined;
+      await runPromptCandidateRound({
+        runId: 'run-1',
+        roundId: 'round-1',
+        agentCwdPath: await testAgentCwd(dir),
+        programPath,
+        systemPromptPath,
+        resultsTsvPath,
+        resultsJsonlPath: join(dir, 'results.jsonl'),
+        heldInTaskIds: ['task-a'],
+        heldInDigests: [{ taskId: 'task-a', summary: 'failed held-in task' }],
+        promptAttribution: unsafePromptAttribution as unknown as MetaAgentPromptInput['promptAttribution'],
+        metaAgent: async (input): Promise<MetaAgentPromptResult> => {
+          seenInput = input;
+          return candidatePromptResult();
+        },
+        git: gitNoop(dir),
+        now: () => 100,
+        newId: idFactory(),
+      });
+
+      assert.ok(seenInput);
+      assert.deepEqual(seenInput.promptAttribution, {
+        predictedFixes: [{ taskId: 'task-a', outcome: 'improved' }],
+        riskTasks: [],
+        unexpectedHeldInFlips: [],
+        rootCauseSignalMatch: 'matched',
+      });
+
+      const rendered = renderMetaAgentPrompt(seenInput);
+      assert.equal(rendered.includes('commit-secret'), false);
+      assert.equal(rendered.includes('candidateCommitSha'), false);
+      assert.equal(rendered.includes('held_out_regressed'), false);
+      assert.equal(rendered.includes('coverage_regressed'), false);
+      assert.equal(rendered.includes('decisionReason'), false);
+      assert.equal(rendered.includes('"decision"'), false);
+      assert.match(rendered, /"predictedFixes"/);
+      assert.match(rendered, /"rootCauseSignalMatch"/);
+    });
+  });
+
   test('rejects meta-agent output without candidateRationale before writing or committing', async () => {
     await withDir(async (dir) => {
       const programPath = join(dir, 'program.md');

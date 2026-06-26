@@ -13,7 +13,10 @@ import {
   type PromptCandidateFailurePattern,
   type PromptCandidateRationale,
 } from './fixed-prompt-controller.js';
-import type { RsiPromptAttribution } from './rsi-controller-attribution.js';
+import {
+  projectRsiPromptAttribution,
+  type ProjectRsiPromptAttributionInput,
+} from './rsi-controller-attribution.js';
 import type { RsiRoundAnalysis } from './rsi-round-analysis.js';
 
 const execFileAsync = promisify(execFile);
@@ -76,7 +79,7 @@ export interface MetaAgentPromptInput {
   resultsTsv: string;
   heldInDigests: readonly TrajectoryDigest[];
   rsiAnalysis?: RsiRoundAnalysis;
-  promptAttribution?: RsiPromptAttribution;
+  promptAttribution?: ProjectRsiPromptAttributionInput;
 }
 
 export interface MetaAgentPromptResult {
@@ -123,7 +126,7 @@ export interface RunPromptCandidateRoundInput {
   heldInTaskIds: readonly string[];
   heldInDigests: readonly TrajectoryDigest[];
   rsiAnalysis?: RsiRoundAnalysis;
-  promptAttribution?: RsiPromptAttribution;
+  promptAttribution?: ProjectRsiPromptAttributionInput;
   heldOutDigests?: readonly TrajectoryDigest[];
   heldOutArtifactPaths?: readonly string[];
   metaAgent: MetaAgent;
@@ -170,6 +173,9 @@ export async function runPromptCandidateRound(
     await readFile(input.resultsTsvPath, 'utf8'),
     input.heldInTaskIds,
   );
+  const promptAttribution = input.promptAttribution
+    ? projectRsiPromptAttribution(input.promptAttribution)
+    : undefined;
   const result = await input.metaAgent({
     runId: input.runId,
     roundId: input.roundId,
@@ -178,7 +184,7 @@ export async function runPromptCandidateRound(
     resultsTsv,
     heldInDigests: input.heldInDigests,
     ...(input.rsiAnalysis ? { rsiAnalysis: input.rsiAnalysis } : {}),
-    ...(input.promptAttribution ? { promptAttribution: input.promptAttribution } : {}),
+    ...(promptAttribution ? { promptAttribution } : {}),
   });
   const candidateRationale = validateCandidateRationale(result.candidateRationale, input.heldInTaskIds, input.rsiAnalysis);
 
@@ -416,10 +422,10 @@ function renderRsiAnalysis(analysis: RsiRoundAnalysis | undefined): string[] {
   ] : [];
 }
 
-function renderPromptAttribution(attribution: RsiPromptAttribution | undefined): string[] {
+function renderPromptAttribution(attribution: ProjectRsiPromptAttributionInput | undefined): string[] {
   return attribution ? [
     '# RSI R2 Previous Prompt Attribution',
-    JSON.stringify(attribution, null, 2),
+    JSON.stringify(projectRsiPromptAttribution(attribution), null, 2),
   ] : [];
 }
 

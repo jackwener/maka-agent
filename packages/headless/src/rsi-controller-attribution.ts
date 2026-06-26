@@ -1,13 +1,18 @@
 import type {
   FixedPromptTaskWalEvent,
   PromptCandidateRationale,
+  RsiPredictedFixOutcome,
+  RsiRiskTaskOutcome,
+  RsiRootCauseSignalMatch,
 } from './fixed-prompt-controller.js';
 import type { PromptAcceptanceResult } from './prompt-acceptance-policy.js';
 import type { RsiRoundAnalysis, RsiTaskOutcome, RsiTaskTransition } from './rsi-round-analysis.js';
 
-export type RsiPredictedFixOutcome = 'improved' | 'unchanged' | 'regressed' | 'unscored' | 'missing';
-export type RsiRiskTaskOutcome = 'safe' | 'regressed' | 'unscored' | 'missing';
-export type RsiRootCauseSignalMatch = 'matched' | 'contradicted' | 'unknown';
+export type {
+  RsiPredictedFixOutcome,
+  RsiRiskTaskOutcome,
+  RsiRootCauseSignalMatch,
+} from './fixed-prompt-controller.js';
 
 export interface RsiControllerAttribution {
   runId: string;

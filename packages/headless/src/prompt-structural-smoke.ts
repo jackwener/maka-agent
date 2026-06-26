@@ -192,16 +192,27 @@ function roundsWithoutPostDecisionRsiAttribution(events: readonly FixedPromptWal
     }
     if (event.type === 'prompt_candidate_decided') {
       const candidateKey = decisionCandidateEvidenceKey(event);
-      const hasLaterAttribution = events.slice(index + 1).some((later) => (
-        later.type === 'rsi_controller_attribution'
-        && attributionCandidateEvidenceKey(later) === candidateKey
-      ));
+      const hasLaterAttribution = hasPostDecisionAttributionBeforeNextCandidate(events, index, candidateKey);
       if (!hasLaterAttribution || attributedCandidates.has(candidateKey)) {
         missingRounds.set(roundEvidenceKey(event), event.roundId);
       }
     }
   });
   return [...missingRounds.values()];
+}
+
+function hasPostDecisionAttributionBeforeNextCandidate(
+  events: readonly FixedPromptWalEvent[],
+  decisionIndex: number,
+  candidateKey: string,
+): boolean {
+  for (const later of events.slice(decisionIndex + 1)) {
+    if (later.type === 'rsi_controller_attribution' && attributionCandidateEvidenceKey(later) === candidateKey) {
+      return true;
+    }
+    if (later.type === 'prompt_candidate_committed') return false;
+  }
+  return false;
 }
 
 function malformedRsiAttributionRounds(events: readonly FixedPromptWalEvent[]): string[] {
