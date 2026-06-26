@@ -356,7 +356,9 @@ function AppShell() {
   }
   const composerRef = useRef<ComposerHandle>(null);
   const activeIdRef = useRef<string | undefined>(undefined);
+  const rendererMountedRef = useRef(true);
   const projectPickerPendingRef = useRef(false);
+  const projectPickerRequestRef = useRef(0);
   const activeStreamingSlot = activeId ? streamingBySession[activeId] : undefined;
   const activeStreaming = activeStreamingSlot?.text ?? '';
   const activeStreamingTruncated = activeStreamingSlot?.truncated === true;
@@ -1087,8 +1089,12 @@ function AppShell() {
         openSettings();
       }
     }
+    rendererMountedRef.current = true;
     window.addEventListener('keydown', onKeyDown);
     return () => {
+      rendererMountedRef.current = false;
+      projectPickerRequestRef.current += 1;
+      projectPickerPendingRef.current = false;
       unsubscribeConnections();
       unsubscribeSessionChanges();
       unsubscribeOpenSettings();
@@ -1647,10 +1653,14 @@ function AppShell() {
 
   async function selectProjectDirectory() {
     if (projectPickerPendingRef.current) return;
+    const requestId = projectPickerRequestRef.current + 1;
+    projectPickerRequestRef.current = requestId;
     projectPickerPendingRef.current = true;
     setProjectPickerPending(true);
+    const isCurrentProjectPickerRequest = () => rendererMountedRef.current && projectPickerRequestRef.current === requestId;
     try {
       const result = await window.maka.app.selectProjectDirectory();
+      if (!isCurrentProjectPickerRequest()) return;
       if (!result.ok) {
         if (result.reason !== 'cancelled') {
           toastApi.error('选择工作目录失败', selectProjectDirectoryFailureCopy(result.reason));
@@ -1660,10 +1670,14 @@ function AppShell() {
       setAppInfo({ projectPath: result.projectPath, projectGit: result.projectGit });
       toastApi.success('已切换工作目录', basenameFromPath(result.projectPath));
     } catch (error) {
-      toastApi.error('选择工作目录失败', generalizedErrorMessageChinese(error, '项目路径暂时无法读取，请稍后重试。'));
+      if (isCurrentProjectPickerRequest()) {
+        toastApi.error('选择工作目录失败', generalizedErrorMessageChinese(error, '项目路径暂时无法读取，请稍后重试。'));
+      }
     } finally {
-      projectPickerPendingRef.current = false;
-      setProjectPickerPending(false);
+      if (projectPickerRequestRef.current === requestId) {
+        projectPickerPendingRef.current = false;
+        if (rendererMountedRef.current) setProjectPickerPending(false);
+      }
     }
   }
 

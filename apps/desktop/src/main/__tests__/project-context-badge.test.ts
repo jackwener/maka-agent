@@ -83,16 +83,28 @@ describe('project context workspace picker', () => {
     assert.match(renderer, /async function selectProjectDirectory\(\)/);
     assert.match(renderer, /window\.maka\.app\.selectProjectDirectory\(\)/);
     assert.match(renderer, /const \[projectPickerPending, setProjectPickerPending\] = useState\(false\)/);
+    assert.match(renderer, /const rendererMountedRef = useRef\(true\)/);
     assert.match(renderer, /const projectPickerPendingRef = useRef\(false\)/);
+    assert.match(renderer, /const projectPickerRequestRef = useRef\(0\)/);
     assert.match(
       renderer,
-      /async function selectProjectDirectory\(\) \{[\s\S]*if \(projectPickerPendingRef\.current\) return;[\s\S]*projectPickerPendingRef\.current = true;[\s\S]*setProjectPickerPending\(true\);[\s\S]*window\.maka\.app\.selectProjectDirectory\(\)/,
+      /return \(\) => \{[\s\S]*rendererMountedRef\.current = false;[\s\S]*projectPickerRequestRef\.current \+= 1;[\s\S]*projectPickerPendingRef\.current = false;/,
+      'project picker must invalidate native-dialog owners when the renderer shell unmounts',
+    );
+    assert.match(
+      renderer,
+      /async function selectProjectDirectory\(\) \{[\s\S]*if \(projectPickerPendingRef\.current\) return;[\s\S]*const requestId = projectPickerRequestRef\.current \+ 1;[\s\S]*projectPickerRequestRef\.current = requestId;[\s\S]*projectPickerPendingRef\.current = true;[\s\S]*setProjectPickerPending\(true\);[\s\S]*const isCurrentProjectPickerRequest = \(\) => rendererMountedRef\.current && projectPickerRequestRef\.current === requestId;[\s\S]*window\.maka\.app\.selectProjectDirectory\(\)[\s\S]*if \(!isCurrentProjectPickerRequest\(\)\) return;/,
       'project picker must synchronously reject duplicate native dialog requests before React commits disabled state',
     );
     assert.match(
       renderer,
-      /finally \{[\s\S]*projectPickerPendingRef\.current = false;[\s\S]*setProjectPickerPending\(false\);/,
-      'project picker must release its pending owner after the native dialog resolves or fails',
+      /catch \(error\) \{[\s\S]*if \(isCurrentProjectPickerRequest\(\)\) \{[\s\S]*toastApi\.error\('选择工作目录失败'/,
+      'project picker failure feedback must stay scoped to the current mounted picker request',
+    );
+    assert.match(
+      renderer,
+      /finally \{[\s\S]*if \(projectPickerRequestRef\.current === requestId\) \{[\s\S]*projectPickerPendingRef\.current = false;[\s\S]*if \(rendererMountedRef\.current\) setProjectPickerPending\(false\);/,
+      'project picker must release only the matching pending owner after the native dialog resolves or fails',
     );
     assert.match(renderer, /setAppInfo\(\{ projectPath: result\.projectPath, projectGit: result\.projectGit \}\)/);
     assert.match(renderer, /toastApi\.success\('已切换工作目录', basenameFromPath\(result\.projectPath\)\)/);
