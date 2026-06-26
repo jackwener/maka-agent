@@ -193,8 +193,10 @@ export const SETTINGS_NAV: SettingsNavItem[] = [
     description: '本地 MEMORY.md、项目指令文件与上下文注入开关。' },
   { id: 'daily-review', label: '每日回顾', Icon: CalendarDays, enabled: true, group: 'AI 与集成',
     description: '当天对话、模型与工具用量汇总。' },
-  { id: 'voice-gateway', label: '语音与网关', Icon: Volume2, enabled: true, group: 'AI 与集成',
-    description: '语音转写与 Maka 开放网关 SSE 接入。' },
+  { id: 'voice', label: '语音', Icon: Mic, enabled: true, group: 'AI 与集成',
+    description: '语音转写、麦克风权限与本地音频管线设置。' },
+  { id: 'open-gateway', label: '开放网关', Icon: Network, enabled: true, group: 'AI 与集成',
+    description: 'Maka 开放网关 SSE/HTTP 接入、token 管理与运行时状态。' },
   { id: 'bot-chat', label: '机器人对话', Icon: Bot, enabled: true, group: 'AI 与集成',
     description: 'Telegram / 飞书 / 企业微信等机器人凭据与运行状态。' },
   { id: 'search', label: '联网搜索', Icon: Search, enabled: true, group: 'AI 与集成',
@@ -1190,17 +1192,14 @@ function SettingsPage(props: {
       );
     case 'daily-review':
       return <DailyReviewSettingsPage onOpenDailyReview={props.onOpenDailyReview} />;
-    case 'voice-gateway':
-      // PR-SETTINGS-IA-CONSOLIDATE-0: 语音模型 + 开放网关 → 语音与网关.
-      // PR-SETTINGS-SWEEP-0: section heading per sub-block.
-      return (
-        <div className="settingsStructuredPage">
-          <h2 className="settingsSectionHeading">语音模型</h2>
-          <VoiceModelsSettingsPage />
-          <h2 className="settingsSectionHeading">开放网关</h2>
-          <OpenGatewaySettingsPage settings={props.settings} onUpdate={props.onUpdateSettings} />
-        </div>
-      );
+    case 'voice':
+      // PR-VOICE-GATEWAY-SPLIT-0 (WAWQAQ msg `d3ea9a33` 2026-06-26):
+      // 语音 + 网关 是两套独立的功能（一个是本地麦克风/转写管线，
+      // 一个是远程 SSE/HTTP 网关），合在一页里读起来既挤又混。
+      // 拆成两个独立的 nav 项各自独立呈现。
+      return <VoiceModelsSettingsPage />;
+    case 'open-gateway':
+      return <OpenGatewaySettingsPage settings={props.settings} onUpdate={props.onUpdateSettings} />;
     case 'search':
       return (
         <WebSearchSettingsPage
@@ -7027,6 +7026,11 @@ function SettingRow(props: { title: string; detail: string; value: string }) {
 function readLastSettingsSection(): SettingsSection {
   const value = safeLocalStorageGet('maka-settings-section-v1');
   if (!value) return 'models';
+  // PR-VOICE-GATEWAY-SPLIT-0 (WAWQAQ msg `d3ea9a33` 2026-06-26):
+  // anyone whose last visit was the now-retired combined 语音与网关
+  // page lands on 语音 (the more user-frequent of the two split
+  // pages) instead of being silently bounced back to 模型.
+  if (value === 'voice-gateway') return 'voice';
   if (SETTINGS_NAV.some((item) => item.id === value)) {
     return value as SettingsSection;
   }
