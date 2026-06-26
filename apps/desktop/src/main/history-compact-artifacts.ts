@@ -1,5 +1,5 @@
 import { Buffer } from 'node:buffer';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type { ArtifactRecord } from '@maka/core';
 import {
   buildHistoryCompactBlockFromSummary,
@@ -26,30 +26,20 @@ export async function persistHistoryCompactBlocksToArtifacts(
   deps: PersistHistoryCompactBlocksDeps = {},
 ): Promise<HistoryCompactWriteResult> {
   const now = deps.now?.() ?? Date.now();
-  const sourceArchiveRefs: HistoryCompactSourceArchiveRef[] = [];
-  for (const event of input.source.foldedRuntimeEvents) {
+  const sourceArchives = input.source.foldedRuntimeEvents.map((event) => {
     const serializedBody = serializeHistoryCompactSourceBody(event.content ?? {});
     const bodySha256 = sha256(serializedBody);
-    const artifact = await artifactStore.create({
-      sessionId: input.sessionId,
-      turnId: event.turnId,
-      name: `history-compact-source-${event.id}.json`,
-      kind: 'file',
-      content: JSON.stringify(event, null, 2),
-      mimeType: 'application/json',
-      source: 'history_compact_source',
-      summary: 'Archived RuntimeEvent source for history compact replay',
-      now,
-    });
-    await deps.onArtifactCreated?.(artifact);
-    sourceArchiveRefs.push({
+    const artifactId = randomUUID();
+    const ref: HistoryCompactSourceArchiveRef = {
       runtimeEventId: event.id,
-      artifactId: artifact.id,
+      artifactId,
       bodySha256,
       originalEstimatedTokens: estimateTokens(serializedBody.length, input.limits.charsPerToken),
       originalBytes: Buffer.byteLength(serializedBody, 'utf8'),
-    });
-  }
+    };
+    return { event, ref };
+  });
+  const sourceArchiveRefs = sourceArchives.map((archive) => archive.ref);
 
   const hostSummary = await Promise.resolve(deps.summarize?.(input));
   const block = buildHistoryCompactBlockFromSummary({
@@ -70,6 +60,21 @@ export async function persistHistoryCompactBlocksToArtifacts(
   }
   if ((block.estimatedTokens ?? 0) > input.limits.maxEstimatedTokens) {
     return { blocks: [], skipped: 1, skippedReasonCounts: { max_total_tokens: 1 } };
+  }
+  for (const { event, ref } of sourceArchives) {
+    const artifact = await artifactStore.create({
+      id: ref.artifactId,
+      sessionId: input.sessionId,
+      turnId: event.turnId,
+      name: `history-compact-source-${event.id}.json`,
+      kind: 'file',
+      content: JSON.stringify(event, null, 2),
+      mimeType: 'application/json',
+      source: 'history_compact_source',
+      summary: 'Archived RuntimeEvent source for history compact replay',
+      now,
+    });
+    await deps.onArtifactCreated?.(artifact);
   }
   const artifact = await artifactStore.create({
     sessionId: input.sessionId,
