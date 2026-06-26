@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { describe, test, type TestContext } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { RUNTIME_POLICY_CONTEXT_ENV_KEYS } from '../runtime-policy-ab-run.js';
 
 const repoRoot = resolve(fileURLToPath(new URL('../../../..', import.meta.url)));
 
@@ -91,23 +92,24 @@ describe('Harbor adapter contract', () => {
     assert.doesNotMatch(result.stderr, /does not provide an export named/);
   });
 
-  test('run-host-cell.mjs forwards only allowlisted context budget env to the backend', async () => {
+  test('run-host-cell.mjs forwards runtime-policy context env keys to the backend', async () => {
     const tmp = mkdtempSync(resolve(tmpdir(), 'maka-host-cell-env-'));
     try {
       const keyFile = resolve(tmp, 'key.txt');
       await writeFile(keyFile, 'test-key\n', 'utf8');
       const { backendEnv } = await import(new URL('../../harbor/run-host-cell.mjs', import.meta.url).href);
+      const contextEnv = Object.fromEntries(RUNTIME_POLICY_CONTEXT_ENV_KEYS.map((key) => [key, `value-for-${key}`]));
       const env = await backendEnv({
         MAKA_HOST_API_KEY_FILE: keyFile,
-        MAKA_CONTEXT_STALE_TOOL_RESULT_PRUNE: 'on',
-        MAKA_CONTEXT_ARCHIVE_RETRIEVAL: 'on',
+        ...contextEnv,
         MAKA_CONTEXT_FOO: '1',
         MAKA_OUTPUT_DIR: '/tmp/out',
         MAKA_STORAGE_ROOT: '/tmp/storage',
       }, 'deepseek');
 
-      assert.equal(env.MAKA_CONTEXT_STALE_TOOL_RESULT_PRUNE, 'on');
-      assert.equal(env.MAKA_CONTEXT_ARCHIVE_RETRIEVAL, 'on');
+      for (const key of RUNTIME_POLICY_CONTEXT_ENV_KEYS) {
+        assert.equal(env[key], contextEnv[key]);
+      }
       assert.equal(env.MAKA_OUTPUT_DIR, '/tmp/out');
       assert.equal(env.MAKA_STORAGE_ROOT, '/tmp/storage');
       assert.equal(env.MAKA_CONTEXT_FOO, undefined);
@@ -669,6 +671,7 @@ with tempfile.TemporaryDirectory() as tmp:
     else:
         raise AssertionError("expected invalid zero-token trial pricing to raise")
 
+    runtime_policy_context_env = {key: f"value-for-{key}" for key in ${JSON.stringify([...RUNTIME_POLICY_CONTEXT_ENV_KEYS])}}
     gateway_agent = MakaAgent(Path(tmp), extra_env={
         "MAKA_HOST_API_KEY_FILE": "/host/deepseek-key",
         "MAKA_PROVIDER": "openai-compatible",
@@ -677,8 +680,7 @@ with tempfile.TemporaryDirectory() as tmp:
         "MAKA_TRIAL_OUTPUT_USD_PER_1M": "0.29",
         "MAKA_TRIAL_CACHE_READ_USD_PER_1M": "0.0029",
         "MAKA_TRIAL_PRICING_SOURCE": "deepseek-v4-flash",
-        "MAKA_CONTEXT_STALE_TOOL_RESULT_PRUNE": "on",
-        "MAKA_CONTEXT_ARCHIVE_RETRIEVAL": "on",
+        **runtime_policy_context_env,
         "MAKA_CONTEXT_FOO": "1",
     })
     gateway_env = gateway_agent._cell_env(Path("/logs/agent/instruction.txt"))
@@ -690,8 +692,8 @@ with tempfile.TemporaryDirectory() as tmp:
     assert gateway_env["MAKA_TRIAL_OUTPUT_USD_PER_1M"] == "0.29", gateway_env
     assert gateway_env["MAKA_TRIAL_CACHE_READ_USD_PER_1M"] == "0.0029", gateway_env
     assert gateway_env["MAKA_TRIAL_PRICING_SOURCE"] == "deepseek-v4-flash", gateway_env
-    assert gateway_env["MAKA_CONTEXT_STALE_TOOL_RESULT_PRUNE"] == "on", gateway_env
-    assert gateway_env["MAKA_CONTEXT_ARCHIVE_RETRIEVAL"] == "on", gateway_env
+    for key, value in runtime_policy_context_env.items():
+        assert gateway_env[key] == value, gateway_env
     assert "MAKA_CONTEXT_FOO" not in gateway_env, gateway_env
 
     # Cell wall-clock timeout is operator-configurable with a safe default and a

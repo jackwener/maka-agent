@@ -695,6 +695,42 @@ describe('runHarborCell', () => {
     });
   });
 
+  test('Harbor context budget env rejects explicit malformed booleans', () => {
+    assert.throws(
+      () => buildHarborCellContextBudgetBackendOptions({ MAKA_CONTEXT_STALE_TOOL_RESULT_PRUNE: 'treu' }),
+      /MAKA_CONTEXT_STALE_TOOL_RESULT_PRUNE must be a boolean/,
+    );
+    assert.throws(
+      () => buildHarborCellContextBudgetBackendOptions({ MAKA_CONTEXT_ARCHIVE_RETRIEVAL: 'onn' }),
+      /MAKA_CONTEXT_ARCHIVE_RETRIEVAL must be a boolean/,
+    );
+    assert.throws(
+      () => buildHarborCellContextBudgetBackendOptions({
+        MAKA_CONTEXT_ACTIVE_TOOL_RESULT_PRUNE: 'on',
+        MAKA_CONTEXT_ACTIVE_TOOL_RESULT_ARCHIVE_REQUIRED: 'maybe',
+      }),
+      /MAKA_CONTEXT_ACTIVE_TOOL_RESULT_ARCHIVE_REQUIRED must be a boolean/,
+    );
+  });
+
+  test('Harbor context budget env treats explicit false-like booleans as disabled', () => {
+    assert.equal(
+      buildHarborCellContextBudgetBackendOptions({ MAKA_CONTEXT_STALE_TOOL_RESULT_PRUNE: 'false' }).contextBudget,
+      undefined,
+    );
+    assert.equal(
+      buildHarborCellContextBudgetBackendOptions({ MAKA_CONTEXT_ARCHIVE_RETRIEVAL: 'off' }).contextBudget,
+      undefined,
+    );
+    assert.deepEqual(
+      buildHarborCellContextBudgetBackendOptions({
+        MAKA_CONTEXT_ACTIVE_TOOL_RESULT_PRUNE: 'enabled',
+        MAKA_CONTEXT_ACTIVE_TOOL_RESULT_ARCHIVE_REQUIRED: 'disabled',
+      }).contextBudget?.activeToolResultPrune,
+      { enabled: true, archiveRequired: false },
+    );
+  });
+
   test('Harbor tool builder keeps the six container-native tools non-interactive', () => {
     const tools = buildHarborCellAiSdkTools(fakeToolExecutor());
     const names = tools.map((tool) => tool.name);

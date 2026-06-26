@@ -391,16 +391,19 @@ export function buildHarborCellContextBudgetBackendOptions(
     env.MAKA_CONTEXT_STALE_TOOL_RESULT_PRUNE ??
     env.MAKA_HARBOR_CONTEXT_STALE_TOOL_RESULT_PRUNE ??
     env.MAKA_TOOL_RESULT_PRUNE,
-  );
+    'MAKA_CONTEXT_STALE_TOOL_RESULT_PRUNE',
+  ) ?? false;
   const activePruneEnabled = booleanEnv(
     env.MAKA_CONTEXT_ACTIVE_TOOL_RESULT_PRUNE ??
     env.MAKA_HARBOR_CONTEXT_ACTIVE_TOOL_RESULT_PRUNE ??
     env.MAKA_ACTIVE_TOOL_RESULT_PRUNE,
-  );
+    'MAKA_CONTEXT_ACTIVE_TOOL_RESULT_PRUNE',
+  ) ?? false;
   const archiveRetrievalEnabled = booleanEnv(
     env.MAKA_CONTEXT_ARCHIVE_RETRIEVAL ??
     env.MAKA_HARBOR_CONTEXT_ARCHIVE_RETRIEVAL,
-  );
+    'MAKA_CONTEXT_ARCHIVE_RETRIEVAL',
+  ) ?? false;
   if (!pruneEnabled && !activePruneEnabled && !archiveRetrievalEnabled) return {};
 
   const contextBudget: ContextBudgetPolicy = {
@@ -446,11 +449,12 @@ export function buildHarborCellContextBudgetBackendOptions(
     const archiveRequiredRaw =
       env.MAKA_CONTEXT_ACTIVE_TOOL_RESULT_ARCHIVE_REQUIRED ??
       env.MAKA_CONTEXT_ACTIVE_TOOL_RESULT_PRUNE_ARCHIVE_REQUIRED;
+    const archiveRequired = booleanEnv(archiveRequiredRaw, 'MAKA_CONTEXT_ACTIVE_TOOL_RESULT_ARCHIVE_REQUIRED');
     contextBudget.activeToolResultPrune = {
       enabled: true,
       ...(maxCurrentResultEstimatedTokens !== undefined ? { maxCurrentResultEstimatedTokens } : {}),
       ...(minStepNumber !== undefined ? { minStepNumber } : {}),
-      ...(archiveRequiredRaw !== undefined ? { archiveRequired: booleanEnv(archiveRequiredRaw) } : {}),
+      ...(archiveRequired !== undefined ? { archiveRequired } : {}),
     };
   }
 
@@ -680,17 +684,24 @@ function archiveRetrievalModeEnv(
   throw new Error(`MAKA_CONTEXT_ARCHIVE_RETRIEVAL_MODE must be one of eager, history_search_gated, got ${JSON.stringify(raw)}`);
 }
 
-function booleanEnv(raw: string | undefined): boolean {
-  if (raw === undefined) return false;
-  switch (raw.trim().toLowerCase()) {
+function booleanEnv(raw: string | undefined, name: string): boolean | undefined {
+  const value = raw?.trim().toLowerCase();
+  if (value === undefined || value === '') return undefined;
+  switch (value) {
     case '1':
     case 'true':
     case 'yes':
     case 'on':
     case 'enabled':
       return true;
-    default:
+    case '0':
+    case 'false':
+    case 'no':
+    case 'off':
+    case 'disabled':
       return false;
+    default:
+      throw new Error(`${name} must be a boolean, got ${JSON.stringify(raw)}`);
   }
 }
 
