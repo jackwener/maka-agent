@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import { exec as nodeExec } from 'node:child_process';
@@ -22,9 +23,12 @@ import {
   runShellWithBoundedTail,
   type MakaTool,
   type InvocationResult,
+  type AiSdkBackendInput,
+  type ContextBudgetPolicy,
 } from '@maka/runtime';
 import {
   createAgentRunStore,
+  createArtifactStore,
   createRuntimeEventStore,
   createSessionStore,
 } from '@maka/storage';
@@ -298,6 +302,8 @@ export function buildAiSdkCellBackendRegistration(input: {
   const lookupPricing = pricingOverride
     ? (key: string): PricingConfig | null => (key === modelKey ? pricingOverride : getBuiltinPricing(key))
     : getBuiltinPricing;
+  const contextBudget = buildHarborCellContextBudgetPolicy(input.env);
+  const archiveHooks = contextBudget ? buildHarborCellToolResultArchiveHooks(input.env) : {};
   const permissionEngine = new PermissionEngine({ newId: input.newId, now: input.now });
   return (registry, context) => {
     if (!context.toolExecutor) {
@@ -322,6 +328,8 @@ export function buildAiSdkCellBackendRegistration(input: {
         providerOptions: buildProviderOptions(connection, input.model),
         systemPrompt: harborCellSystemPrompt(context.config.systemPrompt),
         lookupPricing,
+        ...(contextBudget ? { contextBudget } : {}),
+        ...archiveHooks,
         newId: input.newId,
         now: input.now,
         recordRunTrace: ctx.recordRunTrace,
@@ -435,6 +443,115 @@ function resolveHarborCellPricingOverride(env: RunHarborCellEnv, modelKey: strin
     ...(cacheReadUsdPer1M !== undefined ? { cacheReadUsdPer1M } : {}),
     ...(cacheWriteUsdPer1M !== undefined ? { cacheWriteUsdPer1M } : {}),
   };
+}
+
+function buildHarborCellContextBudgetPolicy(env: RunHarborCellEnv): ContextBudgetPolicy | undefined {
+  if (env.MAKA_CONTEXT_BUDGET === 'off') return undefined;
+  const maxHistoryEstimatedTokens = positiveIntEnv(env.MAKA_CONTEXT_HISTORY_BUDGET_TOKENS);
+  const maxHistoryTurns = positiveIntEnv(env.MAKA_CONTEXT_HISTORY_BUDGET_TURNS);
+  const minRecentTurns = positiveIntEnv(env.MAKA_CONTEXT_MIN_RECENT_TURNS, 2);
+  const staleToolResultPrune = buildHarborCellStaleToolResultPrunePolicy(env, minRecentTurns);
+  const archiveRetrieval = buildHarborCellArchiveRetrievalPolicy(env);
+
+  if (
+    maxHistoryEstimatedTokens === undefined &&
+    maxHistoryTurns === undefined &&
+    staleToolResultPrune === undefined &&
+    archiveRetrieval === undefined
+  ) {
+    return undefined;
+  }
+
+  return {
+    name: 'harbor-cell-context-budget',
+    ...(maxHistoryTurns !== undefined ? { maxHistoryTurns } : {}),
+    ...(maxHistoryEstimatedTokens !== undefined ? { maxHistoryEstimatedTokens } : {}),
+    ...(staleToolResultPrune !== undefined ? { staleToolResultPrune } : {}),
+    ...(archiveRetrieval !== undefined ? { archiveRetrieval } : {}),
+    minRecentTurns,
+  };
+}
+
+function buildHarborCellStaleToolResultPrunePolicy(
+  env: RunHarborCellEnv,
+  minRecentTurns: number,
+): NonNullable<ContextBudgetPolicy['staleToolResultPrune']> | undefined {
+  if (env.MAKA_CONTEXT_STALE_TOOL_RESULT_PRUNE !== 'on') return undefined;
+  return {
+    enabled: true,
+    maxResultEstimatedTokens: positiveIntEnv(env.MAKA_CONTEXT_STALE_TOOL_RESULT_MAX_TOKENS, 2048),
+    minRecentTurnsFull: positiveIntEnv(env.MAKA_CONTEXT_STALE_TOOL_RESULT_MIN_RECENT_TURNS, minRecentTurns),
+  };
+}
+
+function buildHarborCellArchiveRetrievalPolicy(
+  env: RunHarborCellEnv,
+): NonNullable<ContextBudgetPolicy['archiveRetrieval']> | undefined {
+  if (env.MAKA_CONTEXT_ARCHIVE_RETRIEVAL !== 'on') return undefined;
+  const mode = parseArchiveRetrievalMode(env.MAKA_CONTEXT_ARCHIVE_RETRIEVAL_MODE);
+  return {
+    enabled: true,
+    ...(mode ? { mode } : {}),
+    maxResults: positiveIntEnv(env.MAKA_CONTEXT_ARCHIVE_RETRIEVAL_MAX_RESULTS, 3),
+    maxEstimatedTokens: positiveIntEnv(env.MAKA_CONTEXT_ARCHIVE_RETRIEVAL_MAX_TOKENS, 8192),
+    maxBytes: positiveIntEnv(env.MAKA_CONTEXT_ARCHIVE_RETRIEVAL_MAX_BYTES, 1024 * 1024),
+    order: 'newest_first',
+  };
+}
+
+function positiveIntEnv(raw: string | undefined): number | undefined;
+function positiveIntEnv(raw: string | undefined, fallback: number): number;
+function positiveIntEnv(raw: string | undefined, fallback?: number): number | undefined {
+  if (raw === undefined || raw.trim() === '') return fallback;
+  const value = Number.parseInt(raw, 10);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function parseArchiveRetrievalMode(
+  value: string | undefined,
+): NonNullable<ContextBudgetPolicy['archiveRetrieval']>['mode'] | undefined {
+  return value === 'eager' || value === 'history_search_gated' ? value : undefined;
+}
+
+function buildHarborCellToolResultArchiveHooks(env: RunHarborCellEnv): {
+  archiveToolResult: NonNullable<AiSdkBackendInput['archiveToolResult']>;
+  readToolResultArchive: NonNullable<AiSdkBackendInput['readToolResultArchive']>;
+} {
+  const artifactStore = createArtifactStore(resolveHarborCellStorageRoot(env));
+  return {
+    archiveToolResult: async (event) => {
+      const artifact = await artifactStore.create({
+        sessionId: event.sessionId,
+        turnId: event.turnId,
+        name: `tool-result-${event.runtimeEventId}.json`,
+        kind: 'file',
+        content: event.serializedResult,
+        mimeType: 'application/json',
+        source: 'tool_result_archive',
+        summary: `${event.toolName} tool result archive`,
+      });
+      return { artifactId: artifact.id };
+    },
+    readToolResultArchive: async (event) => {
+      const artifact = await artifactStore.get(event.artifactId);
+      if (!artifact) return { ok: false, reason: 'not_found' };
+      if (artifact.source !== 'tool_result_archive') return { ok: false, reason: 'source_mismatch' };
+      if (artifact.sessionId !== event.sessionId) return { ok: false, reason: 'session_mismatch' };
+      if (artifact.sizeBytes !== event.originalBytes) return { ok: false, reason: 'size_mismatch' };
+      const read = await artifactStore.readText(event.artifactId, { maxBytes: event.maxBytes });
+      if (!read.ok) return read;
+      if (sha256(read.text) !== event.bodySha256) return { ok: false, reason: 'corrupt' };
+      return { ok: true, serializedResult: read.text };
+    },
+  };
+}
+
+function resolveHarborCellStorageRoot(env: RunHarborCellEnv): string {
+  return env.MAKA_STORAGE_ROOT ?? join(env.MAKA_OUTPUT_DIR ?? '/logs/agent', 'maka-storage');
+}
+
+function sha256(text: string): string {
+  return createHash('sha256').update(text).digest('hex');
 }
 
 function numericEnv(raw: string | undefined): number | undefined {

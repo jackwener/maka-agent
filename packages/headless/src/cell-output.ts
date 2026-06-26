@@ -17,6 +17,24 @@ export interface HarborCellTokenSummary {
   pricingSource: 'runtime';
 }
 
+export interface HarborCellContextBudgetSummary {
+  diagnosticEvents: number;
+  enabledEvents: number;
+  estimatedTokensBefore: number;
+  estimatedTokensAfter: number;
+  keptTurns: number;
+  droppedTurns: number;
+  keptEvents: number;
+  droppedEvents: number;
+  prunedToolResults: number;
+  archivePlaceholders: number;
+  archiveWriteFailures: number;
+  retrievedArchiveToolResults: number;
+  retrievedArchiveEstimatedTokens: number;
+  archiveRetrievalSkipped: number;
+  archiveRetrievalFailures: number;
+}
+
 export interface HarborCellRuntimeRefs {
   invocationId: string;
   sessionId: string;
@@ -38,6 +56,7 @@ export interface HarborCellOutput {
   runtimeEventsPath: string;
   promptHash?: string;
   tokenSummary: HarborCellTokenSummary;
+  contextBudgetSummary?: HarborCellContextBudgetSummary;
   toolSummary: HarborCellToolSummary;
   steps: number;
   durationMs: number;
@@ -58,6 +77,7 @@ export function buildHarborCellOutput(input: {
     runtimeEventsPath: input.runtimeEventsPath,
     ...promptHashField(invocation.events),
     tokenSummary: summarizeCellTokens(invocation.events),
+    ...contextBudgetSummaryField(invocation.events),
     toolSummary: summarizeCellTools(invocation.events),
     steps: invocation.events.length,
     durationMs: invocation.finishedAt - invocation.startedAt,
@@ -85,6 +105,9 @@ export function validateHarborCellOutput(value: unknown): HarborCellOutput {
   const runtimeEventsPath = requireString(value.runtimeEventsPath, 'runtimeEventsPath');
   const promptHash = 'promptHash' in value ? requireOptionalString(value.promptHash, 'promptHash') : undefined;
   const tokenSummary = validateTokenSummary(value.tokenSummary);
+  const contextBudgetSummary = 'contextBudgetSummary' in value
+    ? validateContextBudgetSummary(value.contextBudgetSummary)
+    : undefined;
   const toolSummary = validateToolSummary(value.toolSummary);
   const steps = requireNumber(value.steps, 'steps');
   const durationMs = requireNumber(value.durationMs, 'durationMs');
@@ -98,6 +121,7 @@ export function validateHarborCellOutput(value: unknown): HarborCellOutput {
     runtimeEventsPath,
     ...(promptHash !== undefined ? { promptHash } : {}),
     tokenSummary,
+    ...(contextBudgetSummary !== undefined ? { contextBudgetSummary } : {}),
     toolSummary,
     steps,
     durationMs,
@@ -183,12 +207,63 @@ export function summarizeCellTools(events: readonly RuntimeEvent[]): HarborCellT
   };
 }
 
+export function summarizeCellContextBudget(
+  events: readonly RuntimeEvent[],
+): HarborCellContextBudgetSummary | undefined {
+  const summary: HarborCellContextBudgetSummary = {
+    diagnosticEvents: 0,
+    enabledEvents: 0,
+    estimatedTokensBefore: 0,
+    estimatedTokensAfter: 0,
+    keptTurns: 0,
+    droppedTurns: 0,
+    keptEvents: 0,
+    droppedEvents: 0,
+    prunedToolResults: 0,
+    archivePlaceholders: 0,
+    archiveWriteFailures: 0,
+    retrievedArchiveToolResults: 0,
+    retrievedArchiveEstimatedTokens: 0,
+    archiveRetrievalSkipped: 0,
+    archiveRetrievalFailures: 0,
+  };
+
+  for (const event of events) {
+    const diagnostic = event.actions?.tokenUsage?.contextBudget;
+    if (!diagnostic) continue;
+    summary.diagnosticEvents += 1;
+    if (diagnostic.enabled) summary.enabledEvents += 1;
+    summary.estimatedTokensBefore += diagnostic.estimatedTokensBefore;
+    summary.estimatedTokensAfter += diagnostic.estimatedTokensAfter;
+    summary.keptTurns += diagnostic.keptTurns;
+    summary.droppedTurns += diagnostic.droppedTurns;
+    summary.keptEvents += diagnostic.keptEvents;
+    summary.droppedEvents += diagnostic.droppedEvents;
+    summary.prunedToolResults += diagnostic.prunedToolResults ?? 0;
+    summary.archivePlaceholders += diagnostic.archivePlaceholders ?? 0;
+    summary.archiveWriteFailures += diagnostic.archiveWriteFailures ?? 0;
+    summary.retrievedArchiveToolResults += diagnostic.retrievedArchiveToolResults ?? 0;
+    summary.retrievedArchiveEstimatedTokens += diagnostic.retrievedArchiveEstimatedTokens ?? 0;
+    summary.archiveRetrievalSkipped += diagnostic.archiveRetrievalSkipped ?? 0;
+    summary.archiveRetrievalFailures += diagnostic.archiveRetrievalFailures ?? 0;
+  }
+
+  return summary.diagnosticEvents > 0 ? summary : undefined;
+}
+
 function promptHashField(events: readonly RuntimeEvent[]): Pick<HarborCellOutput, 'promptHash'> {
   for (const event of events) {
     const hash = event.actions?.tokenUsage?.systemPromptHash;
     if (hash) return { promptHash: hash };
   }
   return {};
+}
+
+function contextBudgetSummaryField(
+  events: readonly RuntimeEvent[],
+): Pick<HarborCellOutput, 'contextBudgetSummary'> {
+  const contextBudgetSummary = summarizeCellContextBudget(events);
+  return contextBudgetSummary ? { contextBudgetSummary } : {};
 }
 
 function validateTokenSummary(value: unknown): HarborCellTokenSummary {
@@ -221,6 +296,39 @@ function validateToolSummary(value: unknown): HarborCellToolSummary {
     actualToolCalls: requireNumber(value.actualToolCalls, 'toolSummary.actualToolCalls'),
     actualToolNames: validateStringArray(value.actualToolNames, 'toolSummary.actualToolNames'),
     actualToolCallCounts,
+  };
+}
+
+function validateContextBudgetSummary(value: unknown): HarborCellContextBudgetSummary {
+  if (!isRecord(value)) throw new Error('contextBudgetSummary must be a JSON object');
+  return {
+    diagnosticEvents: requireNumber(value.diagnosticEvents, 'contextBudgetSummary.diagnosticEvents'),
+    enabledEvents: requireNumber(value.enabledEvents, 'contextBudgetSummary.enabledEvents'),
+    estimatedTokensBefore: requireNumber(value.estimatedTokensBefore, 'contextBudgetSummary.estimatedTokensBefore'),
+    estimatedTokensAfter: requireNumber(value.estimatedTokensAfter, 'contextBudgetSummary.estimatedTokensAfter'),
+    keptTurns: requireNumber(value.keptTurns, 'contextBudgetSummary.keptTurns'),
+    droppedTurns: requireNumber(value.droppedTurns, 'contextBudgetSummary.droppedTurns'),
+    keptEvents: requireNumber(value.keptEvents, 'contextBudgetSummary.keptEvents'),
+    droppedEvents: requireNumber(value.droppedEvents, 'contextBudgetSummary.droppedEvents'),
+    prunedToolResults: requireNumber(value.prunedToolResults, 'contextBudgetSummary.prunedToolResults'),
+    archivePlaceholders: requireNumber(value.archivePlaceholders, 'contextBudgetSummary.archivePlaceholders'),
+    archiveWriteFailures: requireNumber(value.archiveWriteFailures, 'contextBudgetSummary.archiveWriteFailures'),
+    retrievedArchiveToolResults: requireNumber(
+      value.retrievedArchiveToolResults,
+      'contextBudgetSummary.retrievedArchiveToolResults',
+    ),
+    retrievedArchiveEstimatedTokens: requireNumber(
+      value.retrievedArchiveEstimatedTokens,
+      'contextBudgetSummary.retrievedArchiveEstimatedTokens',
+    ),
+    archiveRetrievalSkipped: requireNumber(
+      value.archiveRetrievalSkipped,
+      'contextBudgetSummary.archiveRetrievalSkipped',
+    ),
+    archiveRetrievalFailures: requireNumber(
+      value.archiveRetrievalFailures,
+      'contextBudgetSummary.archiveRetrievalFailures',
+    ),
   };
 }
 

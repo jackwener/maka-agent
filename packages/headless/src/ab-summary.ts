@@ -3,6 +3,7 @@ import type {
   AbArmSummary,
   AbAttemptPairSummary,
   AbComparisonSummary,
+  AbContextBudgetSummary,
   AbDecision,
   AbTaskArmSummary,
   AbTaskComparison,
@@ -50,6 +51,7 @@ function summarizeArm(
   const durations = valid
     .filter((event) => event.type !== 'task_budget_exhausted')
     .map((event) => event.durationMs);
+  const contextBudget = summarizeContextBudget(observed);
   return {
     attempts,
     observed: observed.length,
@@ -64,6 +66,26 @@ function summarizeArm(
     coverageRate: attempts > 0 ? valid.length / attempts : 1,
     totalCostUsd: sum(valid.filter((event) => event.type !== 'task_budget_exhausted').map((event) => event.tokenSummary.costUsd)),
     meanDurationMs: durations.length > 0 ? sum(durations) / durations.length : null,
+    ...(contextBudget ? { contextBudget } : {}),
+  };
+}
+
+function summarizeContextBudget(events: readonly FixedPromptTaskWalEvent[]): AbContextBudgetSummary | undefined {
+  const summaries = events
+    .map((event) => ('contextBudgetSummary' in event ? event.contextBudgetSummary : undefined))
+    .filter((summary): summary is NonNullable<typeof summary> => summary !== undefined);
+  if (summaries.length === 0) return undefined;
+  return {
+    diagnosticAttempts: summaries.length,
+    activatedAttempts: summaries.filter((summary) => summary.prunedToolResults > 0).length,
+    diagnosticEvents: sum(summaries.map((summary) => summary.diagnosticEvents)),
+    prunedToolResults: sum(summaries.map((summary) => summary.prunedToolResults)),
+    archivePlaceholders: sum(summaries.map((summary) => summary.archivePlaceholders)),
+    archiveWriteFailures: sum(summaries.map((summary) => summary.archiveWriteFailures)),
+    retrievedArchiveToolResults: sum(summaries.map((summary) => summary.retrievedArchiveToolResults)),
+    retrievedArchiveEstimatedTokens: sum(summaries.map((summary) => summary.retrievedArchiveEstimatedTokens)),
+    archiveRetrievalSkipped: sum(summaries.map((summary) => summary.archiveRetrievalSkipped)),
+    archiveRetrievalFailures: sum(summaries.map((summary) => summary.archiveRetrievalFailures)),
   };
 }
 

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -13,7 +14,10 @@ import {
   type BackendFactoryContext,
   type PiAgentTransport,
   type SessionStore,
+  type ToolResultArchiveReader,
+  type ToolResultArchiveRecorder,
 } from '@maka/runtime';
+import { createArtifactStore } from '@maka/storage';
 import type { Config } from '../contracts.js';
 import type { HeadlessBackendContext, IsolatedToolExecutor } from '../isolation.js';
 import {
@@ -390,6 +394,147 @@ describe('runHarborCell', () => {
         outputUsdPer1M: 0.29,
         cacheReadUsdPer1M: 0.0029,
       });
+    });
+  });
+
+  test('Harbor ai-sdk backend wires opt-in context budget env', async () => {
+    await withDirs(async ({ workspaceDir }) => {
+      const registry = new BackendRegistry();
+      const toolExecutor = fakeToolExecutor();
+      const register = buildAiSdkCellBackendRegistration({
+        provider: 'deepseek',
+        model: 'deepseek-v4-flash',
+        env: {
+          DEEPSEEK_API_KEY: 'test-key',
+          MAKA_CONTEXT_HISTORY_BUDGET_TOKENS: '1234',
+          MAKA_CONTEXT_HISTORY_BUDGET_TURNS: '8',
+          MAKA_CONTEXT_MIN_RECENT_TURNS: '2',
+          MAKA_CONTEXT_STALE_TOOL_RESULT_PRUNE: 'on',
+          MAKA_CONTEXT_STALE_TOOL_RESULT_MAX_TOKENS: '256',
+          MAKA_CONTEXT_STALE_TOOL_RESULT_MIN_RECENT_TURNS: '1',
+          MAKA_CONTEXT_ARCHIVE_RETRIEVAL: 'on',
+          MAKA_CONTEXT_ARCHIVE_RETRIEVAL_MODE: 'eager',
+          MAKA_CONTEXT_ARCHIVE_RETRIEVAL_MAX_RESULTS: '2',
+          MAKA_CONTEXT_ARCHIVE_RETRIEVAL_MAX_TOKENS: '512',
+          MAKA_CONTEXT_ARCHIVE_RETRIEVAL_MAX_BYTES: '4096',
+        },
+        now: () => 123,
+        newId: () => 'id',
+      });
+      await register(registry, {
+        config: {
+          id: 'harbor-ai-sdk',
+          backend: 'ai-sdk',
+          llmConnectionSlug: 'deepseek',
+          model: 'deepseek-v4-flash',
+        },
+        task: { id: 'harbor-cell', instruction: 'solve', workspaceDir },
+        workspaceDir,
+        realBackendIsolation: { kind: 'external', label: 'Harbor task container', toolExecutor },
+        toolExecutor,
+      });
+
+      const backend = await registry.build('ai-sdk', backendContext(workspaceDir));
+      const backendInput = (backend as unknown as {
+        input: { contextBudget?: unknown };
+      }).input;
+      assert.deepEqual(backendInput.contextBudget, {
+        name: 'harbor-cell-context-budget',
+        maxHistoryTurns: 8,
+        maxHistoryEstimatedTokens: 1234,
+        staleToolResultPrune: {
+          enabled: true,
+          maxResultEstimatedTokens: 256,
+          minRecentTurnsFull: 1,
+        },
+        archiveRetrieval: {
+          enabled: true,
+          mode: 'eager',
+          maxResults: 2,
+          maxEstimatedTokens: 512,
+          maxBytes: 4096,
+          order: 'newest_first',
+        },
+        minRecentTurns: 2,
+      });
+    });
+  });
+
+  test('Harbor ai-sdk backend archives and reads pruned tool results from storage', async () => {
+    await withDirs(async ({ workspaceDir, storageRoot }) => {
+      const registry = new BackendRegistry();
+      const toolExecutor = fakeToolExecutor();
+      const register = buildAiSdkCellBackendRegistration({
+        provider: 'deepseek',
+        model: 'deepseek-v4-flash',
+        env: {
+          DEEPSEEK_API_KEY: 'test-key',
+          MAKA_STORAGE_ROOT: storageRoot,
+          MAKA_CONTEXT_STALE_TOOL_RESULT_PRUNE: 'on',
+          MAKA_CONTEXT_ARCHIVE_RETRIEVAL: 'on',
+        },
+        now: () => 123,
+        newId: () => 'id',
+      });
+      await register(registry, {
+        config: {
+          id: 'harbor-ai-sdk',
+          backend: 'ai-sdk',
+          llmConnectionSlug: 'deepseek',
+          model: 'deepseek-v4-flash',
+        },
+        task: { id: 'harbor-cell', instruction: 'solve', workspaceDir },
+        workspaceDir,
+        realBackendIsolation: { kind: 'external', label: 'Harbor task container', toolExecutor },
+        toolExecutor,
+      });
+
+      const backend = await registry.build('ai-sdk', backendContext(workspaceDir));
+      const backendInput = (backend as unknown as {
+        input: {
+          archiveToolResult?: ToolResultArchiveRecorder;
+          readToolResultArchive?: ToolResultArchiveReader;
+        };
+      }).input;
+      const serializedResult = JSON.stringify({ stdout: 'ok\n', exitCode: 0 });
+      const bodySha256 = sha256(serializedResult);
+      const archived = await backendInput.archiveToolResult?.({
+        sessionId: 'session-1',
+        runtimeEventId: 'rt-result-1',
+        turnId: 'turn-1',
+        toolCallId: 'tool-call-1',
+        toolName: 'Bash',
+        result: { stdout: 'ok\n', exitCode: 0 },
+        serializedResult,
+        originalEstimatedTokens: 12,
+        originalBytes: Buffer.byteLength(serializedResult),
+        rewriteVersion: 1,
+        reason: 'stale_tool_result_pruned_before_compact',
+        bodySha256,
+      });
+
+      assert.ok(archived?.artifactId, 'expected archive artifact id');
+      const store = createArtifactStore(storageRoot);
+      const record = await store.get(archived.artifactId);
+      assert.equal(record?.sessionId, 'session-1');
+      assert.equal(record?.turnId, 'turn-1');
+      assert.equal(record?.source, 'tool_result_archive');
+      assert.equal(record?.mimeType, 'application/json');
+
+      assert.deepEqual(await backendInput.readToolResultArchive?.({
+        kind: 'maka.archived_tool_result',
+        rewriteVersion: 1,
+        artifactId: archived.artifactId,
+        runtimeEventId: 'rt-result-1',
+        toolCallId: 'tool-call-1',
+        toolName: 'Bash',
+        bodySha256,
+        originalEstimatedTokens: 12,
+        originalBytes: Buffer.byteLength(serializedResult),
+        reason: 'stale_tool_result_pruned_before_compact',
+        sessionId: 'session-1',
+        maxBytes: 1024,
+      }), { ok: true, serializedResult });
     });
   });
 
@@ -909,6 +1054,10 @@ function fakeToolExecutor(): IsolatedToolExecutor {
       return { exitCode: 0, stdout: '', stderr: '' };
     },
   };
+}
+
+function sha256(text: string): string {
+  return createHash('sha256').update(text).digest('hex');
 }
 
 function backendContext(workspaceDir: string): BackendFactoryContext {

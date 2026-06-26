@@ -530,6 +530,49 @@ describe('summarizePromptAbComparison', () => {
     assert.match(renderPromptAbComparisonMarkdown(result), /Budget outcomes: A timed_out=0, B timed_out=1/);
   });
 
+  test('summarizes context budget activation in the A/B report', () => {
+    const baselineInactive = contextBudgetSummary({ prunedToolResults: 0 });
+    const candidateActive = contextBudgetSummary({
+      prunedToolResults: 2,
+      archivePlaceholders: 2,
+      retrievedArchiveToolResults: 1,
+      retrievedArchiveEstimatedTokens: 120,
+    });
+    const candidateInactive = contextBudgetSummary({ prunedToolResults: 0 });
+    const result = summarizePromptAbComparison({
+      runId: 'ab-run',
+      roundId: 'ab-summary',
+      baselinePromptId: 'prune-off',
+      candidatePromptId: 'prune-on',
+      evaluationTaskIds: ['t1', 't2'],
+      baselineRuns: [[
+        { ...completed('t1', true), contextBudgetSummary: baselineInactive },
+        { ...completed('t2', true), contextBudgetSummary: baselineInactive },
+      ]],
+      candidateRuns: [[
+        { ...completed('t1', true), contextBudgetSummary: candidateActive },
+        { ...completed('t2', true), contextBudgetSummary: candidateInactive },
+      ]],
+    });
+
+    assert.deepEqual(result.candidate.contextBudget, {
+      diagnosticAttempts: 2,
+      activatedAttempts: 1,
+      diagnosticEvents: 2,
+      prunedToolResults: 2,
+      archivePlaceholders: 2,
+      archiveWriteFailures: 0,
+      retrievedArchiveToolResults: 1,
+      retrievedArchiveEstimatedTokens: 120,
+      archiveRetrievalSkipped: 0,
+      archiveRetrievalFailures: 0,
+    });
+    assert.match(
+      renderPromptAbComparisonMarkdown(result),
+      /Context budget: A activated=0\/2 pruned=0 retrieved=0, B activated=1\/2 pruned=2 retrieved=1/,
+    );
+  });
+
   test('does not call a small task majority statistically significant', () => {
     const taskIds = Array.from({ length: 16 }, (_, index) => `t${index}`);
     const result = summarizePromptAbComparison({
@@ -786,6 +829,29 @@ function budgetExhausted(taskId: string): FixedPromptTaskBudgetExhaustedEvent {
     errorClass: 'budget_exhausted',
     error: 'harbor run timed out after 600s',
     expectedPromptHash: 'hash',
+  };
+}
+
+function contextBudgetSummary(
+  input: Partial<NonNullable<FixedPromptTaskCompletedEvent['contextBudgetSummary']>>,
+): NonNullable<FixedPromptTaskCompletedEvent['contextBudgetSummary']> {
+  return {
+    diagnosticEvents: 1,
+    enabledEvents: 1,
+    estimatedTokensBefore: 1000,
+    estimatedTokensAfter: 800,
+    keptTurns: 3,
+    droppedTurns: 1,
+    keptEvents: 8,
+    droppedEvents: 2,
+    prunedToolResults: 0,
+    archivePlaceholders: 0,
+    archiveWriteFailures: 0,
+    retrievedArchiveToolResults: 0,
+    retrievedArchiveEstimatedTokens: 0,
+    archiveRetrievalSkipped: 0,
+    archiveRetrievalFailures: 0,
+    ...input,
   };
 }
 

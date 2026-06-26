@@ -1,9 +1,11 @@
 import type {
   AbComparisonSummary,
+  AbContextBudgetSummary,
   AbDecision,
 } from './ab-types.js';
 
 export function renderAbComparisonMarkdown(summary: AbComparisonSummary): string {
+  const contextBudgetLine = renderContextBudgetLine(summary);
   const lines = [
     '# A/B Comparison',
     '',
@@ -18,6 +20,7 @@ export function renderAbComparisonMarkdown(summary: AbComparisonSummary): string
     `- Attempt-pair auxiliary: wins=${summary.pairedAttempts.wins}, losses=${summary.pairedAttempts.losses}, ties=${summary.pairedAttempts.ties}, missing=${summary.pairedAttempts.missingPairIds.length}`,
     `- Budget outcomes: A timed_out=${summary.baseline.budgetExhausted}, B timed_out=${summary.candidate.budgetExhausted}`,
     `- Infra outcomes: A infra_failed=${summary.baseline.infraFailed}, B infra_failed=${summary.candidate.infraFailed}; A plumbing_failed=${summary.baseline.plumbingFailed}, B plumbing_failed=${summary.candidate.plumbingFailed}`,
+    ...(contextBudgetLine ? [contextBudgetLine] : []),
     '',
     '## Limitation',
     '',
@@ -48,4 +51,26 @@ function decisionLabel(decision: AbDecision): string {
 function rate(value: number | null): string {
   if (value === null) return 'null';
   return String(Math.round(value * 10_000) / 10_000);
+}
+
+function renderContextBudgetLine(summary: AbComparisonSummary): string | undefined {
+  if (!summary.baseline.contextBudget && !summary.candidate.contextBudget) return undefined;
+  const baseline = contextBudgetOrZero(summary.baseline.contextBudget);
+  const candidate = contextBudgetOrZero(summary.candidate.contextBudget);
+  return `- Context budget: A activated=${baseline.activatedAttempts}/${baseline.diagnosticAttempts} pruned=${baseline.prunedToolResults} retrieved=${baseline.retrievedArchiveToolResults}, B activated=${candidate.activatedAttempts}/${candidate.diagnosticAttempts} pruned=${candidate.prunedToolResults} retrieved=${candidate.retrievedArchiveToolResults}`;
+}
+
+function contextBudgetOrZero(summary: AbContextBudgetSummary | undefined): AbContextBudgetSummary {
+  return summary ?? {
+    diagnosticAttempts: 0,
+    activatedAttempts: 0,
+    diagnosticEvents: 0,
+    prunedToolResults: 0,
+    archivePlaceholders: 0,
+    archiveWriteFailures: 0,
+    retrievedArchiveToolResults: 0,
+    retrievedArchiveEstimatedTokens: 0,
+    archiveRetrievalSkipped: 0,
+    archiveRetrievalFailures: 0,
+  };
 }

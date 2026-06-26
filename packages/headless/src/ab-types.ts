@@ -59,6 +59,20 @@ export interface AbArmSummary {
   coverageRate: number;
   totalCostUsd: number;
   meanDurationMs: number | null;
+  contextBudget?: AbContextBudgetSummary;
+}
+
+export interface AbContextBudgetSummary {
+  diagnosticAttempts: number;
+  activatedAttempts: number;
+  diagnosticEvents: number;
+  prunedToolResults: number;
+  archivePlaceholders: number;
+  archiveWriteFailures: number;
+  retrievedArchiveToolResults: number;
+  retrievedArchiveEstimatedTokens: number;
+  archiveRetrievalSkipped: number;
+  archiveRetrievalFailures: number;
 }
 
 export interface AbTaskArmSummary {

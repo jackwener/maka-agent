@@ -164,6 +164,86 @@ describe('Harbor cell output contract', () => {
     assert.equal(output.tokenSummary.reasoning, 2);
     assert.equal(output.tokenSummary.total, 27);
   });
+
+  test('summarizes context budget diagnostics from token usage events', () => {
+    const output = buildHarborCellOutput({
+      invocation: {
+        invocationId: 'inv-1',
+        runId: 'run-1',
+        sessionId: 'session-1',
+        turnId: 'turn-1',
+        status: 'completed',
+        events: [
+          runtimeEvent({
+            id: 'usage-1',
+            actions: {
+              tokenUsage: {
+                input: 10,
+                output: 2,
+                contextBudget: {
+                  enabled: true,
+                  policyName: 'prune-on',
+                  estimatedTokensBefore: 1000,
+                  estimatedTokensAfter: 600,
+                  keptTurns: 3,
+                  droppedTurns: 2,
+                  keptEvents: 8,
+                  droppedEvents: 5,
+                  prunedToolResults: 2,
+                  archivePlaceholders: 2,
+                  archiveWriteFailures: 1,
+                  retrievedArchiveToolResults: 1,
+                  retrievedArchiveEstimatedTokens: 120,
+                  archiveRetrievalSkipped: 3,
+                  archiveRetrievalFailures: 1,
+                },
+              },
+            },
+          }),
+          runtimeEvent({
+            id: 'usage-2',
+            actions: {
+              tokenUsage: {
+                input: 5,
+                output: 1,
+                contextBudget: {
+                  enabled: false,
+                  estimatedTokensBefore: 200,
+                  estimatedTokensAfter: 200,
+                  keptTurns: 1,
+                  droppedTurns: 0,
+                  keptEvents: 2,
+                  droppedEvents: 0,
+                },
+              },
+            },
+          }),
+        ],
+        startedAt: 100,
+        finishedAt: 250,
+      },
+      runtimeEventsPath: '/logs/agent/runtime-events.jsonl',
+    });
+
+    assert.deepEqual(output.contextBudgetSummary, {
+      diagnosticEvents: 2,
+      enabledEvents: 1,
+      estimatedTokensBefore: 1200,
+      estimatedTokensAfter: 800,
+      keptTurns: 4,
+      droppedTurns: 2,
+      keptEvents: 10,
+      droppedEvents: 5,
+      prunedToolResults: 2,
+      archivePlaceholders: 2,
+      archiveWriteFailures: 1,
+      retrievedArchiveToolResults: 1,
+      retrievedArchiveEstimatedTokens: 120,
+      archiveRetrievalSkipped: 3,
+      archiveRetrievalFailures: 1,
+    });
+    assert.deepEqual(validateHarborCellOutput(output), output);
+  });
 });
 
 function runtimeEvent(extra: Partial<RuntimeEvent>): RuntimeEvent {

@@ -14,12 +14,18 @@ const TRIAL_PRICING_ENV = [
   'MAKA_TRIAL_CACHE_WRITE_USD_PER_1M',
   'MAKA_TRIAL_PRICING_SOURCE',
 ];
+const HOST_BACKEND_ENV_KEYS = [
+  ...TRIAL_PRICING_ENV,
+  'MAKA_OUTPUT_DIR',
+  'MAKA_STORAGE_ROOT',
+];
 
 try {
   const env = process.env;
   const provider = env.MAKA_PROVIDER || providerFromModel(env.MAKA_MODEL || env.HARBOR_MODEL || 'deepseek/deepseek-v4-flash');
   const model = env.MAKA_MODEL || stripProvider(env.HARBOR_MODEL || 'deepseek/deepseek-v4-flash', provider);
   const outputDir = env.MAKA_OUTPUT_DIR || join(process.cwd(), 'agent');
+  const storageRoot = env.MAKA_STORAGE_ROOT || join(outputDir, 'maka-storage');
   const now = Date.now;
   const newId = randomId;
 
@@ -34,11 +40,11 @@ try {
     instruction: await instructionFromEnv(env),
     cwd: env.MAKA_WORKDIR || process.cwd(),
     outputDir,
-    storageRoot: env.MAKA_STORAGE_ROOT || join(outputDir, 'maka-storage'),
+    storageRoot,
     registerBackends: buildAiSdkCellBackendRegistration({
       provider,
       model,
-      env: await backendEnv(env, provider),
+      env: await backendEnv({ ...env, MAKA_OUTPUT_DIR: outputDir, MAKA_STORAGE_ROOT: storageRoot }, provider),
       now,
       newId,
     }),
@@ -71,8 +77,11 @@ async function backendEnv(env, provider) {
     [keyEnvName]: apiKey,
   };
   if (env.MAKA_HOST_BASE_URL) result.MAKA_BASE_URL = env.MAKA_HOST_BASE_URL;
-  for (const key of TRIAL_PRICING_ENV) {
+  for (const key of HOST_BACKEND_ENV_KEYS) {
     if (env[key] !== undefined) result[key] = env[key];
+  }
+  for (const [key, value] of Object.entries(env)) {
+    if (key.startsWith('MAKA_CONTEXT_') && value !== undefined) result[key] = value;
   }
   return result;
 }

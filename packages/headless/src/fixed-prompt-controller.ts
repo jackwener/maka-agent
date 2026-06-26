@@ -1,7 +1,12 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { appendFile, mkdir, readFile, truncate, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { validateHarborCellOutput, type HarborCellOutput, type HarborCellTokenSummary } from './cell-output.js';
+import {
+  validateHarborCellOutput,
+  type HarborCellContextBudgetSummary,
+  type HarborCellOutput,
+  type HarborCellTokenSummary,
+} from './cell-output.js';
 import type { Config } from './contracts.js';
 import { assertFinitePositive, assertPositiveInt, assertRatio } from './numeric-guards.js';
 
@@ -69,6 +74,7 @@ export interface FixedPromptTaskCompletedEvent {
   errorClass?: string;
   promptHash?: string;
   tokenSummary: HarborCellTokenSummary;
+  contextBudgetSummary?: HarborCellContextBudgetSummary;
   steps: number;
   durationMs: number;
   runtimeEventsPath: string;
@@ -131,6 +137,7 @@ export interface FixedPromptTaskPlumbingFailedEvent {
   promptHash?: string;
   expectedPromptHash?: string;
   tokenSummary: HarborCellTokenSummary;
+  contextBudgetSummary?: HarborCellContextBudgetSummary;
   steps: number;
   durationMs: number;
   runtimeEventsPath: string;
@@ -535,6 +542,7 @@ function taskCompletedEvent(input: {
     ...(errorClass ? { errorClass } : {}),
     ...(output.cell.promptHash ? { promptHash: output.cell.promptHash } : {}),
     tokenSummary: output.cell.tokenSummary,
+    ...(output.cell.contextBudgetSummary ? { contextBudgetSummary: output.cell.contextBudgetSummary } : {}),
     steps: output.cell.steps,
     durationMs: output.cell.durationMs,
     runtimeEventsPath: output.cell.runtimeEventsPath,
@@ -575,6 +583,9 @@ function taskPlumbingFailedEvent(input: {
     ...(input.output.cell.promptHash ? { promptHash: input.output.cell.promptHash } : {}),
     expectedPromptHash: input.expectedPromptHash,
     tokenSummary: input.output.cell.tokenSummary,
+    ...(input.output.cell.contextBudgetSummary
+      ? { contextBudgetSummary: input.output.cell.contextBudgetSummary }
+      : {}),
     steps: input.output.cell.steps,
     durationMs: input.output.cell.durationMs,
     runtimeEventsPath: input.output.cell.runtimeEventsPath,

@@ -63,6 +63,10 @@ describe('Harbor adapter contract', () => {
     assert.match(source, /MAKA_HOST_BASE_URL/);
     assert.match(source, /MAKA_HARBOR_TOOL_EXECUTOR_URL/);
     assert.match(source, /MAKA_HARBOR_TOOL_EXECUTOR_TOKEN/);
+    assert.match(source, /HOST_BACKEND_ENV_KEYS/);
+    assert.match(source, /MAKA_OUTPUT_DIR/);
+    assert.match(source, /MAKA_STORAGE_ROOT/);
+    assert.match(source, /startsWith\('MAKA_CONTEXT_'\)/);
     assert.match(source, /fetch\(new URL\('\/exec'/);
     assert.match(source, /from '#harbor-cell'/);
     assert.doesNotMatch(source, /\.\.\/dist\/index\.js/);
