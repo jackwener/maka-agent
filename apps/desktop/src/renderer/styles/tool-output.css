@@ -21,19 +21,6 @@
   animation: none;
 }
 
-.message > span {
-  display: block;
-  margin-bottom: 6px;
-  color: var(--foreground-50);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-}
-
-.message.user > span { color: var(--foreground-60); }
-.message.assistant > span { color: var(--accent); }
-.message.system > span { color: var(--info-text); }
-
 /* PR-CHAT-CHROME-FOLLOWUP-0: the relative time is always visible now
    (it was `opacity: 0` until hover, which hid it on touch + from
    assistive tech). It stays quiet — 12px at the shared chrome size,
@@ -49,28 +36,22 @@
 }
 
 /* User turn meta row: quiet time + a copy affordance, right-aligned
-   beneath the message block (the parent `.message.user` aligns items
-   to flex-end, so this row shrink-wraps and hugs the right edge). */
+   beneath the message block (the parent `Message role="user"` aligns its
+   items to flex-end, so this row shrink-wraps and hugs the right edge). */
 .maka-message-meta {
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
 
-.message.user {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  /* Separate the meta row from the bubble. Kept below the 8px turn
-     rhythm so the time + copy still read as belonging to the bubble
-     (proximity) rather than floating between turns. */
-  gap: 6px;
-}
-
+/* Turn summary / lineage / footer share the assistant turn's left-anchored
+   measure column. The `[data-role="assistant"]` parts ride the chat Message
+   primitive (issue #332 PR1) — the lineage row + footer are still hand-written
+   (PR2), so this rule keeps their layout until they migrate. */
 .maka-turn > .maka-turn-summary,
 .maka-turn > .maka-turn-lineage-row,
-.message.assistant .maka-turn-lineage-row,
-.message.assistant .maka-turn-footer {
+[data-slot="message"][data-role="assistant"] .maka-turn-lineage-row,
+[data-slot="message"][data-role="assistant"] .maka-turn-footer {
   display: flex;
   max-width: var(--maka-chat-measure, 680px);
   width: 100%;
@@ -79,20 +60,12 @@
   justify-content: flex-start;
 }
 
-.message.assistant,
-.message.system {
-  max-width: var(--maka-chat-measure, 680px);
-  width: 100%;
-  margin-left: 0;
-  margin-right: auto;
-}
-
-.message pre {
+[data-slot="message"] pre {
   margin: 0;
   font: inherit;
 }
 
-.message.system pre {
+[data-slot="message"][data-role="system"] pre {
   display: inline-flex;
   border-radius: 999px;
   background: oklch(from var(--info) l c h / 0.08);

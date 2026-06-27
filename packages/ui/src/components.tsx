@@ -195,6 +195,7 @@ import {
   cn,
 } from './ui.js';
 import { Alert, AlertAction, AlertDescription, AlertTitle } from './primitives/alert.js';
+import { Bubble, Message } from './primitives/chat.js';
 import { Button as PrimitiveButton } from './primitives/button.js';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from './primitives/empty.js';
 import { InputGroup, InputGroupAddon, InputGroupInput } from './primitives/input-group.js';
@@ -4374,7 +4375,7 @@ export function ChatView(props: {
             // text_complete. Wrapping here makes streaming structurally
             // identical to TurnView's committed turn.
             <section className="maka-turn maka-turn-streaming">
-              <article className="maka-message-row message assistant streaming">
+              <Message role="assistant">
                 {/* PR-UI-LAYOUT-42: Reasoning panel for Anthropic-style
                  * extended thinking. Renders ABOVE the streaming
                  * answer because thinking always precedes the
@@ -4398,7 +4399,7 @@ export function ChatView(props: {
                     onSettled={props.onStreamingSettled}
                   />
                 )}
-              </article>
+              </Message>
             </section>
           )}
           {/* Defensive: if any tool ended up outside a turn (e.g. legacy
@@ -4449,9 +4450,9 @@ const MessageBody = memo(function MessageBody(props: { role: string; text: strin
     // turn footer's copy (same primitive + `.maka-turn-footer-action`).
     return (
       <>
-        <div className="maka-bubble-user">
+        <Bubble variant="user">
           <span>{props.text}</span>
-        </div>
+        </Bubble>
         <div className="maka-message-meta">
           {props.ts !== undefined && (
             <RelativeTime ts={props.ts} className="maka-message-time-inline" />
@@ -4464,9 +4465,9 @@ const MessageBody = memo(function MessageBody(props: { role: string; text: strin
   // Assistant / system body: open prose, no bubble. Per-turn timing lives in
   // the turn summary; copy + the other actions live in the turn footer.
   return (
-    <div className="maka-bubble-assistant maka-bubble-with-actions">
+    <Bubble variant="assistant" className="maka-bubble-with-actions">
       <Markdown text={props.text} />
-    </div>
+    </Bubble>
   );
 });
 
@@ -4769,24 +4770,24 @@ function TurnView(props: {
         </div>
       )}
       {turn.user && (
-        <article
-          className="maka-message-row message user"
+        <Message
+          role="user"
           aria-label="你发送的消息"
           title={turn.user.ts ? formatAbsoluteTimestamp(turn.user.ts) : undefined}
         >
           <MessageBody role="user" text={turn.user.text} ts={turn.user.ts} />
-        </article>
+        </Message>
       )}
       <TurnSummary turn={turn} previousModelId={props.previousModelId} />
 
       {turn.notes.map((note) => (
-        <article
+        <Message
           key={note.id}
-          className="maka-message-row message system"
+          role="system"
           title={note.ts ? formatAbsoluteTimestamp(note.ts) : undefined}
         >
           <MessageBody role="system" text={note.text} ts={note.ts} />
-        </article>
+        </Message>
       ))}
       {turn.tools.length > 0 && (
         <div className="maka-turn-tools">
@@ -4794,13 +4795,13 @@ function TurnView(props: {
         </div>
       )}
       {turn.assistant && (
-        <article
-          className="maka-message-row message assistant"
+        <Message
+          role="assistant"
           data-turn-status={turn.status}
           aria-label="Maka 的回答"
           title={turn.assistant.ts ? formatAbsoluteTimestamp(turn.assistant.ts) : undefined}
         >
-          <div className="maka-bubble-assistant-stack">
+          <div className="flex flex-col">
             {turn.assistantThinking && (
               <details className="maka-turn-thinking">
                 <summary>
@@ -4872,7 +4873,7 @@ function TurnView(props: {
               assistantText={turn.assistant.text}
             />
           )}
-        </article>
+        </Message>
       )}
     </section>
   );
@@ -5157,11 +5158,11 @@ function StreamingAssistantBubble(props: { text: string; live: boolean; truncate
   }, [props.live, catchingUp, props.onSettled]);
 
   return (
-    <div className="maka-bubble-assistant maka-bubble-streaming">
+    <Bubble variant="assistant" className="maka-bubble-streaming">
       <Markdown text={displayed} />
       {props.truncated && (
         <div
-          className="maka-bubble-truncated"
+          className="mt-1.5 inline-block cursor-help rounded-[4px] border border-[oklch(from_var(--warning)_l_c_h_/_0.24)] bg-[oklch(from_var(--warning)_l_c_h_/_0.05)] px-[5px] text-[10px] text-[color:var(--warning-text,var(--info-text))]"
           role="status"
           aria-live="polite"
           title="助手输出已超过单次回合上限，超出部分未渲染。如需完整内容请重新生成或查看持久化的会话日志。"
@@ -5169,7 +5170,7 @@ function StreamingAssistantBubble(props: { text: string; live: boolean; truncate
           已截断
         </div>
       )}
-    </div>
+    </Bubble>
   );
 }
 

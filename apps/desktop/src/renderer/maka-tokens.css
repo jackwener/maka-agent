@@ -1132,12 +1132,6 @@
     transform: rotate(45deg);
   }
 
-  .maka-bubble-assistant-stack {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-  }
-
   /* The streaming bubble (out-of-band, before the in-progress turn is
    * fully persisted) sits at the bottom of the chat surface; give it the
    * same horizontal frame as a real turn message. */
@@ -1147,25 +1141,10 @@
        previous turn while it lands. */
     box-sizing: border-box;
   }
-  /* User message: a tinted, width-capped block anchored to the right.
-     PR-CHAT-CHROME-FOLLOWUP-0: the previous treatment was transparent
-     right-aligned text — for a long message it filled most of the
-     column, so the right-anchor was imperceptible. Re-tinting with the
-     existing `--chat-user-bg` token + a width cap makes "what the human
-     said" read clearly on the right at any length. The block shrink-
-     wraps to its content because `.message.user` aligns items to
-     flex-end (so short messages stay compact). Radius 10px matches the
-     code-block family and stays under the sharp-identity ceiling. */
-  .maka-bubble-user {
-    background: var(--chat-user-bg);
-    color: var(--chat-user-foreground, var(--foreground));
-    border-radius: 10px;
-    padding: 10px 14px;
-    line-height: 1.6;
-    max-width: min(100%, 78%);
-    white-space: pre-wrap;
-    word-wrap: break-word;
-  }
+  /* User message: a tinted, width-capped block anchored to the right — now
+     the `Bubble variant="user"` chat primitive (issue #332 PR1). It keeps the
+     neutral `--chat-user-bg` token path; the shell utilities live in
+     packages/ui/src/primitives/chat.tsx. */
   /* Assistant: no bubble — just text on background, like an editor.
      The bubble itself flows naturally; child markdown elements (h*, p, ul,
      code blocks, tables, blockquotes) all need their own spacing/typography
@@ -1441,13 +1420,6 @@
     margin: 16px 0;
     border: 0;
     border-top: 1px solid var(--border);
-  }
-
-  /* User content stays verbatim text, but shares the same no-bubble body
-     language as assistant messages. */
-  .maka-bubble-user {
-    white-space: pre-wrap;
-    max-width: min(100%, 640px);
   }
 
   /* Hover-revealed copy button on assistant messages. The wrapper is

@@ -27,6 +27,7 @@ export * from './utils.js';
 // consumers can `import { Alert, Empty, Sidebar, ... } from '@maka/ui'`.
 export * from './bot-brand.js';
 export * from './primitives/alert.js';
+export * from './primitives/chat.js';
 export * from './primitives/empty.js';
 export * from './primitives/item.js';
 export * from './primitives/spinner.js';

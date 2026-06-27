@@ -108,23 +108,10 @@
     cursor: help;
   }
 
-  /* PR-UI-Cx (@kenji msg cd09bcac) — "已截断" pill on the streaming
-     assistant bubble. Fires when `applyAssistantDelta` either tail-kept
-     a single oversize delta or head-capped the per-session total. Same
-     visual family as the reasoning-panel truncated pill, positioned as
-     a footer affordance under the bubble's Markdown body so it doesn't
-     compete with the running text. */
-  .maka-bubble-truncated {
-    display: inline-block;
-    margin-top: 6px;
-    font-size: 10px;
-    color: var(--warning-text, var(--info-text));
-    border: 1px solid oklch(from var(--warning) l c h / 0.24);
-    background: oklch(from var(--warning) l c h / 0.05);
-    border-radius: 4px;
-    padding: 0 5px;
-    cursor: help;
-  }
+  /* The streaming "已截断" pill (PR-UI-Cx, @kenji msg cd09bcac) moved onto the
+     `Bubble variant="assistant"` chat primitive as inline utilities (issue
+     #332 PR1); its sibling `.maka-reasoning-panel-truncated` pill below keeps
+     the same visual family. */
 
   .maka-reasoning-panel-chevron {
     font-size: 12px;
