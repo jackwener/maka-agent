@@ -13,6 +13,11 @@ import {
   type PromptCandidateFailurePattern,
   type PromptCandidateRationale,
 } from './fixed-prompt-controller.js';
+import {
+  projectRsiPromptAttribution,
+  type ProjectRsiPromptAttributionInput,
+} from './rsi-controller-attribution.js';
+import type { RsiRoundAnalysis } from './rsi-round-analysis.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -73,6 +78,8 @@ export interface MetaAgentPromptInput {
   currentSystemPrompt: string;
   resultsTsv: string;
   heldInDigests: readonly TrajectoryDigest[];
+  rsiAnalysis?: RsiRoundAnalysis;
+  promptAttribution?: ProjectRsiPromptAttributionInput;
 }
 
 export interface MetaAgentPromptResult {
@@ -118,6 +125,8 @@ export interface RunPromptCandidateRoundInput {
   resultsJsonlPath: string;
   heldInTaskIds: readonly string[];
   heldInDigests: readonly TrajectoryDigest[];
+  rsiAnalysis?: RsiRoundAnalysis;
+  promptAttribution?: ProjectRsiPromptAttributionInput;
   heldOutDigests?: readonly TrajectoryDigest[];
   heldOutArtifactPaths?: readonly string[];
   metaAgent: MetaAgent;
@@ -135,6 +144,9 @@ export interface PromptCandidateRoundResult {
   systemPrompt: string;
   summary: string;
   commitSha: string;
+  candidateRationale: CandidateRationale;
+  candidateRationaleHash: string;
+  heldInTaskSetHash: string;
 }
 
 export async function runPromptCandidateRound(
@@ -161,6 +173,9 @@ export async function runPromptCandidateRound(
     await readFile(input.resultsTsvPath, 'utf8'),
     input.heldInTaskIds,
   );
+  const promptAttribution = input.promptAttribution
+    ? projectRsiPromptAttribution(input.promptAttribution)
+    : undefined;
   const result = await input.metaAgent({
     runId: input.runId,
     roundId: input.roundId,
@@ -168,8 +183,10 @@ export async function runPromptCandidateRound(
     currentSystemPrompt,
     resultsTsv,
     heldInDigests: input.heldInDigests,
+    ...(input.rsiAnalysis ? { rsiAnalysis: input.rsiAnalysis } : {}),
+    ...(promptAttribution ? { promptAttribution } : {}),
   });
-  const candidateRationale = validateCandidateRationale(result.candidateRationale, input.heldInTaskIds);
+  const candidateRationale = validateCandidateRationale(result.candidateRationale, input.heldInTaskIds, input.rsiAnalysis);
 
   await writeFile(input.systemPromptPath, result.systemPrompt, 'utf8');
   let commitSha: string;
@@ -200,6 +217,9 @@ export async function runPromptCandidateRound(
     systemPrompt: result.systemPrompt,
     summary: result.summary,
     commitSha,
+    candidateRationale,
+    candidateRationaleHash: hashCandidateRationale(candidateRationale),
+    heldInTaskSetHash: hashHeldInTaskSet(input.heldInTaskIds),
   };
 }
 
@@ -376,8 +396,8 @@ export function createScriptedMetaAgent(input: CreateScriptedMetaAgentInput): Me
 export function renderMetaAgentPrompt(input: MetaAgentPromptInput): string {
   return [
     'You are improving one system prompt for benchmark tasks.',
-    'Return JSON only: {"systemPrompt":"...","summary":"...","candidateRationale":{"failurePattern":"coverage_regression|tool_failed|max_tokens|runtime_error|verification_failed|other","hypothesis":"short plain text","targetedFix":"short plain text","predictedFixes":["held-in-task-id"],"riskTasks":["held-in-task-id"]}}.',
-    'candidateRationale.predictedFixes and riskTasks may only reference held-in task ids from the prompt.',
+    'Return JSON only: {"systemPrompt":"...","summary":"...","candidateRationale":{"failurePattern":"coverage_regression|tool_failed|max_tokens|runtime_error|verification_failed|other","evidenceRefs":["rsi-sig:id"],"hypothesis":"short plain text","targetedFix":"short plain text","predictedFixes":["held-in-task-id"],"riskTasks":["held-in-task-id"]}}.',
+    'candidateRationale.evidenceRefs may only reference RSI R2 Held-In Analysis signal ids from the prompt; when signals exist and failurePattern is not "other", cite at least one signal. candidateRationale.predictedFixes and riskTasks may only reference held-in task ids from the prompt.',
     'Do not include held-out tasks, verifier internals, expected outputs, raw traces, file paths, code fences, or multiline text in candidateRationale.',
     '',
     '# Program',
@@ -387,10 +407,26 @@ export function renderMetaAgentPrompt(input: MetaAgentPromptInput): string {
     '# Results TSV',
     input.resultsTsv,
     ...renderToolFailureSummary(input.heldInDigests),
+    ...renderRsiAnalysis(input.rsiAnalysis),
+    ...renderPromptAttribution(input.promptAttribution),
     '# Held-In Digests',
     JSON.stringify(stripPromptOnlyToolFailures(input.heldInDigests), null, 2),
     '',
   ].join('\n');
+}
+
+function renderRsiAnalysis(analysis: RsiRoundAnalysis | undefined): string[] {
+  return analysis ? [
+    '# RSI R2 Held-In Analysis',
+    JSON.stringify(analysis, null, 2),
+  ] : [];
+}
+
+function renderPromptAttribution(attribution: ProjectRsiPromptAttributionInput | undefined): string[] {
+  return attribution ? [
+    '# RSI R2 Previous Prompt Attribution',
+    JSON.stringify(projectRsiPromptAttribution(attribution), null, 2),
+  ] : [];
 }
 
 export function filterResultsTsvForHeldIn(
@@ -434,8 +470,13 @@ export function parseMetaAgentResult(raw: string): MetaAgentPromptResult {
   return { systemPrompt, summary, candidateRationale };
 }
 
-function validateCandidateRationale(value: unknown, heldInTaskIds: readonly string[]): CandidateRationale {
+function validateCandidateRationale(
+  value: unknown,
+  heldInTaskIds: readonly string[],
+  rsiAnalysis: RsiRoundAnalysis | undefined,
+): CandidateRationale {
   const candidateRationale = parseCandidateRationaleShape(value);
+  validateEvidenceRefs(candidateRationale, rsiAnalysis);
   validateHeldInTaskIds(candidateRationale.predictedFixes, 'predictedFixes', heldInTaskIds);
   validateHeldInTaskIds(candidateRationale.riskTasks, 'riskTasks', heldInTaskIds);
   return candidateRationale;
@@ -454,15 +495,36 @@ function parseCandidateRationaleShape(value: unknown): CandidateRationale {
   }
   const hypothesis = parseRationaleTextShape(value.hypothesis, 'hypothesis');
   const targetedFix = parseRationaleTextShape(value.targetedFix, 'targetedFix');
+  const evidenceRefs = parseTaskIdArrayShape(value.evidenceRefs, 'evidenceRefs');
   const predictedFixes = parseTaskIdArrayShape(value.predictedFixes, 'predictedFixes');
   const riskTasks = parseTaskIdArrayShape(value.riskTasks, 'riskTasks');
   return {
     failurePattern: value.failurePattern as CandidateFailurePattern,
+    evidenceRefs,
     hypothesis,
     targetedFix,
     predictedFixes,
     riskTasks,
   };
+}
+
+function validateEvidenceRefs(candidateRationale: CandidateRationale, rsiAnalysis: RsiRoundAnalysis | undefined): void {
+  const { evidenceRefs } = candidateRationale;
+  if (!rsiAnalysis) {
+    if (evidenceRefs.length > 0) {
+      throw new Error('candidateRationale.evidenceRefs require current RSI analysis signals');
+    }
+    return;
+  }
+  if (rsiAnalysis.signals.length > 0 && candidateRationale.failurePattern !== 'other' && evidenceRefs.length === 0) {
+    throw new Error('candidateRationale.evidenceRefs must cite at least one current analysis signal');
+  }
+  const known = new Set(rsiAnalysis.signals.map((signal) => signal.id));
+  for (const ref of evidenceRefs) {
+    if (!known.has(ref)) {
+      throw new Error(`candidateRationale.evidenceRefs contains unknown analysis signal id: ${ref}`);
+    }
+  }
 }
 
 function parseRationaleTextShape(value: unknown, field: string): string {
@@ -525,6 +587,7 @@ function promptCandidateCommittedEvent(input: {
     summary: input.summary,
     promptHash: hashSystemPrompt(input.systemPrompt),
     heldInTaskSetHash: hashHeldInTaskSet(input.heldInTaskIds),
+    heldInTaskIds: [...new Set(input.heldInTaskIds)].sort((a, b) => a.localeCompare(b)),
     candidateRationaleHash: hashCandidateRationale(input.candidateRationale),
     candidateRationale: input.candidateRationale,
   };

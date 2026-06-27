@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import type { Config } from './contracts.js';
 import {
+  appendFixedPromptWalEvent,
+  FIXED_PROMPT_WAL_SCHEMA_VERSION,
   runFixedPromptController,
   readFixedPromptWal,
   type FixedPromptControllerResult,
@@ -9,6 +11,7 @@ import {
   type FixedPromptTaskWalEvent,
   type HarborTaskRunner,
   type PromptCandidateRewardHackScan,
+  type RsiControllerAttributionEvent,
 } from './fixed-prompt-controller.js';
 import {
   extractTrajectoryDigest,
@@ -33,6 +36,12 @@ import {
   type PromptStructuralSmokeReport,
 } from './prompt-structural-smoke.js';
 import { assertFinitePositive, assertPositiveInt, assertRatio } from './numeric-guards.js';
+import { analyzeRsiRound } from './rsi-round-analysis.js';
+import {
+  buildRsiControllerAttribution,
+  projectRsiPromptAttribution,
+  type RsiPromptAttribution,
+} from './rsi-controller-attribution.js';
 
 /**
  * Top-level driver for the RSI prompt-optimization loop (Issue #64).
@@ -336,6 +345,9 @@ export async function runPromptOptimizationLoop(
   let lastKeptCommitSha = input.originalCommitSha;
   let heldInReference = baseline.heldIn.referencePassEligibleRate;
   let lastKeptHeldInEvents: readonly FixedPromptTaskWalEvent[] = stableHeldIn(baselineRunsData[0]!.heldInEvents);
+  let previousCandidateHeldInEvents: readonly FixedPromptTaskWalEvent[] | undefined;
+  let latestHeldInFeedbackEvents: readonly FixedPromptTaskWalEvent[] = stableHeldIn(baselineRunsData[baselineRunsData.length - 1]!.heldInEvents);
+  let nextPromptAttribution: RsiPromptAttribution | undefined;
   let nextHeldInDigests = await digestsFor(stableHeldIn(baselineRunsData[baselineRunsData.length - 1]!.heldInEvents));
 
   // 2. Candidate rounds.
@@ -350,6 +362,12 @@ export async function runPromptOptimizationLoop(
       break;
     }
     const roundId = `round-${round}`;
+    const promptAnalysis = await analyzeRsiRound({
+      heldInTaskIds: stableHeldInTaskIds,
+      lastKeptEvents: lastKeptHeldInEvents,
+      ...(previousCandidateHeldInEvents ? { previousCandidateEvents: previousCandidateHeldInEvents } : {}),
+      candidateEvents: latestHeldInFeedbackEvents,
+    });
     const candidate = await runPromptCandidateRound({
       runId: input.runId,
       roundId,
@@ -360,6 +378,8 @@ export async function runPromptOptimizationLoop(
       resultsJsonlPath: input.resultsJsonlPath,
       heldInTaskIds: stableHeldInTaskIds,
       heldInDigests: nextHeldInDigests,
+      rsiAnalysis: promptAnalysis,
+      ...(nextPromptAttribution ? { promptAttribution: nextPromptAttribution } : {}),
       // The held-out TSV is controller-only; always hide it so a careless caller
       // cannot leak held-out results into the meta-agent's view.
       heldOutArtifactPaths: [input.heldOutResultsTsvPath, ...(input.heldOutArtifactPaths ?? [])],
@@ -433,6 +453,33 @@ export async function runPromptOptimizationLoop(
       ts: now(),
       result,
     });
+    const controllerAttribution = buildRsiControllerAttribution({
+      runId: input.runId,
+      roundId,
+      candidateCommitSha: candidate.commitSha,
+      candidateRationaleHash: candidate.candidateRationaleHash,
+      candidateRationale: candidate.candidateRationale,
+      promptTimeAnalysis: promptAnalysis,
+      analysis: await analyzeRsiRound({
+        heldInTaskIds: stableHeldInTaskIds,
+        lastKeptEvents: lastKeptHeldInEvents,
+        ...(previousCandidateHeldInEvents ? { previousCandidateEvents: previousCandidateHeldInEvents } : {}),
+        candidateEvents: heldIn.events,
+      }),
+      heldInTaskIds: stableHeldInTaskIds,
+      lastKeptEvents: lastKeptHeldInEvents,
+      candidateEvents: heldIn.events,
+      decision: result,
+    });
+    const attributionEvent: RsiControllerAttributionEvent = {
+      schemaVersion: FIXED_PROMPT_WAL_SCHEMA_VERSION,
+      type: 'rsi_controller_attribution',
+      id: newId(),
+      ts: now(),
+      ...controllerAttribution,
+    };
+    await appendFixedPromptWalEvent(input.resultsJsonlPath, attributionEvent);
+    nextPromptAttribution = projectRsiPromptAttribution(controllerAttribution);
     decisions.push(result);
 
     if (result.decision === 'keep') {
@@ -443,6 +490,8 @@ export async function runPromptOptimizationLoop(
 
     // The most recent attempt seeds the next round's meta-agent feedback, even
     // when discarded — "this change did not help" is useful signal.
+    previousCandidateHeldInEvents = heldIn.events;
+    latestHeldInFeedbackEvents = heldIn.events;
     nextHeldInDigests = await digestsFor(heldIn.events);
   }
 
@@ -451,6 +500,7 @@ export async function runPromptOptimizationLoop(
   const smoke = promptStructuralSmokeReport({
     events,
     minimumRounds: input.rounds,
+    requireRsiR2Evidence: true,
     ...(input.costCeilingUsd !== undefined ? { costCeilingUsd: input.costCeilingUsd } : {}),
   });
 

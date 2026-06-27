@@ -97,6 +97,7 @@ describe('prompt candidate loop', () => {
           summary: 'tightened output instruction',
           promptHash: hashSystemPrompt('candidate prompt\n'),
           heldInTaskSetHash: expectedHeldInTaskSetHash(['task-a']),
+          heldInTaskIds: ['task-a'],
           candidateRationaleHash: expectedCandidateRationaleHash(committedCandidateRationale),
           candidateRationale: committedCandidateRationale,
         },
@@ -161,6 +162,73 @@ describe('prompt candidate loop', () => {
       assert.deepEqual(seenInput.heldInDigests.map((digest) => digest.taskId), ['failed-task']);
       assert.equal(JSON.stringify(seenInput).includes('held-out-secret'), false);
       assert.equal(JSON.stringify(seenInput).includes('do not leak'), false);
+    });
+  });
+
+  test('projects prompt attribution before exposing it to the meta-agent or rendered prompt', async () => {
+    await withDir(async (dir) => {
+      const programPath = join(dir, 'program.md');
+      const systemPromptPath = join(dir, 'system_prompt.md');
+      const resultsTsvPath = join(dir, 'results.tsv');
+      await writeFile(programPath, 'Improve the prompt conservatively.\n', 'utf8');
+      await writeFile(systemPromptPath, 'original prompt\n', 'utf8');
+      await writeFile(resultsTsvPath, 'task_id\tpassed\ntask-a\tfalse\n', 'utf8');
+
+      const unsafePromptAttribution = {
+        candidateCommitSha: 'commit-secret',
+        predictedFixes: [{ taskId: 'task-a', outcome: 'improved', candidateCommitSha: 'nested-commit-secret' }],
+        riskTasks: [{ taskId: 'task-a', outcome: 'safe', threshold: 'nested-threshold-secret' }],
+        unexpectedHeldInFlips: [
+          { taskId: 'task-a', from: 'fail', to: 'pass', heldOutMetric: 'nested-held-out-secret' },
+        ],
+        decision: { decision: 'discard', reason: 'held_out_regressed' },
+        decisionReason: 'coverage_regressed',
+        rootCauseSignalMatch: 'matched',
+      };
+
+      let seenInput: MetaAgentPromptInput | undefined;
+      await runPromptCandidateRound({
+        runId: 'run-1',
+        roundId: 'round-1',
+        agentCwdPath: await testAgentCwd(dir),
+        programPath,
+        systemPromptPath,
+        resultsTsvPath,
+        resultsJsonlPath: join(dir, 'results.jsonl'),
+        heldInTaskIds: ['task-a'],
+        heldInDigests: [{ taskId: 'task-a', summary: 'failed held-in task' }],
+        promptAttribution: unsafePromptAttribution as unknown as MetaAgentPromptInput['promptAttribution'],
+        metaAgent: async (input): Promise<MetaAgentPromptResult> => {
+          seenInput = input;
+          return candidatePromptResult();
+        },
+        git: gitNoop(dir),
+        now: () => 100,
+        newId: idFactory(),
+      });
+
+      assert.ok(seenInput);
+      assert.deepEqual(seenInput.promptAttribution, {
+        predictedFixes: [{ taskId: 'task-a', outcome: 'improved' }],
+        riskTasks: [{ taskId: 'task-a', outcome: 'safe' }],
+        unexpectedHeldInFlips: [{ taskId: 'task-a', from: 'fail', to: 'pass' }],
+        rootCauseSignalMatch: 'matched',
+      });
+
+      const rendered = renderMetaAgentPrompt(seenInput);
+      assert.equal(rendered.includes('commit-secret'), false);
+      assert.equal(rendered.includes('candidateCommitSha'), false);
+      assert.equal(rendered.includes('held_out_regressed'), false);
+      assert.equal(rendered.includes('coverage_regressed'), false);
+      assert.equal(rendered.includes('decisionReason'), false);
+      assert.equal(rendered.includes('nested-commit-secret'), false);
+      assert.equal(rendered.includes('nested-threshold-secret'), false);
+      assert.equal(rendered.includes('nested-held-out-secret'), false);
+      assert.equal(rendered.includes('heldOutMetric'), false);
+      assert.equal(rendered.includes('threshold'), false);
+      assert.equal(rendered.includes('"decision"'), false);
+      assert.match(rendered, /"predictedFixes"/);
+      assert.match(rendered, /"rootCauseSignalMatch"/);
     });
   });
 
@@ -275,6 +343,111 @@ describe('prompt candidate loop', () => {
       validCandidateRationale({ riskTasks: ['held-out-secret'] }),
       /candidateRationale.riskTasks contains non-held-in task id: held-out-secret/,
     );
+  });
+
+  test('rejects candidateRationale evidence refs outside the current RSI analysis', async () => {
+    await withDir(async (dir) => {
+      const programPath = join(dir, 'program.md');
+      const systemPromptPath = join(dir, 'system_prompt.md');
+      const resultsTsvPath = join(dir, 'results.tsv');
+      await writeFile(programPath, 'Improve the prompt conservatively.\n', 'utf8');
+      await writeFile(systemPromptPath, 'original prompt\n', 'utf8');
+      await writeFile(resultsTsvPath, 'task_id\tpassed\ntask-a\tfalse\n', 'utf8');
+
+      await assert.rejects(
+        runPromptCandidateRound({
+          runId: 'run-1',
+          roundId: 'round-1',
+          agentCwdPath: await testAgentCwd(dir),
+          programPath,
+          systemPromptPath,
+          resultsTsvPath,
+          resultsJsonlPath: join(dir, 'results.jsonl'),
+          heldInTaskIds: ['task-a'],
+          heldInDigests: [{ taskId: 'task-a', summary: 'failed held-in task' }],
+          rsiAnalysis: {
+            heldInTaskSetHash: 'sha256:held-in',
+            transitionVsLastKept: [],
+            transitionVsPreviousCandidate: [],
+            coverageRegressionTaskIds: [],
+            errorClassDistribution: [],
+            toolFailureClusters: [],
+            signals: [{ id: 'rsi-sig:known', kind: 'coverage_regression', taskIds: ['task-a'] }],
+          },
+          metaAgent: async () => candidatePromptResult({
+            candidateRationale: validCandidateRationale({ evidenceRefs: ['rsi-sig:unknown'] }),
+          }),
+          git: gitNoop(dir),
+          now: () => 100,
+          newId: idFactory(),
+        }),
+        /candidateRationale.evidenceRefs contains unknown analysis signal id: rsi-sig:unknown/,
+      );
+
+      assert.equal(await readFile(systemPromptPath, 'utf8'), 'original prompt\n');
+    });
+  });
+
+  test('requires evidence refs when current RSI analysis has signals for a typed failure pattern', async () => {
+    await withDir(async (dir) => {
+      const programPath = join(dir, 'program.md');
+      const systemPromptPath = join(dir, 'system_prompt.md');
+      const resultsTsvPath = join(dir, 'results.tsv');
+      await writeFile(programPath, 'Improve the prompt conservatively.\n', 'utf8');
+      await writeFile(systemPromptPath, 'original prompt\n', 'utf8');
+      await writeFile(resultsTsvPath, 'task_id\tpassed\ntask-a\tfalse\n', 'utf8');
+
+      const baseInput = {
+        runId: 'run-1',
+        roundId: 'round-1',
+        agentCwdPath: await testAgentCwd(dir),
+        programPath,
+        systemPromptPath,
+        resultsTsvPath,
+        resultsJsonlPath: join(dir, 'results.jsonl'),
+        heldInTaskIds: ['task-a'],
+        heldInDigests: [{ taskId: 'task-a', summary: 'failed held-in task' }],
+        git: gitNoop(dir),
+        now: () => 100,
+        newId: idFactory(),
+      };
+
+      await assert.rejects(
+        runPromptCandidateRound({
+          ...baseInput,
+          rsiAnalysis: {
+            heldInTaskSetHash: 'sha256:held-in',
+            transitionVsLastKept: [],
+            transitionVsPreviousCandidate: [],
+            coverageRegressionTaskIds: [],
+            errorClassDistribution: [],
+            toolFailureClusters: [],
+            signals: [{ id: 'rsi-sig:known', kind: 'coverage_regression', taskIds: ['task-a'] }],
+          },
+          metaAgent: async () => candidatePromptResult({
+            candidateRationale: validCandidateRationale({ evidenceRefs: [] }),
+          }),
+        }),
+        /candidateRationale.evidenceRefs must cite at least one current analysis signal/,
+      );
+
+      await runPromptCandidateRound({
+        ...baseInput,
+        resultsJsonlPath: join(dir, 'allowed-empty-refs.jsonl'),
+        rsiAnalysis: {
+          heldInTaskSetHash: 'sha256:held-in',
+          transitionVsLastKept: [],
+          transitionVsPreviousCandidate: [],
+          coverageRegressionTaskIds: [],
+          errorClassDistribution: [],
+          toolFailureClusters: [],
+          signals: [],
+        },
+        metaAgent: async () => candidatePromptResult({
+          candidateRationale: validCandidateRationale({ evidenceRefs: [] }),
+        }),
+      });
+    });
   });
 
   test('rejects unsafe or oversized candidateRationale text before writing', async () => {
@@ -1296,7 +1469,7 @@ describe('prompt candidate loop', () => {
     assert.match(prompt, /task-a/);
     assert.match(prompt, /original prompt/);
     assert.match(prompt, /candidateRationale/);
-    assert.equal(prompt.includes('evidenceRefs'), false);
+    assert.match(prompt, /evidenceRefs/);
 
     const metaAgent = createScriptedMetaAgent({
       complete: async ({ prompt: renderedPrompt }) => {
@@ -1798,6 +1971,7 @@ function candidatePromptResult(input: {
 function validCandidateRationale(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     failurePattern: 'coverage_regression',
+    evidenceRefs: [],
     hypothesis: 'coverage fell after the previous prompt change',
     targetedFix: 'keep the completion criteria explicit and conservative',
     predictedFixes: [],

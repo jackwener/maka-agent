@@ -5,8 +5,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { describe, test } from 'node:test';
-import { hashSystemPrompt, type HarborTaskRunInput, type HarborTaskRunOutput } from '../fixed-prompt-controller.js';
-import { createCliPromptCandidateGit, type MetaAgent } from '../prompt-candidate-loop.js';
+import { hashSystemPrompt, readFixedPromptWal, type HarborTaskRunInput, type HarborTaskRunOutput } from '../fixed-prompt-controller.js';
+import { createCliPromptCandidateGit, type MetaAgent, type MetaAgentPromptInput } from '../prompt-candidate-loop.js';
 import { runPromptOptimizationLoop, type PromptOptimizationLoopInput } from '../prompt-optimization-loop.js';
 import type { Config } from '../contracts.js';
 import { tokenSummary } from './helpers/cell-output-fixtures.js';
@@ -59,6 +59,161 @@ describe('runPromptOptimizationLoop', () => {
       assert.equal(result.smoke.quarantineCount, 0);
       assert.equal(result.smoke.taskEvents.infraFailed, 0);
       assert.equal(result.smoke.taskEvents.plumbingFailed, 0);
+    });
+  });
+
+  test('persists attribution and feeds held-in-only R2 feedback into the next prompt', async () => {
+    await withHarness(async (harness) => {
+      const promptInputs: MetaAgentPromptInput[] = [];
+      const heldInTasks = makeTasks('hin', 2);
+      const heldOutTasks = makeTasks('hout', 1);
+      const rewardFor = (roundId: string, taskId: string): number => {
+        if (taskId.startsWith('hout-')) return 1;
+        if (roundId.startsWith('baseline-')) return taskIndex(taskId) === 0 ? 1 : 0;
+        return roundId === 'round-0' ? 0 : taskIndex(taskId) === 0 ? 1 : 0;
+      };
+
+      await runLoop(harness, {
+        heldInTasks,
+        heldOutTasks,
+        rewardFor,
+        rounds: 2,
+        baselineRuns: 2,
+        metaAgent: async (promptInput) => {
+          promptInputs.push(promptInput);
+          return {
+            systemPrompt: `candidate prompt ${promptInput.roundId}\n`,
+            summary: `tuned for ${promptInput.roundId}`,
+            candidateRationale: {
+              failurePattern: 'coverage_regression',
+              evidenceRefs: evidenceRefsFor(promptInput),
+              hypothesis: 'avoid losing held-in scored artifacts',
+              targetedFix: 'state artifact completion constraints plainly',
+              predictedFixes: ['hin-1'],
+              riskTasks: ['hin-0'],
+            },
+          };
+        },
+      });
+
+      assert.equal(promptInputs.length, 2);
+      assert.ok(promptInputs[0]?.rsiAnalysis);
+      assert.equal(promptInputs[0]?.promptAttribution, undefined);
+      assert.ok(promptInputs[1]?.rsiAnalysis);
+      assert.deepEqual(promptInputs[1]?.promptAttribution?.predictedFixes, [
+        { taskId: 'hin-1', outcome: 'unchanged' },
+      ]);
+      assert.deepEqual(promptInputs[1]?.promptAttribution?.riskTasks, [
+        { taskId: 'hin-0', outcome: 'regressed' },
+      ]);
+      assert.equal('decisionReason' in (promptInputs[1]?.promptAttribution ?? {}), false);
+      assert.equal(JSON.stringify(promptInputs[1]?.promptAttribution).includes('hout-'), false);
+      assert.equal(JSON.stringify(promptInputs[1]?.promptAttribution).includes('held_out'), false);
+
+      const events = await readFixedPromptWal(harness.resultsJsonlPath);
+      assert.equal(events.filter((event) => event.type === 'rsi_controller_attribution').length, 2);
+      for (const decision of events.filter((event) => event.type === 'prompt_candidate_decided')) {
+        const decisionIndex = events.indexOf(decision);
+        const attributionIndex = events.findIndex((event) => (
+          event.type === 'rsi_controller_attribution'
+          && event.runId === decision.runId
+          && event.roundId === decision.roundId
+          && event.candidateCommitSha === decision.candidateCommitSha
+        ));
+        assert.ok(attributionIndex > decisionIndex);
+      }
+    });
+  });
+
+  test('matches attribution root cause against prompt-time analysis after coverage signal is fixed', async () => {
+    await withHarness(async (harness) => {
+      const promptInputs: MetaAgentPromptInput[] = [];
+      const heldInTasks = makeTasks('hin', 2);
+      const heldOutTasks = makeTasks('hout', 1);
+      const rewardFor = (roundId: string, taskId: string): number => {
+        if (taskId.startsWith('hout-')) return 1;
+        if (roundId.startsWith('baseline-')) return 1;
+        return roundId === 'round-0' && taskId === 'hin-0' ? 0 : 1;
+      };
+
+      await runLoop(harness, {
+        heldInTasks,
+        heldOutTasks,
+        rewardFor,
+        rounds: 2,
+        baselineRuns: 2,
+        shouldFail: (roundId, taskId) => roundId === 'round-0' && taskId === 'hin-0',
+        metaAgent: async (promptInput) => {
+          promptInputs.push(promptInput);
+          return {
+            systemPrompt: `candidate prompt ${promptInput.roundId}\n`,
+            summary: `tuned for ${promptInput.roundId}`,
+            candidateRationale: {
+              failurePattern: 'coverage_regression',
+              evidenceRefs: evidenceRefsFor(promptInput),
+              hypothesis: 'restore coverage for held-in tasks',
+              targetedFix: 'make artifact completion constraints explicit',
+              predictedFixes: ['hin-0'],
+              riskTasks: [],
+            },
+          };
+        },
+      });
+
+      const promptTimeCoverageSignal = promptInputs[1]?.rsiAnalysis?.signals.find((signal) => signal.kind === 'coverage_regression');
+      assert.ok(promptTimeCoverageSignal);
+      const events = await readFixedPromptWal(harness.resultsJsonlPath);
+      const secondAttribution = events.find((event) => event.type === 'rsi_controller_attribution' && event.roundId === 'round-1');
+      assert.equal(secondAttribution?.type, 'rsi_controller_attribution');
+      if (secondAttribution?.type === 'rsi_controller_attribution') {
+        assert.deepEqual(secondAttribution.evidenceRefs, [promptTimeCoverageSignal.id]);
+        assert.deepEqual(secondAttribution.predictedFixes, [{ taskId: 'hin-0', outcome: 'unchanged' }]);
+        assert.equal(secondAttribution.rootCauseSignalMatch, 'matched');
+      }
+    });
+  });
+
+  test('does not teach held-out coverage discard reasons to the next prompt', async () => {
+    await withHarness(async (harness) => {
+      const promptInputs: MetaAgentPromptInput[] = [];
+      const heldInTasks = makeTasks('hin', 20);
+      const heldOutTasks = makeTasks('hout', 2);
+      const rewardFor = (roundId: string, taskId: string): number => {
+        if (taskId.startsWith('hout-')) return 1;
+        if (roundId.startsWith('baseline-')) return taskIndex(taskId) < 10 ? 1 : 0;
+        return 1;
+      };
+
+      await runLoop(harness, {
+        heldInTasks,
+        heldOutTasks,
+        rewardFor,
+        rounds: 2,
+        baselineRuns: 2,
+        shouldFail: (roundId, taskId) => roundId === 'round-0' && taskId === 'hout-1',
+        metaAgent: async (promptInput) => {
+          promptInputs.push(promptInput);
+          return {
+            systemPrompt: `candidate prompt ${promptInput.roundId}\n`,
+            summary: `tuned for ${promptInput.roundId}`,
+            candidateRationale: {
+              failurePattern: 'coverage_regression',
+              evidenceRefs: evidenceRefsFor(promptInput),
+              hypothesis: 'avoid losing held-in scored artifacts',
+              targetedFix: 'state artifact completion constraints plainly',
+              predictedFixes: ['hin-19'],
+              riskTasks: [],
+            },
+          };
+        },
+      });
+
+      assert.equal(promptInputs.length, 2);
+      const visible = JSON.stringify(promptInputs[1]?.promptAttribution);
+      assert.equal('decisionReason' in (promptInputs[1]?.promptAttribution ?? {}), false);
+      assert.equal(visible.includes('coverage_regressed'), false);
+      assert.equal(visible.includes('held_out'), false);
+      assert.equal(visible.includes('hout-'), false);
     });
   });
 
@@ -450,6 +605,7 @@ interface RunLoopOptions {
   /** Per-task baseline duration (ms); defaults to 10. Exercises the too-slow cap. */
   durationMsFor?: (roundId: string, taskId: string) => number;
   onTaskRun?: (roundId: string, taskId: string) => void;
+  metaAgent?: MetaAgent;
 }
 
 async function runLoop(harness: Harness, options: RunLoopOptions) {
@@ -472,7 +628,7 @@ async function runLoop(harness: Harness, options: RunLoopOptions) {
     heldOutTasks: options.heldOutTasks,
     config: CONFIG,
     harborRunner: fakeHarborRunner(harness.eventsDir, options.rewardFor, options.shouldFail, options.durationMsFor, options.onTaskRun),
-    metaAgent: fakeMetaAgent(),
+    metaAgent: options.metaAgent ?? fakeMetaAgent(),
     git: createCliPromptCandidateGit({ cwd: harness.repoDir, systemPromptPath: harness.systemPromptPath }),
     originalCommitSha: harness.originalCommitSha,
     rewardHackVerifierPatternsByTaskId,
@@ -493,12 +649,19 @@ function fakeMetaAgent(): MetaAgent {
     summary: `tuned for ${promptInput.roundId}`,
     candidateRationale: {
       failurePattern: 'coverage_regression',
+      evidenceRefs: evidenceRefsFor(promptInput),
       hypothesis: 'stable held-in coverage can improve with a clearer prompt',
       targetedFix: 'make the success criteria explicit without adding task-specific answers',
       predictedFixes: [],
       riskTasks: [],
     },
   });
+}
+
+function evidenceRefsFor(promptInput: MetaAgentPromptInput): string[] {
+  const signal = promptInput.rsiAnalysis?.signals.find((item) => item.kind === 'coverage_regression')
+    ?? promptInput.rsiAnalysis?.signals[0];
+  return signal ? [signal.id] : [];
 }
 
 /** A Harbor runner that fabricates a completed, correctly-hashed cell per task

@@ -1,5 +1,6 @@
 import type { FixedPromptTaskWalEvent, FixedPromptWalEvent } from './fixed-prompt-controller.js';
 import { PROMPT_REWARD_HACK_QUARANTINE_REASON } from './prompt-acceptance-policy.js';
+import { projectRsiPromptAttribution } from './rsi-controller-attribution.js';
 
 export type PromptStructuralSmokeFailure =
   | 'minimum_rounds_not_met'
@@ -8,12 +9,16 @@ export type PromptStructuralSmokeFailure =
   | 'cost_ceiling_exceeded'
   | 'plumbing_failures_present'
   | 'reward_hack_scan_missing'
-  | 'reward_hack_quarantine_present';
+  | 'reward_hack_quarantine_present'
+  | 'rsi_attribution_missing'
+  | 'rsi_attribution_malformed'
+  | 'rsi_attribution_task_scope_invalid';
 
 export interface PromptStructuralSmokeReportInput {
   events: readonly FixedPromptWalEvent[];
   minimumRounds?: number;
   costCeilingUsd?: number;
+  requireRsiR2Evidence?: boolean;
 }
 
 export interface PromptStructuralSmokeReport {
@@ -32,6 +37,9 @@ export interface PromptStructuralSmokeReport {
   };
   quarantineCount: number;
   roundsWithoutTaskEvidence: string[];
+  roundsWithoutRsiAttribution: string[];
+  roundsWithMalformedRsiAttribution: string[];
+  roundsWithOutOfScopeRsiAttribution: string[];
   totalCostUsd: number;
   costCeilingUsd?: number;
   failures: PromptStructuralSmokeFailure[];
@@ -48,6 +56,18 @@ export function promptStructuralSmokeReport(
   const observedRunCount = new Set(decisionEvents.map((event) => event.runId)).size;
   const roundsWithoutTaskEvidence = roundsWithoutPriorTaskEvidence(input.events)
     .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const roundsWithoutRsiAttribution = input.requireRsiR2Evidence
+    ? roundsWithoutPostDecisionRsiAttribution(input.events)
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+    : [];
+  const roundsWithMalformedRsiAttribution = input.requireRsiR2Evidence
+    ? malformedRsiAttributionRounds(input.events)
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+    : [];
+  const roundsWithOutOfScopeRsiAttribution = input.requireRsiR2Evidence
+    ? outOfScopeRsiAttributionRounds(input.events)
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+    : [];
   const quarantineCount = decisionEvents.filter((event) => isQuarantineDecision(event)).length;
   const missingRewardHackScanCount = decisionEvents.filter((event) => event.rewardHackScan === undefined).length;
   const totalCostUsd = roundCost(sum(taskEvents.map((event) => (
@@ -65,6 +85,9 @@ export function promptStructuralSmokeReport(
   }
   if (missingRewardHackScanCount > 0) failures.push('reward_hack_scan_missing');
   if (quarantineCount > 0) failures.push('reward_hack_quarantine_present');
+  if (roundsWithoutRsiAttribution.length > 0) failures.push('rsi_attribution_missing');
+  if (roundsWithMalformedRsiAttribution.length > 0) failures.push('rsi_attribution_malformed');
+  if (roundsWithOutOfScopeRsiAttribution.length > 0) failures.push('rsi_attribution_task_scope_invalid');
 
   return {
     schemaVersion: 'maka.prompt_structural_smoke.v1',
@@ -82,10 +105,21 @@ export function promptStructuralSmokeReport(
     },
     quarantineCount,
     roundsWithoutTaskEvidence,
+    roundsWithoutRsiAttribution,
+    roundsWithMalformedRsiAttribution,
+    roundsWithOutOfScopeRsiAttribution,
     totalCostUsd,
     ...(input.costCeilingUsd !== undefined ? { costCeilingUsd: input.costCeilingUsd } : {}),
     failures,
   };
+}
+
+function promptCandidateCommitsByCandidateKey(events: readonly FixedPromptWalEvent[]): Map<string, Extract<FixedPromptWalEvent, { type: 'prompt_candidate_committed' }>> {
+  const commits = new Map<string, Extract<FixedPromptWalEvent, { type: 'prompt_candidate_committed' }>>();
+  for (const event of events) {
+    if (event.type === 'prompt_candidate_committed') commits.set(candidateEvidenceKey(event), event);
+  }
+  return commits;
 }
 
 export function renderPromptStructuralSmokeMarkdown(report: PromptStructuralSmokeReport): string {
@@ -149,6 +183,105 @@ function roundsWithoutPriorTaskEvidence(events: readonly FixedPromptWalEvent[]):
   return [...missingRounds.values()];
 }
 
+function roundsWithoutPostDecisionRsiAttribution(events: readonly FixedPromptWalEvent[]): string[] {
+  const attributedCandidates = new Set<string>();
+  const missingRounds = new Map<string, string>();
+  events.forEach((event, index) => {
+    if (event.type === 'rsi_controller_attribution') {
+      attributedCandidates.add(attributionCandidateEvidenceKey(event));
+    }
+    if (event.type === 'prompt_candidate_decided') {
+      const candidateKey = decisionCandidateEvidenceKey(event);
+      const hasLaterAttribution = hasPostDecisionAttributionBeforeNextCandidate(events, index, candidateKey);
+      if (!hasLaterAttribution || attributedCandidates.has(candidateKey)) {
+        missingRounds.set(roundEvidenceKey(event), event.roundId);
+      }
+    }
+  });
+  return [...missingRounds.values()];
+}
+
+function hasPostDecisionAttributionBeforeNextCandidate(
+  events: readonly FixedPromptWalEvent[],
+  decisionIndex: number,
+  candidateKey: string,
+): boolean {
+  for (const later of events.slice(decisionIndex + 1)) {
+    if (later.type === 'rsi_controller_attribution' && attributionCandidateEvidenceKey(later) === candidateKey) {
+      return true;
+    }
+    if (later.type === 'prompt_candidate_committed') return false;
+  }
+  return false;
+}
+
+function malformedRsiAttributionRounds(events: readonly FixedPromptWalEvent[]): string[] {
+  const commits = promptCandidateCommitsByCandidateKey(events);
+  const decisions = promptCandidateDecisionsByCandidateKey(events);
+  const rounds = new Map<string, string>();
+  for (const event of events) {
+    if (event.type !== 'rsi_controller_attribution') continue;
+    const candidateKey = attributionCandidateEvidenceKey(event);
+    const commit = commits.get(candidateKey);
+    const decision = decisions.get(candidateKey);
+    if (
+      !commit
+      || !decision
+      || event.heldInTaskSetHash !== commit.heldInTaskSetHash
+      || event.candidateRationaleHash !== commit.candidateRationaleHash
+      || !sameStringSet(event.evidenceRefs, commit.candidateRationale.evidenceRefs)
+      || !sameStringSet(event.predictedFixes.map((item) => item.taskId), commit.candidateRationale.predictedFixes)
+      || !sameStringSet(event.riskTasks.map((item) => item.taskId), commit.candidateRationale.riskTasks)
+      || event.decision.decision !== decision.decision
+      || event.decision.reason !== decision.reason
+      || hasUnsafePromptAttributionProjection(event)
+    ) {
+      rounds.set(roundEvidenceKey(event), event.roundId);
+    }
+  }
+  return [...rounds.values()];
+}
+
+function hasUnsafePromptAttributionProjection(event: Extract<FixedPromptWalEvent, { type: 'rsi_controller_attribution' }>): boolean {
+  const projection = projectRsiPromptAttribution(event);
+  const allowedFields = new Set([
+    'predictedFixes',
+    'riskTasks',
+    'unexpectedHeldInFlips',
+    'rootCauseSignalMatch',
+  ]);
+  if (Object.keys(projection).some((field) => !allowedFields.has(field))) return true;
+  return /decisionReason|held[-_ ]?out|coverage_regressed|held_out_regressed/i.test(JSON.stringify(projection));
+}
+
+function promptCandidateDecisionsByCandidateKey(events: readonly FixedPromptWalEvent[]): Map<string, Extract<FixedPromptWalEvent, { type: 'prompt_candidate_decided' }>> {
+  const decisions = new Map<string, Extract<FixedPromptWalEvent, { type: 'prompt_candidate_decided' }>>();
+  for (const event of events) {
+    if (event.type === 'prompt_candidate_decided') decisions.set(decisionCandidateEvidenceKey(event), event);
+  }
+  return decisions;
+}
+
+function outOfScopeRsiAttributionRounds(events: readonly FixedPromptWalEvent[]): string[] {
+  const commits = promptCandidateCommitsByCandidateKey(events);
+  const rounds = new Map<string, string>();
+  for (const event of events) {
+    if (event.type !== 'rsi_controller_attribution') continue;
+    const commit = commits.get(attributionCandidateEvidenceKey(event));
+    if (!commit) continue;
+    const heldIn = new Set(commit.heldInTaskIds);
+    const taskIds = [
+      ...event.predictedFixes.map((item) => item.taskId),
+      ...event.riskTasks.map((item) => item.taskId),
+      ...event.unexpectedHeldInFlips.map((item) => item.taskId),
+    ];
+    if (taskIds.some((taskId) => !heldIn.has(taskId))) {
+      rounds.set(roundEvidenceKey(event), event.roundId);
+    }
+  }
+  return [...rounds.values()];
+}
+
 function candidateEvidenceKey(event: { runId: string; roundId: string; commitSha: string }): string {
   return `${event.runId}\0${event.roundId}\0${event.commitSha}`;
 }
@@ -157,8 +290,23 @@ function decisionCandidateEvidenceKey(event: { runId: string; roundId: string; c
   return `${event.runId}\0${event.roundId}\0${event.candidateCommitSha}`;
 }
 
+function attributionCandidateEvidenceKey(event: { runId: string; roundId: string; candidateCommitSha: string }): string {
+  return `${event.runId}\0${event.roundId}\0${event.candidateCommitSha}`;
+}
+
 function roundPromptHashEvidenceKey(event: { runId: string; roundId: string }, promptHash: string): string {
   return `${roundEvidenceKey(event)}\0${promptHash}`;
+}
+
+function sameStringSet(left: readonly string[], right: readonly string[]): boolean {
+  const sortedLeft = sortedUnique(left);
+  const sortedRight = sortedUnique(right);
+  return sortedLeft.length === sortedRight.length
+    && sortedLeft.every((value, index) => value === sortedRight[index]);
+}
+
+function sortedUnique(values: readonly string[]): string[] {
+  return [...new Set(values)].sort((a, b) => a.localeCompare(b));
 }
 
 function isQuarantineDecision(event: { reason: string; rewardHackScan?: unknown }): boolean {

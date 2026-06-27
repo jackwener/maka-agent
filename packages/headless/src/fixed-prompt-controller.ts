@@ -176,6 +176,7 @@ export interface PromptCandidateCommittedEvent {
   summary: string;
   promptHash: string;
   heldInTaskSetHash: string;
+  heldInTaskIds: readonly string[];
   candidateRationaleHash: string;
   candidateRationale: PromptCandidateRationale;
 }
@@ -193,6 +194,7 @@ export type PromptCandidateFailurePattern = typeof PROMPT_CANDIDATE_FAILURE_PATT
 
 export interface PromptCandidateRationale {
   failurePattern: PromptCandidateFailurePattern;
+  evidenceRefs: readonly string[];
   hypothesis: string;
   targetedFix: string;
   predictedFixes: readonly string[];
@@ -225,13 +227,39 @@ export interface PromptCandidateDecisionEvent {
   metrics: unknown;
 }
 
+export type RsiPredictedFixOutcome = 'improved' | 'unchanged' | 'regressed' | 'unscored' | 'missing';
+export type RsiRiskTaskOutcome = 'safe' | 'regressed' | 'unscored' | 'missing';
+export type RsiRootCauseSignalMatch = 'matched' | 'contradicted' | 'unknown';
+
+export interface RsiControllerAttributionEvent {
+  schemaVersion: typeof FIXED_PROMPT_WAL_SCHEMA_VERSION;
+  type: 'rsi_controller_attribution';
+  id: string;
+  ts: number;
+  runId: string;
+  roundId: string;
+  candidateCommitSha: string;
+  heldInTaskSetHash: string;
+  candidateRationaleHash: string;
+  evidenceRefs: readonly string[];
+  predictedFixes: Array<{ taskId: string; outcome: RsiPredictedFixOutcome }>;
+  riskTasks: Array<{ taskId: string; outcome: RsiRiskTaskOutcome }>;
+  unexpectedHeldInFlips: Array<{ taskId: string; from: string; to: string }>;
+  decision: {
+    decision: 'keep' | 'discard';
+    reason: string;
+  };
+  rootCauseSignalMatch: RsiRootCauseSignalMatch;
+}
+
 export type FixedPromptWalEvent =
   | FixedPromptTaskCompletedEvent
   | FixedPromptTaskInfraFailedEvent
   | FixedPromptTaskBudgetExhaustedEvent
   | FixedPromptTaskPlumbingFailedEvent
   | PromptCandidateCommittedEvent
-  | PromptCandidateDecisionEvent;
+  | PromptCandidateDecisionEvent
+  | RsiControllerAttributionEvent;
 
 export type FixedPromptTaskWalEvent =
   | FixedPromptTaskCompletedEvent
