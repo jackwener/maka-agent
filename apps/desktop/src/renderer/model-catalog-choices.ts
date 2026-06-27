@@ -20,6 +20,7 @@ export function buildCatalogChatModelChoices(connections: readonly LlmConnection
         connectionSlug: connection.slug,
         providerType: connection.providerType,
         model: entry.id,
+        label: modelDisplayLabel(entry),
       });
     }
   }
@@ -38,7 +39,7 @@ export function buildCatalogDailyReviewModelOptions(
   currentModelKey: string,
 ): Array<readonly [string, string]> {
   const current = parseDailyReviewModelKey(currentModelKey);
-  const candidates: Array<{ key: string; model: string; safeSourceLabel: string }> = [];
+  const candidates: Array<{ key: string; label: string; safeSourceLabel: string }> = [];
   const seenKeys = new Set<string>();
   const providerCounts = enabledProviderCounts(connections);
 
@@ -50,19 +51,19 @@ export function buildCatalogDailyReviewModelOptions(
       const key = dailyReviewModelKey(connection.slug, entry.id);
       if (seenKeys.has(key)) continue;
       seenKeys.add(key);
-      candidates.push({ key, model: entry.id, safeSourceLabel });
+      candidates.push({ key, label: modelDisplayLabel(entry), safeSourceLabel });
     }
   }
 
   const options: Array<readonly [string, string]> = [];
   const modelCounts = new Map<string, number>();
   for (const candidate of candidates) {
-    modelCounts.set(candidate.model, (modelCounts.get(candidate.model) ?? 0) + 1);
+    modelCounts.set(candidate.label, (modelCounts.get(candidate.label) ?? 0) + 1);
   }
   for (const candidate of candidates) {
-    const label = (modelCounts.get(candidate.model) ?? 0) > 1
-      ? `${candidate.model} · ${candidate.safeSourceLabel}`
-      : candidate.model;
+    const label = (modelCounts.get(candidate.label) ?? 0) > 1
+      ? `${candidate.label} · ${candidate.safeSourceLabel}`
+      : candidate.label;
     options.push([candidate.key, label]);
   }
 
@@ -110,10 +111,15 @@ function entryToModelInfo(entry: ModelCatalogEntry): ModelInfo {
   const capabilities = Object.keys(entry.capabilities).length > 0 ? entry.capabilities : undefined;
   return {
     id: entry.id,
+    ...(entry.displayName ? { displayName: entry.displayName } : {}),
     ...(entry.contextWindow ? { contextWindow: entry.contextWindow } : {}),
     ...(entry.maxOutputTokens ? { maxOutputTokens: entry.maxOutputTokens } : {}),
     ...(capabilities ? { capabilities } : {}),
   };
+}
+
+function modelDisplayLabel(entry: Pick<ModelCatalogEntry, 'id' | 'displayName'>): string {
+  return entry.displayName?.trim() || entry.id;
 }
 
 function isModelConsumerConnection(connection: Pick<LlmConnection, 'enabled' | 'providerType'>): boolean {

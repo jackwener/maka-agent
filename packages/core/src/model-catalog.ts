@@ -41,6 +41,7 @@ export interface ModelCatalogPricing {
 
 export interface ModelCatalogEntry {
   id: string;
+  displayName?: string;
   providerType: ProviderType;
   connectionSlug?: string;
   source: 'provider_api' | 'static_catalog' | 'unknown';
@@ -101,7 +102,10 @@ export function buildModelCatalogEntries(input: BuildModelCatalogInput): ModelCa
   const source = liveModels
     ? modelSource === 'fetched' ? 'provider_api' : 'static_catalog'
     : 'static_catalog';
-  const rawModels = liveModels ?? (input.fallbackModels ?? []).map((id) => ({ id }));
+  const rawModels = liveModels ?? (input.fallbackModels ?? []).map((id) => ({
+    id,
+    ...displayNameForKnownModel(input.providerType, id),
+  }));
   const seen = new Set<string>();
   const entries = rawModels
     .filter((model) => {
@@ -181,6 +185,7 @@ function makeEntry(
   const pricing = findPricing(input, model.id);
   return {
     id: model.id,
+    ...displayNameForModel(input.providerType, model),
     providerType: input.providerType,
     ...(input.connectionSlug ? { connectionSlug: input.connectionSlug } : {}),
     source,
@@ -216,6 +221,7 @@ function makeMissingDefaultEntry(
         : 'none';
   return {
     id,
+    ...displayNameForKnownModel(input.providerType, id),
     providerType: input.providerType,
     ...(input.connectionSlug ? { connectionSlug: input.connectionSlug } : {}),
     source: 'unknown',
@@ -247,6 +253,7 @@ function makeMissingUserChoiceEntry(
         : 'none';
   return {
     id,
+    ...displayNameForKnownModel(input.providerType, id),
     providerType: input.providerType,
     ...(input.connectionSlug ? { connectionSlug: input.connectionSlug } : {}),
     source: 'unknown',
@@ -263,6 +270,25 @@ function makeMissingUserChoiceEntry(
     },
   };
 }
+
+function displayNameForModel(providerType: ProviderType, model: ModelInfo): { displayName?: string } {
+  const displayName = model.displayName?.trim();
+  if (displayName && displayName !== model.id) return { displayName };
+  return displayNameForKnownModel(providerType, model.id);
+}
+
+function displayNameForKnownModel(providerType: ProviderType, id: string): { displayName?: string } {
+  if (providerType !== 'codex-subscription') return {};
+  const displayName = CODEX_SUBSCRIPTION_MODEL_DISPLAY_NAMES[id.trim()];
+  return displayName ? { displayName } : {};
+}
+
+const CODEX_SUBSCRIPTION_MODEL_DISPLAY_NAMES: Record<string, string> = {
+  'gpt-5.5': 'GPT 5.5',
+  'gpt-5.4': 'GPT 5.4',
+  'gpt-5.4-mini': 'GPT 5.4 mini',
+  'gpt-5.3-codex-spark': 'GPT 5.3 Codex Spark',
+};
 
 function deriveUnavailableReason(input: BuildModelCatalogInput, model: ModelInfo): ModelUnavailableReason {
   if (input.providerAvailable === false) return 'provider_removed';

@@ -32,6 +32,7 @@ export type ConnectionAuth =
 
 export interface ModelInfo {
   id: string;
+  displayName?: string;
   contextWindow?: number;
   maxOutputTokens?: number;
   capabilities?: {

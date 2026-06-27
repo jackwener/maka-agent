@@ -214,6 +214,15 @@ function normalizeActiveChatModel(
   return requested;
 }
 
+function chatModelChoiceLabel(
+  choices: readonly ChatModelChoice[],
+  connectionSlug: string | undefined,
+  model: string | undefined,
+): string | undefined {
+  if (!connectionSlug || !model) return model;
+  return choices.find((choice) => choice.connectionSlug === connectionSlug && choice.model === model)?.label ?? model;
+}
+
 function App() {
   return (
     <ToastProvider>
@@ -512,9 +521,13 @@ function AppShell() {
   const activeConnectionLabel = activeSession?.backend === 'fake'
     ? '本地模拟连接'
     : activeConnection?.name ?? activeSession?.llmConnectionSlug;
-  const activeModelLabel = activeSession?.backend === 'fake'
+  const activeModel = activeSession?.backend === 'fake'
     ? undefined
     : normalizeActiveChatModel(activeSession, activeConnection, chatModelChoices);
+  const activeModelLabel = activeSession?.backend === 'fake'
+    ? undefined
+    : chatModelChoiceLabel(chatModelChoices, activeSession?.llmConnectionSlug, activeModel);
+  const newChatModelLabel = chatModelChoiceLabel(chatModelChoices, newChatModel?.llmConnectionSlug, newChatModel?.model);
 
   // Surface a credential-lifecycle alert directly in the chat header when
   // the active session's connection is in `needs_reauth` / `error` or has
@@ -3156,15 +3169,16 @@ function AppShell() {
                 onImportFolderOutline={importFolderOutlineIntoComposer}
                 modelLabel={
                   activeModelLabel
-                  ?? validPendingNewChatModel?.model
-                  ?? activeConnection?.defaultModel
-                  ?? activeConnection?.models?.[0]?.id
-                  ?? defaultConnectionEntry?.defaultModel
-                  ?? defaultConnectionEntry?.models?.[0]?.id
+                  ?? newChatModelLabel
+                  ?? chatModelChoiceLabel(chatModelChoices, activeConnection?.slug, activeConnection?.defaultModel)
+                  ?? chatModelChoiceLabel(chatModelChoices, activeConnection?.slug, activeConnection?.models?.[0]?.id)
+                  ?? chatModelChoiceLabel(chatModelChoices, defaultConnectionEntry?.slug, defaultConnectionEntry?.defaultModel)
+                  ?? chatModelChoiceLabel(chatModelChoices, defaultConnectionEntry?.slug, defaultConnectionEntry?.models?.[0]?.id)
                   ?? undefined
                 }
                 activeSession={activeSessionForView}
                 activeConnectionLabel={activeConnectionLabel}
+                activeModel={activeModel}
                 activeModelLabel={activeModelLabel}
                 modelChoices={chatModelChoices}
                 modelChangePending={activeId ? pendingSessionModelBySession[activeId] === true : false}

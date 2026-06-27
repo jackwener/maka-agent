@@ -14,6 +14,7 @@ type ModelCatalogChoicesModule = {
     connectionSlug: string;
     providerType: string;
     model: string;
+    label: string;
   }>;
   buildCatalogDailyReviewModelOptions(
     connections: readonly LlmConnection[],
@@ -69,8 +70,8 @@ describe('model catalog picker helpers', () => {
     ]);
 
     assert.deepEqual(
-      choices.map((choice) => `${choice.connectionSlug}:${choice.model}`),
-      ['codex-account:gpt-5.5'],
+      choices.map((choice) => `${choice.connectionSlug}:${choice.model}:${choice.label}`),
+      ['codex-account:gpt-5.5:GPT 5.5'],
     );
   });
 
@@ -82,29 +83,29 @@ describe('model catalog picker helpers', () => {
         slug: 'claude-work',
         name: 'person@example.com',
         providerType: 'claude-subscription',
-        models: [{ id: 'shared-model' }],
+        models: [{ id: 'shared-model', displayName: 'Shared Model' }],
         modelSource: 'fetched',
       }),
       connection({
         slug: 'claude-home',
         name: 'private@example.com',
         providerType: 'claude-subscription',
-        models: [{ id: 'shared-model' }],
+        models: [{ id: 'shared-model', displayName: 'Shared Model' }],
         modelSource: 'fetched',
       }),
       connection({
         slug: 'gemini-account',
         name: 'user@example.com',
         providerType: 'gemini-cli',
-        models: [{ id: 'gemini-2.5-pro' }],
+        models: [{ id: 'gemini-2.5-pro', displayName: 'Gemini 2.5 Pro' }],
         modelSource: 'fetched',
       }),
     ], '');
 
     assert.deepEqual(options, [
-      ['claude-work::shared-model', 'shared-model · Claude Subscription (Pro / Max OAuth) · claude-work'],
-      ['claude-home::shared-model', 'shared-model · Claude Subscription (Pro / Max OAuth) · claude-home'],
-      ['gemini-account::gemini-2.5-pro', 'gemini-2.5-pro'],
+      ['claude-work::shared-model', 'Shared Model · Claude Subscription (Pro / Max OAuth) · claude-work'],
+      ['claude-home::shared-model', 'Shared Model · Claude Subscription (Pro / Max OAuth) · claude-home'],
+      ['gemini-account::gemini-2.5-pro', 'Gemini 2.5 Pro'],
     ]);
     assert.ok(options.every(([, label]) => !label.includes('@example.com')));
   });

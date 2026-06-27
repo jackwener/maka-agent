@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import type { ProviderType } from '@maka/core';
 import { modelMenuGroups, type ChatModelChoice } from '../chat-model-helpers.js';
 
-function choice(connectionSlug: string, providerType: ProviderType, model: string): ChatModelChoice {
-  return { connectionSlug, providerType, model };
+function choice(connectionSlug: string, providerType: ProviderType, model: string, label = model): ChatModelChoice {
+  return { connectionSlug, providerType, model, label };
 }
 
 test('single connection per provider: heading is just the short label', () => {

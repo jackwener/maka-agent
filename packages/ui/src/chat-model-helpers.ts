@@ -26,10 +26,11 @@ export interface ChatModelChoice {
   connectionSlug: string;
   providerType: ProviderType;
   model: string;
-  /* Intentionally NO connection-name / label field. `connection.name`
+  label: string;
+  /* Intentionally NO connection-name / account label field. `connection.name`
      embeds the OAuth account email (PR-CHAT-CHROME-FIX-0); the menu heading
      is derived from `providerType` (+ slug on collision) in `modelMenuGroups`,
-     never from the name. */
+     never from the name. `label` is only the safe model display name. */
 }
 
 /**

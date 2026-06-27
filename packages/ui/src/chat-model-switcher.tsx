@@ -54,7 +54,7 @@ function ModelChoiceOptions({ groups }: { groups: ModelMenuGroup[] }) {
               key={modelChoiceValue(choice.connectionSlug, choice.model)}
               value={modelChoiceValue(choice.connectionSlug, choice.model)}
             >
-              <span className="maka-model-switcher-item-main">{choice.model}</span>
+              <span className="maka-model-switcher-item-main">{choice.label}</span>
             </SelectItem>
           ))}
         </SelectGroup>
@@ -86,16 +86,13 @@ export function ChatModelSwitcher(props: {
   const currentKnownChoice = props.choices.some((choice) => modelChoiceValue(choice.connectionSlug, choice.model) === currentValue);
   const modelSelectItems = useMemo(
     () => [
-      // PR-CHAT-CHROME-FIX-0 (WAWQAQ msg `ccce4a31`): trigger
-      // and menu rows now show only the raw model name. Auth
-      // method and email used to leak in via `choice.label`
-      // (e.g. "Codex OAuth · kabikabigoog@gmail.com · gpt-5.5");
-      // user wanted just the model id. Hover-tooltip on the
-      // trigger still carries the connection context.
+      // Keep the Select value as the stable model id, but render the
+      // catalog display label when present. Account / connection names
+      // still stay out of the option row to avoid OAuth email leaks.
       ...(!currentKnownChoice ? [{ value: currentValue, label: currentModel }] : []),
       ...props.choices.map((choice) => ({
         value: modelChoiceValue(choice.connectionSlug, choice.model),
-        label: choice.model,
+        label: choice.label,
       })),
     ],
     [currentKnownChoice, currentModel, currentValue, props.choices],
@@ -222,7 +219,7 @@ export function NewChatModelPicker(props: {
     <SelectRoot<string>
       items={props.choices.map((choice) => ({
         value: modelChoiceValue(choice.connectionSlug, choice.model),
-        label: choice.model,
+        label: choice.label,
       }))}
       value={props.currentValue}
       onValueChange={(value) => {

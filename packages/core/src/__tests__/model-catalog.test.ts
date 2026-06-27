@@ -205,4 +205,28 @@ describe('ModelCatalogEntry', () => {
       ],
     );
   });
+
+  it('carries display names separately from stable model ids', () => {
+    const [fetchedEntry] = buildModelCatalogEntries({
+      providerType: 'codex-subscription',
+      defaultModel: 'gpt-5.5',
+      models: [{ id: 'gpt-5.5', displayName: 'GPT 5.5' }],
+      modelSource: 'fetched',
+      modelsFetchedAt: 1_800_000_000_000,
+    });
+
+    assert.equal(fetchedEntry?.id, 'gpt-5.5');
+    assert.equal(fetchedEntry?.displayName, 'GPT 5.5');
+
+    const [fallbackEntry] = buildConnectionModelCatalogEntries({
+      connection: {
+        slug: 'codex-subscription',
+        providerType: 'codex-subscription',
+        defaultModel: '',
+      },
+    });
+
+    assert.equal(fallbackEntry?.id, 'gpt-5.5');
+    assert.equal(fallbackEntry?.displayName, 'GPT 5.5');
+  });
 });

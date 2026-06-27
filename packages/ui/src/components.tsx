@@ -3960,6 +3960,7 @@ export function ChatView(props: {
   tools: ToolActivityItem[];
   activeSession?: SessionSummary;
   activeConnectionLabel?: string;
+  activeModel?: string;
   activeModelLabel?: string;
   /** Renders a provider brand mark next to the model name in the chat tab. */
   activeProviderType?: ProviderType;
@@ -5398,6 +5399,7 @@ export const Composer = forwardRef<
     modelLabel?: string;
     activeSession?: SessionSummary;
     activeConnectionLabel?: string;
+    activeModel?: string;
     activeModelLabel?: string;
     modelChoices?: ChatModelChoice[];
     modelChangePending?: boolean;
@@ -5921,7 +5923,7 @@ export const Composer = forwardRef<
                 {props.activeSession ? (
                   <ChatModelSwitcher
                     activeSession={props.activeSession}
-                    activeModel={props.activeModelLabel}
+                    activeModel={props.activeModel}
                     activeConnectionLabel={props.activeConnectionLabel}
                     activeModelLabel={props.activeModelLabel}
                     choices={props.modelChoices ?? []}
