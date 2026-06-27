@@ -22,9 +22,9 @@ import type React from "react";
  */
 
 const messageVariants = cva("maka-message-row", {
-  defaultVariants: { role: "assistant" },
+  defaultVariants: { variant: "assistant" },
   variants: {
-    role: {
+    variant: {
       // `.message.user`: shrink-wrap column, body hugs the right edge. No
       // margin override — the row stays centered (its `margin: 0 auto`).
       user: "flex flex-col items-end gap-1.5",
@@ -38,19 +38,23 @@ const messageVariants = cva("maka-message-row", {
 
 export interface MessageProps
   extends React.ComponentPropsWithoutRef<"article"> {
-  role: "user" | "assistant" | "system";
+  // The chat role. Named `variant` (not `role`) so it never shadows the native
+  // HTML/ARIA `role` attribute, which still flows through `...props`. Emitted
+  // to the DOM as `data-role` — the hook the turn lineage/footer and system
+  // `pre` rules anchor on.
+  variant: "user" | "assistant" | "system";
 }
 
 export function Message({
   className,
-  role,
+  variant,
   ...props
 }: MessageProps): React.ReactElement {
   return (
     <article
       data-slot="message"
-      data-role={role}
-      className={cn(messageVariants({ role }), className)}
+      data-role={variant}
+      className={cn(messageVariants({ variant }), className)}
       {...props}
     />
   );
@@ -61,8 +65,13 @@ const bubbleVariants = cva("", {
   variants: {
     variant: {
       // `.maka-bubble-user`: tinted, width-capped, right-anchored block.
-      // Keeps the neutral `--chat-user-bg` token path (never primary/accent).
-      user: "max-w-[min(100%,640px)] whitespace-pre-wrap break-words rounded-lg bg-[var(--chat-user-bg)] px-3.5 py-2.5 leading-[1.6] text-[color:var(--chat-user-foreground,var(--foreground))]",
+      // Values are LITERAL (`rounded-[10px]`, `px-[14px] py-[10px]`), not the
+      // design-system scale (`rounded-lg`, `px-3.5`): the retired CSS hardcoded
+      // these pixels, so the literal is the faithful, self-evidently-equal
+      // translation and immune to later scale/token re-tuning (the visual
+      // refresh, not this governance pass, owns adopting the scale). Keeps the
+      // neutral `--chat-user-bg` token path (never primary/accent).
+      user: "max-w-[min(100%,640px)] whitespace-pre-wrap break-words rounded-[10px] bg-[var(--chat-user-bg)] px-[14px] py-[10px] leading-[1.6] text-[color:var(--chat-user-foreground,var(--foreground))]",
       // Assistant / system: open prose, no bubble. Typography stays authored
       // under `.maka-bubble-assistant` (Markdown prose, OUT of scope), so this
       // variant re-emits that class as the styling hook.

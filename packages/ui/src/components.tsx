@@ -4375,7 +4375,7 @@ export function ChatView(props: {
             // text_complete. Wrapping here makes streaming structurally
             // identical to TurnView's committed turn.
             <section className="maka-turn maka-turn-streaming">
-              <Message role="assistant">
+              <Message variant="assistant">
                 {/* PR-UI-LAYOUT-42: Reasoning panel for Anthropic-style
                  * extended thinking. Renders ABOVE the streaming
                  * answer because thinking always precedes the
@@ -4771,7 +4771,7 @@ function TurnView(props: {
       )}
       {turn.user && (
         <Message
-          role="user"
+          variant="user"
           aria-label="你发送的消息"
           title={turn.user.ts ? formatAbsoluteTimestamp(turn.user.ts) : undefined}
         >
@@ -4783,7 +4783,7 @@ function TurnView(props: {
       {turn.notes.map((note) => (
         <Message
           key={note.id}
-          role="system"
+          variant="system"
           title={note.ts ? formatAbsoluteTimestamp(note.ts) : undefined}
         >
           <MessageBody role="system" text={note.text} ts={note.ts} />
@@ -4796,7 +4796,7 @@ function TurnView(props: {
       )}
       {turn.assistant && (
         <Message
-          role="assistant"
+          variant="assistant"
           data-turn-status={turn.status}
           aria-label="Maka 的回答"
           title={turn.assistant.ts ? formatAbsoluteTimestamp(turn.assistant.ts) : undefined}

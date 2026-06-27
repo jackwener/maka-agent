@@ -60,22 +60,35 @@ describe('chat primitive shell migration contract (#332 PR1)', () => {
     );
   });
 
-  it('keeps the user bubble on the neutral token path, never primary/accent', async () => {
-    const chatSrc = await readFile(
+  it('pins the user bubble shell to the retired .maka-bubble-user pixels', async () => {
+    const rawSrc = await readFile(
       resolve(REPO_ROOT, 'packages', 'ui', 'src', 'primitives', 'chat.tsx'),
       'utf8',
     );
+    // Strip comments so the assertions reflect real classNames, not prose that
+    // happens to name the scale utilities it is telling us to avoid.
+    const chatSrc = rawSrc.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    // The shell values are LITERAL Tailwind arbitrary utilities, so each one
+    // compiles 1:1 to its declaration on a leaf element with nothing to
+    // resolve or override — asserting the class string here is equivalent to
+    // asserting the computed style, without a browser. Values mirror the
+    // retired `.maka-bubble-user` exactly (border-radius:10px; padding:10px
+    // 14px; line-height:1.6; max-width:min(100%,640px); --chat-user-bg).
+    for (const literal of [
+      'rounded-[10px]',
+      'px-[14px]',
+      'py-[10px]',
+      'leading-[1.6]',
+      'max-w-[min(100%,640px)]',
+      'bg-[var(--chat-user-bg)]',
+    ]) {
+      assert.ok(chatSrc.includes(literal), `user bubble must keep the literal "${literal}"`);
+    }
+    // Never the semantic radius/spacing scale (would re-tune under a redesign)
+    // and never primary/accent (the neutral user-bubble token path is fixed).
     assert.ok(
-      chatSrc.includes('bg-[var(--chat-user-bg)]'),
-      'user bubble must keep the --chat-user-bg token path',
-    );
-    assert.ok(
-      chatSrc.includes('max-w-[min(100%,640px)]'),
-      'user bubble width cap must match the retired .maka-bubble-user (min(100%,640px))',
-    );
-    assert.ok(
-      !/bg-primary|bg-accent/.test(chatSrc),
-      'user bubble must never switch to primary/accent backgrounds',
+      !/rounded-lg|bg-primary|bg-accent/.test(chatSrc),
+      'user bubble must not use semantic rounded-lg or primary/accent backgrounds',
     );
   });
 });
