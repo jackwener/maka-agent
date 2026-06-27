@@ -10,6 +10,7 @@ import {
   compactionDecisionDiagnosticPatch,
   historyCompactBlockToCompactionBoundary,
 } from './compaction-boundary.js';
+import type { ActiveFullCompactPolicy } from './active-full-compact.js';
 import type { CompactionDecisionKind } from './compaction-boundary.js';
 
 export interface ContextBudgetPolicy {
@@ -32,6 +33,11 @@ export interface ContextBudgetPolicy {
    * AI SDK step. Defaults off and does not mutate persisted session messages.
    */
   activeToolResultPrune?: ActiveToolResultPrunePolicy;
+  /**
+   * Optional active-loop full compact foundation. PR1 only indexes and validates
+   * source-bearing blocks; provider-visible prepareStep replacement is PR2.
+   */
+  activeFullCompact?: ActiveFullCompactPolicy;
   /** Optional replay-only archive hydration after pruning. Defaults off. */
   archiveRetrieval?: ArchiveRetrievalPolicy;
   /** Optional deterministic prior-history search used to re-add bounded around-context. Defaults off. */

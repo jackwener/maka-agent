@@ -223,6 +223,35 @@ export type {
   ActiveArchivedToolResultPlaceholder,
   PromptSegmentInput,
 } from './context-budget.js';
+export {
+  activeFullCompactBlockToCompactionBoundary,
+  activeFullCompactCoverageFromEntries,
+  activeFullCompactDecisionDiagnosticPatch,
+  buildActiveFullCompactBlockFromSummary,
+  buildActiveFullCompactSourceIndex,
+  estimateActiveFullCompactTokens,
+  renderActiveFullCompactBlock,
+  selectActiveFullCompactCoveredSpan,
+  validateActiveFullCompactBlockForSourceIndex,
+  validateActiveFullCompactBlockShape,
+} from './active-full-compact.js';
+export type {
+  ActiveFullCompactArchiveRef,
+  ActiveFullCompactBlock,
+  ActiveFullCompactContentKind,
+  ActiveFullCompactCoverage,
+  ActiveFullCompactFailOpenReason,
+  ActiveFullCompactPolicy,
+  ActiveFullCompactProviderRole,
+  ActiveFullCompactSelection,
+  ActiveFullCompactSourceEntry,
+  ActiveFullCompactSourceIndex,
+  ActiveFullCompactSourceIndexInput,
+  ActiveFullCompactSourceRef,
+  ActiveFullCompactSummary,
+  ActiveFullCompactValidationResult,
+  BuildActiveFullCompactBlockInput,
+} from './active-full-compact.js';
 export { testConnection } from './test-connection.js';
 export { fetchProviderModels } from './model-fetcher.js';
 

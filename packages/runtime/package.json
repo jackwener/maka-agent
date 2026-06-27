@@ -16,6 +16,7 @@
     "./stream-watchdog": "./dist/stream-watchdog.js",
     "./model-factory": "./dist/model-factory.js",
     "./context-budget": "./dist/context-budget.js",
+    "./active-full-compact": "./dist/active-full-compact.js",
     "./test-connection": "./dist/test-connection.js",
     "./model-fetcher": "./dist/model-fetcher.js",
     "./materializer": "./dist/materializer.js",

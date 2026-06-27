@@ -47,6 +47,7 @@ export interface CompactionBoundary {
   preservedAnchor?: {
     headRuntimeEventIds?: readonly string[];
     tailRuntimeEventIds?: readonly string[];
+    tailProviderMessageSourceIds?: readonly string[];
     tailTurnIds?: readonly string[];
   };
   archiveRefs?: readonly CompactionArchiveRef[];
