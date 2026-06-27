@@ -386,10 +386,6 @@
 }
 
 .settingsRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
   display: grid;
   grid-template-columns: minmax(150px, 0.36fr) minmax(0, 1fr);
   align-items: center;
