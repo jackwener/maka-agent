@@ -688,11 +688,43 @@ describe('summarizePromptAbComparison', () => {
     );
     assert.match(
       renderPromptAbComparisonMarkdown(result),
-      /Active prune subset: A tasks=1 pass_rate=1 passed=1\/1 completed=1 timed_out=0 infra_failed=0 plumbing_failed=0 cost_usd=0\.01 input=1 total=2 activated=0\/1 stale_pruned=0 active_pruned=0 active_tokens_saved=0 active_archive_failures=0 archive_placeholders=0 archive_write_failures=0 retrieved=0 retrieved_tokens=0 retrieval_skipped=0 retrieval_failures=0, B tasks=1 pass_rate=1 passed=1\/1 completed=1 timed_out=0 infra_failed=0 plumbing_failed=0 cost_usd=0\.01 input=1 total=2 activated=1\/1 stale_pruned=2 active_pruned=3 active_tokens_saved=450 active_archive_failures=1 archive_placeholders=2 archive_write_failures=0 retrieved=1 retrieved_tokens=120 retrieval_skipped=0 retrieval_failures=0/,
+      /Active prune subset: A tasks=1 attempts=1 observed=1 missing=0 coverage=1 pass_rate=1 passed=1\/1 completed=1 timed_out=0 infra_failed=0 plumbing_failed=0 input=1 cache_hit=0 cache_miss=1 cache_write=0 output=1 total=2 cost_usd=0\.01 mean_duration_ms=100 activated=0\/1 stale_pruned=0 active_pruned=0 active_tokens_saved=0 active_archive_failures=0 archive_placeholders=0 archive_write_failures=0 retrieved=0 retrieved_tokens=0 retrieval_skipped=0 retrieval_failures=0, B tasks=1 attempts=1 observed=1 missing=0 coverage=1 pass_rate=1 passed=1\/1 completed=1 timed_out=0 infra_failed=0 plumbing_failed=0 input=1 cache_hit=0 cache_miss=1 cache_write=0 output=1 total=2 cost_usd=0\.01 mean_duration_ms=100 activated=1\/1 stale_pruned=2 active_pruned=3 active_tokens_saved=450 active_archive_failures=1 archive_placeholders=2 archive_write_failures=0 retrieved=1 retrieved_tokens=120 retrieval_skipped=0 retrieval_failures=0/,
     );
     assert.match(
       renderPromptAbComparisonMarkdown(result),
       /Context budget policy: A enabled=0\/2 snapshots=\[{"enabled":false}\], B enabled=2\/2 snapshots=/,
+    );
+  });
+
+  test('renders active prune subset pair coverage and full token cost', () => {
+    const result = summarizePromptAbComparison({
+      runId: 'ab-run',
+      roundId: 'ab-summary',
+      baselinePromptId: 'prune-off',
+      candidatePromptId: 'prune-on',
+      evaluationTaskIds: ['t1'],
+      baselineRuns: [[]],
+      candidateRuns: [[
+        {
+          ...withUsage(completed('t1', true), {
+            input: 10,
+            cacheHitInput: 3,
+            cacheMissInput: 4,
+            cacheWriteInput: 2,
+            output: 5,
+            reasoning: 1,
+            total: 16,
+            costUsd: 0.02,
+            durationMs: 250,
+          }),
+          contextBudgetSummary: contextBudgetSummary({ activePrunedToolResults: 1 }),
+        },
+      ]],
+    });
+
+    assert.match(
+      renderPromptAbComparisonMarkdown(result),
+      /Active prune subset: A tasks=1 attempts=1 observed=0 missing=1 coverage=0 pass_rate=null passed=0\/0 completed=0 timed_out=0 infra_failed=0 plumbing_failed=0 input=0 cache_hit=0 cache_miss=0 cache_write=0 output=0 total=0 cost_usd=0 mean_duration_ms=null activated=0\/0 stale_pruned=0 active_pruned=0 active_tokens_saved=0 active_archive_failures=0 archive_placeholders=0 archive_write_failures=0 retrieved=0 retrieved_tokens=0 retrieval_skipped=0 retrieval_failures=0, B tasks=1 attempts=1 observed=1 missing=0 coverage=1 pass_rate=1 passed=1\/1 completed=1 timed_out=0 infra_failed=0 plumbing_failed=0 input=10 cache_hit=3 cache_miss=4 cache_write=2 output=5 total=16 cost_usd=0\.02 mean_duration_ms=250 activated=1\/1 stale_pruned=0 active_pruned=1 active_tokens_saved=0 active_archive_failures=0 archive_placeholders=0 archive_write_failures=0 retrieved=0 retrieved_tokens=0 retrieval_skipped=0 retrieval_failures=0/,
     );
   });
 

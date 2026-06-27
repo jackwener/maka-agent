@@ -138,15 +138,17 @@ function renderActivePruneSubsetMetrics(summary: NonNullable<AbComparisonSummary
   const contextBudget = contextBudgetOrZero(summary.contextBudget);
   return [
     `tasks=${summary.taskCount}`,
+    `attempts=${summary.attempts}`,
+    `observed=${summary.observed}`,
+    `missing=${summary.missing}`,
+    `coverage=${rate(summary.coverageRate)}`,
     `pass_rate=${rate(summary.passRate)}`,
     `passed=${summary.passed}/${summary.valid}`,
     `completed=${summary.completed}`,
     `timed_out=${summary.budgetExhausted}`,
     `infra_failed=${summary.infraFailed}`,
     `plumbing_failed=${summary.plumbingFailed}`,
-    `cost_usd=${summary.totalCostUsd}`,
-    `input=${summary.tokenCostSummary.input}`,
-    `total=${summary.tokenCostSummary.total}`,
+    renderTokenCost(summary.tokenCostSummary),
     renderContextBudgetMetrics(contextBudget),
   ].join(' ');
 }
