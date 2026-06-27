@@ -138,7 +138,6 @@ function renderActivePruneSubsetMetrics(summary: NonNullable<AbComparisonSummary
   const contextBudget = contextBudgetOrZero(summary.contextBudget);
   return [
     `tasks=${summary.taskCount}`,
-    `activated=${contextBudget.activatedAttempts}/${summary.attempts}`,
     `pass_rate=${rate(summary.passRate)}`,
     `passed=${summary.passed}/${summary.valid}`,
     `completed=${summary.completed}`,
@@ -148,9 +147,7 @@ function renderActivePruneSubsetMetrics(summary: NonNullable<AbComparisonSummary
     `cost_usd=${summary.totalCostUsd}`,
     `input=${summary.tokenCostSummary.input}`,
     `total=${summary.tokenCostSummary.total}`,
-    `active_pruned=${contextBudget.activePrunedToolResults}`,
-    `active_tokens_saved=${contextBudget.activeEstimatedTokensSaved}`,
-    `active_archive_failures=${contextBudget.activeArchiveFailures}`,
+    renderContextBudgetMetrics(contextBudget),
   ].join(' ');
 }
 

@@ -31,8 +31,9 @@ export function summarizeAbComparison(input: SummarizeAbComparisonInput): AbComp
     : DEFAULT_NON_INFERIORITY_MARGIN;
   const reps = input.baselineRuns.length;
   const taskIds = [...input.evaluationTaskIds];
-  const baseline = summarizeArm(input.baselineRuns, taskIds, reps, 'A');
-  const candidate = summarizeArm(input.candidateRuns, taskIds, reps, 'B');
+  const activePrunePairIds = candidateActivePrunePairIds(observedArmAttempts(input.candidateRuns, taskIds, 'B'));
+  const baseline = summarizeArm(input.baselineRuns, taskIds, reps, 'A', activePrunePairIds);
+  const candidate = summarizeArm(input.candidateRuns, taskIds, reps, 'B', activePrunePairIds);
   const taskLevel = summarizeTasks(input.baselineRuns, input.candidateRuns, taskIds, reps);
   const pairedAttempts = summarizeAttemptPairs(input.baselineRuns, input.candidateRuns, taskIds);
   const investigationRefs = summarizeInvestigationRefs(input.baselineRuns, input.candidateRuns, taskIds);
@@ -75,6 +76,7 @@ function summarizeArm(
   taskIds: readonly string[],
   reps: number,
   arm: AbArmLabel,
+  activePrunePairIds: ReadonlySet<string>,
 ): AbArmSummary {
   const attempts = taskIds.length * reps;
   const observedAttempts = observedArmAttempts(runs, taskIds, arm);
@@ -84,7 +86,7 @@ function summarizeArm(
   const passed = valid.filter((event) => event.passed).length;
   const durations = budgetedRuns.map((event) => event.durationMs);
   const contextBudget = summarizeContextBudget(observedAttempts);
-  const activePruneSubset = summarizeActivePruneSubset(observedAttempts);
+  const activePruneSubset = summarizeActivePruneSubset(observedAttempts, activePrunePairIds);
   const contextBudgetPolicy = summarizeContextBudgetPolicy(observed);
   const tokenCostSummary = summarizeTokenCost(budgetedRuns);
   return {
@@ -108,21 +110,30 @@ function summarizeArm(
   };
 }
 
-function summarizeActivePruneSubset(attempts: readonly ObservedAttempt[]): AbArmSummary['activePruneSubset'] {
-  const activeAttempts = attempts.filter(
-    (attempt) => 'contextBudgetSummary' in attempt.event && isActivePruneActivated(attempt.event.contextBudgetSummary),
+function candidateActivePrunePairIds(attempts: readonly ObservedAttempt[]): ReadonlySet<string> {
+  return new Set(
+    attempts
+      .filter((attempt) => 'contextBudgetSummary' in attempt.event && isActivePruneActivated(attempt.event.contextBudgetSummary))
+      .map(attemptPairId),
   );
-  if (activeAttempts.length === 0) return undefined;
-  const observed = activeAttempts.map((attempt) => attempt.event);
+}
+
+function summarizeActivePruneSubset(
+  attempts: readonly ObservedAttempt[],
+  activePrunePairIds: ReadonlySet<string>,
+): AbArmSummary['activePruneSubset'] {
+  if (activePrunePairIds.size === 0) return undefined;
+  const sliceAttempts = attempts.filter((attempt) => activePrunePairIds.has(attemptPairId(attempt)));
+  const observed = sliceAttempts.map((attempt) => attempt.event);
   const valid = observed.filter(isValidBudgetedOutcome);
   const budgetedRuns = valid.filter((event) => event.type !== 'task_budget_exhausted');
   const passed = valid.filter((event) => event.passed).length;
   const durations = budgetedRuns.map((event) => event.durationMs);
   const tokenCostSummary = summarizeTokenCost(budgetedRuns);
-  const contextBudget = summarizeContextBudget(activeAttempts);
+  const contextBudget = summarizeContextBudget(sliceAttempts);
   return {
-    taskCount: new Set(activeAttempts.map((attempt) => attempt.taskId)).size,
-    attempts: activeAttempts.length,
+    taskCount: new Set([...activePrunePairIds].map(pairTaskId)).size,
+    attempts: activePrunePairIds.size,
     observed: observed.length,
     valid: valid.length,
     passed,
@@ -131,13 +142,21 @@ function summarizeActivePruneSubset(attempts: readonly ObservedAttempt[]): AbArm
     budgetExhausted: observed.filter((event) => event.type === 'task_budget_exhausted').length,
     infraFailed: observed.filter((event) => event.type === 'task_infra_failed').length,
     plumbingFailed: observed.filter((event) => event.type === 'task_plumbing_failed').length,
-    missing: 0,
-    coverageRate: 1,
+    missing: activePrunePairIds.size - observed.length,
+    coverageRate: activePrunePairIds.size > 0 ? valid.length / activePrunePairIds.size : 1,
     totalCostUsd: tokenCostSummary.costUsd,
     meanDurationMs: durations.length > 0 ? sum(durations) / durations.length : null,
     tokenCostSummary,
     ...(contextBudget ? { contextBudget } : {}),
   };
+}
+
+function attemptPairId(attempt: ObservedAttempt): string {
+  return `${attempt.taskId}#r${attempt.rep}`;
+}
+
+function pairTaskId(pairId: string): string {
+  return pairId.slice(0, pairId.lastIndexOf('#r'));
 }
 
 function summarizeTokenCost(
