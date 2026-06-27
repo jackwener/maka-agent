@@ -215,6 +215,34 @@ export interface ActiveFullCompactValidationResult {
   reasonCounts: Readonly<Record<ActiveFullCompactFailOpenReason, number>>;
 }
 
+export type ActiveFullCompactRewriteDecision = 'unchanged' | 'replaced' | 'failedOpen';
+
+export interface ActiveFullCompactRewriteInput {
+  sessionId: string;
+  turnId: string;
+  runId?: string;
+  invocationId?: string;
+  messages: readonly ModelMessage[];
+  policy: ActiveFullCompactPolicy | undefined;
+  runtimeEvents?: readonly RuntimeEvent[];
+  stepNumber: number;
+  now?: number;
+  charsPerToken?: number;
+  requestShapeHashBefore?: string;
+  requestShapeHashForMessages?: (messages: readonly ModelMessage[]) => string;
+  dryRun?: boolean;
+  dryRunReason?: string;
+}
+
+export interface ActiveFullCompactRewriteResult {
+  messages: ModelMessage[];
+  decision: ActiveFullCompactRewriteDecision;
+  diagnosticPatch: Partial<ContextBudgetDiagnostic>;
+  block?: ActiveFullCompactBlock;
+  selection?: ActiveFullCompactSelection;
+  validation?: ActiveFullCompactValidationResult;
+}
+
 export interface BuildActiveFullCompactBlockInput {
   sessionId: string;
   turnId: string;
@@ -425,7 +453,7 @@ export function buildActiveFullCompactBlockFromSummary(
     summary,
     limitations: [
       ...(input.limitations ?? []),
-      'PR1 active full compact block is source-bearing only; provider-visible replacement is intentionally not wired.',
+      'PR2 active full compact uses a deterministic metadata-first summary for provider-visible active-step replacement.',
       ...(archiveRefs.length === 0
         ? ['No active archive refs are attached; source coverage is by provider source ids and optional RuntimeEvent ids.']
         : []),
@@ -447,6 +475,218 @@ export function buildActiveFullCompactBlockFromSummary(
   };
   block.estimatedTokens = estimateTokens(renderActiveFullCompactBlock(block).length, charsPerToken);
   return block;
+}
+
+export function buildDeterministicActiveFullCompactSummary(input: {
+  selection: Extract<ActiveFullCompactSelection, { decision: 'selected' }>;
+  messages: readonly ModelMessage[];
+  maxSummaryEstimatedTokens?: number;
+  charsPerToken?: number;
+}): ActiveFullCompactSummary {
+  const charsPerToken = input.charsPerToken ?? DEFAULT_CHARS_PER_TOKEN;
+  const maxSummaryEstimatedTokens = finitePositive(input.maxSummaryEstimatedTokens) ?? 512;
+  const entries = input.selection.entries;
+  const providerMessages = uniqueSorted(entries.map((entry) => String(entry.messageIndex)));
+  const archiveRefs = uniqueSorted(entries.map((entry) => entry.archiveRef?.artifactId).filter(nonEmpty));
+  const toolCalls = uniqueSorted(entries.map((entry) => entry.toolCallId).filter(nonEmpty));
+  const contentKinds = uniqueSorted(entries.map((entry) => entry.contentKind));
+  const runtimeEvents = uniqueSorted(entries.map((entry) => entry.runtimeEventId).filter(nonEmpty));
+  const commandsTried = extractDeterministicCommands(input.selection, input.messages);
+  const text = boundedSummaryText(
+    [
+      `Earlier active provider messages were compacted by deterministic metadata summary.`,
+      `Covered ${providerMessages.length} provider messages, ${entries.length} source entries, ${runtimeEvents.length} runtime events, ${toolCalls.length} tool calls, ${archiveRefs.length} archive refs.`,
+      `Content kinds: ${contentKinds.join(', ') || 'none'}.`,
+    ].join(' '),
+    maxSummaryEstimatedTokens,
+    charsPerToken,
+  );
+
+  return {
+    schemaVersion: 1,
+    text,
+    ...(commandsTried.length > 0 ? { commandsTried } : {}),
+    ...(archiveRefs.length > 0 ? { archiveRefs } : {}),
+    constraints: ['Provider-visible raw covered payloads were replaced with this source-bearing compact block.'],
+    nextActions: ['Continue from the preserved recent active provider messages after this compact block.'],
+  };
+}
+
+export function activeFullCompactBlockToModelMessage(block: ActiveFullCompactBlock): ModelMessage {
+  return {
+    role: 'system',
+    content: renderActiveFullCompactBlock(block),
+  } as ModelMessage;
+}
+
+export function rewriteActiveFullCompactInMessages(
+  input: ActiveFullCompactRewriteInput,
+): ActiveFullCompactRewriteResult {
+  const messages = [...input.messages];
+  const index = buildActiveFullCompactSourceIndex({
+    sessionId: input.sessionId,
+    turnId: input.turnId,
+    ...(input.runId ? { runId: input.runId } : {}),
+    ...(input.invocationId ? { invocationId: input.invocationId } : {}),
+    messages,
+    runtimeEvents: input.runtimeEvents,
+    stepNumber: input.stepNumber,
+    charsPerToken: input.charsPerToken,
+  });
+  const selection = selectActiveFullCompactCoveredSpan(index, input.policy);
+
+  if (selection.decision !== 'selected') {
+    const decision = selection.decision === 'failedOpen' ? 'failedOpen' : 'unchanged';
+    return {
+      messages,
+      decision,
+      selection,
+      diagnosticPatch: activeFullCompactDecisionDiagnosticPatch({
+        decision,
+        reason: selection.reason,
+        ...(selection.decision === 'failedOpen' && isFailOpenReason(selection.reason)
+          ? { failOpenReason: selection.reason }
+          : {}),
+        skippedReasonCounts: selection.skippedReasonCounts,
+        estimatedTokensBefore: index.estimatedTokens,
+        estimatedTokensAfter: index.estimatedTokens,
+      }),
+    };
+  }
+
+  if (!selectionCoversContiguousWholeMessages(selection)) {
+    return failedOpenRewrite(messages, selection, index, 'coverage_miss');
+  }
+  if (selectedSpanContainsActiveFullCompactBlock(messages, selection)) {
+    return failedOpenRewrite(messages, selection, index, 'coverage_miss');
+  }
+
+  const summary = buildDeterministicActiveFullCompactSummary({
+    selection,
+    messages,
+    maxSummaryEstimatedTokens: input.policy?.maxSummaryEstimatedTokens,
+    charsPerToken: input.charsPerToken,
+  });
+  const renderedSummaryTokens = estimateTokens(summary.text.length, input.charsPerToken ?? DEFAULT_CHARS_PER_TOKEN);
+  const maxSummaryTokens = finitePositive(input.policy?.maxSummaryEstimatedTokens);
+  if (maxSummaryTokens !== undefined && renderedSummaryTokens > maxSummaryTokens) {
+    return failedOpenRewrite(messages, selection, index, 'summary_too_large');
+  }
+
+  const requestShapeHashBefore = input.requestShapeHashBefore ?? input.requestShapeHashForMessages?.(messages);
+  const block = buildActiveFullCompactBlockFromSummary({
+    sessionId: input.sessionId,
+    turnId: input.turnId,
+    ...(input.runId ? { runId: input.runId } : {}),
+    ...(input.invocationId ? { invocationId: input.invocationId } : {}),
+    entries: selection.entries,
+    summary,
+    highWaterName: input.policy?.highWaterName,
+    highWaterSeq: input.stepNumber,
+    trigger: {
+      reason: 'high_water',
+      stepNumber: input.stepNumber,
+      estimatedTokensBefore: index.estimatedTokens,
+      ...(input.policy?.maxActiveEstimatedTokens !== undefined
+        ? { thresholdTokens: Math.floor(input.policy.maxActiveEstimatedTokens * finiteRatio(input.policy.highWaterRatio, 0.8)) }
+        : {}),
+    },
+    preservedAnchor: preservedAnchorAfterSelection(index, selection),
+    now: input.now,
+    charsPerToken: input.charsPerToken,
+    requestShapeHashBefore,
+    preActiveContextEstimatedTokens: index.estimatedTokens,
+    postReplacementEstimatedTokens: estimatePostReplacementTokens(index, selection, summary, input.charsPerToken),
+  });
+  const validation = validateActiveFullCompactBlockForSourceIndex(block, index, {
+    sessionId: input.sessionId,
+    turnId: input.turnId,
+    archiveRequired: input.policy?.archiveRequired,
+    maxSummaryEstimatedTokens: input.policy?.maxSummaryEstimatedTokens,
+    maxBlockEstimatedTokens: maxActiveFullCompactBlockTokens(input.policy?.maxSummaryEstimatedTokens),
+    charsPerToken: input.charsPerToken,
+  });
+  if (!validation.valid) {
+    return {
+      messages,
+      decision: 'failedOpen',
+      selection,
+      block,
+      validation,
+      diagnosticPatch: activeFullCompactDecisionDiagnosticPatch({
+        decision: 'failedOpen',
+        boundaryIds: [block.blockId],
+        coverage: block.coverage,
+        estimatedTokensBefore: index.estimatedTokens,
+        estimatedTokensAfter: index.estimatedTokens,
+        failOpenReason: validation.reasons[0] ?? 'coverage_miss',
+        validationReasonCounts: validation.reasonCounts,
+      }),
+    };
+  }
+
+  const replacementMessage = activeFullCompactBlockToModelMessage(block);
+  const replacementMessages = [
+    ...messages.slice(0, selection.startMessageIndex),
+    replacementMessage,
+    ...messages.slice(selection.endMessageIndex + 1),
+  ];
+  if (!replacementShapeValid(messages, replacementMessages, selection, replacementMessage)) {
+    return failedOpenRewrite(messages, selection, index, 'coverage_miss', block, validation);
+  }
+  const requestShapeHashAfter = input.requestShapeHashForMessages?.(replacementMessages);
+  if (requestShapeHashAfter) block.requestShapeHashAfter = requestShapeHashAfter;
+
+  if (input.dryRun === true) {
+    return {
+      messages,
+      decision: 'unchanged',
+      selection,
+      block,
+      validation,
+      diagnosticPatch: {
+        ...activeFullCompactDecisionDiagnosticPatch({
+          decision: 'unchanged',
+          boundaryIds: [block.blockId],
+          coverage: block.coverage,
+          estimatedTokensBefore: index.estimatedTokens,
+          estimatedTokensAfter: index.estimatedTokens,
+          reason: input.dryRunReason ?? 'prepare_step_dry_run',
+          validationReasonCounts: validation.reasonCounts,
+        }),
+        ...(requestShapeHashBefore
+          ? {
+              highWaterRequestShapeHashBefore: requestShapeHashBefore,
+              highWaterRequestShapeHashAfter: requestShapeHashBefore,
+            }
+          : {}),
+      },
+    };
+  }
+
+  return {
+    messages: replacementMessages,
+    decision: 'replaced',
+    selection,
+    block,
+    validation,
+    diagnosticPatch: {
+      ...activeFullCompactDecisionDiagnosticPatch({
+        decision: 'replaced',
+        boundaryIds: [block.blockId],
+        coverage: block.coverage,
+        estimatedTokensBefore: index.estimatedTokens,
+        estimatedTokensAfter: block.postReplacementEstimatedTokens,
+        validationReasonCounts: validation.reasonCounts,
+      }),
+      ...(requestShapeHashBefore && requestShapeHashAfter
+        ? {
+            highWaterRequestShapeHashBefore: requestShapeHashBefore,
+            highWaterRequestShapeHashAfter: requestShapeHashAfter,
+          }
+        : {}),
+    },
+  };
 }
 
 export function renderActiveFullCompactBlock(block: ActiveFullCompactBlock): string {
@@ -685,6 +925,167 @@ export function activeFullCompactDecisionDiagnosticPatch(input: {
     ...(input.skippedReasonCounts ? { skippedReasonCounts: input.skippedReasonCounts } : {}),
     ...(input.validationReasonCounts ? { validationReasonCounts: input.validationReasonCounts } : {}),
   });
+}
+
+function failedOpenRewrite(
+  messages: ModelMessage[],
+  selection: Extract<ActiveFullCompactSelection, { decision: 'selected' }>,
+  index: ActiveFullCompactSourceIndex,
+  failOpenReason: ActiveFullCompactFailOpenReason,
+  block?: ActiveFullCompactBlock,
+  validation?: ActiveFullCompactValidationResult,
+): ActiveFullCompactRewriteResult {
+  return {
+    messages,
+    decision: 'failedOpen',
+    selection,
+    ...(block ? { block } : {}),
+    ...(validation ? { validation } : {}),
+    diagnosticPatch: activeFullCompactDecisionDiagnosticPatch({
+      decision: 'failedOpen',
+      ...(block ? { boundaryIds: [block.blockId], coverage: block.coverage } : { coverage: selection.coverage }),
+      estimatedTokensBefore: index.estimatedTokens,
+      estimatedTokensAfter: index.estimatedTokens,
+      failOpenReason,
+      skippedReasonCounts: { [failOpenReason]: 1 },
+      ...(validation ? { validationReasonCounts: validation.reasonCounts } : {}),
+    }),
+  };
+}
+
+function isFailOpenReason(reason: string): reason is ActiveFullCompactFailOpenReason {
+  return reason === 'invalid_schema_version'
+    || reason === 'session_mismatch'
+    || reason === 'turn_mismatch'
+    || reason === 'source_missing'
+    || reason === 'coverage_miss'
+    || reason === 'source_hash_mismatch'
+    || reason === 'tool_pair_split'
+    || reason === 'archive_missing'
+    || reason === 'archive_mismatch'
+    || reason === 'summary_missing'
+    || reason === 'summary_too_large'
+    || reason === 'max_block_tokens'
+    || reason === 'provider_message_only_when_runtime_required';
+}
+
+function selectionCoversContiguousWholeMessages(
+  selection: Extract<ActiveFullCompactSelection, { decision: 'selected' }>,
+): boolean {
+  const expected = new Set<number>();
+  for (let index = selection.startMessageIndex; index <= selection.endMessageIndex; index += 1) {
+    expected.add(index);
+  }
+  const actual = new Set(selection.entries.map((entry) => entry.messageIndex));
+  if (actual.size !== expected.size) return false;
+  for (const index of expected) {
+    if (!actual.has(index)) return false;
+  }
+  return true;
+}
+
+function selectedSpanContainsActiveFullCompactBlock(
+  messages: readonly ModelMessage[],
+  selection: Extract<ActiveFullCompactSelection, { decision: 'selected' }>,
+): boolean {
+  for (let index = selection.startMessageIndex; index <= selection.endMessageIndex; index += 1) {
+    const content = (messages[index] as { content?: unknown } | undefined)?.content;
+    if (typeof content === 'string' && content.includes('maka_active_full_compact_block')) return true;
+    if (stableStringify(content).includes('maka_active_full_compact_block')) return true;
+  }
+  return false;
+}
+
+function preservedAnchorAfterSelection(
+  index: ActiveFullCompactSourceIndex,
+  selection: Extract<ActiveFullCompactSelection, { decision: 'selected' }>,
+): ActiveFullCompactBlock['preservedAnchor'] {
+  const tailEntries = index.entries.filter((entry) => entry.messageIndex > selection.endMessageIndex);
+  return {
+    tailRuntimeEventIds: uniqueSorted(tailEntries.map((entry) => entry.runtimeEventId).filter(nonEmpty)),
+    tailProviderMessageSourceIds: uniqueSorted(tailEntries.map((entry) => entry.sourceId)),
+    tailTurnIds: uniqueSorted(tailEntries.map((entry) => entry.turnId)),
+  };
+}
+
+function estimatePostReplacementTokens(
+  index: ActiveFullCompactSourceIndex,
+  selection: Extract<ActiveFullCompactSelection, { decision: 'selected' }>,
+  summary: ActiveFullCompactSummary,
+  charsPerToken?: number,
+): number {
+  const chars = charsPerToken ?? DEFAULT_CHARS_PER_TOKEN;
+  const selectedIds = new Set(selection.entries.map((entry) => entry.sourceId));
+  const retainedTokens = index.entries
+    .filter((entry) => !selectedIds.has(entry.sourceId))
+    .reduce((total, entry) => total + entry.estimatedTokens, 0);
+  const summaryTokens = estimateTokens(stableStringify(summary).length, chars);
+  return retainedTokens + summaryTokens;
+}
+
+function maxActiveFullCompactBlockTokens(maxSummaryEstimatedTokens: number | undefined): number | undefined {
+  const summaryTokens = finitePositive(maxSummaryEstimatedTokens);
+  if (summaryTokens === undefined) return undefined;
+  return Math.max(summaryTokens * 8, summaryTokens + 2048);
+}
+
+function replacementShapeValid(
+  original: readonly ModelMessage[],
+  replacement: readonly ModelMessage[],
+  selection: Extract<ActiveFullCompactSelection, { decision: 'selected' }>,
+  replacementMessage: ModelMessage,
+): boolean {
+  const expectedLength = original.length - (selection.endMessageIndex - selection.startMessageIndex + 1) + 1;
+  if (replacement.length !== expectedLength) return false;
+  if (replacement[selection.startMessageIndex] !== replacementMessage) return false;
+  for (let index = 0; index < selection.startMessageIndex; index += 1) {
+    if (replacement[index] !== original[index]) return false;
+  }
+  const suffixOffset = selection.endMessageIndex - selection.startMessageIndex;
+  for (let index = selection.endMessageIndex + 1; index < original.length; index += 1) {
+    if (replacement[index - suffixOffset] !== original[index]) return false;
+  }
+  return true;
+}
+
+function extractDeterministicCommands(
+  selection: Extract<ActiveFullCompactSelection, { decision: 'selected' }>,
+  messages: readonly ModelMessage[],
+): Array<{ command: string; outcome: string; sourceIds?: string[] }> {
+  const commands: Array<{ command: string; outcome: string; sourceIds?: string[] }> = [];
+  const entriesByMessage = new Map<number, ActiveFullCompactSourceEntry[]>();
+  for (const entry of selection.entries) pushMap(entriesByMessage, entry.messageIndex, entry);
+
+  for (const [messageIndex, entries] of entriesByMessage) {
+    const message = messages[messageIndex] as { content?: unknown } | undefined;
+    const content = message?.content;
+    const parts = Array.isArray(content) ? content : [];
+    for (const part of parts) {
+      if (!part || typeof part !== 'object') continue;
+      const record = part as Record<string, unknown>;
+      if (record.type !== 'tool-call') continue;
+      const toolName = typeof record.toolName === 'string' ? record.toolName : 'tool';
+      const input = 'input' in record ? record.input : record.args;
+      const command = `${toolName} ${clip(stableStringify(input), 160)}`;
+      commands.push({
+        command,
+        outcome: 'covered by active full compact source metadata',
+        sourceIds: entries.map((entry) => entry.sourceId),
+      });
+      if (commands.length >= 5) return commands;
+    }
+  }
+  return commands;
+}
+
+function boundedSummaryText(text: string, maxEstimatedTokens: number, charsPerToken: number): string {
+  const maxChars = Math.max(1, maxEstimatedTokens * charsPerToken);
+  return clip(text, maxChars);
+}
+
+function clip(text: string, maxChars: number): string {
+  if (text.length <= maxChars) return text;
+  return `${text.slice(0, Math.max(0, maxChars - 3))}...`;
 }
 
 function entryFromProviderPart(input: {

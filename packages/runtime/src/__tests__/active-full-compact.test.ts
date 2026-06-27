@@ -7,9 +7,11 @@ import {
   activeFullCompactBlockToCompactionBoundary,
   activeFullCompactCoverageFromEntries,
   activeFullCompactDecisionDiagnosticPatch,
+  buildDeterministicActiveFullCompactSummary,
   buildActiveFullCompactBlockFromSummary,
   buildActiveFullCompactSourceIndex,
   renderActiveFullCompactBlock,
+  rewriteActiveFullCompactInMessages,
   selectActiveFullCompactCoveredSpan,
   validateActiveFullCompactBlockForSourceIndex,
   validateActiveFullCompactBlockShape,
@@ -320,7 +322,199 @@ describe('active full compact PR1 foundation', () => {
     });
     assert.equal(patch.compactionDecisions?.[0]?.estimatedTokensSaved, 400);
   });
+
+  test('deterministic summary is bounded and metadata-first', () => {
+    const messages = textMessages([
+      'RAW_SELECTED_PAYLOAD_'.repeat(100),
+      'assistant progress',
+      'recent anchor',
+    ]);
+    const index = buildActiveFullCompactSourceIndex({
+      sessionId: 'session-1',
+      turnId: 'turn-1',
+      messages,
+      stepNumber: 2,
+      charsPerToken: 1,
+    });
+    const selection = selectActiveFullCompactCoveredSpan(index, {
+      enabled: true,
+      minStepNumber: 1,
+      minRecentMessages: 1,
+      maxActiveEstimatedTokens: 1,
+      highWaterRatio: 0.1,
+      maxSummaryEstimatedTokens: 60,
+    });
+    assert.equal(selection.decision, 'selected');
+    if (selection.decision !== 'selected') assert.fail('expected selected');
+
+    const summary = buildDeterministicActiveFullCompactSummary({
+      selection,
+      messages,
+      maxSummaryEstimatedTokens: 60,
+      charsPerToken: 1,
+    });
+
+    assert.equal(summary.schemaVersion, 1);
+    assert.ok(summary.text.length <= 60);
+    assert.equal(summary.text.includes('RAW_SELECTED_PAYLOAD'), false);
+  });
+
+  test('rewrite helper replaces a safe completed span with one compact block', () => {
+    const messages = textMessages([
+      'old raw payload alpha '.repeat(30),
+      'old assistant payload beta '.repeat(30),
+      'recent user anchor',
+    ]);
+
+    const rewritten = rewriteActiveFullCompactInMessages({
+      sessionId: 'session-1',
+      turnId: 'turn-1',
+      messages,
+      policy: {
+        enabled: true,
+        minStepNumber: 1,
+        minRecentMessages: 1,
+        maxActiveEstimatedTokens: 1,
+        highWaterRatio: 0.1,
+        maxSummaryEstimatedTokens: 512,
+      },
+      stepNumber: 2,
+      now: 100,
+      charsPerToken: 1,
+    });
+
+    assert.equal(rewritten.decision, 'replaced');
+    assert.equal(rewritten.messages.length, 2);
+    assert.equal(rewritten.messages[1], messages[2]);
+    const rendered = (rewritten.messages[0] as { content?: unknown }).content;
+    assert.equal(typeof rendered, 'string');
+    assert.match(rendered as string, /maka_active_full_compact_block/);
+    assert.equal((rendered as string).includes('old raw payload alpha'), false);
+    assert.equal(rewritten.diagnosticPatch.compactionDecisions?.[0]?.decision, 'replaced');
+  });
+
+  test('rewrite helper dry run validates without mutating messages', () => {
+    const messages = textMessages([
+      'old raw payload alpha '.repeat(30),
+      'old assistant payload beta '.repeat(30),
+      'recent user anchor',
+    ]);
+
+    const rewritten = rewriteActiveFullCompactInMessages({
+      sessionId: 'session-1',
+      turnId: 'turn-1',
+      messages,
+      policy: {
+        enabled: true,
+        minStepNumber: 1,
+        minRecentMessages: 1,
+        maxActiveEstimatedTokens: 1,
+        highWaterRatio: 0.1,
+      },
+      stepNumber: 2,
+      now: 100,
+      charsPerToken: 1,
+      requestShapeHashForMessages: (candidate) => `shape:${JSON.stringify(candidate).length}`,
+      dryRun: true,
+      dryRunReason: 'validate_only',
+    });
+
+    assert.equal(rewritten.decision, 'unchanged');
+    assert.equal(rewritten.messages.length, messages.length);
+    assert.equal(rewritten.messages[0], messages[0]);
+    assert.ok(rewritten.block);
+    assert.equal(rewritten.diagnosticPatch.compactionDecisions?.[0]?.decision, 'unchanged');
+    assert.equal(rewritten.diagnosticPatch.compactionDecisions?.[0]?.reason, 'validate_only');
+    assert.equal(
+      rewritten.diagnosticPatch.highWaterRequestShapeHashBefore,
+      rewritten.diagnosticPatch.highWaterRequestShapeHashAfter,
+    );
+  });
+
+  test('rewrite helper records unchanged and failed-open diagnostics', () => {
+    const messages = textMessages(['old payload', 'recent anchor']);
+    const unchanged = rewriteActiveFullCompactInMessages({
+      sessionId: 'session-1',
+      turnId: 'turn-1',
+      messages,
+      policy: { enabled: false },
+      stepNumber: 2,
+    });
+    assert.equal(unchanged.decision, 'unchanged');
+    assert.equal(unchanged.messages.length, messages.length);
+    assert.equal(unchanged.diagnosticPatch.compactionDecisions?.[0]?.decision, 'unchanged');
+
+    const failed = rewriteActiveFullCompactInMessages({
+      sessionId: 'session-1',
+      turnId: 'turn-1',
+      messages,
+      policy: {
+        enabled: true,
+        minStepNumber: 1,
+        minRecentMessages: 1,
+        maxActiveEstimatedTokens: 1,
+        highWaterRatio: 0.1,
+        archiveRequired: true,
+      },
+      stepNumber: 2,
+    });
+    assert.equal(failed.decision, 'failedOpen');
+    assert.equal(failed.messages.length, messages.length);
+    assert.equal(failed.diagnosticPatch.compactionDecisions?.[0]?.decision, 'failedOpen');
+    assert.equal(failed.diagnosticPatch.compactionDecisions?.[0]?.failOpenReason, 'provider_message_only_when_runtime_required');
+  });
+
+  test('rewrite helper preserves active prune archive refs in the compact block', () => {
+    const placeholder = activePlaceholder();
+    const messages: ModelMessage[] = [
+      {
+        role: 'assistant',
+        content: [{
+          type: 'tool-call',
+          toolCallId: 'call-archived',
+          toolName: 'Bash',
+          input: { command: 'npm test' },
+        }],
+      } as unknown as ModelMessage,
+      {
+        role: 'tool',
+        content: [{
+          type: 'tool-result',
+          toolCallId: 'call-archived',
+          toolName: 'Bash',
+          result: placeholder,
+        }],
+      } as unknown as ModelMessage,
+      { role: 'user', content: 'recent anchor' },
+    ];
+
+    const rewritten = rewriteActiveFullCompactInMessages({
+      sessionId: 'session-1',
+      turnId: 'turn-1',
+      messages,
+      policy: {
+        enabled: true,
+        minStepNumber: 1,
+        minRecentMessages: 1,
+        maxActiveEstimatedTokens: 1,
+        highWaterRatio: 0.1,
+      },
+      stepNumber: 2,
+      charsPerToken: 1,
+    });
+
+    assert.equal(rewritten.decision, 'replaced');
+    assert.equal(rewritten.block?.archiveRefs?.[0]?.artifactId, 'artifact-call-archived');
+    assert.match(String((rewritten.messages[0] as { content?: unknown }).content), /artifact-call-archived/);
+  });
 });
+
+function textMessages(values: string[]): ModelMessage[] {
+  return values.map((value, index) => ({
+    role: index % 2 === 0 ? 'user' : 'assistant',
+    content: value,
+  } as ModelMessage));
+}
 
 function fixtureMessages(): ModelMessage[] {
   return [

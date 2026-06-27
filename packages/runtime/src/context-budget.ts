@@ -34,8 +34,8 @@ export interface ContextBudgetPolicy {
    */
   activeToolResultPrune?: ActiveToolResultPrunePolicy;
   /**
-   * Optional active-loop full compact foundation. PR1 only indexes and validates
-   * source-bearing blocks; provider-visible prepareStep replacement is PR2.
+   * Optional active-loop full compact replacement. When enabled, prepareStep can
+   * replace a validated older provider-message span with a source-bearing block.
    */
   activeFullCompact?: ActiveFullCompactPolicy;
   /** Optional replay-only archive hydration after pruning. Defaults off. */

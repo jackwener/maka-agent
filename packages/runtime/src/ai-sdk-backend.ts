@@ -99,6 +99,9 @@ import {
   type ActiveToolResultPruneDiagnosticPatch,
 } from './active-tool-result-prune.js';
 import {
+  rewriteActiveFullCompactInMessages,
+} from './active-full-compact.js';
+import {
   compactionDecisionDiagnosticPatch,
   historyCompactBlockToCompactionBoundary,
 } from './compaction-boundary.js';
@@ -183,18 +186,29 @@ export const INVALID_TOOL_NAME = 'invalid';
 export function composePrepareStep(
   toolAvailability: PrepareStepFunctionLike | undefined,
   activeToolResultPrune: PrepareStepFunctionLike | undefined,
+  activeFullCompact?: PrepareStepFunctionLike | undefined,
 ): PrepareStepFunctionLike | undefined {
-  if (!toolAvailability && !activeToolResultPrune) return undefined;
+  const hooks = [toolAvailability, activeToolResultPrune, activeFullCompact].filter(Boolean) as PrepareStepFunctionLike[];
+  if (hooks.length === 0) return undefined;
   return async (options: PrepareStepLike): Promise<PrepareStepResultLike | undefined> => {
-    const availabilityResult = await Promise.resolve(toolAvailability?.(options));
-    const pruneResult = await Promise.resolve(activeToolResultPrune?.(options));
-    if (!availabilityResult) return pruneResult;
-    if (!pruneResult) return availabilityResult;
-    return {
-      ...availabilityResult,
-      ...pruneResult,
-      activeTools: pruneResult.activeTools ?? availabilityResult.activeTools,
-    };
+    let result: PrepareStepResultLike | undefined;
+    let messages = options.messages;
+    for (const hook of hooks) {
+      const hookOptions = {
+        ...options,
+        messages,
+        ...(result?.activeTools ? { activeTools: result.activeTools } : {}),
+      } as PrepareStepLike;
+      const hookResult = await Promise.resolve(hook(hookOptions));
+      if (!hookResult) continue;
+      result = {
+        ...(result ?? {}),
+        ...hookResult,
+        activeTools: hookResult.activeTools ?? result?.activeTools,
+      };
+      if (hookResult.messages) messages = hookResult.messages;
+    }
+    return result;
   };
 }
 
@@ -560,15 +574,7 @@ export class AiSdkBackend implements AgentBackend {
     );
     const providerTools = plan.providerTools;
     let activeToolResultPruneDiagnosticPatch: ActiveToolResultPruneDiagnosticPatch = {};
-    const prepareStep = composePrepareStep(
-      plan.prepareStep,
-      this.buildActiveToolResultPrunePrepareStep(turnId, (patch) => {
-        activeToolResultPruneDiagnosticPatch = mergeActiveToolResultPruneDiagnosticPatches(
-          activeToolResultPruneDiagnosticPatch,
-          patch,
-        );
-      }),
-    );
+    let activeFullCompactDiagnosticPatch: Partial<ContextBudgetDiagnostic> | undefined;
     // Tool names the repair path matches a mis-cased call against — follows the
     // current step's snapshot so a group loaded mid-turn is repairable on the
     // step it becomes active, not routed to `invalid`.
@@ -698,6 +704,39 @@ export class AiSdkBackend implements AgentBackend {
           ...(priorReplay.contextBudget ? { contextBudget: priorReplay.contextBudget } : {}),
         });
 
+        const stepRequestShapeHash = (
+          stepMessages: readonly ModelMessage[],
+          activeToolsForStep: readonly string[] | undefined,
+        ): string => computeRequestShapeDiagnostic({
+          connection: this.input.connection,
+          modelId: this.input.modelId,
+          systemPrompt,
+          providerOptions: this.input.providerOptions,
+          providerTools,
+          activeTools: activeToolsForStep ?? plan.activeTools,
+          priorMessages: stepMessages,
+        }, priorShapeBaseline).requestShapeHash;
+        const prepareStep = composePrepareStep(
+          plan.prepareStep,
+          this.buildActiveToolResultPrunePrepareStep(turnId, (patch) => {
+            activeToolResultPruneDiagnosticPatch = mergeActiveToolResultPruneDiagnosticPatches(
+              activeToolResultPruneDiagnosticPatch,
+              patch,
+            );
+          }),
+          this.buildActiveFullCompactPrepareStep(
+            turnId,
+            input.runtimeContext,
+            (messagesForStep, activeToolsForStep) => stepRequestShapeHash(messagesForStep, activeToolsForStep),
+            (patch) => {
+              activeFullCompactDiagnosticPatch = mergeContextBudgetDiagnosticPatches(
+                activeFullCompactDiagnosticPatch,
+                patch,
+              );
+            },
+          ),
+        );
+
         const result = await this.modelAdapter.startStream({
           model,
           messages,
@@ -813,9 +852,10 @@ export class AiSdkBackend implements AgentBackend {
                 ? { toolAvailability: turnDiagnostics.requestShape.toolAvailability }
                 : {}),
             });
-            const contextBudgetForUsage = contextBudgetWithActiveToolResultPruneDiagnostics(
+            const contextBudgetForUsage = contextBudgetWithActivePrepareStepDiagnostics(
               contextBudgetForTelemetry,
               activeToolResultPruneDiagnosticPatch,
+              activeFullCompactDiagnosticPatch,
             );
             const tu: TokenUsageMessage = {
               type: 'token_usage',
@@ -917,9 +957,10 @@ export class AiSdkBackend implements AgentBackend {
       } finally {
         watchdog?.stop();
         if (this.currentWatchdog === watchdog) this.currentWatchdog = null;
-        contextBudgetForTelemetry = contextBudgetWithActiveToolResultPruneDiagnostics(
+        contextBudgetForTelemetry = contextBudgetWithActivePrepareStepDiagnostics(
           contextBudgetForTelemetry,
           activeToolResultPruneDiagnosticPatch,
+          activeFullCompactDiagnosticPatch,
         );
         this.input.recordLlmCall?.({
           sessionId: this.sessionId,
@@ -1355,6 +1396,39 @@ export class AiSdkBackend implements AgentBackend {
         onDiagnosticPatch?.(rewritten.diagnosticPatch);
       }
       return rewritten.rewritten > 0 ? { messages: rewritten.messages } : undefined;
+    };
+  }
+
+  private buildActiveFullCompactPrepareStep(
+    turnId: string,
+    runtimeEvents: readonly RuntimeEvent[] | undefined,
+    requestShapeHashForMessages: (
+      messages: readonly ModelMessage[],
+      activeToolsForStep: readonly string[] | undefined,
+    ) => string,
+    onDiagnosticPatch?: (patch: Partial<ContextBudgetDiagnostic>) => void,
+  ): PrepareStepFunctionLike | undefined {
+    const policy = this.input.contextBudget?.activeFullCompact;
+    if (policy?.enabled !== true || policy.mode === 'index_only' || policy.mode === 'off') return undefined;
+
+    return (options) => {
+      const activeToolsForStep = (options as PrepareStepLike & { activeTools?: readonly string[] }).activeTools;
+      const dryRun = policy.mode === 'validate_only' || policy.mode === 'prepare_step_dry_run';
+      const rewritten = rewriteActiveFullCompactInMessages({
+        sessionId: this.sessionId,
+        turnId,
+        messages: options.messages,
+        policy,
+        runtimeEvents: runtimeEvents?.filter((event) => event.turnId === turnId),
+        stepNumber: options.stepNumber,
+        now: this.now(),
+        charsPerToken: this.input.contextBudget?.charsPerToken,
+        requestShapeHashForMessages: (messages) => requestShapeHashForMessages(messages, activeToolsForStep),
+        dryRun,
+        ...(dryRun ? { dryRunReason: policy.mode } : {}),
+      });
+      onDiagnosticPatch?.(rewritten.diagnosticPatch);
+      return !dryRun && rewritten.decision === 'replaced' ? { messages: rewritten.messages } : undefined;
     };
   }
 
@@ -2025,15 +2099,15 @@ function hasActiveToolResultPruneDiagnosticPatch(
     || (patch.activeEstimatedTokensSaved ?? 0) > 0;
 }
 
-function contextBudgetWithActiveToolResultPruneDiagnostics(
+function contextBudgetWithActivePrepareStepDiagnostics(
   base: ContextBudgetDiagnostic | undefined,
   patch: ActiveToolResultPruneDiagnosticPatch,
+  activeFullCompactPatch: Partial<ContextBudgetDiagnostic> | undefined,
 ): ContextBudgetDiagnostic | undefined {
-  if (!hasActiveToolResultPruneDiagnosticPatch(patch)) return base;
-  return {
-    ...(base ?? minimalContextBudgetDiagnostic()),
-    ...patch,
-  } as ContextBudgetDiagnostic;
+  const prunePatch = hasActiveToolResultPruneDiagnosticPatch(patch) ? patch : undefined;
+  const mergedPatch = mergeContextBudgetDiagnosticPatches(prunePatch, activeFullCompactPatch);
+  if (!mergedPatch) return base;
+  return mergeContextBudgetDiagnostic(base ?? minimalContextBudgetDiagnostic(), mergedPatch);
 }
 
 function minimalContextBudgetDiagnostic(): ContextBudgetDiagnostic {
