@@ -200,8 +200,8 @@ describe('ModelCatalogEntry', () => {
     assert.deepEqual(
       entries.slice(0, 2).map((entry) => [entry.id, entry.source, entry.provenance.modelSource]),
       [
-        ['gpt-4o-mini', 'static_catalog', 'fallback'],
-        ['gpt-4o', 'static_catalog', 'fallback'],
+        ['gpt-5.5', 'static_catalog', 'fallback'],
+        ['gpt-5.5-pro', 'static_catalog', 'fallback'],
       ],
     );
   });
@@ -227,20 +227,21 @@ describe('ModelCatalogEntry', () => {
     });
 
     assert.equal(fallbackEntry?.id, 'gpt-5.5');
-    assert.equal(fallbackEntry?.displayName, 'GPT 5.5');
+    assert.equal(fallbackEntry?.displayName, 'GPT-5.5');
   });
 
   it('enriches provider model ids with models.dev display names', () => {
     assert.deepEqual(
       ([
-        ['anthropic', 'claude-sonnet-4-5-20250929'],
-        ['claude-subscription', 'claude-opus-4-1-20250805'],
+        ['anthropic', 'claude-sonnet-4-6'],
+        ['claude-subscription', 'claude-opus-4-8'],
+        ['openai', 'gpt-5.5-pro'],
         ['openai', 'gpt-4o-mini'],
-        ['google', 'gemini-2.5-flash'],
+        ['google', 'gemini-3.5-flash'],
         ['gemini-cli', 'gemini-2.5-pro'],
         ['deepseek', 'deepseek-v4-flash'],
-        ['zai-coding-plan', 'glm-4.7'],
-        ['codex-subscription', 'gpt-5.5'],
+        ['zai-coding-plan', 'glm-5.2'],
+        ['codex-subscription', 'gpt-5.3-codex-spark'],
       ] as Array<[ProviderType, string]>).map(([providerType, model]) => {
         const [entry] = buildModelCatalogEntries({
           providerType,
@@ -252,14 +253,15 @@ describe('ModelCatalogEntry', () => {
         return [entry?.id, entry?.displayName];
       }),
       [
-        ['claude-sonnet-4-5-20250929', 'Claude Sonnet 4.5'],
-        ['claude-opus-4-1-20250805', 'Claude Opus 4.1'],
+        ['claude-sonnet-4-6', 'Claude Sonnet 4.6'],
+        ['claude-opus-4-8', 'Claude Opus 4.8'],
+        ['gpt-5.5-pro', 'GPT-5.5 Pro'],
         ['gpt-4o-mini', 'GPT-4o mini'],
-        ['gemini-2.5-flash', 'Gemini 2.5 Flash'],
+        ['gemini-3.5-flash', 'Gemini 3.5 Flash'],
         ['gemini-2.5-pro', 'Gemini 2.5 Pro'],
         ['deepseek-v4-flash', 'DeepSeek V4 Flash'],
-        ['glm-4.7', 'GLM-4.7'],
-        ['gpt-5.5', 'GPT 5.5'],
+        ['glm-5.2', 'GLM-5.2'],
+        ['gpt-5.3-codex-spark', 'GPT-5.3 Codex Spark'],
       ],
     );
 
@@ -294,6 +296,43 @@ describe('ModelCatalogEntry', () => {
         ['gemini-1.5-pro', undefined],
         ['moonshot-v1-8k', undefined],
         ['kimi-for-coding', undefined],
+      ],
+    );
+  });
+
+  it('keeps fallback catalog choices aligned with current models.dev provider ids', () => {
+    const googleEntries = buildConnectionModelCatalogEntries({
+      connection: {
+        slug: 'google-api',
+        providerType: 'google',
+        defaultModel: '',
+      },
+    });
+    const zaiEntries = buildConnectionModelCatalogEntries({
+      connection: {
+        slug: 'zai-api',
+        providerType: 'zai-coding-plan',
+        defaultModel: '',
+      },
+    });
+
+    assert.deepEqual(
+      googleEntries.map((entry) => [entry.id, entry.displayName]),
+      [
+        ['gemini-3.5-flash', 'Gemini 3.5 Flash'],
+        ['gemini-3.1-pro-preview', 'Gemini 3.1 Pro Preview'],
+        ['gemini-2.5-pro', 'Gemini 2.5 Pro'],
+        ['gemini-2.5-flash', 'Gemini 2.5 Flash'],
+      ],
+    );
+    assert.deepEqual(
+      zaiEntries.map((entry) => [entry.id, entry.displayName]),
+      [
+        ['glm-5.2', 'GLM-5.2'],
+        ['glm-5.1', 'GLM-5.1'],
+        ['glm-5-turbo', 'GLM-5-Turbo'],
+        ['glm-4.7', 'GLM-4.7'],
+        ['glm-4.5-air', 'GLM-4.5-Air'],
       ],
     );
   });

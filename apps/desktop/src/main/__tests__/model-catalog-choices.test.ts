@@ -77,7 +77,7 @@ describe('model catalog picker helpers', () => {
 
     assert.deepEqual(
       choices.map((choice) => `${choice.connectionSlug}:${choice.model}:${choice.label}`),
-      ['codex-account:gpt-5.5:GPT 5.5'],
+      ['codex-account:gpt-5.5:GPT-5.5'],
     );
   });
 
