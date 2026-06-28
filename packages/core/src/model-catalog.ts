@@ -219,7 +219,7 @@ function makeEntry(
   const recommendedRank = recommendedRanks.get(normalizedModel.id);
   const contextWindow = normalizedModel.contextWindow ?? metadata.contextWindow;
   const maxOutputTokens = normalizedModel.maxOutputTokens ?? metadata.maxOutputTokens;
-  const capabilities = normalizedModel.capabilities ?? metadata.capabilities;
+  const capabilities = mergeCapabilities(normalizedModel.capabilities, metadata.capabilities);
   return {
     id: normalizedModel.id,
     ...displayNameForModel(input.providerType, normalizedModel),
@@ -244,6 +244,21 @@ function makeEntry(
       ...(pricing ? { pricingModelKey: `${input.providerType}:${normalizedModel.id}` } : {}),
       sources: provenanceSources(input, normalizedModel.id, source, savedChoiceSources, normalizedDefaultModel),
     },
+  };
+}
+
+function mergeCapabilities(
+  providerCapabilities: ModelInfo['capabilities'] | undefined,
+  metadataCapabilities: ModelInfo['capabilities'] | undefined,
+): ModelInfo['capabilities'] | undefined {
+  if (!providerCapabilities) return metadataCapabilities;
+  if (!metadataCapabilities) return providerCapabilities;
+  return {
+    chat: providerCapabilities.chat ?? metadataCapabilities.chat,
+    vision: providerCapabilities.vision ?? metadataCapabilities.vision,
+    reasoning: providerCapabilities.reasoning ?? metadataCapabilities.reasoning,
+    functionCalling: providerCapabilities.functionCalling ?? metadataCapabilities.functionCalling,
+    imageGeneration: providerCapabilities.imageGeneration ?? metadataCapabilities.imageGeneration,
   };
 }
 

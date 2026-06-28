@@ -168,6 +168,47 @@ describe('ModelCatalogEntry', () => {
     assert.deepEqual(entry?.capabilities, {});
   });
 
+  it('fills only missing capability fields when provider capability facts are partial', () => {
+    const [entry] = buildModelCatalogEntries({
+      providerType: 'deepseek',
+      defaultModel: 'deepseek-v4-pro',
+      models: [{ id: 'deepseek-v4-pro', capabilities: { chat: true, reasoning: false } }],
+      modelSource: 'fetched',
+    });
+
+    assert.equal(entry?.capabilitySource, 'provider_api');
+    assert.deepEqual(entry?.capabilities, { chat: true, functionCalling: true });
+  });
+
+  it('keeps OpenAI OAuth limits provider-specific instead of reusing OpenAI API context', () => {
+    const [[openaiEntry], [oauthEntry]] = ([
+      ['openai', 'gpt-5.5'],
+      ['codex-subscription', 'gpt-5.5'],
+    ] as const).map(([providerType, model]) => buildModelCatalogEntries({
+      providerType,
+      defaultModel: model,
+      models: [{ id: model }],
+      modelSource: 'fetched',
+    }));
+
+    assert.equal(openaiEntry?.contextWindow, 1_050_000);
+    assert.equal(oauthEntry?.contextWindow, 400_000);
+    assert.notEqual(oauthEntry?.contextWindow, openaiEntry?.contextWindow);
+    assert.equal(oauthEntry?.maxOutputTokens, 128_000);
+  });
+
+  it('uses provider-specific Anthropic output limits over stale aggregate catalog values', () => {
+    const [entry] = buildModelCatalogEntries({
+      providerType: 'anthropic',
+      defaultModel: 'claude-sonnet-4-6',
+      models: [{ id: 'claude-sonnet-4-6' }],
+      modelSource: 'fetched',
+    });
+
+    assert.equal(entry?.contextWindow, 1_000_000);
+    assert.equal(entry?.maxOutputTokens, 128_000);
+  });
+
   it('keeps static model facts on missing default entries without making them sendable', () => {
     const [entry] = buildModelCatalogEntries({
       providerType: 'zai-coding-plan',

@@ -21,7 +21,7 @@ const REASONING_FUNCTION_CALLING = { reasoning: true, functionCalling: true } sa
 const FUNCTION_CALLING_ONLY = { functionCalling: true } satisfies ModelInfo['capabilities'];
 
 const ANTHROPIC_MODELS_DEV_METADATA: Record<string, ModelMetadata> = {
-  'claude-sonnet-4-6': { displayName: 'Claude Sonnet 4.6', lifecycle: 'active', docsUrl: 'https://docs.anthropic.com/en/docs/about-claude/models/overview', contextWindow: 1_000_000, maxOutputTokens: 64_000, capabilities: REASONING_FUNCTION_CALLING },
+  'claude-sonnet-4-6': { displayName: 'Claude Sonnet 4.6', lifecycle: 'active', docsUrl: 'https://docs.anthropic.com/en/docs/about-claude/models/overview', contextWindow: 1_000_000, maxOutputTokens: 128_000, capabilities: REASONING_FUNCTION_CALLING },
   'claude-opus-4-8': { displayName: 'Claude Opus 4.8', lifecycle: 'active', docsUrl: 'https://docs.anthropic.com/en/docs/about-claude/models/overview', contextWindow: 1_000_000, maxOutputTokens: 128_000, capabilities: REASONING_FUNCTION_CALLING },
   'claude-fable-5': { displayName: 'Claude Fable 5', lifecycle: 'active', docsUrl: 'https://docs.anthropic.com/en/docs/about-claude/models/overview', contextWindow: 1_000_000, maxOutputTokens: 128_000, capabilities: REASONING_FUNCTION_CALLING },
   'claude-sonnet-4-5': { displayName: 'Claude Sonnet 4.5 (latest)', lifecycle: 'active', docsUrl: 'https://docs.anthropic.com/en/docs/about-claude/models/overview', contextWindow: 200_000, maxOutputTokens: 64_000, capabilities: REASONING_FUNCTION_CALLING },
@@ -59,10 +59,10 @@ const OPENAI_MODELS_DEV_METADATA: Record<string, ModelMetadata> = {
   'gpt-5': { displayName: 'GPT-5', lifecycle: 'active', docsUrl: 'https://platform.openai.com/docs/models', contextWindow: 400_000, maxOutputTokens: 128_000, capabilities: REASONING_FUNCTION_CALLING },
 };
 
-const CODEX_SUBSCRIPTION_MODELS_DEV_METADATA: Record<string, ModelMetadata> = {
-  'gpt-5.5': OPENAI_MODELS_DEV_METADATA['gpt-5.5']!,
-  'gpt-5.5-pro': OPENAI_MODELS_DEV_METADATA['gpt-5.5-pro']!,
-  'gpt-5.4': OPENAI_MODELS_DEV_METADATA['gpt-5.4']!,
+const OPENAI_OAUTH_MODELS_DEV_METADATA: Record<string, ModelMetadata> = {
+  'gpt-5.5': { ...OPENAI_MODELS_DEV_METADATA['gpt-5.5']!, contextWindow: 400_000, maxOutputTokens: 128_000 },
+  'gpt-5.5-pro': { ...OPENAI_MODELS_DEV_METADATA['gpt-5.5-pro']!, contextWindow: 400_000, maxOutputTokens: 128_000 },
+  'gpt-5.4': { ...OPENAI_MODELS_DEV_METADATA['gpt-5.4']!, contextWindow: 400_000, maxOutputTokens: 128_000 },
   'gpt-5.4-mini': OPENAI_MODELS_DEV_METADATA['gpt-5.4-mini']!,
   'gpt-5.3-codex-spark': OPENAI_MODELS_DEV_METADATA['gpt-5.3-codex-spark']!,
 };
@@ -75,7 +75,7 @@ const MODELS_DEV_METADATA: Partial<Record<ProviderType, Record<string, ModelMeta
   openai: OPENAI_MODELS_DEV_METADATA,
   google: GOOGLE_MODELS_DEV_METADATA,
   'gemini-cli': GOOGLE_MODELS_DEV_METADATA,
-  'codex-subscription': CODEX_SUBSCRIPTION_MODELS_DEV_METADATA,
+  'codex-subscription': OPENAI_OAUTH_MODELS_DEV_METADATA,
   deepseek: {
     'deepseek-v4-flash': { displayName: 'DeepSeek V4 Flash', lifecycle: 'active', docsUrl: 'https://api-docs.deepseek.com/quick_start/pricing', contextWindow: 1_000_000, maxOutputTokens: 384_000, capabilities: REASONING_FUNCTION_CALLING },
     'deepseek-v4-pro': { displayName: 'DeepSeek V4 Pro', lifecycle: 'active', docsUrl: 'https://api-docs.deepseek.com/quick_start/pricing', contextWindow: 1_000_000, maxOutputTokens: 384_000, capabilities: REASONING_FUNCTION_CALLING },
