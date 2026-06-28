@@ -417,18 +417,11 @@ export function LiveIndicator({
  * the `.toolArgs` override. The `ToolErrorBanner` (`Alert` + `.maka-tool-error*`)
  * is a separate concern on a different substrate and migrates in its own pass.
  */
-// The `waiting_permission` status carries a LITERAL underscore in its data value,
-// the one case the literalize table can't write as a plain string. Tailwind turns
-// a bare `_` in an arbitrary value into a SPACE (correct for the track-list /
-// box-shadow / oklch `_`s elsewhere, fatal here — it would compile the selector to
-// `[data-status="waiting permission"]`, which never matches). The escape is `\_`,
-// but a normal string literal (`"…waiting\\_permission…"`) makes the SCANNED
-// source text (`\\_`, two chars) disagree with cva's RUNTIME output (`\_`, one
-// char), so Tailwind emits a `\\\\_` selector the emitted class never matches.
-// `String.raw` makes the scanned source and the runtime string identical — a
-// single `\_` — the one form Tailwind compiles and cva emits the same way. (The
-// computed-style diff harness caught this; the four underscore-free statuses
-// never had the problem.)
+// `waiting_permission` carries a literal underscore, which Tailwind reads as a
+// SPACE in an arbitrary value (`[data-status="waiting permission"]` — never
+// matches). The escape is `\_`, but a plain string literal makes the SCANNED
+// source (`\\_`) disagree with cva's RUNTIME output (`\_`), so the emitted
+// selector misses the class. `String.raw` keeps both at a single `\_`.
 const WP_CARD_BORDER = String.raw`data-[status=waiting\_permission]:[border-color:oklch(from_var(--info)_l_c_h_/_0.4)]`;
 const WP_DOT_BG = String.raw`data-[status=waiting\_permission]:bg-[var(--info)]`;
 
