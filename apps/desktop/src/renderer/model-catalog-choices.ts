@@ -89,7 +89,8 @@ export function buildCatalogDailyReviewModelOptions(
   const trimmedCurrent = currentModelKey.trim();
   if (trimmedCurrent && !options.some(([value]) => value === trimmedCurrent)) {
     const label = current?.model || trimmedCurrent.split(DAILY_REVIEW_MODEL_KEY_SEPARATOR).pop() || trimmedCurrent;
-    options.push([trimmedCurrent, `${label} · 当前不可用`]);
+    const sourceLabel = current?.connectionSlug ? ` · ${current.connectionSlug}` : '';
+    options.push([trimmedCurrent, `${label}${sourceLabel} · 当前不可用`]);
   }
 
   return options;

@@ -158,18 +158,19 @@ describe('model catalog picker helpers', () => {
       buildCatalogDailyReviewModelOptions([
         connection({
           slug: 'openai-api',
+          name: 'person@example.com',
           providerType: 'openai',
           enabled: false,
           models: [{ id: 'gpt-4o-mini' }],
           modelSource: 'fetched',
         }),
       ], 'openai-api::gpt-4o-mini'),
-      [['openai-api::gpt-4o-mini', 'gpt-4o-mini · 当前不可用']],
+      [['openai-api::gpt-4o-mini', 'gpt-4o-mini · openai-api · 当前不可用']],
     );
 
     assert.deepEqual(
       buildCatalogDailyReviewModelOptions([], 'deleted-openai::gpt-4o-mini'),
-      [['deleted-openai::gpt-4o-mini', 'gpt-4o-mini · 当前不可用']],
+      [['deleted-openai::gpt-4o-mini', 'gpt-4o-mini · deleted-openai · 当前不可用']],
     );
 
     assert.deepEqual(

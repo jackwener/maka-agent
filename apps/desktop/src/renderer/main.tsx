@@ -520,10 +520,7 @@ function AppShell() {
   const catalogDefaultNewChatModel = defaultConnectionEntry
     ? pickCatalogDefaultChatModel(defaultConnectionEntry)
     : undefined;
-  const newChatModel = validPendingNewChatModel
-    ?? (catalogDefaultNewChatModel
-      ? { llmConnectionSlug: catalogDefaultNewChatModel.llmConnectionSlug, model: catalogDefaultNewChatModel.model }
-      : undefined);
+  const newChatModel = validPendingNewChatModel ?? catalogDefaultNewChatModel;
   const activeConnectionLabel = activeSession?.backend === 'fake'
     ? '本地模拟连接'
     : activeConnection?.name ?? activeSession?.llmConnectionSlug;
