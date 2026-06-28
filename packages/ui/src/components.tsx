@@ -6325,6 +6325,35 @@ function ToolOutputStream(props: {
   );
 }
 
+// `.maka-tool-error*` retired onto the `@maka/ui` `Alert` primitive (issue #332,
+// PR3c). Unlike the marker / stream / tool-card shells, there was NO bespoke
+// shell left to literalize: `ToolErrorBanner` has rendered on `Alert` since
+// a1e78b47, and `Alert`'s slot utilities live in `@layer utilities` while
+// `.maka-tool-error*` lived in `@layer components` — so the layer order (utilities
+// beats components, irrespective of specificity) had already made the container's
+// bespoke grid / padding / radius / border / background INERT. The only
+// declarations that ever rendered were the ones `Alert` doesn't set, so the
+// retirement is mostly deletion plus these few leaf literals (each proven equal to
+// the retired CSS by the chat computed-style diff; the copy-feedback state hooks
+// are also pinned as source strings by visible-copy-hygiene-contract). No
+// `errorBannerVariants` cva table: there is no bespoke shell to carry.
+//   - container: `mb-[10px]` — the lone surviving `.maka-tool-error` declaration
+//     (`Alert` sets no margin); everything else now comes from `variant="error"`.
+//   - description: mono / 12px / 1.5 / pre-wrap / break-word — `AlertDescription`
+//     sets none of these. Its `color` stays `text-muted-foreground`: the bespoke
+//     `--foreground-80` was shadowed and never rendered, so re-adding it would be a
+//     visual CHANGE, not a preservation.
+//   - copy button: `align-self:start` (kept arbitrary so it byte-matches the old
+//     `align-self:start`, not Tailwind's `flex-start`) plus the `[data-copy-feedback]`
+//     / `[data-pending]` state chrome that lived UNLAYERED in tool-output.css (so it
+//     out-ranked the ghost button), now leaf utilities mirroring the turn-footer copy.
+const TOOL_ERROR_TEXT =
+  '[font-family:var(--font-mono)] text-[12px] leading-[1.5] whitespace-pre-wrap [word-break:break-word]';
+const TOOL_ERROR_COPY =
+  'maka-button [align-self:start] data-[pending=true]:cursor-progress'
+  + ' data-[copy-feedback=copied]:text-[color:var(--accent)] data-[copy-feedback=copied]:border-[oklch(from_var(--accent)_l_c_h_/_0.35)]'
+  + ' data-[copy-feedback=failed]:text-[color:var(--destructive)] data-[copy-feedback=failed]:border-[oklch(from_var(--destructive)_l_c_h_/_0.35)]';
+
 function ToolErrorBanner(props: { result: ToolActivityItem['result'] }) {
   // Tool stderr / raw provider errors occasionally slip credential paths,
   // bearer tokens, or API keys through main-side redaction. Apply a
@@ -6348,11 +6377,11 @@ function ToolErrorBanner(props: { result: ToolActivityItem['result'] }) {
   }
 
   return (
-    <Alert variant="error" className="maka-tool-error">
+    <Alert variant="error" className="mb-[10px]">
       <AlertOctagon size={16} strokeWidth={2} aria-hidden="true" />
       <AlertTitle>工具调用失败</AlertTitle>
       {errorText && (
-        <AlertDescription className="maka-tool-error-text">
+        <AlertDescription className={TOOL_ERROR_TEXT}>
           {errorText.length > 240 ? `${errorText.slice(0, 240)}…` : errorText}
         </AlertDescription>
       )}
@@ -6362,7 +6391,7 @@ function ToolErrorBanner(props: { result: ToolActivityItem['result'] }) {
             type="button"
             variant="ghost"
             size="sm"
-            className="maka-button maka-tool-error-copy"
+            className={TOOL_ERROR_COPY}
             data-pending={copyPending ? 'true' : undefined}
             data-copy-feedback={copyPhase ?? undefined}
             aria-label={`${copyLabel}错误信息`}

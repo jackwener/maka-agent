@@ -553,22 +553,30 @@ describe('tool error copy feedback contract', () => {
   });
 
   it('styles tool-error copy pending and failure states', async () => {
-    const src = await readRendererContractCss();
+    // `.maka-tool-error-copy[…]` retired onto the `@maka/ui` Alert primitive
+    // (issue #332 PR3c): the pending / copy-feedback chrome — which lived UNLAYERED
+    // in tool-output.css so it out-ranked the ghost button — now lives as literal
+    // arbitrary utilities on the `UiButton` className, exactly like the turn-footer
+    // copy above. Asserting them on the component source (which compiles 1:1) keeps
+    // the same "pending/failure is visibly styled" guarantee; the resting render is
+    // diffed by scripts/check-chat-marker-computed-style.mjs (err-copy-* rows).
+    const componentsPath = resolve(process.cwd(), '..', '..', 'packages', 'ui', 'src', 'components.tsx');
+    const src = await readFile(componentsPath, 'utf8');
 
     assert.match(
       src,
-      /\.maka-tool-error-copy\[data-pending="true"\]\s*\{[\s\S]*cursor:\s*progress;/,
+      /data-\[pending=true\]:cursor-progress/,
       'Tool-error pending copy should visibly indicate in-progress work.',
     );
     assert.match(
       src,
-      /\.maka-tool-error-copy\[data-copy-feedback="copied"\]/,
-      'Tool-error copied state should have a stable CSS selector.',
+      /data-\[copy-feedback=copied\]:text-\[color:var\(--accent\)\] data-\[copy-feedback=copied\]:border-\[oklch\(from_var\(--accent\)_l_c_h_\/_0\.35\)\]/,
+      'Tool-error copied state should have a stable color + border styling hook.',
     );
     assert.match(
       src,
-      /\.maka-tool-error-copy\[data-copy-feedback="failed"\]/,
-      'Tool-error failed copy state should have a stable CSS selector.',
+      /data-\[copy-feedback=failed\]:text-\[color:var\(--destructive\)\] data-\[copy-feedback=failed\]:border-\[oklch\(from_var\(--destructive\)_l_c_h_\/_0\.35\)\]/,
+      'Tool-error failed copy state should have a stable color + border styling hook.',
     );
   });
 });

@@ -206,6 +206,47 @@ const toolCardSection = (el) => {
     + STAT.map(card).join('\n'));
 };
 
+// PR3c — the tool-error banner (`.maka-tool-error*` → `@maka/ui` Alert primitive,
+// issue #332). Unlike marker / stream / tool-card, there was no bespoke shell to
+// literalize: the container/.text CSS was already INERT. `.maka-tool-error*` sat in
+// `@layer components`, while `Alert`'s slot utilities sit in `@layer utilities` —
+// which win regardless of specificity — so the bespoke 18px grid / 10px radius /
+// padding / border / background never rendered; only the few declarations Alert
+// does NOT set survived. This row PROVES that: the main side (Alert base +
+// `.maka-tool-error*`) and the head side (Alert base + the leaf literals that
+// replace the surviving residue) must compute identically. The `ALERT_*` strings
+// mirror primitives/alert.tsx (byte-stable across the baseline range) and are
+// shared by BOTH sides, so any drift cancels in the diff — and a wrongly-surviving
+// `.maka-tool-error` declaration (e.g. its 18px grid winning over Alert's 16px)
+// would surface as a real DIFF here, not a false green.
+const ALERT_ERR = 'relative grid w-full items-start gap-x-2 gap-y-0.5 rounded-xl border px-3.5 py-3 text-card-foreground text-sm has-[>svg]:has-data-[slot=alert-action]:grid-cols-[calc(var(--spacing)*4)_1fr_auto] has-[>svg]:grid-cols-[calc(var(--spacing)*4)_1fr] has-data-[slot=alert-action]:grid-cols-[1fr_auto] has-[>svg]:gap-x-2 [&>svg]:h-lh [&>svg]:w-4 border-destructive/32 bg-destructive/4 [&>svg]:text-destructive';
+const ALERT_DESC = 'flex flex-col gap-2.5 text-muted-foreground [svg~&]:col-start-2';
+const ALERT_ACTION = 'flex gap-1 max-sm:col-start-2 max-sm:mt-2 sm:row-start-1 sm:row-end-3 sm:self-center sm:[[data-slot=alert-description]~&]:col-start-2 sm:[[data-slot=alert-title]~&]:col-start-2 sm:[svg~&]:col-start-2 sm:[svg~[data-slot=alert-description]~&]:col-start-3 sm:[svg~[data-slot=alert-title]~&]:col-start-3';
+const ALERT_TITLE = 'font-medium [svg~&]:col-start-2';
+// Head residue — kept in sync with `TOOL_ERROR_TEXT` / `TOOL_ERROR_COPY` in components.tsx.
+const ERR_TEXT = '[font-family:var(--font-mono)] text-[12px] leading-[1.5] whitespace-pre-wrap [word-break:break-word]';
+const ERR_COPY = 'maka-button [align-self:start] data-[pending=true]:cursor-progress data-[copy-feedback=copied]:text-[color:var(--accent)] data-[copy-feedback=copied]:border-[oklch(from_var(--accent)_l_c_h_/_0.35)] data-[copy-feedback=failed]:text-[color:var(--destructive)] data-[copy-feedback=failed]:border-[oklch(from_var(--destructive)_l_c_h_/_0.35)]';
+const errorBanner = (el) => {
+  const cont = pair(cn(ALERT_ERR, 'maka-tool-error'), cn(ALERT_ERR, 'mb-[10px]'));
+  const desc = pair(cn(ALERT_DESC, 'maka-tool-error-text'), cn(ALERT_DESC, ERR_TEXT));
+  const copyCls = pair(cn(bv('ghost', 'sm'), 'maka-button maka-tool-error-copy'), cn(bv('ghost', 'sm'), ERR_COPY));
+  const copyBtn = (id, attrs) => el('button', id, copyCls, `${attrs} type="button"`, '<svg width="11" height="11"></svg><span>复制</span>');
+  // Resting banner: container box + description typography + resting copy button,
+  // with the real svg + title/description/action slot children so Alert's
+  // `has-[>svg]:has-data-[slot=alert-action]` 3-col grid resolves as in production.
+  return el('div', 'err-banner', cont, 'data-slot="alert" role="alert"',
+      '<svg width="16" height="16" aria-hidden="true"></svg>'
+      + el('div', 'err-title', pair(ALERT_TITLE, ALERT_TITLE), 'data-slot="alert-title"', '工具调用失败')
+      + el('div', 'err-text', desc, 'data-slot="alert-description"', 'boom: command not found')
+      + el('div', 'err-action', pair(ALERT_ACTION, ALERT_ACTION), 'data-slot="alert-action"', copyBtn('err-copy-rest', '')))
+    // The copy-feedback states (cursor on pending; color + border on copied/failed)
+    // are context-independent data-attr utilities, so they ride standalone buttons
+    // exactly like the footer copy states above.
+    + copyBtn('err-copy-pending', 'data-pending="true" aria-busy="true" disabled')
+    + copyBtn('err-copy-copied', 'data-copy-feedback="copied"')
+    + copyBtn('err-copy-failed', 'data-copy-feedback="failed"');
+};
+
 // DOM tree mirroring TurnView nesting.
 const TREE = (side) => {
   const C = (p) => p[side];
@@ -251,6 +292,8 @@ const TREE = (side) => {
     streamPanel(el, 'stream-live', 'data-live="true"'),
     // The PR3b tool-activity card shell.
     toolCardSection(el),
+    // The PR3c tool-error banner (Alert primitive).
+    errorBanner(el),
   ].join('\n');
 };
 
@@ -272,7 +315,10 @@ const IDS = ['summary', 'summary-chip-1', 'summary-chip-2', 'summary-chip-tools'
   'tool-summary-collapsed', 'tool-name-collapsed', 'tool-body-collapsed',
   // …and every static dot, EXCEPT running's (its `maka-tool-pulse` ring is
   // animated → phase-dependent `getComputedStyle`; pinned by the keyframe contract).
-  ...STAT.filter((s) => s !== 'running').map((s) => `tool-dot-${s}`)];
+  ...STAT.filter((s) => s !== 'running').map((s) => `tool-dot-${s}`),
+  // PR3c tool-error banner: container box (proves `.maka-tool-error` was inert),
+  // description typography, and the copy button resting + its three feedback states.
+  'err-banner', 'err-text', 'err-copy-rest', 'err-copy-pending', 'err-copy-copied', 'err-copy-failed'];
 // `::before` middot separators are now diffed for real (they render once the
 // CSS is inlined — the old `<link>` build couldn't apply them, masking this).
 // summary-chip-2 is a non-first chip (`[&:not(:first-child)]:before:…`);
