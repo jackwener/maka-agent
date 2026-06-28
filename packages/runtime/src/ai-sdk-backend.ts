@@ -230,6 +230,28 @@ function collectPrepareStepToolCallIds(steps: PrepareStepLike['steps']): Set<str
   return out;
 }
 
+interface ActiveFullCompactPrepareStepProjection {
+  sourceSignatures: readonly string[];
+  projectedMessages: readonly ModelMessage[];
+}
+
+function projectAcceptedActiveFullCompactMessages(
+  incomingMessages: readonly ModelMessage[],
+  acceptedProjection: ActiveFullCompactPrepareStepProjection | undefined,
+): ModelMessage[] | undefined {
+  if (!acceptedProjection) return undefined;
+  if (incomingMessages.length < acceptedProjection.sourceSignatures.length) return undefined;
+  for (let index = 0; index < acceptedProjection.sourceSignatures.length; index += 1) {
+    if (modelMessageSignature(incomingMessages[index]!) !== acceptedProjection.sourceSignatures[index]) {
+      return undefined;
+    }
+  }
+  return [
+    ...acceptedProjection.projectedMessages,
+    ...incomingMessages.slice(acceptedProjection.sourceSignatures.length),
+  ];
+}
+
 // ============================================================================
 // Constructor input — single object matches @kabi's BackendRegistry call site
 // ============================================================================
@@ -1411,13 +1433,19 @@ export class AiSdkBackend implements AgentBackend {
     const policy = this.input.contextBudget?.activeFullCompact;
     if (policy?.enabled !== true || policy.mode === 'index_only' || policy.mode === 'off') return undefined;
 
+    let acceptedProjection: ActiveFullCompactPrepareStepProjection | undefined;
     return (options) => {
       const activeToolsForStep = (options as PrepareStepLike & { activeTools?: readonly string[] }).activeTools;
       const dryRun = policy.mode === 'validate_only' || policy.mode === 'prepare_step_dry_run';
+      const incomingMessages = options.messages;
+      const projectedMessages = dryRun
+        ? undefined
+        : projectAcceptedActiveFullCompactMessages(incomingMessages, acceptedProjection);
+      const messagesForRewrite = projectedMessages ?? incomingMessages;
       const rewritten = rewriteActiveFullCompactInMessages({
         sessionId: this.sessionId,
         turnId,
-        messages: options.messages,
+        messages: messagesForRewrite,
         policy,
         runtimeEvents: runtimeEvents?.filter((event) => event.turnId === turnId),
         stepNumber: options.stepNumber,
@@ -1428,7 +1456,14 @@ export class AiSdkBackend implements AgentBackend {
         ...(dryRun ? { dryRunReason: policy.mode } : {}),
       });
       onDiagnosticPatch?.(rewritten.diagnosticPatch);
-      return !dryRun && rewritten.decision === 'replaced' ? { messages: rewritten.messages } : undefined;
+      if (!dryRun && rewritten.decision === 'replaced') {
+        acceptedProjection = {
+          sourceSignatures: incomingMessages.map(modelMessageSignature),
+          projectedMessages: rewritten.messages,
+        };
+        return { messages: rewritten.messages };
+      }
+      return !dryRun && projectedMessages ? { messages: projectedMessages } : undefined;
     };
   }
 
@@ -1868,6 +1903,20 @@ function toolResultOutput(value: unknown, isError: boolean): AiSdkToolResultOutp
 
 function sha256(text: string): string {
   return createHash('sha256').update(text).digest('hex');
+}
+
+function modelMessageSignature(message: ModelMessage): string {
+  return sha256(stableStringifyForSignature(message));
+}
+
+function stableStringifyForSignature(value: unknown): string {
+  if (value === undefined) return '';
+  if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? '';
+  if (Array.isArray(value)) return `[${value.map(stableStringifyForSignature).join(',')}]`;
+  const object = value as Record<string, unknown>;
+  return `{${Object.keys(object).sort().map((key) =>
+    `${JSON.stringify(key)}:${stableStringifyForSignature(object[key])}`
+  ).join(',')}}`;
 }
 
 function hasBlockingReplayDiagnostics(plan: RuntimeEventModelReplayPlan): boolean {

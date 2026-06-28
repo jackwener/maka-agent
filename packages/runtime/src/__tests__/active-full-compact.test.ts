@@ -172,7 +172,8 @@ describe('active full compact PR1 foundation', () => {
     assert.deepEqual(boundary.coverage.runtimeEventIds, block.coverage.runtimeEventIds);
     assert.deepEqual(boundary.sourceHashes, block.coverage.bodySha256);
     assert.equal(boundary.validationStatus, 'valid');
-    assert.match(boundary.renderedText ?? '', /providerSourceIds=/);
+    assert.doesNotMatch(boundary.renderedText ?? '', /providerSourceIds=/);
+    assert.doesNotMatch(boundary.renderedText ?? '', /bodySha256=/);
     assert.deepEqual(boundary.preservedAnchor?.tailProviderMessageSourceIds, ['provider:2:0']);
   });
 
@@ -242,6 +243,33 @@ describe('active full compact PR1 foundation', () => {
       assert.ok(validation?.reasons.includes('invalid_schema_version'), name);
       if (extraReason) assert.ok(validation?.reasons.includes(extraReason), name);
     }
+  });
+
+  test('validation remeasures provider-visible block tokens instead of trusting stale estimates', () => {
+    const index = buildActiveFullCompactSourceIndex({
+      sessionId: 'session-1',
+      turnId: 'turn-1',
+      messages: fixtureMessages(),
+      runtimeEvents: fixtureRuntimeEvents(),
+    });
+    const block = buildActiveFullCompactBlockFromSummary({
+      sessionId: 'session-1',
+      turnId: 'turn-1',
+      entries: index.entries,
+      summary: fixtureSummary(index.entries.map((entry) => entry.sourceId)),
+      now: 100,
+      charsPerToken: 1,
+    });
+    block.summary.processState = ['visible provider replacement detail '.repeat(20)];
+    block.estimatedTokens = 1;
+
+    const validation = validateActiveFullCompactBlockForSourceIndex(block, index, {
+      maxBlockEstimatedTokens: 20,
+      charsPerToken: 1,
+    });
+
+    assert.equal(validation.valid, false);
+    assert.ok(validation.reasons.includes('max_block_tokens'));
   });
 
   test('span selection fails open on tool pair split', () => {
@@ -321,6 +349,43 @@ describe('active full compact PR1 foundation', () => {
       estimatedTokensAfter: 100,
     });
     assert.equal(patch.compactionDecisions?.[0]?.estimatedTokensSaved, 400);
+  });
+
+  test('provider-visible archive refs are capped while durable audit refs remain complete', () => {
+    const messages: ModelMessage[] = Array.from({ length: 20 }, (_, index) => ({
+      role: 'tool',
+      content: [{
+        type: 'tool-result',
+        toolCallId: `call-archived-${index}`,
+        toolName: 'Bash',
+        result: activePlaceholder({
+          artifactId: `artifact-call-archived-${String(index).padStart(2, '0')}`,
+          toolCallId: `call-archived-${index}`,
+          bodySha256: String(index % 10).repeat(64),
+        }),
+      }],
+    } as unknown as ModelMessage));
+    const index = buildActiveFullCompactSourceIndex({
+      sessionId: 'session-1',
+      turnId: 'turn-1',
+      messages,
+    });
+    const block = buildActiveFullCompactBlockFromSummary({
+      sessionId: 'session-1',
+      turnId: 'turn-1',
+      entries: index.entries,
+      summary: fixtureSummary(index.entries.map((entry) => entry.sourceId)),
+      now: 100,
+    });
+
+    const rendered = renderActiveFullCompactBlock(block);
+
+    assert.equal(block.archiveRefs?.length, 20);
+    assert.match(rendered, /artifact-call-archived-00/);
+    assert.match(rendered, /artifact-call-archived-11/);
+    assert.doesNotMatch(rendered, /artifact-call-archived-12/);
+    assert.match(rendered, /8 additional archive refs retained off-prompt/);
+    assert.doesNotMatch(rendered, /bodySha256/);
   });
 
   test('deterministic summary is bounded and metadata-first', () => {
@@ -570,7 +635,9 @@ describe('active full compact PR1 foundation', () => {
     assert.match(replacementJson, /Next action: retry SSH after boot and rerun verifier/);
     assert.match(replacementJson, /artifact-qemu-boot/);
     assert.match(replacementJson, /artifact-qemu-verify/);
-    assert.match(replacementJson, /providerSourceIds=/);
+    assert.doesNotMatch(replacementJson, /providerSourceIds=/);
+    assert.doesNotMatch(replacementJson, /bodySha256=/);
+    assert.doesNotMatch(replacementJson, /source\(kind=/);
     assert.equal(rewritten.messages[1], messages[messages.length - 1]);
     assert.deepEqual(
       rewritten.block.archiveRefs?.map((ref) => ref.artifactId).sort(),
@@ -579,6 +646,102 @@ describe('active full compact PR1 foundation', () => {
     assert.ok(rewritten.block.summary.commandsTried?.some((command) =>
       command.command.includes('qemu-system-x86_64') && command.sourceIds?.length
     ));
+  });
+
+  test('QEMU/source-ref cliff validates visible replacement while retaining audit metadata', () => {
+    const messages = [
+      ...Array.from({ length: 96 }, (_, index) => ({
+        role: index % 2 === 0 ? 'user' : 'assistant',
+        content: `QEMU/source-ref covered message ${index} ` + 'raw output chunk '.repeat(6),
+      } as ModelMessage)),
+      { role: 'user', content: 'recent tail remains visible' } as ModelMessage,
+    ];
+
+    const rewritten = rewriteActiveFullCompactInMessages({
+      sessionId: 'session-1',
+      turnId: 'turn-1',
+      messages,
+      policy: {
+        enabled: true,
+        minStepNumber: 1,
+        minRecentMessages: 1,
+        maxActiveEstimatedTokens: 1,
+        highWaterRatio: 0.1,
+        maxSummaryEstimatedTokens: 256,
+      },
+      stepNumber: 7,
+      now: 100,
+      charsPerToken: 1,
+    });
+
+    assert.equal(rewritten.decision, 'replaced');
+    assert.equal(rewritten.validation?.valid, true);
+    assert.ok(rewritten.block);
+    assert.equal(rewritten.block.sourceRefs.length, 96);
+    assert.equal(rewritten.block.coverage.providerMessageSourceIds.length, 96);
+    assert.ok(rewritten.block.coverage.bodySha256.length > 80);
+    assert.ok((rewritten.block.estimatedTokens ?? Infinity) <= 2048);
+
+    const visibleReplacement = String((rewritten.messages[0] as { content?: unknown }).content);
+    assert.match(visibleReplacement, /maka_active_full_compact_block/);
+    assert.doesNotMatch(visibleReplacement, /providerSourceIds=/);
+    assert.doesNotMatch(visibleReplacement, /bodySha256=/);
+    assert.doesNotMatch(visibleReplacement, /source\(kind=/);
+
+    const decision = rewritten.diagnosticPatch.compactionDecisions?.[0];
+    assert.equal(decision?.decision, 'replaced');
+    assert.equal(decision?.coverageHashes?.length, rewritten.block.coverage.bodySha256.length);
+  });
+
+  test('selection treats an already-rendered active compact block as the next boundary', () => {
+    const first = rewriteActiveFullCompactInMessages({
+      sessionId: 'session-1',
+      turnId: 'turn-1',
+      messages: textMessages([
+        'old raw payload alpha '.repeat(20),
+        'old assistant payload beta '.repeat(20),
+        'tail after first compact',
+      ]),
+      policy: {
+        enabled: true,
+        minStepNumber: 1,
+        minRecentMessages: 1,
+        maxActiveEstimatedTokens: 1,
+        highWaterRatio: 0.1,
+        maxSummaryEstimatedTokens: 512,
+      },
+      stepNumber: 2,
+      now: 100,
+      charsPerToken: 1,
+    });
+    assert.equal(first.decision, 'replaced');
+
+    const messages = [
+      ...first.messages,
+      { role: 'assistant', content: 'post-compact work output '.repeat(20) } as ModelMessage,
+      { role: 'user', content: 'recent tail after second compact' } as ModelMessage,
+    ];
+    const index = buildActiveFullCompactSourceIndex({
+      sessionId: 'session-1',
+      turnId: 'turn-1',
+      messages,
+      stepNumber: 3,
+      charsPerToken: 1,
+    });
+    const selection = selectActiveFullCompactCoveredSpan(index, {
+      enabled: true,
+      minStepNumber: 1,
+      minRecentMessages: 1,
+      maxActiveEstimatedTokens: 1,
+      highWaterRatio: 0.1,
+      maxSummaryEstimatedTokens: 512,
+    });
+
+    assert.equal(selection.decision, 'selected');
+    if (selection.decision !== 'selected') assert.fail('expected selected');
+    assert.equal(index.activeCompactMessageIndexes?.[0], 0);
+    assert.equal(selection.startMessageIndex > 0, true);
+    assert.equal(selection.entries.some((entry) => entry.messageIndex === 0), false);
   });
 });
 

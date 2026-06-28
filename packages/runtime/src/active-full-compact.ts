@@ -16,6 +16,7 @@ import {
 import { isActiveArchivedToolResultPlaceholder } from './active-tool-result-prune.js';
 
 const DEFAULT_CHARS_PER_TOKEN = 4;
+const MAX_PROVIDER_VISIBLE_ARCHIVE_REFS = 12;
 
 export interface ActiveFullCompactPolicy {
   enabled: boolean;
@@ -94,6 +95,7 @@ export interface ActiveFullCompactSourceIndex {
   stepNumber?: number;
   providerMessageCount: number;
   entries: ActiveFullCompactSourceEntry[];
+  activeCompactMessageIndexes?: number[];
   estimatedTokens: number;
 }
 
@@ -271,10 +273,14 @@ export function buildActiveFullCompactSourceIndex(
   const charsPerToken = input.charsPerToken ?? DEFAULT_CHARS_PER_TOKEN;
   const runtimeIndex = buildRuntimeEventIndex(input.runtimeEvents ?? [], charsPerToken);
   const entries: ActiveFullCompactSourceEntry[] = [];
+  const activeCompactMessageIndexes: number[] = [];
 
   input.messages.forEach((message, messageIndex) => {
     const role = normalizeProviderRole(message.role);
     const content = (message as { content?: unknown }).content;
+    if (messageContentContainsActiveFullCompactBlock(content)) {
+      activeCompactMessageIndexes.push(messageIndex);
+    }
     if (typeof content === 'string') {
       entries.push(entryFromProviderPart({
         sourceId: providerSourceId(messageIndex),
@@ -331,6 +337,7 @@ export function buildActiveFullCompactSourceIndex(
     ...(input.stepNumber !== undefined ? { stepNumber: input.stepNumber } : {}),
     providerMessageCount: input.messages.length,
     entries,
+    ...(activeCompactMessageIndexes.length > 0 ? { activeCompactMessageIndexes } : {}),
     estimatedTokens: estimateActiveFullCompactTokens(entries),
   };
 }
@@ -377,7 +384,10 @@ export function selectActiveFullCompactCoveredSpan(
 
   const minRecentMessages = Math.max(0, Math.floor(policy.minRecentMessages ?? 1));
   const endExclusive = Math.max(0, index.providerMessageCount - minRecentMessages);
-  const entries = index.entries.filter((entry) => entry.messageIndex < endExclusive);
+  const latestActiveCompactMessageIndex = latestActiveFullCompactMessageIndex(index);
+  const entries = index.entries.filter((entry) =>
+    entry.messageIndex > latestActiveCompactMessageIndex && entry.messageIndex < endExclusive
+  );
   if (entries.length === 0) return skippedSelection('unchanged', 'no_candidate');
   if (entries.some((entry) => !nonEmpty(entry.sourceId) || !nonEmpty(entry.bodySha256))) {
     return skippedSelection('failedOpen', 'source_missing');
@@ -636,8 +646,12 @@ export function rewriteActiveFullCompactInMessages(
     charsPerToken: input.charsPerToken,
     requestShapeHashBefore,
     preActiveContextEstimatedTokens: index.estimatedTokens,
-    postReplacementEstimatedTokens: estimatePostReplacementTokens(index, selection, summary, input.charsPerToken),
   });
+  block.postReplacementEstimatedTokens = estimatePostReplacementTokens(
+    index,
+    selection,
+    estimateActiveFullCompactProviderTokens(block, input.charsPerToken),
+  );
   const validation = validateActiveFullCompactBlockForSourceIndex(block, index, {
     sessionId: input.sessionId,
     turnId: input.turnId,
@@ -734,12 +748,11 @@ export function renderActiveFullCompactBlock(block: ActiveFullCompactBlock): str
     `<maka_active_full_compact_block id="${escapeAttribute(block.blockId)}" high_water="${escapeAttribute(block.highWaterName)}" seq="${block.highWaterSeq}" version="${block.version}">`,
     `summary: ${block.summary.text}`,
     ...renderSummarySections(block.summary),
-    `coverage: turnIds=[${block.coverage.turnIds.join(', ')}], runtimeEventIds=[${block.coverage.runtimeEventIds.join(', ')}], providerSourceIds=[${block.coverage.providerMessageSourceIds.join(', ')}], toolCallIds=[${block.coverage.toolCallIds.join(', ')}], contentKinds=[${block.coverage.contentKinds.join(', ')}], bodySha256=[${block.coverage.bodySha256.join(', ')}]`,
     `limitations: ${block.limitations.join('; ')}`,
-    `sources: ${block.sourceRefs.map(renderSourceRef).join('; ')}`,
     ...(block.archiveRefs && block.archiveRefs.length > 0
-      ? [`archives: ${block.archiveRefs.map(renderArchiveRef).join('; ')}`]
+      ? [`archives: ${renderProviderVisibleArchiveRefs(block.archiveRefs).join('; ')}`]
       : []),
+    `audit: full coverage, source refs, source hashes, and archive refs are retained on the durable active compact block and diagnostics.`,
     '</maka_active_full_compact_block>',
   ];
   return lines.join('\n');
@@ -857,7 +870,7 @@ export function validateActiveFullCompactBlockForSourceIndex(
   }
   const maxBlockTokens = finitePositive(options.maxBlockEstimatedTokens);
   if (maxBlockTokens !== undefined) {
-    const blockTokens = block.estimatedTokens ?? estimateTokens(renderActiveFullCompactBlock(block).length, charsPerToken);
+    const blockTokens = estimateActiveFullCompactProviderTokens(block, charsPerToken);
     if (blockTokens > maxBlockTokens) add('max_block_tokens');
   }
 
@@ -1034,10 +1047,19 @@ function selectedSpanContainsActiveFullCompactBlock(
 ): boolean {
   for (let index = selection.startMessageIndex; index <= selection.endMessageIndex; index += 1) {
     const content = (messages[index] as { content?: unknown } | undefined)?.content;
-    if (typeof content === 'string' && content.includes('maka_active_full_compact_block')) return true;
-    if (stableStringify(content).includes('maka_active_full_compact_block')) return true;
+    if (messageContentContainsActiveFullCompactBlock(content)) return true;
   }
   return false;
+}
+
+function latestActiveFullCompactMessageIndex(index: ActiveFullCompactSourceIndex): number {
+  return Math.max(-1, ...(index.activeCompactMessageIndexes ?? []));
+}
+
+function messageContentContainsActiveFullCompactBlock(content: unknown): boolean {
+  return typeof content === 'string'
+    ? content.includes('maka_active_full_compact_block')
+    : stableStringify(content).includes('maka_active_full_compact_block');
 }
 
 function preservedAnchorAfterSelection(
@@ -1055,16 +1077,20 @@ function preservedAnchorAfterSelection(
 function estimatePostReplacementTokens(
   index: ActiveFullCompactSourceIndex,
   selection: Extract<ActiveFullCompactSelection, { decision: 'selected' }>,
-  summary: ActiveFullCompactSummary,
-  charsPerToken?: number,
+  replacementEstimatedTokens: number,
 ): number {
-  const chars = charsPerToken ?? DEFAULT_CHARS_PER_TOKEN;
   const selectedIds = new Set(selection.entries.map((entry) => entry.sourceId));
   const retainedTokens = index.entries
     .filter((entry) => !selectedIds.has(entry.sourceId))
     .reduce((total, entry) => total + entry.estimatedTokens, 0);
-  const summaryTokens = estimateTokens(stableStringify(summary).length, chars);
-  return retainedTokens + summaryTokens;
+  return retainedTokens + replacementEstimatedTokens;
+}
+
+function estimateActiveFullCompactProviderTokens(
+  block: ActiveFullCompactBlock,
+  charsPerToken?: number,
+): number {
+  return estimateTokens(renderActiveFullCompactBlock(block).length, charsPerToken ?? DEFAULT_CHARS_PER_TOKEN);
 }
 
 function maxActiveFullCompactBlockTokens(maxSummaryEstimatedTokens: number | undefined): number | undefined {
@@ -1673,7 +1699,7 @@ function renderSummarySections(summary: ActiveFullCompactSummary): string[] {
   pushSection(lines, 'artifact_paths', summary.artifactPaths);
   if (summary.commandsTried && summary.commandsTried.length > 0) {
     lines.push(`commands_tried: ${summary.commandsTried.map((command) =>
-      `${command.command} => ${command.outcome}${command.sourceIds?.length ? ` [${command.sourceIds.join(', ')}]` : ''}`
+      `${command.command} => ${command.outcome}`
     ).join('; ')}`);
   }
   if (summary.latestVerifierFailure) lines.push(`latest_verifier_failure: ${summary.latestVerifierFailure}`);
@@ -1685,12 +1711,16 @@ function renderSummarySections(summary: ActiveFullCompactSummary): string[] {
   return lines;
 }
 
-function renderSourceRef(ref: ActiveFullCompactSourceRef): string {
-  return `source(kind=${ref.kind}, sourceId=${ref.sourceId}, runtimeEventId=${ref.runtimeEventId ?? ''}, toolCallId=${ref.toolCallId ?? ''}, contentKind=${ref.contentKind}, bodySha256=${ref.bodySha256})`;
+function renderArchiveRef(ref: ActiveFullCompactArchiveRef): string {
+  return `archive(artifactId=${ref.artifactId})`;
 }
 
-function renderArchiveRef(ref: ActiveFullCompactArchiveRef): string {
-  return `archive(kind=${ref.kind}, artifactId=${ref.artifactId}, toolCallId=${ref.toolCallId ?? ''}, bodySha256=${ref.bodySha256})`;
+function renderProviderVisibleArchiveRefs(refs: readonly ActiveFullCompactArchiveRef[]): string[] {
+  const visible = refs.slice(0, MAX_PROVIDER_VISIBLE_ARCHIVE_REFS).map(renderArchiveRef);
+  const hiddenCount = refs.length - visible.length;
+  return hiddenCount > 0
+    ? [...visible, `${hiddenCount} additional archive refs retained off-prompt`]
+    : visible;
 }
 
 function activeArchiveRefToBoundaryArchiveRef(ref: ActiveFullCompactArchiveRef): CompactionArchiveRef {

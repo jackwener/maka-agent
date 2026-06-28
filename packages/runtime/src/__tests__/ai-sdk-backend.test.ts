@@ -1882,6 +1882,9 @@ describe('AiSdkBackend usage telemetry', () => {
     assert.match(secondPrompt, /maka_active_full_compact_block/);
     assert.match(secondPrompt, /artifact-tool-1/);
     assert.equal(secondPrompt.includes('ACTIVE_FULL_COMPACT_RAW_TOOL_OUTPUT'), false);
+    assert.doesNotMatch(secondPrompt, /providerSourceIds=/);
+    assert.doesNotMatch(secondPrompt, /bodySha256=/);
+    assert.doesNotMatch(secondPrompt, /source\(kind=/);
 
     const usageMessage = messages.find((message) =>
       (message as { type?: string }).type === 'token_usage'
@@ -1903,6 +1906,104 @@ describe('AiSdkBackend usage telemetry', () => {
         contextBudget?.highWaterRequestShapeHashBefore,
       );
     }
+  });
+
+  test('active full compact keeps the accepted boundary projection across later AI SDK steps', async () => {
+    const messages: unknown[] = [];
+    const events: SessionEvent[] = [];
+    const rawOne = 'ACTIVE_FULL_COMPACT_BOUNDARY_RAW_ONE'.repeat(160);
+    const rawTwo = 'ACTIVE_FULL_COMPACT_BOUNDARY_RAW_TWO'.repeat(160);
+    let streamCalls = 0;
+    const model = new MockLanguageModelV3({
+      doStream: async () => {
+        streamCalls += 1;
+        const chunks: LanguageModelV3StreamPart[] = streamCalls === 1
+          ? [
+              { type: 'stream-start', warnings: [] },
+              {
+                type: 'tool-call',
+                toolCallId: 'tool-boundary-1',
+                toolName: 'Read',
+                input: JSON.stringify({ path: 'one.md' }),
+              },
+              {
+                type: 'finish',
+                finishReason: { unified: 'tool-calls', raw: 'tool_calls' },
+                usage: { inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 1, text: 1, reasoning: 0 } },
+              },
+            ]
+          : streamCalls === 2
+            ? [
+                { type: 'stream-start', warnings: [] },
+                {
+                  type: 'tool-call',
+                  toolCallId: 'tool-boundary-2',
+                  toolName: 'Read',
+                  input: JSON.stringify({ path: 'two.md' }),
+                },
+                {
+                  type: 'finish',
+                  finishReason: { unified: 'tool-calls', raw: 'tool_calls' },
+                  usage: { inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 1, text: 1, reasoning: 0 } },
+                },
+              ]
+            : [
+                { type: 'stream-start', warnings: [] },
+                { type: 'finish', finishReason: { unified: 'stop', raw: 'stop' }, usage: { inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 1, text: 1, reasoning: 0 } } },
+              ];
+        return { stream: simulateReadableStream({ chunks, initialDelayInMs: null, chunkDelayInMs: null }) };
+      },
+    });
+    const backend = new AiSdkBackend({
+      sessionId: 'session-1',
+      header: header(),
+      appendMessage: async (message) => {
+        messages.push(message);
+      },
+      connection: connection(),
+      apiKey: 'sk-test',
+      modelId: 'mock-model-id',
+      permissionEngine: new PermissionEngine({ newId: () => 'permission-id', now: () => 1 }),
+      modelFactory: () => model,
+      tools: [{
+        name: 'Read',
+        description: 'Read description',
+        parameters: z.object({ path: z.string() }),
+        permissionRequired: false,
+        impl: async ({ path }) => ({ body: path === 'one.md' ? rawOne : rawTwo }),
+      }],
+      contextBudget: {
+        charsPerToken: 1,
+        activeFullCompact: {
+          enabled: true,
+          minStepNumber: 1,
+          minRecentMessages: 0,
+          maxActiveEstimatedTokens: 1,
+          highWaterRatio: 0.1,
+          maxSummaryEstimatedTokens: 512,
+        },
+      },
+      newId: idGenerator(),
+      now: monotonicClock(),
+    });
+
+    for await (const event of backend.send({ turnId: 'turn-1', text: 'hi', context: [] })) {
+      events.push(event);
+    }
+
+    assert.equal(streamCalls, 3);
+    const secondPrompt = JSON.stringify(model.doStreamCalls[1]?.prompt.map((message) => ({
+      role: message.role,
+      content: message.content,
+    })));
+    const thirdPrompt = JSON.stringify(model.doStreamCalls[2]?.prompt.map((message) => ({
+      role: message.role,
+      content: message.content,
+    })));
+    assert.equal(countActiveFullCompactMarkers(secondPrompt), 1);
+    assert.equal(countActiveFullCompactMarkers(thirdPrompt), 2);
+    assert.equal(thirdPrompt.includes('ACTIVE_FULL_COMPACT_BOUNDARY_RAW_ONE'), false);
+    assert.equal(thirdPrompt.includes('ACTIVE_FULL_COMPACT_BOUNDARY_RAW_TWO'), false);
   });
 
   test('active full compact validate_only records diagnostics without replacing the next step prompt', async () => {
@@ -4122,6 +4223,10 @@ function compactPrompt(model: MockLanguageModelV3): unknown {
     role: message.role,
     content: message.content,
   }));
+}
+
+function countActiveFullCompactMarkers(text: string): number {
+  return text.match(/<maka_active_full_compact_block/g)?.length ?? 0;
 }
 
 function modelCallSettings(model: MockLanguageModelV3): unknown {
