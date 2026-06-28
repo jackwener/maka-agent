@@ -8,7 +8,8 @@ import {
   ensurePromptAbRunManifest,
 } from '../prompt-ab-manifest.js';
 import type { PromptAbRunManifestInput } from '../prompt-ab-types.js';
-import { sha256, withDir } from './helpers/ab-fixtures.js';
+import { sha256 } from './helpers/hash-fixture.js';
+import { withDir } from './helpers/temp-dir.js';
 
 describe('prompt A/B run manifest', () => {
   test('rejects a reused run id when resume-critical config changes', async () => {

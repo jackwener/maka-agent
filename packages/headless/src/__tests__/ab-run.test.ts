@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { runAbComparison } from '../ab-run.js';
-import { completed, sha256 } from './helpers/ab-fixtures.js';
+import { completed } from './helpers/ab-run-fixtures.js';
+import { sha256 } from './helpers/hash-fixture.js';
 
 describe('runAbComparison', () => {
   test('rejects arm ids that collapse to the same round id suffix', async () => {

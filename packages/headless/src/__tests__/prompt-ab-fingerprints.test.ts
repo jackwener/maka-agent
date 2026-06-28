@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { mkdir, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
-import { sha256, withDir } from './helpers/ab-fixtures.js';
+import { sha256 } from './helpers/hash-fixture.js';
+import { withDir } from './helpers/temp-dir.js';
 
 const promptAbScriptUrl = new URL('../../harbor/run-prompt-ab.mjs', import.meta.url).href;
 

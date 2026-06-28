@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { buildAbRunManifest } from '../ab-manifest.js';
-import { sha256 } from './helpers/ab-fixtures.js';
+import { sha256 } from './helpers/hash-fixture.js';
 
 describe('buildAbRunManifest', () => {
   test('records generic A/B arm identities for non-prompt experiments', () => {

@@ -8,8 +8,8 @@ import { runPromptAbComparison } from '../prompt-ab-run.js';
 import {
   harborOutput,
   idFactory,
-  withDir,
-} from './helpers/ab-fixtures.js';
+} from './helpers/ab-run-fixtures.js';
+import { withDir } from './helpers/temp-dir.js';
 
 const config: Config = {
   id: 'cfg-ab',
