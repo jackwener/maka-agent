@@ -38,6 +38,10 @@ test('cross-provider same model name stays in separate, distinguishable groups',
   ]);
   assert.equal(groups.length, 2);
   assert.equal(new Set(groups.map((g) => g.heading)).size, 2);
+  assert.deepEqual(
+    groups.map((g) => g.heading).sort(),
+    ['OpenAI', 'OpenAI OAuth'],
+  );
 });
 
 test('headings never leak an account email (no @), even with slug disambiguation', () => {

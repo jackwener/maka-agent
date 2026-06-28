@@ -185,6 +185,11 @@ describe('validateConnectionBaseUrl (PR-UI-IPC-1, @kenji msg 35260e29)', () => {
 });
 
 describe('provider URL defaults', () => {
+  it('labels the ChatGPT account path as OpenAI OAuth, not Codex subscription', () => {
+    assert.equal(PROVIDER_DEFAULTS['codex-subscription'].label, 'OpenAI OAuth (ChatGPT / Codex)');
+    assert.equal(PROVIDER_DEFAULTS['codex-subscription'].description, 'ChatGPT/Codex account OAuth path for OpenAI Responses models.');
+  });
+
   it('keeps Kimi Coding Plan separate from Moonshot API key access', () => {
     assert.equal(PROVIDER_DEFAULTS['kimi-coding-plan'].baseUrl, 'https://api.kimi.com/coding/v1');
     assert.equal(PROVIDER_DEFAULTS['kimi-coding-plan'].signupUrl, 'https://www.kimi.com/code/console');

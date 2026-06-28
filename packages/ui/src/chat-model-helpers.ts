@@ -50,7 +50,7 @@ const PROVIDER_SHORT_LABEL = {
   'zai-coding-plan': 'Z.AI',
   'openai-compatible': '自定义',
   'claude-subscription': 'Claude 订阅',
-  'codex-subscription': 'Codex 订阅',
+  'codex-subscription': 'OpenAI OAuth',
   'gemini-cli': 'Gemini CLI',
 } satisfies Record<ProviderType, string>;
 

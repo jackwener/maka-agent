@@ -421,6 +421,11 @@ describe('Model OAuth catalog contract (PR-MODEL-OAUTH-ALL-0 + PR-CLAUDE-CARD-MO
     assert.match(src, /自定义 OpenAI 兼容接口/);
     assert.match(src, /添加 OpenAI 兼容接口/);
     assert.match(src, /智谱 · OpenAI 兼容/);
+    assert.match(
+      src,
+      /case 'codex-subscription':\s*return \{ name: 'OpenAI OAuth', description: 'ChatGPT \/ Codex 账号登录；登录后自动成为可用模型连接。' \}/,
+      'OpenAI OAuth account path should not be presented as a Codex subscription in provider settings',
+    );
     assert.doesNotMatch(
       src,
       /OpenAI-compatible|endpoint/,

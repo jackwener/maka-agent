@@ -2078,7 +2078,7 @@ export function providerDisplay(type: ProviderType): { name: string; description
     case 'claude-subscription':
       return { name: 'Claude Subscription', description: 'Claude Pro / Max 订阅账号登录；登录后自动成为可用模型连接。' };
     case 'codex-subscription':
-      return { name: 'Codex Subscription', description: 'ChatGPT / Codex 账号登录；登录后自动成为可用模型连接。' };
+      return { name: 'OpenAI OAuth', description: 'ChatGPT / Codex 账号登录；登录后自动成为可用模型连接。' };
     case 'gemini-cli':
       return { name: 'Gemini CLI', description: 'Google 账号登录暂未接入聊天发送。' };
   }

@@ -249,8 +249,8 @@ export const PROVIDER_DEFAULTS: Record<ProviderType, ProviderDefaults> = {
     catalogBadge: 'Experimental',
   },
   'codex-subscription': {
-    label: 'Codex Subscription (ChatGPT OAuth)',
-    description: 'ChatGPT/Codex account OAuth path for Codex Responses models.',
+    label: 'OpenAI OAuth (ChatGPT / Codex)',
+    description: 'ChatGPT/Codex account OAuth path for OpenAI Responses models.',
     baseUrl: 'https://chatgpt.com/backend-api/codex',
     authKind: 'oauth_token',
     backendKind: 'ai-sdk',
