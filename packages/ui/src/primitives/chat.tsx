@@ -365,3 +365,133 @@ export function LiveIndicator({
     />
   );
 }
+
+/**
+ * Tool-activity card shell (issue #332, PR3b).
+ *
+ * Retires the bespoke `ToolActivity` chrome — the inline section + count, the
+ * `<details>` card (`.maka-tool` / `.toolItem`), the `<summary>` header row
+ * (`.maka-tool-header` / `-name` / `-meta` / `-duration` / `-status-label` /
+ * `-status-dot`), the body / intent, and the args `<pre>` override
+ * (`.toolArgs`) — moving each onto this Tailwind substrate. The selectors lived
+ * across `maka-tokens.css`'s `@layer components` and `styles/tool-output.css`.
+ *
+ * Every value is a LITERAL arbitrary utility that compiles 1:1 to the
+ * declaration it replaces, so the cva source string IS the computed-style proof
+ * (the cascade contract asserts the exact strings, no browser needed). Literals
+ * over the semantic scale for the same reason as `markerVariants` / `streamVariants`:
+ * the retired CSS hardcoded these pixels, so the literal is the faithful,
+ * self-evidently-equal translation and is immune to later scale/token re-tuning
+ * (the visual refresh, not this governance pass, owns adopting the scale).
+ *
+ * Three pieces escape the computed-style proof and are NOT in this table — they
+ * stay a small named residue keyed on `[data-slot="tool"]` in maka-tokens.css,
+ * pinned by the PR3b cascade contract (source strings + keyframe frames) rather
+ * than the diff harness:
+ *   1. the running status dot's `[animation:maka-tool-pulse…]` breath (the
+ *      shorthand rides in the `dot` part here like `LiveIndicator`; only the
+ *      `@keyframes maka-tool-pulse` stays in CSS — a keyframe is a global rule,
+ *      not an element property, and `getComputedStyle` reads a phase-dependent
+ *      value). The running dot's box-shadow RING is a leaf rest-state literal, so
+ *      it stays here and IS diff-proven.
+ *   2. the card mount entrance (`transition` + `@starting-style` opacity/translate)
+ *      — `@starting-style` only applies on the first frame, so it has no at-rest
+ *      computed style to diff. Kept verbatim as residue.
+ *   3. the native `<summary>` marker reset (`::-webkit-details-marker` /
+ *      `::marker`) — pseudo-elements with no leaf-utility form. Kept as residue.
+ * (The reduced-motion / visual-smoke suppression both ride GLOBAL `*` rules in
+ * maka-tokens.css / base.css, so — unlike `LiveIndicator`, a reusable primitive
+ * that carries its own `motion-reduce:` guards — the dot and card need no
+ * per-element motion utilities; the same global rules cover them as before.)
+ *
+ * The single consumer (`ToolActivity`) keeps its semantic tags and applies these
+ * by `className`. `toolVariants` is kept OFF the package barrel for the same
+ * reason as `markerVariants` / `streamVariants`: the only consumer imports it by
+ * relative path, so the part set stays an internal, freely-removable styling
+ * detail. The `<details>` card stays native HTML here — the eventual Base UI
+ * Disclosure path (the intended convergence target for this card AND the
+ * `.maka-turn-thinking` block) is a later structural pass, not this lift.
+ *
+ * NOTE: the args `<pre>` keeps the shared `.maka-code` inline-code base (used by
+ * Markdown / artifact previews too — out of scope); the `args` part below is only
+ * the `.toolArgs` override. The `ToolErrorBanner` (`Alert` + `.maka-tool-error*`)
+ * is a separate concern on a different substrate and migrates in its own pass.
+ */
+// The `waiting_permission` status carries a LITERAL underscore in its data value,
+// the one case the literalize table can't write as a plain string. Tailwind turns
+// a bare `_` in an arbitrary value into a SPACE (correct for the track-list /
+// box-shadow / oklch `_`s elsewhere, fatal here — it would compile the selector to
+// `[data-status="waiting permission"]`, which never matches). The escape is `\_`,
+// but a normal string literal (`"…waiting\\_permission…"`) makes the SCANNED
+// source text (`\\_`, two chars) disagree with cva's RUNTIME output (`\_`, one
+// char), so Tailwind emits a `\\\\_` selector the emitted class never matches.
+// `String.raw` makes the scanned source and the runtime string identical — a
+// single `\_` — the one form Tailwind compiles and cva emits the same way. (The
+// computed-style diff harness caught this; the four underscore-free statuses
+// never had the problem.)
+const WP_CARD_BORDER = String.raw`data-[status=waiting\_permission]:[border-color:oklch(from_var(--info)_l_c_h_/_0.4)]`;
+const WP_DOT_BG = String.raw`data-[status=waiting\_permission]:bg-[var(--info)]`;
+
+const toolVariants = cva("", {
+  variants: {
+    part: {
+      // `.toolInline` — the inline section measure column.
+      container: "w-[min(680px,100%)] mx-auto mt-[2px] mb-0 px-[16px] py-0",
+      // `.toolInline > header` — the quiet "工具调用" caption row.
+      "container-header":
+        "flex items-center justify-between mb-[3px] text-[color:var(--foreground-50)] text-[10px]",
+      // `.maka-tool-count` — the call-count pill.
+      count:
+        "inline-flex items-center justify-center min-w-[22px] h-[18px] px-[6px] py-0 rounded-[999px] bg-[var(--foreground-5)] text-[color:var(--foreground-60)] text-[11px] [font-variant-numeric:tabular-nums]",
+      // `.maka-tool` (effective: the later `padding: 0` rule wins over `8px 12px`)
+      // + `.toolItem` + the `[open]>summary` divider + the `[data-status]` border /
+      // background / opacity swaps. `[border:…]` / `[border-color:…]` are arbitrary
+      // so the status overrides touch only the color, never width/style. The mount
+      // entrance (transition + `@starting-style`) and `<summary>` marker reset stay
+      // a residue keyed on `[data-slot="tool"]` (see docstring).
+      item:
+        "[border:1px_solid_var(--border)] rounded-[10px] bg-[var(--foreground-2)] p-0 mt-[8px] [font-family:var(--font-mono)] text-[12.5px] text-[color:var(--foreground-80)] overflow-hidden [box-shadow:var(--shadow-minimal-flat)]"
+        + " [&[open]>summary]:[border-bottom:1px_solid_var(--border)]"
+        // `waiting_permission` border tint — see `WP_CARD_BORDER` above (String.raw).
+        + " " + WP_CARD_BORDER
+        + " data-[status=running]:[border-color:oklch(from_var(--accent)_l_c_h_/_0.4)]"
+        + " data-[status=completed]:[border-color:var(--border)]"
+        + " data-[status=errored]:[border-color:oklch(from_var(--destructive)_l_c_h_/_0.4)] data-[status=errored]:bg-[oklch(from_var(--destructive)_l_c_h_/_0.04)]"
+        + " data-[status=interrupted]:[border-color:var(--border)] data-[status=interrupted]:bg-[var(--foreground-3)] data-[status=interrupted]:opacity-[0.7]",
+      // `.maka-tool > summary` (list-style + padding) + `.maka-tool-header` (the
+      // 8px · name · meta grid). Folded together since the summary IS the header.
+      header:
+        "list-none grid grid-cols-[8px_minmax(0,1fr)_auto] items-center gap-[10px] px-[12px] py-[8px] text-[color:var(--foreground-70)]",
+      // `.maka-tool-status-dot` (+ the `[data-status]` color swaps; running adds
+      // the box-shadow ring + `maka-tool-pulse` breath — keyframe stays in CSS).
+      dot:
+        "w-[8px] h-[8px] rounded-[999px] bg-[var(--foreground-30)] [flex:0_0_auto]"
+        // `waiting_permission` dot tint — see `WP_DOT_BG` above (String.raw).
+        + " " + WP_DOT_BG
+        + " data-[status=running]:bg-[var(--accent)] data-[status=running]:[box-shadow:0_0_0_3px_oklch(from_var(--accent)_l_c_h_/_0.15)] data-[status=running]:[animation:maka-tool-pulse_1.5s_ease-in-out_infinite]"
+        + " data-[status=completed]:bg-[var(--success)]"
+        + " data-[status=errored]:bg-[var(--destructive)]"
+        + " data-[status=interrupted]:bg-[var(--foreground-30)]",
+      // `.maka-tool-name` — the mono tool name, ellipsized.
+      name:
+        "min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[color:var(--foreground)] font-medium [font-family:var(--font-mono)]",
+      // `.maka-tool-meta` — duration + status-label cluster.
+      meta:
+        "inline-flex items-center gap-[8px] text-[color:var(--foreground-50)] text-[11px]",
+      // `.maka-tool-duration`
+      duration: "[font-variant-numeric:tabular-nums]",
+      // `.maka-tool-status-label`
+      "status-label": "text-[color:var(--foreground-60)]",
+      // `.maka-tool-body`
+      body: "px-[12px] pt-[10px] pb-[12px]",
+      // `.maka-tool-intent`
+      intent:
+        "mx-0 mt-0 mb-[8px] text-[color:var(--foreground-60)] [font-family:var(--font-default)] text-[12px] leading-[1.4]",
+      // `.toolArgs` — the override layered over the shared `.maka-code` base
+      // (`.maka-code` stays in CSS; the call site keeps the class).
+      args: "m-0 max-h-[110px] overflow-auto",
+    },
+  },
+});
+
+export { toolVariants };

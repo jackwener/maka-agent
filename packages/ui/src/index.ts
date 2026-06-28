@@ -27,9 +27,10 @@ export * from './utils.js';
 // consumers can `import { Alert, Empty, Sidebar, ... } from '@maka/ui'`.
 export * from './bot-brand.js';
 export * from './primitives/alert.js';
-// `markerVariants` / `streamVariants` / `LiveIndicator` are deliberately NOT
-// re-exported here: they are internal styling tables / a single-consumer dot that
-// the chat call sites apply via relative import, so keeping them off the package
+// `markerVariants` / `streamVariants` / `toolVariants` / `LiveIndicator` are
+// deliberately NOT re-exported here: they are internal styling tables / a
+// single-consumer dot that the chat call sites apply via relative import, so
+// keeping them off the package
 // barrel preserves the governance goal — they stay renamable/removable without a
 // public-API break. (Contrast `buttonVariants`, which IS public because it has
 // external consumers.) `LiveIndicator` is exported to public only when the
