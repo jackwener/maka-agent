@@ -184,7 +184,12 @@ const markerVariants = cva("", {
       // `.maka-turn-lineage-badge` (UiButton) — tiny pill, `[data-direction]`
       // recolors it forward (info) / reverse (brand-deep).
       "lineage-badge":
-        "inline-flex items-center gap-[3px] px-[5px] py-[1px] rounded-[999px] border-0 bg-[oklch(from_var(--foreground)_l_c_h_/_0.05)] text-[color:var(--foreground-48)] text-[9px] [transition:background_150ms_var(--ease-out-strong),color_150ms_var(--ease-out-strong)]"
+        // `h-8` + `leading-[12px]` explicit for the same reason as
+        // `footer-action` (UiButton `size="nav"`): preserves the 30px height and
+        // the 4/3 line-height (9px font × 4/3 = 12px) that `size="sm"`'s `h-8` /
+        // `text-xs` used to supply implicitly on `main`, so geometry lives in
+        // the marker shell.
+        "inline-flex items-center h-8 gap-[3px] px-[5px] py-[1px] rounded-[999px] [border:0] bg-[oklch(from_var(--foreground)_l_c_h_/_0.05)] text-[color:var(--foreground-48)] text-[9px] leading-[12px] [transition:background_150ms_var(--ease-out-strong),color_150ms_var(--ease-out-strong)]"
         + " hover:bg-[oklch(from_var(--foreground)_l_c_h_/_0.08)] hover:text-[color:var(--foreground)]"
         + " focus-visible:[outline:2px_solid_var(--accent)] focus-visible:[outline-offset:2px]"
         + " data-[direction=forward]:bg-[oklch(from_var(--info)_l_c_h_/_0.06)] data-[direction=forward]:text-[oklch(from_var(--info-text)_calc(l_-_0.06)_c_h)]"
@@ -197,7 +202,14 @@ const markerVariants = cva("", {
       // reused by the user-message copy (`MessageCopyButton footerStyle`), so
       // it carries only the button look, never the footer's measure column.
       "footer-action":
-        "inline-flex items-center gap-[6px] min-h-[28px] px-[8px] py-[4px] rounded-[8px] border-0 bg-transparent text-[color:var(--foreground-50)] text-[12px] [transition:background_120ms_ease,color_120ms_ease,opacity_120ms_ease]"
+        // `h-8` (→30px) + `leading-[16px]` are explicit because the call sites
+        // pass `UiButton size="nav"` (the bare size whose docstring says the
+        // consumer's className owns height/padding/font). On `main` both came
+        // implicitly from `size="sm"` — its `h-8`, and `text-xs`'s 4/3
+        // line-height ratio over the 12px font (12 × 4/3 = 16px exactly).
+        // Folding them in keeps the exact pixels while the marker shell owns its
+        // geometry (verified equal to `main` by computed style, headless electron).
+        "inline-flex items-center gap-[6px] min-h-[28px] h-8 px-[8px] py-[4px] rounded-[8px] [border:0] bg-transparent text-[color:var(--foreground-50)] text-[12px] leading-[16px] [transition:background_120ms_ease,color_120ms_ease,opacity_120ms_ease]"
         + " [&:hover:not(:disabled)]:bg-[oklch(from_var(--foreground)_l_c_h_/_0.05)] [&:hover:not(:disabled)]:text-[color:var(--foreground)]"
         + " focus-visible:[outline:2px_solid_var(--accent)] focus-visible:[outline-offset:2px]"
         + " disabled:opacity-[0.45] disabled:cursor-not-allowed aria-disabled:opacity-[0.45] aria-disabled:cursor-not-allowed"

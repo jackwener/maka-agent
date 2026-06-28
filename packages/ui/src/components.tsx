@@ -4503,7 +4503,10 @@ function MessageCopyButton(props: { text: string; label?: string; footerStyle?: 
       type="button"
       className={footer ? markerVariants({ variant: 'footer-action' }) : 'maka-message-copy'}
       variant="quiet"
-      size={footer ? 'sm' : 'icon-sm'}
+      // `nav` is the bare size: the footer-action marker shell owns its own
+      // height/padding/font (see `markerVariants`), so it doesn't inherit —
+      // and then have to merge out — `sm`'s `h-8`/`px-2.5`/`text-xs`.
+      size={footer ? 'nav' : 'icon-sm'}
       onClick={() => void copy()}
       aria-label={copyPhase ? `${actionLabel} · ${baseLabel}` : baseLabel}
       aria-busy={copyPending ? 'true' : undefined}
@@ -4759,7 +4762,7 @@ function TurnView(props: {
               type="button"
               className={markerVariants({ variant: 'lineage-badge' })}
               variant="quiet"
-              size="sm"
+              size="nav"
               data-direction="forward"
               title={badge.tooltip ?? badge.label}
               onClick={() => props.onLineageBadgeClick?.(badge.targetTurnId)}
@@ -4856,7 +4859,7 @@ function TurnView(props: {
                   type="button"
                   className={markerVariants({ variant: 'lineage-badge' })}
                   variant="quiet"
-                  size="sm"
+                  size="nav"
                   data-direction="reverse"
                   title={badge.tooltip ?? badge.label}
                   onClick={() => props.onLineageBadgeClick?.(badge.targetTurnId)}
@@ -5044,7 +5047,7 @@ function TurnFooterActions(props: {
             type="button"
             className={markerVariants({ variant: 'footer-action' })}
             variant={priority === 'primary' ? 'secondary' : 'quiet'}
-            size="sm"
+            size="nav"
             data-action={action.id}
             data-priority={priority}
             data-pending={isActionPending || undefined}

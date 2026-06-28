@@ -59,22 +59,27 @@ test('markerVariants resolves a leaf shell string the UiButton call sites can ap
 });
 
 // The footer action + lineage badge are the only NON-leaf marker call sites:
-// they render as `UiButton`, so the real on-element class string is
-// `cn(buttonVariants({ variant:'quiet', size:'sm' }), markerVariants(...))`.
-// Unlike the pure-container variants, "source string == computed style" does
-// NOT hold for free here — tailwind-merge has to drop the button's conflicting
-// shell utilities so the retired `.maka-turn-*` pixels win. This pins that merge
-// resolution (deterministic, no browser, no screenshot rasterization noise),
-// covering the exact regression risk PR2 introduced for these two elements.
-test('footer-action merge drops the UiButton shell so the retired footer pixels win', () => {
+// they render as `UiButton variant="quiet" size="nav"`, so the real on-element
+// class string is `cn(buttonVariants({ quiet, nav }), markerVariants(...))`.
+// `nav` is the bare size (emits nothing), so the marker shell — including its
+// own `h-8` height — fully owns the geometry; the only conflicts left to drop
+// are `buttonVariants`' BASE/quiet utilities (`gap-2`, `rounded-md`,
+// `text-muted-foreground`), not a `size` token. Unlike the pure-container
+// variants, "source string == computed style" doesn't hold for free here, so
+// this pins the merge resolution deterministically (no browser, no screenshot
+// rasterization noise) — the exact regression risk PR2 introduced for these two.
+test('footer-action merge drops the UiButton base shell so the retired footer pixels win', () => {
   const merged = cn(
-    buttonVariants({ variant: 'quiet', size: 'sm' }),
+    buttonVariants({ variant: 'quiet', size: 'nav' }),
     markerVariants({ variant: 'footer-action' }),
   );
-  // The retired `.maka-turn-footer-action` declarations survive…
+  // The retired `.maka-turn-footer-action` declarations survive (incl. the now
+  // explicit `h-8` height that `size="sm"` used to supply implicitly)…
   for (const win of [
     'gap-[6px]',
     'min-h-[28px]',
+    'h-8',
+    'leading-[16px]',
     'px-[8px]',
     'py-[4px]',
     'rounded-[8px]',
@@ -83,10 +88,10 @@ test('footer-action merge drops the UiButton shell so the retired footer pixels 
   ]) {
     assert.ok(merged.includes(win), `footer pixel "${win}" must survive the merge`);
   }
-  // …and the conflicting UiButton quiet/sm utilities are dropped, so they can't
-  // override the footer shell (px-2.5 padding, rounded-md radius, text-xs size,
-  // gap-2 gap, muted-foreground color).
-  for (const dropped of ['px-2.5', 'rounded-md', 'text-xs', 'gap-2', 'text-muted-foreground']) {
+  // …and the conflicting `buttonVariants` base/quiet utilities are dropped, so
+  // they can't override the footer shell (rounded-md radius, gap-2 gap,
+  // muted-foreground color).
+  for (const dropped of ['rounded-md', 'gap-2', 'text-muted-foreground']) {
     assert.ok(
       !merged.split(/\s+/).includes(dropped),
       `conflicting UiButton utility "${dropped}" must be merged out of the footer action`,
@@ -94,12 +99,14 @@ test('footer-action merge drops the UiButton shell so the retired footer pixels 
   }
 });
 
-test('lineage-badge merge drops the UiButton shell so the retired badge pixels win', () => {
+test('lineage-badge merge drops the UiButton base shell so the retired badge pixels win', () => {
   const merged = cn(
-    buttonVariants({ variant: 'quiet', size: 'sm' }),
+    buttonVariants({ variant: 'quiet', size: 'nav' }),
     markerVariants({ variant: 'lineage-badge' }),
   );
   for (const win of [
+    'h-8',
+    'leading-[12px]',
     'gap-[3px]',
     'px-[5px]',
     'py-[1px]',
@@ -109,7 +116,7 @@ test('lineage-badge merge drops the UiButton shell so the retired badge pixels w
   ]) {
     assert.ok(merged.includes(win), `lineage pixel "${win}" must survive the merge`);
   }
-  for (const dropped of ['px-2.5', 'rounded-md', 'text-xs', 'gap-2', 'text-muted-foreground']) {
+  for (const dropped of ['rounded-md', 'gap-2', 'text-muted-foreground']) {
     assert.ok(
       !merged.split(/\s+/).includes(dropped),
       `conflicting UiButton utility "${dropped}" must be merged out of the lineage badge`,

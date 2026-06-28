@@ -91,6 +91,10 @@ describe('chat Marker shell migration contract (#332 PR2)', () => {
       // footer + footer action (models.css)
       'opacity-[0.72] hover:opacity-100 focus-within:opacity-100',
       'min-h-[28px]',
+      // `h-8` (→30px) is folded into the footer-action / lineage-badge shells
+      // now that the call sites use `UiButton size="nav"` (bare); it used to
+      // come implicitly from `size="sm"`.
+      'h-8',
       '[&:hover:not(:disabled)]:bg-[oklch(from_var(--foreground)_l_c_h_/_0.05)]',
       'data-[pending=true]:opacity-[0.78]',
       'data-[copy-feedback=copied]:text-[color:var(--accent)]',
