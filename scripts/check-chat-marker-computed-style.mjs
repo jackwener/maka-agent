@@ -103,6 +103,10 @@ const TREE = (side) => {
   const el = (tag, id, p, attrs, kids = '') => `<${tag} id="${id}" class="${C(p)}" ${attrs}>${kids}</${tag}>`;
   const action = (id, p, attrs) => el('button', id, p, `${attrs} type="button"`, '<svg width="11" height="11"></svg><span>复制中…</span>');
   const chip = (id) => el('span', id, pair('maka-turn-summary-chip', mv('summary-chip')), 'data-kind="model"', '<span>x</span>');
+  // Every other chip `data-[kind]` (and the in-progress `data-[state]`) gets a
+  // row too, so the tools tint / duration+tokens tabular-nums / in-progress
+  // accent+semibold are diffed for real, not only pinned as source strings.
+  const kindChip = (id, attrs) => el('span', id, pair('maka-turn-summary-chip', mv('summary-chip')), attrs, '<span>x</span>');
   // The "切换" pill nests inside a model chip carrying `data-switched=true`,
   // exactly as TurnSummary renders it — both the switched-model chip path and
   // the pill itself are migrated variants, so each is measured as its own row.
@@ -111,7 +115,12 @@ const TREE = (side) => {
       '<code>m</code>' + el('span', pillId, pair('maka-turn-summary-chip-switched', mv('summary-switched')), '', '切换'));
   return [
     el('div', 'summary', pair('maka-turn-summary', mv('summary')), '',
-      chip('summary-chip-1') + chip('summary-chip-2') + switchedChip('summary-chip-switched', 'summary-switched')),
+      chip('summary-chip-1') + chip('summary-chip-2')
+      + kindChip('summary-chip-tools', 'data-kind="tools"')
+      + kindChip('summary-chip-duration', 'data-kind="duration"')
+      + kindChip('summary-chip-tokens', 'data-kind="tokens"')
+      + kindChip('summary-chip-inprogress', 'data-kind="duration" data-state="in-progress"')
+      + switchedChip('summary-chip-switched', 'summary-switched')),
     el('div', 'footer', pair('maka-turn-footer', mv('footer')), 'role="toolbar"',
       action('footer-rest', fa('quiet'), '') +
       action('footer-pending', fa('secondary'), 'data-pending="true" aria-busy="true"') +
@@ -131,7 +140,7 @@ const TREE = (side) => {
 };
 
 const PROPS = ['display', 'height', 'minHeight', 'width', 'maxWidth', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'marginTop', 'marginRight', 'marginBottom', 'marginLeft', 'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth', 'borderTopColor', 'borderTopStyle', 'borderTopLeftRadius', 'fontSize', 'fontWeight', 'fontStyle', 'lineHeight', 'columnGap', 'color', 'backgroundColor', 'opacity', 'transition', 'justifyContent', 'alignItems', 'flexWrap', 'fontVariantNumeric', 'whiteSpace', 'textAlign', 'cursor'];
-const IDS = ['summary', 'summary-chip-1', 'summary-chip-2', 'summary-chip-switched', 'summary-switched', 'footer', 'footer-rest', 'footer-pending', 'footer-copy-pending', 'footer-copied', 'footer-failed', 'lineage-row', 'lineage-fwd', 'lineage-row-reverse', 'lineage-rev', 'aborted', 'failed-banner', 'failed-recovery'];
+const IDS = ['summary', 'summary-chip-1', 'summary-chip-2', 'summary-chip-tools', 'summary-chip-duration', 'summary-chip-tokens', 'summary-chip-inprogress', 'summary-chip-switched', 'summary-switched', 'footer', 'footer-rest', 'footer-pending', 'footer-copy-pending', 'footer-copied', 'footer-failed', 'lineage-row', 'lineage-fwd', 'lineage-row-reverse', 'lineage-rev', 'aborted', 'failed-banner', 'failed-recovery'];
 // `::before` middot separators are now diffed for real (they render once the
 // CSS is inlined — the old `<link>` build couldn't apply them, masking this).
 // summary-chip-2 is a non-first chip (`[&:not(:first-child)]:before:…`);

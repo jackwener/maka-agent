@@ -76,7 +76,14 @@ describe('chat Marker shell migration contract (#332 PR2)', () => {
       "[&:not(:first-child)]:before:content-['·']",
       '[&_code]:[font-family:var(--font-mono)]',
       'data-[kind=model]:[&_code]:text-[color:var(--foreground-60)]',
+      // every chip `data-[kind]` conditional is pinned, not just `model`, so
+      // dropping the tools tint / duration+tokens tabular-nums / tokens mono
+      // fails the contract.
+      'data-[kind=tools]:text-[color:var(--foreground-50)]',
+      'data-[kind=duration]:[font-variant-numeric:tabular-nums]',
+      'data-[kind=tokens]:[font-family:var(--font-mono)]',
       'data-[state=in-progress]:text-[color:var(--accent)]',
+      'data-[state=in-progress]:font-semibold',
       'bg-[oklch(from_var(--foreground)_l_c_h_/_0.06)]',
       // aborted marker (models.css)
       'bg-[var(--foreground-5)]',
@@ -103,6 +110,12 @@ describe('chat Marker shell migration contract (#332 PR2)', () => {
       'focus-visible:[outline:2px_solid_var(--accent)]',
       'focus-visible:[outline-offset:2px]',
       'data-[pending=true]:opacity-[0.78]',
+      // the combined disabled+pending guards: a copy button can be both
+      // `disabled` and `data-pending` (transient copy click), and the retired
+      // CSS kept the 0.78 pending dim winning over the 0.45 disabled dim — these
+      // raise the specificity so emit order can't flip it.
+      'disabled:data-[pending=true]:opacity-[0.78]',
+      'aria-disabled:data-[pending=true]:opacity-[0.78]',
       'data-[copy-feedback=copied]:text-[color:var(--accent)]',
     ]) {
       assert.ok(
