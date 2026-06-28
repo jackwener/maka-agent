@@ -5044,7 +5044,7 @@ function TurnFooterActions(props: {
               ? '复制失败'
               : action.label;
         const isActionPending = isPending || copyIsPending;
-        const priority = isActionPending ? 'primary' : STATUS_FOOTER_PRIORITY[action.id];
+        const priority = isActionPending ? 'primary' : 'secondary';
         return (
           <UiButton
             key={action.id}
@@ -5076,25 +5076,6 @@ const STATUS_FOOTER_ICON: Record<TurnFooterActionMeta['id'], ReactNode> = {
   regenerate: <RefreshCcw size={12} strokeWidth={2} aria-hidden="true" />,
   branch: <GitBranch size={12} strokeWidth={2} aria-hidden="true" />,
   copy: <Copy size={12} strokeWidth={2} aria-hidden="true" />,
-};
-
-/**
- * PR-UI-17 (audit §3.4): action priority controls visual density —
- * `primary` actions render with full icon+label always; `secondary`
- * actions render icon-only by default with a hover/focus-within
- * expansion that reveals the label. This addresses the noise complaint
- * "重试 + 重新生成 + 分支 + 复制 buttons accumulate visually when
- * combined with lineage badges + status pills" without dropping any
- * functionality or changing the lifecycle semantics encoded by
- * `deriveTurnFooterActions`. The action label is always present in
- * the DOM (aria + visually-hidden when collapsed) so screen readers
- * read it identically regardless of presentation state.
- */
-const STATUS_FOOTER_PRIORITY: Record<TurnFooterActionMeta['id'], 'primary' | 'secondary'> = {
-  retry: 'secondary',
-  regenerate: 'secondary',
-  branch: 'secondary',
-  copy: 'secondary',
 };
 
 /**

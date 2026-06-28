@@ -6,18 +6,44 @@
  * cascade contract tests + before/after screenshots". The cascade
  * contract tests (apps/desktop/.../chat-marker-cascade-contract.test.ts,
  * packages/ui/.../chat-primitives.test.ts) assert the source strings.
- * This script is the rendered-style half: a re-runnable before/after
- * check that loads the REAL built renderer CSS from both `main` and the
- * PR branch into a headless window and diffs `getComputedStyle` for every
- * migrated chrome element. It is the deterministic equivalent of a
- * before/after screenshot — `scripts/diff-screenshots.mjs` documents why
+ * This script is the rendered half: a re-runnable before/after check that
+ * loads the REAL built renderer CSS from both `main` and the PR branch
+ * into a headless window and diffs `getComputedStyle` for the migrated
+ * chrome. It is the deterministic equivalent of a before/after screenshot
+ * for the resting surface — `scripts/diff-screenshots.mjs` documents why
  * byte/pixel image diffs are too jittery to gate on (font rasterization
- * drifts ~70/88 PNGs between runs); computed style does not drift.
+ * drifts ~70/88 PNGs between runs); computed style does not.
  *
- * Each element is wrapped in the same
- * `[data-slot=message][data-role=assistant] > .maka-turn` ancestor so the
- * descendant measure-column re-anchors that the retired `tool-output.css`
- * applied on `main` still take effect — an apples-to-apples comparison.
+ * What this renders + diffs `main` vs head: the resting box / typography /
+ * color / transition style of all 9 migrated families, plus the footer
+ * action across resting / pending / copy-pending / copied / failed —
+ * including `main`'s old pending `secondary` variant vs the new always-
+ * `quiet` shell, which proves that variant switch was visually inert (the
+ * reason this PR drops it). The DOM mirrors `TurnView` nesting (chips in a
+ * summary, actions in a footer, badges in a lineage row) so positional
+ * pseudo-classes and inheritance resolve as in production.
+ *
+ * What is NOT rendered here, and why — locked by the cascade contract's
+ * exact source-string literals instead (each a LEAF literalization where
+ * source == computed holds by construction):
+ *   - `:hover` / `:focus-visible` / `:focus-within`: a headless
+ *     (`show: false`) window has no live pointer/focus, and NEITHER the
+ *     DevTools `CSS.forcePseudoState` protocol NOR a synthetic
+ *     `sendInputEvent` mouse-move changes what `getComputedStyle` returns
+ *     here (verified: resting == "hovered"). So these can't be rendered in
+ *     this harness. Their NON-leaf merge winner is instead a deterministic
+ *     specificity fact: the marker's `[&:hover:not(:disabled)]` (0,3,0)
+ *     outranks UiButton quiet's `hover:bg-muted` (0,2,0), exactly as the
+ *     retired `.maka-turn-footer-action:hover:not(:disabled)` did on main.
+ *   - the `::before` middot pseudo-elements (summary-chip / failed-recovery):
+ *     Tailwind compiles `before:content-['·']` through a `--tw-content`
+ *     registered `@property`, which `getComputedStyle(el, '::before')` reads
+ *     back as `content: none` in this isolated-CSS harness — a rendered
+ *     probe would be a misleading green.
+ * So this is a rendered proof of the RESTING surface, not a complete
+ * screenshot equivalent. (Buttons may also read the UA `buttonface`
+ * background here identically on both sides; the diff is what's asserted,
+ * not absolute production fidelity for that one property.)
  *
  * Usage (run from repo root, needs Electron + both built CSS bundles):
  *
@@ -31,21 +57,18 @@
  *   # 4. Diff:
  *   npx electron scripts/check-chat-marker-computed-style.mjs /tmp/main.css /tmp/head.css
  *
- * Exits 0 when every migrated element is identical across both bundles,
- * non-zero (with a per-property diff dump) otherwise.
+ * Exits 0 when every element is identical across both bundles, non-zero
+ * (with a per-property diff dump) otherwise.
  */
 
 import { app, BrowserWindow } from 'electron';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const REPO_ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
-const uiDist = pathToFileURL(resolve(REPO_ROOT, 'packages/ui/dist/ui.js')).href;
-const chatDist = pathToFileURL(resolve(REPO_ROOT, 'packages/ui/dist/primitives/chat.js')).href;
-const { buttonVariants, cn } = await import(uiDist);
-const { markerVariants } = await import(chatDist);
+const { buttonVariants, cn } = await import(pathToFileURL(resolve(REPO_ROOT, 'packages/ui/dist/ui.js')).href);
+const { markerVariants } = await import(pathToFileURL(resolve(REPO_ROOT, 'packages/ui/dist/primitives/chat.js')).href);
 
 const mainCssPath = process.argv[2] && resolve(process.argv[2]);
 const headCssPath = process.argv[3] && resolve(process.argv[3]);
@@ -57,45 +80,48 @@ if (!mainCssPath || !headCssPath || !existsSync(mainCssPath) || !existsSync(head
 
 const bv = (variant, size) => buttonVariants({ variant, size });
 const mv = (v) => markerVariants({ variant: v });
+const pair = (m, h) => ({ main: m, head: h });
+// `main` class (UiButton sm + bespoke, or pure bespoke) vs head class
+// (UiButton nav + marker, or pure marker). The footer action is `quiet` in
+// EVERY head state — the inert pending `secondary` branch is dropped — so
+// its head column is always `quiet`, matched against `main`'s pending-time
+// `secondary` to prove that switch was pixel-equal.
+const fa = (variant) => pair(cn(bv(variant, 'sm'), 'maka-turn-footer-action'), cn(bv('quiet', 'nav'), mv('footer-action')));
+const lb = pair(cn(bv('quiet', 'sm'), 'maka-turn-lineage-badge'), cn(bv('quiet', 'nav'), mv('lineage-badge')));
 
-// For each migrated element: the class string `main` rendered (UiButton
-// `sm` + bespoke `.maka-turn-*`, or pure bespoke) vs what the PR branch
-// renders (UiButton `nav` + marker shell, or pure marker). The footer
-// action is `quiet` in EVERY state on the PR branch — pending no longer
-// switches the Button to `secondary`; the marker shell owns the pixels —
-// so its `head` column is always `quiet`, matched against `main`'s
-// pending-time `secondary` to prove that switch was visually inert.
-const footerMain = (variant, attrs) => ({ main: cn(bv(variant, 'sm'), 'maka-turn-footer-action'), head: cn(bv('quiet', 'nav'), mv('footer-action')), attrs });
-const specs = [
-  { id: 'footer-rest', tag: 'button', ...footerMain('quiet', '') },
-  { id: 'footer-pending', tag: 'button', ...footerMain('secondary', 'data-pending="true" aria-busy="true"') },
-  { id: 'footer-copy-pending', tag: 'button', ...footerMain('secondary', 'data-pending="true" data-copy-feedback="pending" aria-busy="true" disabled aria-disabled="true"') },
-  { id: 'footer-copied', tag: 'button', ...footerMain('quiet', 'data-copy-feedback="copied"') },
-  { id: 'footer-failed', tag: 'button', ...footerMain('quiet', 'data-copy-feedback="failed"') },
-  { id: 'lineage-fwd', tag: 'button', attrs: 'data-direction="forward"', main: cn(bv('quiet', 'sm'), 'maka-turn-lineage-badge'), head: cn(bv('quiet', 'nav'), mv('lineage-badge')) },
-  { id: 'lineage-rev', tag: 'button', attrs: 'data-direction="reverse"', main: cn(bv('quiet', 'sm'), 'maka-turn-lineage-badge'), head: cn(bv('quiet', 'nav'), mv('lineage-badge')) },
-  { id: 'summary', tag: 'div', attrs: '', main: 'maka-turn-summary', head: mv('summary') },
-  { id: 'summary-chip', tag: 'span', attrs: 'data-kind="model"', main: 'maka-turn-summary-chip', head: mv('summary-chip') },
-  { id: 'failed-banner', tag: 'div', attrs: '', main: 'maka-turn-failed-banner', head: mv('failed-banner') },
-  { id: 'footer', tag: 'div', attrs: '', main: 'maka-turn-footer', head: mv('footer') },
-  { id: 'lineage-row', tag: 'div', attrs: '', main: 'maka-turn-lineage-row', head: mv('lineage-row') },
-  { id: 'aborted', tag: 'div', attrs: '', main: 'maka-turn-aborted-marker', head: mv('aborted') },
-];
+// DOM tree mirroring TurnView nesting.
+const TREE = (side) => {
+  const C = (p) => p[side];
+  const el = (tag, id, p, attrs, kids = '') => `<${tag} id="${id}" class="${C(p)}" ${attrs}>${kids}</${tag}>`;
+  const action = (id, p, attrs) => el('button', id, p, `${attrs} type="button"`, '<svg width="11" height="11"></svg><span>复制中…</span>');
+  const chip = (id) => el('span', id, pair('maka-turn-summary-chip', mv('summary-chip')), 'data-kind="model"', '<span>x</span>');
+  return [
+    el('div', 'summary', pair('maka-turn-summary', mv('summary')), '', chip('summary-chip-1') + chip('summary-chip-2')),
+    el('div', 'footer', pair('maka-turn-footer', mv('footer')), 'role="toolbar"',
+      action('footer-rest', fa('quiet'), '') +
+      action('footer-pending', fa('secondary'), 'data-pending="true" aria-busy="true"') +
+      action('footer-copy-pending', fa('secondary'), 'data-pending="true" data-copy-feedback="pending" aria-busy="true" disabled aria-disabled="true"') +
+      action('footer-copied', fa('quiet'), 'data-copy-feedback="copied"') +
+      action('footer-failed', fa('quiet'), 'data-copy-feedback="failed"')),
+    el('div', 'lineage-row', pair('maka-turn-lineage-row', mv('lineage-row')), '',
+      action('lineage-fwd', lb, 'data-direction="forward"') + action('lineage-rev', lb, 'data-direction="reverse"')),
+    el('div', 'aborted', pair('maka-turn-aborted-marker', mv('aborted')), '', '<span>x</span>'),
+    el('div', 'failed-banner', pair('maka-turn-failed-banner', mv('failed-banner')), '',
+      '<span>x</span>' + el('span', 'failed-recovery', pair('maka-turn-failed-recovery', mv('failed-recovery')), '', '<span>x</span>')),
+  ].join('\n');
+};
 
 const PROPS = ['display', 'height', 'minHeight', 'width', 'maxWidth', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'marginTop', 'marginRight', 'marginBottom', 'marginLeft', 'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth', 'borderTopColor', 'borderTopStyle', 'borderTopLeftRadius', 'fontSize', 'fontWeight', 'fontStyle', 'lineHeight', 'columnGap', 'color', 'backgroundColor', 'opacity', 'transition', 'justifyContent', 'alignItems', 'flexWrap', 'fontVariantNumeric', 'whiteSpace', 'textAlign', 'cursor'];
+const IDS = ['summary', 'summary-chip-1', 'summary-chip-2', 'footer', 'footer-rest', 'footer-pending', 'footer-copy-pending', 'footer-copied', 'footer-failed', 'lineage-row', 'lineage-fwd', 'lineage-rev', 'aborted', 'failed-banner', 'failed-recovery'];
 
 function pageHtml(cssPath, side) {
-  const els = specs.map((s) => {
-    const kid = s.tag === 'button' ? '<svg width="11" height="11"></svg><span>复制中…</span>' : '<span>x</span>';
-    return `<${s.tag} id="${s.id}" class="${s[side]}" ${s.attrs}>${kid}</${s.tag}>`;
-  }).join('\n');
   return `<!doctype html><html><head><meta charset="utf8"><link rel="stylesheet" href="${pathToFileURL(cssPath).href}"></head>
-<body style="background:#fff"><div data-slot="message" data-role="assistant"><div class="maka-turn" style="width:680px">${els}</div></div></body></html>`;
+<body style="background:#fff"><div data-slot="message" data-role="assistant"><div class="maka-turn" style="width:680px">${TREE(side)}</div></div></body></html>`;
 }
 
-async function read(win, html) {
-  await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
-  return win.webContents.executeJavaScript(`(${JSON.stringify(specs.map((s) => s.id))}).reduce((acc, id) => {
+async function read(win, cssPath, side) {
+  await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(pageHtml(cssPath, side)));
+  return win.webContents.executeJavaScript(`(${JSON.stringify(IDS)}).reduce((acc, id) => {
     const cs = getComputedStyle(document.getElementById(id));
     const o = {}; for (const p of ${JSON.stringify(PROPS)}) o[p] = cs[p];
     acc[id] = o; return acc;
@@ -105,16 +131,15 @@ async function read(win, html) {
 app.commandLine.appendSwitch('disable-gpu');
 app.whenReady().then(async () => {
   const win = new BrowserWindow({ show: false, width: 900, height: 700, webPreferences: { sandbox: false } });
-  const mainCS = await read(win, pageHtml(mainCssPath, 'main'));
-  const headCS = await read(win, pageHtml(headCssPath, 'head'));
+  const main = await read(win, mainCssPath, 'main');
+  const head = await read(win, headCssPath, 'head');
   let total = 0;
-  for (const s of specs) {
-    const m = mainCS[s.id], h = headCS[s.id];
-    const diffs = PROPS.filter((p) => m[p] !== h[p]).map((p) => `${p}: main=${JSON.stringify(m[p])} head=${JSON.stringify(h[p])}`);
+  for (const id of IDS) {
+    const diffs = PROPS.filter((p) => main[id][p] !== head[id][p]).map((p) => `${p}: main=${JSON.stringify(main[id][p])} head=${JSON.stringify(head[id][p])}`);
     total += diffs.length;
-    if (diffs.length === 0) console.log(`  ok ${s.id}: ${PROPS.length}/${PROPS.length} identical`);
-    else { console.log(`  XX ${s.id}: ${diffs.length} DIFF`); for (const d of diffs) console.log(`       ${d}`); }
+    if (diffs.length === 0) console.log(`  ok ${id}: ${PROPS.length}/${PROPS.length} identical`);
+    else { console.log(`  XX ${id}: ${diffs.length} DIFF`); for (const d of diffs) console.log(`       ${d}`); }
   }
-  console.log(`\n${specs.length} elements x ${PROPS.length} properties — TOTAL DIFFS: ${total}`);
+  console.log(`\n${IDS.length} resting element/state rows x ${PROPS.length} properties — TOTAL DIFFS: ${total}`);
   app.exit(total === 0 ? 0 : 1);
 });

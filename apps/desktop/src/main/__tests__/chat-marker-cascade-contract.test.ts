@@ -96,6 +96,12 @@ describe('chat Marker shell migration contract (#332 PR2)', () => {
       // come implicitly from `size="sm"`.
       'h-8',
       '[&:hover:not(:disabled)]:bg-[oklch(from_var(--foreground)_l_c_h_/_0.05)]',
+      // focus-visible is a non-leaf conflict (the footer action's outline vs
+      // UiButton's box-shadow ring), so the rendered-style script can't force
+      // it reliably; this exact literalization of the retired
+      // `outline: 2px solid var(--accent)` pins it here instead.
+      'focus-visible:[outline:2px_solid_var(--accent)]',
+      'focus-visible:[outline-offset:2px]',
       'data-[pending=true]:opacity-[0.78]',
       'data-[copy-feedback=copied]:text-[color:var(--accent)]',
     ]) {
