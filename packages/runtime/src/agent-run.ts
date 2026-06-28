@@ -16,6 +16,7 @@ import type { BackendSendInput } from '@maka/core/backend-types';
 import type { AgentBackend } from './ai-sdk-backend.js';
 import type { RunTraceEvent } from './run-trace.js';
 import type { SessionStore, StopSessionInput } from './session-manager.js';
+import type { ActiveFullCompactBlock } from './active-full-compact.js';
 import { buildRuntimeEventModelReplayPlan } from './model-history.js';
 import { projectRuntimeEventsToStoredMessages } from './runtime-event-read-model.js';
 import { backfillRuntimeEventsFromStoredMessages } from './runtime-event-backfill.js';
@@ -121,6 +122,27 @@ export class AgentRun {
     if (!this.input.runStore || !this.runStoreAvailable) return;
     this.enqueueRunStore('append trace event', async () => {
       await this.input.runStore?.appendEvent(this.sessionId, this.runId, traceToRunEvent(event, this.runId));
+    });
+  }
+
+  recordActiveFullCompactBlock(block: ActiveFullCompactBlock): void {
+    if (!this.input.runStore || !this.runStoreAvailable) return;
+    this.enqueueRunStore('append active full compact block', async () => {
+      await this.input.runStore?.appendEvent(this.sessionId, this.runId, {
+        type: 'active_full_compact_block_recorded',
+        id: this.input.newId(),
+        runId: this.runId,
+        sessionId: this.sessionId,
+        turnId: block.turnId || this.turnId,
+        ts: this.input.now(),
+        data: {
+          blockId: block.blockId,
+          highWaterName: block.highWaterName,
+          highWaterSeq: block.highWaterSeq,
+          boundaryKind: 'activeFullCompact',
+          block,
+        },
+      });
     });
   }
 

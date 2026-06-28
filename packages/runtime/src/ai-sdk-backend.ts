@@ -100,6 +100,7 @@ import {
 } from './active-tool-result-prune.js';
 import {
   rewriteActiveFullCompactInMessages,
+  type ActiveFullCompactBlock,
 } from './active-full-compact.js';
 import {
   compactionDecisionDiagnosticPatch,
@@ -354,6 +355,7 @@ export type HistoryCompactLoader = (
 export type HistoryCompactWriter = (
   input: HistoryCompactWriteInput,
 ) => Promise<HistoryCompactWriteResult | void> | HistoryCompactWriteResult | void;
+export type ActiveFullCompactBlockRecorder = (block: ActiveFullCompactBlock) => void | Promise<void>;
 
 export interface AiSdkBackendInput {
   // ── Session context ────────────────────────────────────────────────────
@@ -446,6 +448,8 @@ export interface AiSdkBackendInput {
   loadHistoryCompact?: HistoryCompactLoader;
   /** Optional best-effort source-bearing history compact block writer/summarizer. */
   writeHistoryCompact?: HistoryCompactWriter;
+  /** Optional best-effort durable recorder for accepted active full compact blocks. */
+  recordActiveFullCompactBlock?: ActiveFullCompactBlockRecorder;
 }
 
 export interface SystemPromptContext {
@@ -1457,6 +1461,7 @@ export class AiSdkBackend implements AgentBackend {
       });
       onDiagnosticPatch?.(rewritten.diagnosticPatch);
       if (!dryRun && rewritten.decision === 'replaced') {
+        if (rewritten.block) this.recordActiveFullCompactBlock(rewritten.block);
         acceptedProjection = {
           sourceSignatures: incomingMessages.map(modelMessageSignature),
           projectedMessages: rewritten.messages,
@@ -1465,6 +1470,17 @@ export class AiSdkBackend implements AgentBackend {
       }
       return !dryRun && projectedMessages ? { messages: projectedMessages } : undefined;
     };
+  }
+
+  private recordActiveFullCompactBlock(block: ActiveFullCompactBlock): void {
+    const recorder = this.input.recordActiveFullCompactBlock;
+    if (!recorder) return;
+    void Promise.resolve()
+      .then(() => recorder(block))
+      .catch(() => {
+        // Active compact persistence is diagnostic/storage-only and must never
+        // perturb provider request projection or tool-loop progress.
+      });
   }
 
   private async loadHistoryCompactBlocks(

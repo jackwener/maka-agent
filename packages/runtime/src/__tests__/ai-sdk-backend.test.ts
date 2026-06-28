@@ -37,6 +37,7 @@ import {
   type SynthesisCacheBlock,
 } from '../context-budget.js';
 import { buildRuntimeEventModelReplayPlan } from '../model-history.js';
+import type { ActiveFullCompactBlock } from '../active-full-compact.js';
 
 describe('AiSdkBackend model history', () => {
   test('prefers RuntimeEvent prior messages and appends current user once', async () => {
@@ -1805,6 +1806,7 @@ describe('AiSdkBackend usage telemetry', () => {
     const messages: unknown[] = [];
     const events: SessionEvent[] = [];
     const llmRecords: LlmCallRecord[] = [];
+    const recordedBlocks: ActiveFullCompactBlock[] = [];
     const largeBody = 'ACTIVE_FULL_COMPACT_RAW_TOOL_OUTPUT'.repeat(200);
     let streamCalls = 0;
     const model = new MockLanguageModelV3({
@@ -1868,13 +1870,22 @@ describe('AiSdkBackend usage telemetry', () => {
       recordLlmCall: (record) => {
         llmRecords.push(record);
       },
+      recordActiveFullCompactBlock: (block) => {
+        recordedBlocks.push(block);
+      },
     });
 
     for await (const event of backend.send({ turnId: 'turn-1', text: 'hi', context: [] })) {
       events.push(event);
     }
+    await Promise.resolve();
 
     assert.equal(streamCalls, 2);
+    assert.equal(recordedBlocks.length, 1);
+    assert.equal(recordedBlocks[0]?.kind, 'maka.active_full_compact_block');
+    assert.equal(recordedBlocks[0]?.turnId, 'turn-1');
+    assert.equal((recordedBlocks[0]?.sourceRefs.length ?? 0) > 0, true);
+    assert.match(JSON.stringify(recordedBlocks[0]), /artifact-tool-1/);
     const secondPromptMessages = model.doStreamCalls[1]?.prompt ?? [];
     const secondPrompt = JSON.stringify(model.doStreamCalls[1]?.prompt.map((message) => ({
       role: message.role,

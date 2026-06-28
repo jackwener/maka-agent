@@ -305,6 +305,12 @@ export class RuntimeKernel implements RuntimeKernelLike {
         const run = runId ? active?.activeRuns.get(runId) : undefined;
         run?.recordRunTrace(event);
       },
+      recordActiveFullCompactBlock: (block) => {
+        const active = this.active.get(sessionId);
+        const runId = active?.turnToRunId.get(block.turnId);
+        const run = runId ? active?.activeRuns.get(runId) : undefined;
+        run?.recordActiveFullCompactBlock(block);
+      },
     });
     const entry: ActiveSession = {
       sessionId,
@@ -342,6 +348,12 @@ export class RuntimeKernel implements RuntimeKernelLike {
         const runId = active?.turnToRunId.get(event.turnId);
         const run = runId ? active?.activeRuns.get(runId) : undefined;
         run?.recordRunTrace(event);
+      },
+      recordActiveFullCompactBlock: (block) => {
+        const active = this.childActive.get(activeKey);
+        const runId = active?.turnToRunId.get(block.turnId);
+        const run = runId ? active?.activeRuns.get(runId) : undefined;
+        run?.recordActiveFullCompactBlock(block);
       },
     });
     const entry: ActiveSession = {

@@ -57,6 +57,7 @@ import { inspectAgentRunReadModel, type AgentRunInspectModel } from './agent-run
 
 import type { AgentBackend, MakaTool } from './ai-sdk-backend.js';
 import type { RunTraceRecorder } from './run-trace.js';
+import type { ActiveFullCompactBlock } from './active-full-compact.js';
 import type { AgentRunLineage } from './agent-run.js';
 import { classifyAgentRunRecovery, type AgentRunRecoveryDecision } from './agent-run-recovery.js';
 import type {
@@ -190,6 +191,7 @@ export interface BackendFactoryContext {
   systemPrompt?: string;
   tools?: readonly MakaTool[];
   recordRunTrace?: RunTraceRecorder;
+  recordActiveFullCompactBlock?: (block: ActiveFullCompactBlock) => void;
 }
 
 export type BackendFactory = (ctx: BackendFactoryContext) => AgentBackend | Promise<AgentBackend>;

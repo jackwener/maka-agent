@@ -807,6 +807,7 @@ function createSingleRunActiveSession(
           header,
           store,
           recordRunTrace: (event) => boundRun?.recordRunTrace(event),
+          recordActiveFullCompactBlock: (block) => boundRun?.recordActiveFullCompactBlock(block),
         });
         active = {
           sessionId,

@@ -29,6 +29,7 @@ import type { RuntimeKernelLike } from '../runtime-kernel.js';
 import { RuntimeReadModel } from '../runtime-read-model.js';
 import type { AgentBackend, MakaTool } from '../ai-sdk-backend.js';
 import type { InvocationResult } from '../invocation-context.js';
+import type { ActiveFullCompactBlock } from '../active-full-compact.js';
 import {
   AGENT_WORKSPACE_WORKTREE,
   IMPLEMENTATION_AGENT_ID,
@@ -2169,6 +2170,27 @@ describe('SessionManager permission mode updates', () => {
     expect(JSON.stringify(events).includes('sk-live-secret-token-value')).toBe(false);
   });
 
+  test('durable run ledger records full active compact blocks asynchronously', async () => {
+    const store = new MemorySessionStore();
+    const runStore = new MemoryAgentRunStore();
+    const backends = new BackendRegistry();
+    backends.register('fake', (ctx) => new ActiveCompactBlockBackend(ctx));
+    const manager = new SessionManager({ store, runStore, runtimeEventStore: runStore, backends, newId: nextId(), now: nextNow(12_775) });
+    const session = await manager.createSession(makeInput());
+
+    await drain(manager.sendMessage(session.id, { turnId: 'turn-1', text: 'hello' }));
+
+    const [run] = await runStore.listSessionRuns(session.id);
+    const events = await runStore.readEvents(session.id, run!.runId);
+    const compactEvent = events.find((event) => event.type === 'active_full_compact_block_recorded');
+    expect(compactEvent?.data?.blockId).toBe('afcompact-test');
+    expect(compactEvent?.data?.boundaryKind).toBe('activeFullCompact');
+    const block = compactEvent?.data?.block as ActiveFullCompactBlock | undefined;
+    expect(block?.kind).toBe('maka.active_full_compact_block');
+    expect(block?.summary.text).toBe('persist the full active compact block');
+    expect(block?.sourceRefs[0]?.sourceId).toBe('provider-message:0');
+  });
+
   test('startup recovery marks persisted running turns as failed instead of leaving them stuck', async () => {
     const store = new MemorySessionStore();
     const backends = new BackendRegistry();
@@ -3056,6 +3078,69 @@ class TraceBackend implements AgentBackend {
   async stop(): Promise<void> {}
   async respondToPermission(_decision: PermissionDecision): Promise<void> {}
   async dispose(): Promise<void> {}
+}
+
+class ActiveCompactBlockBackend implements AgentBackend {
+  readonly kind = 'fake' as const;
+  readonly sessionId: string;
+
+  constructor(private readonly ctx: BackendFactoryContext) {
+    this.sessionId = ctx.sessionId;
+  }
+
+  async *send(input: BackendSendInput): AsyncIterable<SessionEvent> {
+    this.ctx.recordActiveFullCompactBlock?.(activeCompactBlockFixture(this.sessionId, input.turnId));
+    yield { type: 'complete', id: `${input.turnId}-complete`, turnId: input.turnId, ts: 4, stopReason: 'end_turn' };
+  }
+
+  async stop(): Promise<void> {}
+  async respondToPermission(_decision: PermissionDecision): Promise<void> {}
+  async dispose(): Promise<void> {}
+}
+
+function activeCompactBlockFixture(sessionId: string, turnId: string): ActiveFullCompactBlock {
+  return {
+    kind: 'maka.active_full_compact_block',
+    version: 1,
+    blockId: 'afcompact-test',
+    sessionId,
+    turnId,
+    createdAt: 12_775,
+    highWaterName: 'test-high-water',
+    highWaterSeq: 2,
+    trigger: {
+      reason: 'high_water',
+      stepNumber: 2,
+      estimatedTokensBefore: 100,
+      thresholdTokens: 50,
+    },
+    coverage: {
+      turnIds: [turnId],
+      runtimeEventIds: ['runtime-1'],
+      providerMessageSourceIds: ['provider-message:0'],
+      toolCallIds: ['tool-1'],
+      contentKinds: ['text'],
+      bodySha256: ['a'.repeat(64)],
+    },
+    summary: {
+      schemaVersion: 1,
+      text: 'persist the full active compact block',
+      processState: ['qemu-system-x86_64 pid=4242'],
+    },
+    limitations: ['test fixture'],
+    sourceRefs: [{
+      kind: 'runtime_event',
+      sourceId: 'provider-message:0',
+      messageIndex: 0,
+      sessionId,
+      turnId,
+      runtimeEventId: 'runtime-1',
+      toolCallId: 'tool-1',
+      contentKind: 'text',
+      bodySha256: 'a'.repeat(64),
+    }],
+    estimatedTokens: 42,
+  };
 }
 
 class MemorySessionStore implements SessionStore {

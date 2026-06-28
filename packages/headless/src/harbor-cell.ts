@@ -410,6 +410,7 @@ export function buildAiSdkCellBackendRegistration(input: {
         newId: input.newId,
         now: input.now,
         recordRunTrace: ctx.recordRunTrace,
+        recordActiveFullCompactBlock: ctx.recordActiveFullCompactBlock,
       }),
     );
   };
