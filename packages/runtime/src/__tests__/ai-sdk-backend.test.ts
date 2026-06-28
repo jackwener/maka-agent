@@ -194,6 +194,134 @@ describe('AiSdkBackend model history', () => {
     ]);
   });
 
+  test('replays interleaved parallel RuntimeEvent tool calls as one provider tool-call block', async () => {
+    const model = completionModel();
+    const backend = new AiSdkBackend({
+      sessionId: 'session-1',
+      header: header(),
+      appendMessage: async () => {},
+      connection: connection(),
+      apiKey: 'sk-test',
+      modelId: 'mock-model-id',
+      permissionEngine: new PermissionEngine({ newId: () => 'permission-id', now: () => 1 }),
+      modelFactory: () => model,
+      tools: [],
+      newId: idGenerator(),
+      now: monotonicClock(),
+    });
+
+    await drain(backend.send({
+      turnId: 'turn-current',
+      text: 'current user',
+      context: [],
+      runtimeContext: [
+        runtimeTextEvent({ id: 'rt-u', turnId: 'turn-prev', role: 'user', author: 'user', text: 'inspect files' }),
+        runtimeEvent({
+          id: 'rt-call-0',
+          turnId: 'turn-prev',
+          role: 'model',
+          author: 'agent',
+          content: { kind: 'function_call', id: 'tool-0', name: 'Read', args: { path: 'main.cpp' } },
+        }),
+        runtimeEvent({
+          id: 'rt-call-1',
+          turnId: 'turn-prev',
+          role: 'model',
+          author: 'agent',
+          content: { kind: 'function_call', id: 'tool-1', name: 'Read', args: { path: 'user.cpp' } },
+        }),
+        runtimeEvent({
+          id: 'rt-result-0',
+          turnId: 'turn-prev',
+          role: 'tool',
+          author: 'tool',
+          content: { kind: 'function_response', id: 'tool-0', name: 'Read', result: 'main', isError: false },
+        }),
+        runtimeEvent({
+          id: 'rt-call-2',
+          turnId: 'turn-prev',
+          role: 'model',
+          author: 'agent',
+          content: { kind: 'function_call', id: 'tool-2', name: 'Glob', args: { pattern: '*' } },
+        }),
+        runtimeEvent({
+          id: 'rt-result-1',
+          turnId: 'turn-prev',
+          role: 'tool',
+          author: 'tool',
+          content: { kind: 'function_response', id: 'tool-1', name: 'Read', result: 'user', isError: false },
+        }),
+        runtimeEvent({
+          id: 'rt-result-2',
+          turnId: 'turn-prev',
+          role: 'tool',
+          author: 'tool',
+          content: { kind: 'function_response', id: 'tool-2', name: 'Glob', result: ['main.cpp', 'user.cpp'], isError: false },
+        }),
+      ],
+    }));
+
+    assert.deepEqual(compactPrompt(model), [
+      { role: 'user', content: [{ type: 'text', text: 'inspect files' }] },
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'tool-0',
+            toolName: 'Read',
+            input: { path: 'main.cpp' },
+            providerExecuted: undefined,
+            providerOptions: undefined,
+          },
+          {
+            type: 'tool-call',
+            toolCallId: 'tool-1',
+            toolName: 'Read',
+            input: { path: 'user.cpp' },
+            providerExecuted: undefined,
+            providerOptions: undefined,
+          },
+          {
+            type: 'tool-call',
+            toolCallId: 'tool-2',
+            toolName: 'Glob',
+            input: { pattern: '*' },
+            providerExecuted: undefined,
+            providerOptions: undefined,
+          },
+        ],
+      },
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'tool-0',
+            toolName: 'Read',
+            output: { type: 'text', value: 'main' },
+            providerOptions: undefined,
+          },
+          {
+            type: 'tool-result',
+            toolCallId: 'tool-1',
+            toolName: 'Read',
+            output: { type: 'text', value: 'user' },
+            providerOptions: undefined,
+          },
+          {
+            type: 'tool-result',
+            toolCallId: 'tool-2',
+            toolName: 'Glob',
+            output: { type: 'json', value: ['main.cpp', 'user.cpp'] },
+            providerOptions: undefined,
+          },
+        ],
+      },
+      { role: 'user', content: [{ type: 'text', text: 'current user' }] },
+    ]);
+  });
+
   test('archives stale RuntimeEvent tool results before replay placeholder rewrite', async () => {
     const model = completionModel();
     const archiveRequests: Array<{ runtimeEventId: string; serializedResult: string; bodySha256: string }> = [];

@@ -1611,9 +1611,55 @@ export class AiSdkBackend implements AgentBackend {
 
   private materializeRuntimeReplayPlan(plan: RuntimeEventModelReplayPlan): ModelMessage[] {
     const out: ModelMessage[] = [];
+    let toolBlock: {
+      calls: Extract<RuntimeEventModelReplayItem, { kind: 'tool_call' }>[];
+      results: Map<string, Extract<RuntimeEventModelReplayItem, { kind: 'tool_result' }>>;
+      pending: Set<string>;
+    } | undefined;
+    const flushToolBlock = () => {
+      if (!toolBlock) return;
+      out.push({
+        role: 'assistant',
+        content: toolBlock.calls.map((item) => ({
+          type: 'tool-call',
+          toolCallId: item.toolCallId,
+          toolName: item.toolName,
+          input: item.input,
+        })),
+      });
+      for (const call of toolBlock.calls) {
+        const result = toolBlock.results.get(call.toolCallId);
+        if (!result) continue;
+        out.push({
+          role: 'tool',
+          content: [{
+            type: 'tool-result',
+            toolCallId: result.toolCallId,
+            toolName: result.toolName,
+            output: toolResultOutput(result.output, result.isError),
+          }],
+        });
+      }
+      toolBlock = undefined;
+    };
+
     for (const item of plan.items) {
+      if (item.kind === 'tool_call') {
+        toolBlock ??= { calls: [], results: new Map(), pending: new Set() };
+        toolBlock.calls.push(item);
+        toolBlock.pending.add(item.toolCallId);
+        continue;
+      }
+      if (item.kind === 'tool_result' && toolBlock?.pending.has(item.toolCallId)) {
+        toolBlock.results.set(item.toolCallId, item);
+        toolBlock.pending.delete(item.toolCallId);
+        if (toolBlock.pending.size === 0) flushToolBlock();
+        continue;
+      }
+      flushToolBlock();
       out.push(this.materializeRuntimeReplayItem(item));
     }
+    flushToolBlock();
     return out;
   }
 
