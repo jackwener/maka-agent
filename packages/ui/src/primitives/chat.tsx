@@ -22,7 +22,6 @@ import type React from "react";
  */
 
 const messageVariants = cva("maka-message-row", {
-  defaultVariants: { variant: "assistant" },
   variants: {
     variant: {
       // `.message.user`: shrink-wrap column, body hugs the right edge. No
@@ -51,17 +50,19 @@ export function Message({
   ...props
 }: MessageProps): React.ReactElement {
   return (
+    // `{...props}` is spread first so the structural `data-*` hooks the
+    // re-anchored selectors depend on always land last and can't be clobbered
+    // by a consumer passing `data-slot` / `data-role`.
     <article
+      {...props}
       data-slot="message"
       data-role={variant}
       className={cn(messageVariants({ variant }), className)}
-      {...props}
     />
   );
 }
 
 const bubbleVariants = cva("", {
-  defaultVariants: { variant: "assistant" },
   variants: {
     variant: {
       // `.maka-bubble-user`: tinted, width-capped, right-anchored block.
@@ -91,10 +92,10 @@ export function Bubble({
 }: BubbleProps): React.ReactElement {
   return (
     <div
+      {...props}
       data-slot="bubble"
       data-variant={variant}
       className={cn(bubbleVariants({ variant }), className)}
-      {...props}
     />
   );
 }

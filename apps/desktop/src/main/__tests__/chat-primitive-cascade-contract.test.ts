@@ -68,27 +68,22 @@ describe('chat primitive shell migration contract (#332 PR1)', () => {
     // Strip comments so the assertions reflect real classNames, not prose that
     // happens to name the scale utilities it is telling us to avoid.
     const chatSrc = rawSrc.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
-    // The shell values are LITERAL Tailwind arbitrary utilities, so each one
-    // compiles 1:1 to its declaration on a leaf element with nothing to
-    // resolve or override — asserting the class string here is equivalent to
-    // asserting the computed style, without a browser. Values mirror the
+    // The shell values are LITERAL Tailwind arbitrary utilities, so the variant
+    // class string compiles 1:1 to its declarations on a leaf element with
+    // nothing to resolve or override — asserting the exact string here is
+    // equivalent to asserting the computed style, without a browser. Matching
+    // the WHOLE string (not just "contains each literal") also pins the set
+    // closed: a stray extra `rounded-[12px]` / `px-4` / second `max-w-*` that
+    // would silently override the shell makes this fail. Values mirror the
     // retired `.maka-bubble-user` exactly (border-radius:10px; padding:10px
-    // 14px; line-height:1.6; max-width:min(100%,640px); --chat-user-bg).
-    for (const literal of [
-      'rounded-[10px]',
-      'px-[14px]',
-      'py-[10px]',
-      'leading-[1.6]',
-      'max-w-[min(100%,640px)]',
-      'bg-[var(--chat-user-bg)]',
-    ]) {
-      assert.ok(chatSrc.includes(literal), `user bubble must keep the literal "${literal}"`);
-    }
-    // Never the semantic radius/spacing scale (would re-tune under a redesign)
-    // and never primary/accent (the neutral user-bubble token path is fixed).
-    assert.ok(
-      !/rounded-lg|bg-primary|bg-accent/.test(chatSrc),
-      'user bubble must not use semantic rounded-lg or primary/accent backgrounds',
+    // 14px; line-height:1.6; max-width:min(100%,640px); --chat-user-bg) and
+    // never the semantic scale (`rounded-lg`, `px-3.5`) or primary/accent.
+    const bubbleBlock = chatSrc.slice(chatSrc.indexOf('bubbleVariants'));
+    const userClass = bubbleBlock.match(/user:\s*"([^"]*)"/)?.[1];
+    assert.equal(
+      userClass,
+      'max-w-[min(100%,640px)] whitespace-pre-wrap break-words rounded-[10px] bg-[var(--chat-user-bg)] px-[14px] py-[10px] leading-[1.6] text-[color:var(--chat-user-foreground,var(--foreground))]',
+      'user bubble variant must match the retired .maka-bubble-user pixels exactly',
     );
   });
 });
