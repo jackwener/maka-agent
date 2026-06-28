@@ -13,6 +13,8 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Button as UiButton,
+  SelectGroup,
+  SelectGroupLabel,
   SelectItem,
   SelectList,
   SelectPopup,
@@ -23,7 +25,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui.js';
-import { SettingsSelectGroups } from './primitives/settings-select.js';
 import { Settings } from './icons.js';
 import {
   type ChatModelChoice,
@@ -35,14 +36,15 @@ import {
 import { type ProviderType, type SessionSummary } from '@maka/core';
 
 /**
- * Shared grouped option rows for both model pickers, rendered through the
- * governed `SettingsSelectGroups` menu body: one row per model, grouped under a
- * leak-safe heading from `modelMenuGroups` — the short provider label,
- * disambiguated by connection slug when the same provider has multiple
- * connections. The heading never derives from the connection name (which embeds
- * the OAuth account email). Its brand mark is injected by the desktop app via
- * `renderProviderMark` so `@maka/ui` stays free of the provider SVG library.
- * The selected-row check is the `SelectItem` primitive's built-in `ItemIndicator`.
+ * Shared grouped option rows for both model pickers: one `<SelectItem>` per
+ * model, grouped under a leak-safe heading from `modelMenuGroups` — the short
+ * provider label, disambiguated by connection slug when the same provider has
+ * multiple connections. The heading never derives from the connection name
+ * (which embeds the OAuth account email). Its brand mark is injected by the
+ * desktop app via `renderProviderMark` so `@maka/ui` stays free of the provider
+ * SVG library. Headings + rows wear the shared `.settingsSelectMenu*` recipe so
+ * the menu reads as the governed grouped form; the selected-row check is the
+ * `SelectItem` primitive's built-in `ItemIndicator`.
  */
 function ModelChoiceOptions({
   groups,
@@ -52,17 +54,31 @@ function ModelChoiceOptions({
   renderProviderMark?: (type: ProviderType) => ReactNode;
 }) {
   return (
-    <SettingsSelectGroups
-      groups={groups.map((group) => ({
-        key: group.connectionSlug,
-        heading: group.heading,
-        logo: renderProviderMark?.(group.providerType),
-        options: group.choices.map(
-          (choice) =>
-            [modelChoiceValue(choice.connectionSlug, choice.model), choice.label] as const,
-        ),
-      }))}
-    />
+    <>
+      {groups.map((group) => {
+        const logo = renderProviderMark?.(group.providerType);
+        return (
+          <SelectGroup key={group.connectionSlug}>
+            <SelectGroupLabel className="settingsSelectMenuGroupLabel">
+              {logo ? (
+                <span className="settingsSelectMenuGroupLogo" aria-hidden="true">{logo}</span>
+              ) : (
+                <span aria-hidden="true" />
+              )}
+              <span>{group.heading}</span>
+            </SelectGroupLabel>
+            {group.choices.map((choice) => {
+              const value = modelChoiceValue(choice.connectionSlug, choice.model);
+              return (
+                <SelectItem key={value} value={value}>
+                  <span className="settingsSelectMenuOption">{choice.label}</span>
+                </SelectItem>
+              );
+            })}
+          </SelectGroup>
+        );
+      })}
+    </>
   );
 }
 

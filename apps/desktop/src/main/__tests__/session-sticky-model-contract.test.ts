@@ -151,12 +151,12 @@ describe('PR-SESSION-STICKY-MODEL-0 contract', () => {
     assert.match(ui, /<SelectRoot<string>[\s\S]*items=\{modelSelectItems\}[\s\S]*value=\{currentValue\}[\s\S]*onValueChange=\{\(value\) => \{/);
     assert.match(ui, /<SelectPositioner alignItemWithTrigger=\{false\} sideOffset=\{8\}/);
     assert.match(ui, /<SelectList>/);
-    // The grouped menu body now renders through the shared SettingsSelectGroups
-    // form — one governed list, keyed by connection, with the provider brand
-    // mark injected on each heading (kept out of @maka/ui via renderProviderMark).
-    assert.match(ui, /<SettingsSelectGroups\b/);
-    assert.match(ui, /key: group\.connectionSlug,/);
-    assert.match(ui, /logo: renderProviderMark\?\.\(group\.providerType\)/);
+    // The grouped menu renders provider groups keyed by connection, each heading
+    // carrying the injected brand mark (kept out of @maka/ui via renderProviderMark),
+    // on the shared `.settingsSelectMenu*` recipe.
+    assert.match(ui, /<SelectGroup key=\{group\.connectionSlug\}/);
+    assert.match(ui, /renderProviderMark\?\.\(group\.providerType\)/);
+    assert.match(ui, /className="settingsSelectMenuGroupLogo"/);
     assert.match(uiPrimitives, /<span className="flex h-4 w-4 items-center justify-center" aria-hidden="true">[\s\S]*<BaseSelect\.ItemIndicator>/);
     assert.match(uiPrimitives, /<span className="min-w-0">[\s\S]*<BaseSelect\.ItemText>\{children\}<\/BaseSelect\.ItemText>/);
     assert.doesNotMatch(ui, /<select\b[\s\S]*aria-label="切换当前会话模型"/);
