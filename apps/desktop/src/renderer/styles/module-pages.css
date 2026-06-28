@@ -862,6 +862,12 @@
   min-width: 200px;
   max-width: min(320px, calc(100vw - 32px));
   max-height: min(420px, var(--available-height));
+  /* The popup itself is the scroll container: the row list can exceed the cap
+     when a provider exposes many models, and the inner SelectList's
+     `--available-height` ceiling is too tall to engage here, so without this
+     the overflow rows spill out below the rounded box. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 8px;
   border-radius: 12px;
   background: var(--background);
