@@ -3,6 +3,8 @@
 import type { ReactElement, ReactNode } from "react";
 import { cn } from "../utils.js";
 import {
+  SelectGroup,
+  SelectGroupLabel,
   SelectItem,
   SelectPopup,
   SelectPortal,
@@ -123,5 +125,53 @@ export function SettingsSelect<T extends string>(
         </SelectPositioner>
       </SelectPortal>
     </SelectRoot>
+  );
+}
+
+/**
+ * One provider-style group in a grouped select menu: a heading (with an
+ * optional leading brand mark) over its option rows. `key` is the React key
+ * and group identity (e.g. the connection slug); `heading` is already
+ * leak-safe display copy; `logo` is injected by the app so `@maka/ui` stays
+ * free of the provider SVG library.
+ */
+export interface SettingsSelectGroup<T extends string> {
+  key: string;
+  heading: string;
+  logo?: ReactNode;
+  options: ReadonlyArray<readonly [T, string]>;
+}
+
+/**
+ * Grouped popup body for a select menu: provider headings (optional brand
+ * mark) over checkmark rows built on the shared `SelectItem` primitive. Render
+ * this inside a caller-owned `SelectPopup` when the trigger is bespoke (e.g.
+ * the composer's pill) — `SettingsSelect` above owns the flat, settings-chrome
+ * form. Both share the `.settingsSelect*` family so every menu reads the same;
+ * the grouped form pins its roomier geometry via `.settingsSelectMenu*`.
+ */
+export function SettingsSelectGroups<T extends string>(
+  { groups }: { groups: ReadonlyArray<SettingsSelectGroup<T>> },
+): ReactElement {
+  return (
+    <>
+      {groups.map((group) => (
+        <SelectGroup key={group.key}>
+          <SelectGroupLabel className="settingsSelectMenuGroupLabel">
+            {group.logo ? (
+              <span className="settingsSelectMenuGroupLogo" aria-hidden="true">{group.logo}</span>
+            ) : (
+              <span aria-hidden="true" />
+            )}
+            <span>{group.heading}</span>
+          </SelectGroupLabel>
+          {group.options.map(([value, label]) => (
+            <SelectItem key={value} value={value}>
+              <span className="settingsSelectMenuOption">{label}</span>
+            </SelectItem>
+          ))}
+        </SelectGroup>
+      ))}
+    </>
   );
 }
