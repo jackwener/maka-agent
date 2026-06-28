@@ -1447,19 +1447,20 @@
 
   /* ---- Tool activity ---------------------------------------------- */
 
-  .maka-tool {
-    border: 1px solid var(--border);
-    /* PR-UI-LAYOUT-9: tool card chrome aligns with the new card
-     * language — radius 8 → 10 matches the chip / search / settings
-     * radius family; background `--foreground-2` tint stays so tool
-     * cards still feel like inline-code blocks on the warm canvas. */
-    border-radius: 10px;
-    background: var(--foreground-2);
-    padding: 8px 12px;
-    margin-top: 8px;
-    font-family: var(--font-mono);
-    font-size: 12.5px;
-    color: var(--foreground-80);
+  /* The tool-activity card shell (the inline section + count pill, the
+     `<details>` card, its `<summary>` header row, the body / intent, and the
+     args `<pre>` override) moved onto the `@maka/ui` chat substrate's
+     `toolVariants` literalize table (issue #332 PR3b —
+     packages/ui/src/primitives/chat.tsx). What stays here is the irreducible
+     residue that escapes the computed-style proof, re-keyed on the governed
+     `[data-slot="tool"]` hook instead of the retired `.maka-tool` class: the
+     mount entrance (transition + `@starting-style`, which only paints on the
+     first frame, so it has no at-rest computed style to diff) and the native
+     `<summary>` marker reset (pseudo-elements with no leaf-utility form). Both
+     are pinned by the PR3b cascade contract. The running status dot's
+     `@keyframes maka-tool-pulse` (below) likewise stays — a keyframe is a global
+     rule, not an element property. */
+  [data-slot="tool"] {
     /* Same entrance as message rows — opacity + tiny lift on first paint. */
     opacity: 1;
     transform: translateY(0);
@@ -1469,64 +1470,13 @@
       border-color 160ms ease;
   }
   @starting-style {
-    .maka-tool { opacity: 0; transform: translateY(4px); }
+    [data-slot="tool"] { opacity: 0; transform: translateY(4px); }
   }
-  /* Native <details>/<summary> styling — the summary becomes the
-     collapsed/expanded header, and clicking it toggles the body. */
-  .maka-tool { padding: 0; }
-  .maka-tool > summary {
-    list-style: none;
-    padding: 8px 12px;
-  }
-  .maka-tool > summary::-webkit-details-marker { display: none; }
-  .maka-tool > summary::marker { content: ''; }
-  .maka-tool[open] > summary { border-bottom: 1px solid var(--border); }
-
-  .maka-tool-header {
-    display: grid;
-    grid-template-columns: 8px minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 10px;
-    color: var(--foreground-70);
-  }
-  .maka-tool-name {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: var(--foreground);
-    font-weight: 500;
-    font-family: var(--font-mono);
-  }
-  .maka-tool-meta {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--foreground-50);
-    font-size: 11px;
-  }
-  .maka-tool-duration {
-    font-variant-numeric: tabular-nums;
-  }
-  .maka-tool-status-label {
-    color: var(--foreground-60);
-  }
-  .maka-tool-status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 999px;
-    background: var(--foreground-30);
-    flex: 0 0 auto;
-  }
-  .maka-tool-status-dot[data-status="waiting_permission"] { background: var(--info); }
-  .maka-tool-status-dot[data-status="running"] {
-    background: var(--accent);
-    box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.15);
-    animation: maka-tool-pulse 1.5s ease-in-out infinite;
-  }
-  .maka-tool-status-dot[data-status="completed"] { background: var(--success); }
-  .maka-tool-status-dot[data-status="errored"] { background: var(--destructive); }
-  .maka-tool-status-dot[data-status="interrupted"] { background: var(--foreground-30); }
+  /* Native <details>/<summary> marker reset — the summary IS the header row
+     (laid out by `toolVariants({ part: 'header' })`), so the default disclosure
+     triangle is suppressed. */
+  [data-slot="tool"] > summary::-webkit-details-marker { display: none; }
+  [data-slot="tool"] > summary::marker { content: ''; }
 
   @keyframes maka-tool-pulse {
     0%, 100% { box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.15); }
@@ -1544,17 +1494,6 @@
   @keyframes maka-pulse {
     0%, 100% { opacity: 0.55; transform: scale(1); }
     50%      { opacity: 1;    transform: scale(1.1); }
-  }
-
-  .maka-tool-body {
-    padding: 10px 12px 12px;
-  }
-  .maka-tool-intent {
-    margin: 0 0 8px;
-    color: var(--foreground-60);
-    font-family: var(--font-default);
-    font-size: 12px;
-    line-height: 1.4;
   }
 
   /* Inline failure banner shown at the top of an errored tool body so the
@@ -1604,25 +1543,6 @@
     align-items: center;
     gap: 4px;
     font-size: 11px;
-  }
-  .maka-tool[data-status="waiting_permission"] { border-color: oklch(from var(--info) l c h / 0.4); }
-  .maka-tool[data-status="running"]            { border-color: oklch(from var(--accent) l c h / 0.4); }
-  .maka-tool[data-status="completed"]          { border-color: var(--border); }
-  .maka-tool[data-status="errored"]            { border-color: oklch(from var(--destructive) l c h / 0.4); background: oklch(from var(--destructive) l c h / 0.04); }
-  .maka-tool[data-status="interrupted"]        { border-color: var(--border); background: var(--foreground-3); opacity: 0.7; }
-
-  .maka-tool-count {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 22px;
-    height: 18px;
-    padding: 0 6px;
-    border-radius: 999px;
-    background: var(--foreground-5);
-    color: var(--foreground-60);
-    font-size: 11px;
-    font-variant-numeric: tabular-nums;
   }
 
   /* ---- Composer --------------------------------------------------- */

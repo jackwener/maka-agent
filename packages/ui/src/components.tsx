@@ -194,7 +194,7 @@ import {
   cn,
 } from './ui.js';
 import { Alert, AlertAction, AlertDescription, AlertTitle } from './primitives/alert.js';
-import { Bubble, LiveIndicator, Marker, markerVariants, Message, streamVariants } from './primitives/chat.js';
+import { Bubble, LiveIndicator, Marker, markerVariants, Message, streamVariants, toolVariants } from './primitives/chat.js';
 import { Button as PrimitiveButton } from './primitives/button.js';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from './primitives/empty.js';
 import { InputGroup, InputGroupAddon, InputGroupInput } from './primitives/input-group.js';
@@ -6172,10 +6172,10 @@ function formatDuration(ms: number | undefined): string | null {
 
 export function ToolActivity(props: { items: ToolActivityItem[] }) {
   return (
-    <section className="toolInline" aria-label="工具调用记录">
-      <header>
+    <section className={toolVariants({ part: 'container' })} aria-label="工具调用记录">
+      <header className={toolVariants({ part: 'container-header' })}>
         <strong>工具调用</strong>
-        <span className="maka-tool-count" aria-label={`${props.items.length} 次调用`}>{props.items.length}</span>
+        <span className={toolVariants({ part: 'count' })} aria-label={`${props.items.length} 次调用`}>{props.items.length}</span>
       </header>
       {props.items.map((item) => {
         const duration = formatDuration(item.durationMs);
@@ -6184,23 +6184,24 @@ export function ToolActivity(props: { items: ToolActivityItem[] }) {
         return (
           <details
             key={item.toolUseId}
-            className="maka-tool toolItem"
+            data-slot="tool"
+            className={toolVariants({ part: 'item' })}
             data-status={item.status}
             open={isOpenByDefault(item.status)}
           >
-            <summary className="maka-tool-header">
-              <span className="maka-tool-status-dot" data-status={item.status} aria-hidden="true" />
-              <span className="maka-tool-name">{resolveToolDisplayName(item)}</span>
-              <span className="maka-tool-meta">
-                {duration && <span className="maka-tool-duration">{duration}</span>}
-                <span className="maka-tool-status-label">{STATUS_LABEL[item.status]}</span>
+            <summary className={toolVariants({ part: 'header' })}>
+              <span className={toolVariants({ part: 'dot' })} data-status={item.status} aria-hidden="true" />
+              <span className={toolVariants({ part: 'name' })}>{resolveToolDisplayName(item)}</span>
+              <span className={toolVariants({ part: 'meta' })}>
+                {duration && <span className={toolVariants({ part: 'duration' })}>{duration}</span>}
+                <span className={toolVariants({ part: 'status-label' })}>{STATUS_LABEL[item.status]}</span>
               </span>
             </summary>
-            <div className="maka-tool-body">
+            <div className={toolVariants({ part: 'body' })}>
               {errored && <ToolErrorBanner result={item.result} />}
-              {item.intent && !permissionDenied && <p className="maka-tool-intent">{formatToolIntent(item.intent)}</p>}
+              {item.intent && !permissionDenied && <p className={toolVariants({ part: 'intent' })}>{formatToolIntent(item.intent)}</p>}
               {item.args !== undefined && !permissionDenied && (
-                <pre className="maka-code toolArgs">{formatRedactedJson(item.args)}</pre>
+                <pre className={`maka-code ${toolVariants({ part: 'args' })}`}>{formatRedactedJson(item.args)}</pre>
               )}
               {item.outputChunks && item.outputChunks.length > 0 && (
                 <ToolOutputStream

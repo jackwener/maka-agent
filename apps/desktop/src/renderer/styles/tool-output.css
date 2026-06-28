@@ -63,31 +63,12 @@
   font-size: 10px;
 }
 
-.toolInline {
-  width: min(680px, 100%);
-  margin: 2px auto 0;
-  padding: 0 16px;
-}
-
-.toolInline > header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 3px;
-  color: var(--foreground-50);
-  font-size: 10px;
-}
-
-.toolItem {
-  overflow: hidden;
-  box-shadow: var(--shadow-minimal-flat);
-}
-
-.toolArgs {
-  margin: 0;
-  max-height: 110px;
-  overflow: auto;
-}
+/* `.toolInline` (inline section + header), `.toolItem` (the `<details>` card's
+   overflow + flat shadow), and `.toolArgs` (the args `<pre>` override) moved onto
+   the `@maka/ui` `toolVariants` literalize table (issue #332 PR3b —
+   packages/ui/src/primitives/chat.tsx). The shared `.maka-code` base the args
+   `<pre>` layers over stays in maka-tokens.css (Markdown / artifact previews use
+   it too). */
 
 .maka-overlay-preview {
   margin: 5px 0 0;
