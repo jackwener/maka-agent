@@ -973,8 +973,7 @@
  * `footer-action`), issue #332 PR2 — packages/ui/src/primitives/chat.tsx.
  * The measure-column geometry the `tool-output.css` re-anchor used to add
  * to the summary / lineage rows / footer is folded into those Marker
- * variants. `data-priority` is still emitted on footer actions for any
- * downstream styling but no longer drives visibility. */
+ * variants. */
 
 /* PR109f: branched session banner. Renders above the chat scroll area
    when the active session has a parentSessionId. Inline button-styled

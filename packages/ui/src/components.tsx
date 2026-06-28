@@ -4481,11 +4481,11 @@ function MessageCopyButton(props: { text: string; label?: string; footerStyle?: 
   }
 
   // `footerStyle` renders this copy as the SAME quiet ghost action the
-  // assistant turn footer uses (`markerVariants('footer-action')`, also a
-  // UiButton variant="quiet" size="sm" with icon + "复制"). The user-message copy and
-  // the assistant copy then read as one button by construction — same
-  // primitive, same class, same icon metrics — instead of a look-alike
-  // bespoke treatment.
+  // assistant turn footer uses (`markerVariants('footer-action')` on a
+  // UiButton variant="quiet" size="nav" — the bare size, with icon + "复制").
+  // The user-message copy and the assistant copy then read as one button by
+  // construction — same primitive, same class, same icon metrics — instead
+  // of a look-alike bespoke treatment.
   const footer = props.footerStyle === true;
   const visibleLabel = footer ? (props.label ?? '复制') : props.label;
   const iconSize = footer ? 12 : 14;
@@ -5023,17 +5023,11 @@ function TurnFooterActions(props: {
       {props.actions.map((action) => {
         // Per @kenji review: pending state must keep the original button
         // label visible (not a spinner-only) so screen readers can hear
-        // which action is processing. `aria-busy="true"` is the AT signal.
+        // which action is processing. `data-pending` + `aria-busy="true"`
+        // are the signals — the `footer-action` marker shell renders as a
+        // bare `quiet` button in every state, so pending never keys off the
+        // Button `variant`, and no presentation-priority hook is emitted.
         const isPending = action.tooltip === '正在处理…';
-        // PR-UI-17 (@yuejing 2026-05-22): action priority is presentation
-        // only — has NO bearing on the lifecycle/status semantics encoded
-        // by `deriveTurnFooterActions`. Pending state always forces
-        // priority back to "primary" (surfaced via `data-priority`) so the
-        // full label + icon stay visible while the action processes — that
-        // visibility is driven by the label/icon render below, NOT by the
-        // Button `variant`, which the `footer-action` marker shell fully
-        // overrides regardless. So the shell renders as a bare `quiet`
-        // button in every state; the variant no longer keys off priority.
         const isCopyAction = action.id === 'copy';
         const copyIsPending = isCopyAction && copyPhase === 'pending';
         const copyFeedbackLabel = copyPhase === 'pending'
@@ -5044,7 +5038,6 @@ function TurnFooterActions(props: {
               ? '复制失败'
               : action.label;
         const isActionPending = isPending || copyIsPending;
-        const priority = isActionPending ? 'primary' : 'secondary';
         return (
           <UiButton
             key={action.id}
@@ -5053,7 +5046,6 @@ function TurnFooterActions(props: {
             variant="quiet"
             size="nav"
             data-action={action.id}
-            data-priority={priority}
             data-pending={isActionPending || undefined}
             data-copy-feedback={isCopyAction && copyPhase ? copyPhase : undefined}
             disabled={!action.enabled || copyIsPending}

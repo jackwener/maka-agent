@@ -14,6 +14,14 @@
  * byte/pixel image diffs are too jittery to gate on (font rasterization
  * drifts ~70/88 PNGs between runs); computed style does not.
  *
+ * The CSS is INLINED into a `<style>` block of a file:// temp document, NOT
+ * linked. An earlier version `<link>`ed the bundle from a `data:`/`file:`
+ * page, which silently applied NOTHING (cross-origin subresource): every
+ * element read its UA default identically on both sides, so the diff was 0
+ * but VACUOUS. Inlining removes the subresource, so the renderer CSS truly
+ * applies — verify any future change by spot-checking a real value (e.g.
+ * `footer-rest` must read `border-radius: 8px`, not the UA `0px`).
+ *
  * What this renders + diffs `main` vs head: the resting box / typography /
  * color / transition style of all 9 migrated families, plus the footer
  * action across resting / pending / copy-pending / copied / failed —
@@ -21,29 +29,28 @@
  * `quiet` shell, which proves that variant switch was visually inert (the
  * reason this PR drops it). The DOM mirrors `TurnView` nesting (chips in a
  * summary, actions in a footer, badges in a lineage row) so positional
- * pseudo-classes and inheritance resolve as in production.
+ * pseudo-classes and inheritance resolve as in production — including the
+ * `summary-switched` "切换" pill nested in a `data-switched` model chip, the
+ * `lineage-row-reverse` container, and the `::before` middot separators on
+ * summary chips / failed-recovery (all migrated variants, all real once the
+ * CSS is inlined).
  *
- * What is NOT rendered here, and why — locked by the cascade contract's
- * exact source-string literals instead (each a LEAF literalization where
- * source == computed holds by construction):
+ * What is STILL not observable here, and why — locked by the cascade
+ * contract's exact source-string literals instead (each a LEAF
+ * literalization where source == computed holds by construction):
  *   - `:hover` / `:focus-visible` / `:focus-within`: a headless
- *     (`show: false`) window has no live pointer/focus, and NEITHER the
- *     DevTools `CSS.forcePseudoState` protocol NOR a synthetic
- *     `sendInputEvent` mouse-move changes what `getComputedStyle` returns
- *     here (verified: resting == "hovered"). So these can't be rendered in
- *     this harness. Their NON-leaf merge winner is instead a deterministic
- *     specificity fact: the marker's `[&:hover:not(:disabled)]` (0,3,0)
- *     outranks UiButton quiet's `hover:bg-muted` (0,2,0), exactly as the
- *     retired `.maka-turn-footer-action:hover:not(:disabled)` did on main.
- *   - the `::before` middot pseudo-elements (summary-chip / failed-recovery):
- *     Tailwind compiles `before:content-['·']` through a `--tw-content`
- *     registered `@property`, which `getComputedStyle(el, '::before')` reads
- *     back as `content: none` in this isolated-CSS harness — a rendered
- *     probe would be a misleading green.
- * So this is a rendered proof of the RESTING surface, not a complete
- * screenshot equivalent. (Buttons may also read the UA `buttonface`
- * background here identically on both sides; the diff is what's asserted,
- * not absolute production fidelity for that one property.)
+ *     (`show: false`) window has no live pointer/focus, and `getComputedStyle`
+ *     does NOT reflect a DevTools `CSS.forcePseudoState` force (a known
+ *     Chromium behavior — the force drives the inspector, not in-page
+ *     computed style; verified resting == forced-"hover" even with the CSS
+ *     applied). The rules themselves DO compile into the bundle (greppable:
+ *     `…:hover:not(:disabled){background-color:oklch(…/ .05)}`). Their
+ *     NON-leaf merge winner is a deterministic specificity fact: the marker's
+ *     `[&:hover:not(:disabled)]` (0,3,0) outranks UiButton quiet's
+ *     `hover:bg-muted` (0,2,0), exactly as the retired
+ *     `.maka-turn-footer-action:hover:not(:disabled)` did on main.
+ * So this is a rendered proof of the RESTING surface plus the `::before`
+ * middots, with only the interactive pseudo-states pinned by source string.
  *
  * Usage (run from repo root, needs Electron + both built CSS bundles):
  *
@@ -62,8 +69,9 @@
  */
 
 import { app, BrowserWindow } from 'electron';
-import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const REPO_ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -95,8 +103,15 @@ const TREE = (side) => {
   const el = (tag, id, p, attrs, kids = '') => `<${tag} id="${id}" class="${C(p)}" ${attrs}>${kids}</${tag}>`;
   const action = (id, p, attrs) => el('button', id, p, `${attrs} type="button"`, '<svg width="11" height="11"></svg><span>复制中…</span>');
   const chip = (id) => el('span', id, pair('maka-turn-summary-chip', mv('summary-chip')), 'data-kind="model"', '<span>x</span>');
+  // The "切换" pill nests inside a model chip carrying `data-switched=true`,
+  // exactly as TurnSummary renders it — both the switched-model chip path and
+  // the pill itself are migrated variants, so each is measured as its own row.
+  const switchedChip = (id, pillId) =>
+    el('span', id, pair('maka-turn-summary-chip', mv('summary-chip')), 'data-kind="model" data-switched="true"',
+      '<code>m</code>' + el('span', pillId, pair('maka-turn-summary-chip-switched', mv('summary-switched')), '', '切换'));
   return [
-    el('div', 'summary', pair('maka-turn-summary', mv('summary')), '', chip('summary-chip-1') + chip('summary-chip-2')),
+    el('div', 'summary', pair('maka-turn-summary', mv('summary')), '',
+      chip('summary-chip-1') + chip('summary-chip-2') + switchedChip('summary-chip-switched', 'summary-switched')),
     el('div', 'footer', pair('maka-turn-footer', mv('footer')), 'role="toolbar"',
       action('footer-rest', fa('quiet'), '') +
       action('footer-pending', fa('secondary'), 'data-pending="true" aria-busy="true"') +
@@ -104,7 +119,11 @@ const TREE = (side) => {
       action('footer-copied', fa('quiet'), 'data-copy-feedback="copied"') +
       action('footer-failed', fa('quiet'), 'data-copy-feedback="failed"')),
     el('div', 'lineage-row', pair('maka-turn-lineage-row', mv('lineage-row')), '',
-      action('lineage-fwd', lb, 'data-direction="forward"') + action('lineage-rev', lb, 'data-direction="reverse"')),
+      action('lineage-fwd', lb, 'data-direction="forward"')),
+    // Reverse lineage lives in its own `-reverse` container (margin-top 4px vs
+    // the forward row's 2px), a separately migrated container variant.
+    el('div', 'lineage-row-reverse', pair('maka-turn-lineage-row maka-turn-lineage-row-reverse', mv('lineage-row-reverse')), '',
+      action('lineage-rev', lb, 'data-direction="reverse"')),
     el('div', 'aborted', pair('maka-turn-aborted-marker', mv('aborted')), '', '<span>x</span>'),
     el('div', 'failed-banner', pair('maka-turn-failed-banner', mv('failed-banner')), '',
       '<span>x</span>' + el('span', 'failed-recovery', pair('maka-turn-failed-recovery', mv('failed-recovery')), '', '<span>x</span>')),
@@ -112,20 +131,43 @@ const TREE = (side) => {
 };
 
 const PROPS = ['display', 'height', 'minHeight', 'width', 'maxWidth', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'marginTop', 'marginRight', 'marginBottom', 'marginLeft', 'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth', 'borderTopColor', 'borderTopStyle', 'borderTopLeftRadius', 'fontSize', 'fontWeight', 'fontStyle', 'lineHeight', 'columnGap', 'color', 'backgroundColor', 'opacity', 'transition', 'justifyContent', 'alignItems', 'flexWrap', 'fontVariantNumeric', 'whiteSpace', 'textAlign', 'cursor'];
-const IDS = ['summary', 'summary-chip-1', 'summary-chip-2', 'footer', 'footer-rest', 'footer-pending', 'footer-copy-pending', 'footer-copied', 'footer-failed', 'lineage-row', 'lineage-fwd', 'lineage-rev', 'aborted', 'failed-banner', 'failed-recovery'];
+const IDS = ['summary', 'summary-chip-1', 'summary-chip-2', 'summary-chip-switched', 'summary-switched', 'footer', 'footer-rest', 'footer-pending', 'footer-copy-pending', 'footer-copied', 'footer-failed', 'lineage-row', 'lineage-fwd', 'lineage-row-reverse', 'lineage-rev', 'aborted', 'failed-banner', 'failed-recovery'];
+// `::before` middot separators are now diffed for real (they render once the
+// CSS is inlined — the old `<link>` build couldn't apply them, masking this).
+// summary-chip-2 is a non-first chip (`[&:not(:first-child)]:before:…`);
+// failed-recovery carries the always-on `before:content-['·']`.
+const PSEUDO_IDS = ['summary-chip-2', 'failed-recovery'];
+const PSEUDO_PROPS = ['content', 'marginRight', 'color', 'fontWeight'];
 
-function pageHtml(cssPath, side) {
-  return `<!doctype html><html><head><meta charset="utf8"><link rel="stylesheet" href="${pathToFileURL(cssPath).href}"></head>
+function pageHtml(cssText, side) {
+  // INLINE the stylesheet as a <style> block (not a <link href=file://…>): the
+  // page is loaded from a file:// temp document, and a file:// page silently
+  // refuses to apply a cross-origin file:// <link> subresource — which made an
+  // earlier <link>-based version a false green (every element read its UA
+  // default identically on both sides, so the diff was 0 but vacuous). Inlining
+  // removes the subresource entirely, so the real renderer CSS actually applies.
+  return `<!doctype html><html><head><meta charset="utf8"><style>${cssText}</style></head>
 <body style="background:#fff"><div data-slot="message" data-role="assistant"><div class="maka-turn" style="width:680px">${TREE(side)}</div></div></body></html>`;
 }
 
 async function read(win, cssPath, side) {
-  await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(pageHtml(cssPath, side)));
-  return win.webContents.executeJavaScript(`(${JSON.stringify(IDS)}).reduce((acc, id) => {
-    const cs = getComputedStyle(document.getElementById(id));
-    const o = {}; for (const p of ${JSON.stringify(PROPS)}) o[p] = cs[p];
-    acc[id] = o; return acc;
-  }, {})`);
+  const tmp = join(tmpdir(), `chat-marker-${side}.html`);
+  writeFileSync(tmp, pageHtml(readFileSync(cssPath, 'utf8'), side));
+  await win.loadFile(tmp);
+  return win.webContents.executeJavaScript(`(() => {
+    const acc = {};
+    for (const id of ${JSON.stringify(IDS)}) {
+      const cs = getComputedStyle(document.getElementById(id));
+      const o = {}; for (const p of ${JSON.stringify(PROPS)}) o[p] = cs[p];
+      acc[id] = o;
+    }
+    for (const id of ${JSON.stringify(PSEUDO_IDS)}) {
+      const cs = getComputedStyle(document.getElementById(id), '::before');
+      const o = {}; for (const p of ${JSON.stringify(PSEUDO_PROPS)}) o[p] = cs[p];
+      acc[id + '::before'] = o;
+    }
+    return acc;
+  })()`);
 }
 
 app.commandLine.appendSwitch('disable-gpu');
@@ -133,13 +175,17 @@ app.whenReady().then(async () => {
   const win = new BrowserWindow({ show: false, width: 900, height: 700, webPreferences: { sandbox: false } });
   const main = await read(win, mainCssPath, 'main');
   const head = await read(win, headCssPath, 'head');
+  const ROWS = [
+    ...IDS.map((id) => [id, PROPS]),
+    ...PSEUDO_IDS.map((id) => [`${id}::before`, PSEUDO_PROPS]),
+  ];
   let total = 0;
-  for (const id of IDS) {
-    const diffs = PROPS.filter((p) => main[id][p] !== head[id][p]).map((p) => `${p}: main=${JSON.stringify(main[id][p])} head=${JSON.stringify(head[id][p])}`);
+  for (const [key, props] of ROWS) {
+    const diffs = props.filter((p) => main[key][p] !== head[key][p]).map((p) => `${p}: main=${JSON.stringify(main[key][p])} head=${JSON.stringify(head[key][p])}`);
     total += diffs.length;
-    if (diffs.length === 0) console.log(`  ok ${id}: ${PROPS.length}/${PROPS.length} identical`);
-    else { console.log(`  XX ${id}: ${diffs.length} DIFF`); for (const d of diffs) console.log(`       ${d}`); }
+    if (diffs.length === 0) console.log(`  ok ${key}: ${props.length}/${props.length} identical`);
+    else { console.log(`  XX ${key}: ${diffs.length} DIFF`); for (const d of diffs) console.log(`       ${d}`); }
   }
-  console.log(`\n${IDS.length} resting element/state rows x ${PROPS.length} properties — TOTAL DIFFS: ${total}`);
+  console.log(`\n${IDS.length} resting element/state rows + ${PSEUDO_IDS.length} ::before middots — TOTAL DIFFS: ${total}`);
   app.exit(total === 0 ? 0 : 1);
 });
