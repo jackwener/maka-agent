@@ -113,6 +113,20 @@ export const HARBOR_CELL_CONTEXT_ENV_KEYS = [
   'MAKA_CONTEXT_ACTIVE_TOOL_RESULT_MAX_ESTIMATED_TOKENS',
   'MAKA_CONTEXT_ACTIVE_TOOL_RESULT_PRUNE_MAX_ESTIMATED_TOKENS',
   'MAKA_CONTEXT_ACTIVE_TOOL_RESULT_MIN_STEP_NUMBER',
+  'MAKA_CONTEXT_ACTIVE_FULL_COMPACT',
+  'MAKA_CONTEXT_ACTIVE_FULL_COMPACT_MODE',
+  'MAKA_CONTEXT_ACTIVE_FULL_COMPACT_MIN_STEP_NUMBER',
+  'MAKA_CONTEXT_ACTIVE_FULL_COMPACT_HIGH_WATER_RATIO',
+  'MAKA_CONTEXT_ACTIVE_FULL_COMPACT_FORCE_RATIO',
+  'MAKA_CONTEXT_ACTIVE_FULL_COMPACT_TARGET_RATIO',
+  'MAKA_CONTEXT_ACTIVE_FULL_COMPACT_MAX_ACTIVE_ESTIMATED_TOKENS',
+  'MAKA_CONTEXT_ACTIVE_FULL_COMPACT_MAX_ESTIMATED_TOKENS',
+  'MAKA_CONTEXT_ACTIVE_FULL_COMPACT_MIN_RECENT_MESSAGES',
+  'MAKA_CONTEXT_ACTIVE_FULL_COMPACT_MIN_RECENT_TOOL_PAIRS',
+  'MAKA_CONTEXT_ACTIVE_FULL_COMPACT_MAX_SUMMARY_ESTIMATED_TOKENS',
+  'MAKA_CONTEXT_ACTIVE_FULL_COMPACT_SUMMARY_MAX_ESTIMATED_TOKENS',
+  'MAKA_CONTEXT_ACTIVE_FULL_COMPACT_ARCHIVE_REQUIRED',
+  'MAKA_CONTEXT_ACTIVE_FULL_COMPACT_HIGH_WATER_NAME',
   'MAKA_CONTEXT_ARCHIVE_RETRIEVAL',
   'MAKA_CONTEXT_ARCHIVE_RETRIEVAL_MODE',
   'MAKA_CONTEXT_ARCHIVE_RETRIEVAL_MAX_RESULTS',
@@ -450,7 +464,12 @@ export function buildHarborCellContextBudgetBackendOptions(
     env.MAKA_HARBOR_CONTEXT_ARCHIVE_RETRIEVAL,
     'MAKA_CONTEXT_ARCHIVE_RETRIEVAL',
   ) ?? false;
-  if (!pruneEnabled && !activePruneEnabled && !archiveRetrievalEnabled) return {};
+  const activeFullCompactEnabled = booleanEnv(
+    env.MAKA_CONTEXT_ACTIVE_FULL_COMPACT ??
+    env.MAKA_HARBOR_CONTEXT_ACTIVE_FULL_COMPACT,
+    'MAKA_CONTEXT_ACTIVE_FULL_COMPACT',
+  ) ?? false;
+  if (!pruneEnabled && !activePruneEnabled && !archiveRetrievalEnabled && !activeFullCompactEnabled) return {};
 
   const contextBudget: ContextBudgetPolicy = {
     name: env.MAKA_CONTEXT_BUDGET_NAME ?? 'harbor-cell-context-budget',
@@ -517,6 +536,46 @@ export function buildHarborCellContextBudgetBackendOptions(
       ...(maxResults !== undefined ? { maxResults } : {}),
       ...(maxEstimatedTokens !== undefined ? { maxEstimatedTokens } : {}),
       ...(maxBytes !== undefined ? { maxBytes } : {}),
+    };
+  }
+
+  if (activeFullCompactEnabled) {
+    const mode = activeFullCompactModeEnv(env.MAKA_CONTEXT_ACTIVE_FULL_COMPACT_MODE);
+    const maxActiveEstimatedTokens = positiveIntEnv(
+      env.MAKA_CONTEXT_ACTIVE_FULL_COMPACT_MAX_ACTIVE_ESTIMATED_TOKENS ??
+      env.MAKA_CONTEXT_ACTIVE_FULL_COMPACT_MAX_ESTIMATED_TOKENS,
+      'MAKA_CONTEXT_ACTIVE_FULL_COMPACT_MAX_ACTIVE_ESTIMATED_TOKENS',
+    );
+    const minStepNumber = firstContextNonNegativeIntEnv(env, ['MAKA_CONTEXT_ACTIVE_FULL_COMPACT_MIN_STEP_NUMBER']);
+    const minRecentMessages = firstContextNonNegativeIntEnv(env, ['MAKA_CONTEXT_ACTIVE_FULL_COMPACT_MIN_RECENT_MESSAGES']);
+    const minRecentToolPairs = firstContextNonNegativeIntEnv(env, ['MAKA_CONTEXT_ACTIVE_FULL_COMPACT_MIN_RECENT_TOOL_PAIRS']);
+    const maxSummaryEstimatedTokens = positiveIntEnv(
+      env.MAKA_CONTEXT_ACTIVE_FULL_COMPACT_MAX_SUMMARY_ESTIMATED_TOKENS ??
+      env.MAKA_CONTEXT_ACTIVE_FULL_COMPACT_SUMMARY_MAX_ESTIMATED_TOKENS,
+      'MAKA_CONTEXT_ACTIVE_FULL_COMPACT_MAX_SUMMARY_ESTIMATED_TOKENS',
+    );
+    const archiveRequired = booleanEnv(
+      env.MAKA_CONTEXT_ACTIVE_FULL_COMPACT_ARCHIVE_REQUIRED,
+      'MAKA_CONTEXT_ACTIVE_FULL_COMPACT_ARCHIVE_REQUIRED',
+    );
+    const highWaterRatio = numericEnv(env.MAKA_CONTEXT_ACTIVE_FULL_COMPACT_HIGH_WATER_RATIO);
+    const forceRatio = numericEnv(env.MAKA_CONTEXT_ACTIVE_FULL_COMPACT_FORCE_RATIO);
+    const targetRatio = numericEnv(env.MAKA_CONTEXT_ACTIVE_FULL_COMPACT_TARGET_RATIO);
+    contextBudget.activeFullCompact = {
+      enabled: true,
+      ...(mode ? { mode } : {}),
+      ...(minStepNumber !== undefined ? { minStepNumber } : {}),
+      ...(highWaterRatio !== undefined ? { highWaterRatio } : {}),
+      ...(forceRatio !== undefined ? { forceRatio } : {}),
+      ...(targetRatio !== undefined ? { targetRatio } : {}),
+      ...(maxActiveEstimatedTokens !== undefined ? { maxActiveEstimatedTokens } : {}),
+      ...(minRecentMessages !== undefined ? { minRecentMessages } : {}),
+      ...(minRecentToolPairs !== undefined ? { minRecentToolPairs } : {}),
+      ...(maxSummaryEstimatedTokens !== undefined ? { maxSummaryEstimatedTokens } : {}),
+      ...(archiveRequired !== undefined ? { archiveRequired } : {}),
+      ...(env.MAKA_CONTEXT_ACTIVE_FULL_COMPACT_HIGH_WATER_NAME
+        ? { highWaterName: env.MAKA_CONTEXT_ACTIVE_FULL_COMPACT_HIGH_WATER_NAME }
+        : {}),
     };
   }
 
@@ -601,6 +660,44 @@ export function buildHarborCellContextBudgetPolicySnapshot(
             enabled: contextBudget.activeToolResultPrune.enabled,
             maxCurrentResultEstimatedTokens: contextBudget.activeToolResultPrune.maxCurrentResultEstimatedTokens ?? 8192,
             minStepNumber: contextBudget.activeToolResultPrune.minStepNumber ?? 1,
+          },
+        }
+      : {}),
+    ...(contextBudget.activeFullCompact
+      ? {
+          activeFullCompact: {
+            enabled: contextBudget.activeFullCompact.enabled,
+            ...(contextBudget.activeFullCompact.mode ? { mode: contextBudget.activeFullCompact.mode } : {}),
+            ...(contextBudget.activeFullCompact.minStepNumber !== undefined
+              ? { minStepNumber: contextBudget.activeFullCompact.minStepNumber }
+              : {}),
+            ...(contextBudget.activeFullCompact.highWaterRatio !== undefined
+              ? { highWaterRatio: contextBudget.activeFullCompact.highWaterRatio }
+              : {}),
+            ...(contextBudget.activeFullCompact.forceRatio !== undefined
+              ? { forceRatio: contextBudget.activeFullCompact.forceRatio }
+              : {}),
+            ...(contextBudget.activeFullCompact.targetRatio !== undefined
+              ? { targetRatio: contextBudget.activeFullCompact.targetRatio }
+              : {}),
+            ...(contextBudget.activeFullCompact.maxActiveEstimatedTokens !== undefined
+              ? { maxActiveEstimatedTokens: contextBudget.activeFullCompact.maxActiveEstimatedTokens }
+              : {}),
+            ...(contextBudget.activeFullCompact.minRecentMessages !== undefined
+              ? { minRecentMessages: contextBudget.activeFullCompact.minRecentMessages }
+              : {}),
+            ...(contextBudget.activeFullCompact.minRecentToolPairs !== undefined
+              ? { minRecentToolPairs: contextBudget.activeFullCompact.minRecentToolPairs }
+              : {}),
+            ...(contextBudget.activeFullCompact.maxSummaryEstimatedTokens !== undefined
+              ? { maxSummaryEstimatedTokens: contextBudget.activeFullCompact.maxSummaryEstimatedTokens }
+              : {}),
+            ...(contextBudget.activeFullCompact.archiveRequired !== undefined
+              ? { archiveRequired: contextBudget.activeFullCompact.archiveRequired }
+              : {}),
+            ...(contextBudget.activeFullCompact.highWaterName
+              ? { highWaterName: contextBudget.activeFullCompact.highWaterName }
+              : {}),
           },
         }
       : {}),
@@ -753,6 +850,19 @@ function archiveRetrievalModeEnv(
   if (value === undefined || value === '') return undefined;
   if (value === 'eager' || value === 'history_search_gated') return value;
   throw new Error(`MAKA_CONTEXT_ARCHIVE_RETRIEVAL_MODE must be one of eager, history_search_gated, got ${JSON.stringify(raw)}`);
+}
+
+function activeFullCompactModeEnv(
+  raw: string | undefined,
+): NonNullable<ContextBudgetPolicy['activeFullCompact']>['mode'] | undefined {
+  const value = raw?.trim();
+  if (value === undefined || value === '') return undefined;
+  if (value === 'off' || value === 'index_only' || value === 'validate_only' || value === 'prepare_step_dry_run') {
+    return value;
+  }
+  throw new Error(
+    `MAKA_CONTEXT_ACTIVE_FULL_COMPACT_MODE must be one of off, index_only, validate_only, prepare_step_dry_run, got ${JSON.stringify(raw)}`,
+  );
 }
 
 function booleanEnv(raw: string | undefined, name: string): boolean | undefined {

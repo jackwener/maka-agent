@@ -381,6 +381,9 @@ function validateContextBudgetPolicySnapshot(value: unknown): HarborCellContextB
     ...(value.activeToolResultPrune !== undefined
       ? { activeToolResultPrune: validateActiveToolResultPruneSnapshot(value.activeToolResultPrune) }
       : {}),
+    ...(value.activeFullCompact !== undefined
+      ? { activeFullCompact: validateActiveFullCompactSnapshot(value.activeFullCompact) }
+      : {}),
     ...(value.archiveRetrieval !== undefined
       ? { archiveRetrieval: validateArchiveRetrievalSnapshot(value.archiveRetrieval) }
       : {}),
@@ -403,6 +406,46 @@ function validateActiveToolResultPruneSnapshot(value: unknown): NonNullable<Cont
     enabled: requireBoolean(value.enabled, 'contextBudgetPolicy.activeToolResultPrune.enabled'),
     maxCurrentResultEstimatedTokens: requireNumber(value.maxCurrentResultEstimatedTokens, 'contextBudgetPolicy.activeToolResultPrune.maxCurrentResultEstimatedTokens'),
     minStepNumber: requireNumber(value.minStepNumber, 'contextBudgetPolicy.activeToolResultPrune.minStepNumber'),
+  };
+}
+
+function validateActiveFullCompactSnapshot(value: unknown): NonNullable<ContextBudgetPolicy['activeFullCompact']> {
+  if (!isRecord(value)) throw new Error('contextBudgetPolicy.activeFullCompact must be a JSON object');
+  return {
+    enabled: requireBoolean(value.enabled, 'contextBudgetPolicy.activeFullCompact.enabled'),
+    ...(value.mode !== undefined
+      ? { mode: requireStringUnion(value.mode, 'contextBudgetPolicy.activeFullCompact.mode', ['off', 'index_only', 'validate_only', 'prepare_step_dry_run'] as const) }
+      : {}),
+    ...(optionalNumber(value.minStepNumber, 'contextBudgetPolicy.activeFullCompact.minStepNumber') !== undefined
+      ? { minStepNumber: optionalNumber(value.minStepNumber, 'contextBudgetPolicy.activeFullCompact.minStepNumber') }
+      : {}),
+    ...(optionalNumber(value.highWaterRatio, 'contextBudgetPolicy.activeFullCompact.highWaterRatio') !== undefined
+      ? { highWaterRatio: optionalNumber(value.highWaterRatio, 'contextBudgetPolicy.activeFullCompact.highWaterRatio') }
+      : {}),
+    ...(optionalNumber(value.forceRatio, 'contextBudgetPolicy.activeFullCompact.forceRatio') !== undefined
+      ? { forceRatio: optionalNumber(value.forceRatio, 'contextBudgetPolicy.activeFullCompact.forceRatio') }
+      : {}),
+    ...(optionalNumber(value.targetRatio, 'contextBudgetPolicy.activeFullCompact.targetRatio') !== undefined
+      ? { targetRatio: optionalNumber(value.targetRatio, 'contextBudgetPolicy.activeFullCompact.targetRatio') }
+      : {}),
+    ...(optionalNumber(value.maxActiveEstimatedTokens, 'contextBudgetPolicy.activeFullCompact.maxActiveEstimatedTokens') !== undefined
+      ? { maxActiveEstimatedTokens: optionalNumber(value.maxActiveEstimatedTokens, 'contextBudgetPolicy.activeFullCompact.maxActiveEstimatedTokens') }
+      : {}),
+    ...(optionalNumber(value.minRecentMessages, 'contextBudgetPolicy.activeFullCompact.minRecentMessages') !== undefined
+      ? { minRecentMessages: optionalNumber(value.minRecentMessages, 'contextBudgetPolicy.activeFullCompact.minRecentMessages') }
+      : {}),
+    ...(optionalNumber(value.minRecentToolPairs, 'contextBudgetPolicy.activeFullCompact.minRecentToolPairs') !== undefined
+      ? { minRecentToolPairs: optionalNumber(value.minRecentToolPairs, 'contextBudgetPolicy.activeFullCompact.minRecentToolPairs') }
+      : {}),
+    ...(optionalNumber(value.maxSummaryEstimatedTokens, 'contextBudgetPolicy.activeFullCompact.maxSummaryEstimatedTokens') !== undefined
+      ? { maxSummaryEstimatedTokens: optionalNumber(value.maxSummaryEstimatedTokens, 'contextBudgetPolicy.activeFullCompact.maxSummaryEstimatedTokens') }
+      : {}),
+    ...(value.archiveRequired !== undefined
+      ? { archiveRequired: requireBoolean(value.archiveRequired, 'contextBudgetPolicy.activeFullCompact.archiveRequired') }
+      : {}),
+    ...(value.highWaterName !== undefined
+      ? { highWaterName: requireString(value.highWaterName, 'contextBudgetPolicy.activeFullCompact.highWaterName') }
+      : {}),
   };
 }
 

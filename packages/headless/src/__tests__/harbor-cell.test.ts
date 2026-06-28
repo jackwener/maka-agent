@@ -192,6 +192,13 @@ describe('runHarborCell', () => {
         MAKA_CONTEXT_ACTIVE_TOOL_RESULT_PRUNE: 'on',
         MAKA_CONTEXT_ACTIVE_TOOL_RESULT_MAX_ESTIMATED_TOKENS: '512',
         MAKA_CONTEXT_ACTIVE_TOOL_RESULT_MIN_STEP_NUMBER: '1',
+        MAKA_CONTEXT_ACTIVE_FULL_COMPACT: 'on',
+        MAKA_CONTEXT_ACTIVE_FULL_COMPACT_MIN_STEP_NUMBER: '2',
+        MAKA_CONTEXT_ACTIVE_FULL_COMPACT_HIGH_WATER_RATIO: '0.5',
+        MAKA_CONTEXT_ACTIVE_FULL_COMPACT_MAX_ACTIVE_ESTIMATED_TOKENS: '16384',
+        MAKA_CONTEXT_ACTIVE_FULL_COMPACT_MIN_RECENT_MESSAGES: '4',
+        MAKA_CONTEXT_ACTIVE_FULL_COMPACT_MAX_SUMMARY_ESTIMATED_TOKENS: '1024',
+        MAKA_CONTEXT_ACTIVE_FULL_COMPACT_HIGH_WATER_NAME: 'test-active-full',
         MAKA_CONTEXT_ARCHIVE_RETRIEVAL: 'on',
         MAKA_CONTEXT_ARCHIVE_RETRIEVAL_MODE: 'eager',
       }, {
@@ -209,6 +216,15 @@ describe('runHarborCell', () => {
           enabled: true,
           maxCurrentResultEstimatedTokens: 512,
           minStepNumber: 1,
+        },
+        activeFullCompact: {
+          enabled: true,
+          minStepNumber: 2,
+          highWaterRatio: 0.5,
+          maxActiveEstimatedTokens: 16384,
+          minRecentMessages: 4,
+          maxSummaryEstimatedTokens: 1024,
+          highWaterName: 'test-active-full',
         },
         archiveRetrieval: {
           enabled: true,
@@ -472,6 +488,12 @@ describe('runHarborCell', () => {
           MAKA_CONTEXT_ACTIVE_TOOL_RESULT_PRUNE: 'on',
           MAKA_CONTEXT_ACTIVE_TOOL_RESULT_MAX_ESTIMATED_TOKENS: '2',
           MAKA_CONTEXT_ACTIVE_TOOL_RESULT_MIN_STEP_NUMBER: '1',
+          MAKA_CONTEXT_ACTIVE_FULL_COMPACT: 'on',
+          MAKA_CONTEXT_ACTIVE_FULL_COMPACT_MIN_STEP_NUMBER: '2',
+          MAKA_CONTEXT_ACTIVE_FULL_COMPACT_HIGH_WATER_RATIO: '0.5',
+          MAKA_CONTEXT_ACTIVE_FULL_COMPACT_MAX_ACTIVE_ESTIMATED_TOKENS: '16384',
+          MAKA_CONTEXT_ACTIVE_FULL_COMPACT_MIN_RECENT_MESSAGES: '4',
+          MAKA_CONTEXT_ACTIVE_FULL_COMPACT_MAX_SUMMARY_ESTIMATED_TOKENS: '1024',
           MAKA_CONTEXT_ARCHIVE_RETRIEVAL: 'on',
           MAKA_CONTEXT_ARCHIVE_RETRIEVAL_MODE: 'history_search_gated',
           MAKA_CONTEXT_ARCHIVE_RETRIEVAL_MAX_RESULTS: '1',
@@ -502,6 +524,12 @@ describe('runHarborCell', () => {
       assert.equal(backendInput.contextBudget?.activeToolResultPrune?.enabled, true);
       assert.equal(backendInput.contextBudget?.activeToolResultPrune?.maxCurrentResultEstimatedTokens, 2);
       assert.equal(backendInput.contextBudget?.activeToolResultPrune?.minStepNumber, 1);
+      assert.equal(backendInput.contextBudget?.activeFullCompact?.enabled, true);
+      assert.equal(backendInput.contextBudget?.activeFullCompact?.minStepNumber, 2);
+      assert.equal(backendInput.contextBudget?.activeFullCompact?.highWaterRatio, 0.5);
+      assert.equal(backendInput.contextBudget?.activeFullCompact?.maxActiveEstimatedTokens, 16384);
+      assert.equal(backendInput.contextBudget?.activeFullCompact?.minRecentMessages, 4);
+      assert.equal(backendInput.contextBudget?.activeFullCompact?.maxSummaryEstimatedTokens, 1024);
       assert.equal(backendInput.contextBudget?.archiveRetrieval?.enabled, true);
       assert.equal(backendInput.contextBudget?.archiveRetrieval?.mode, 'history_search_gated');
       assert.equal(backendInput.contextBudget?.archiveRetrieval?.maxResults, 1);
