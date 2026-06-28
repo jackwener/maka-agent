@@ -24,7 +24,10 @@
  */
 
 import { PROVIDER_DEFAULTS, type LlmConnection } from './llm-connections.js';
-import { isModelExplicitlyUnsupportedForChat } from './model-catalog.js';
+import {
+  evaluateChatModelAvailability,
+  type ChatModelAvailabilityReason,
+} from './model-catalog.js';
 
 /**
  * Canonical reasons why an LlmConnection is not ready to send.
@@ -115,18 +118,14 @@ export function isConnectionReady(input: IsConnectionReadyInput): IsConnectionRe
   if (!model) {
     return { ready: false, reason: 'missing_model' };
   }
-  if (connection.models) {
-    const enabled = new Map(connection.models.map((entry) => [entry.id, entry]));
-    if (enabled.size === 0) {
-      return { ready: false, reason: 'empty_model_list' };
-    }
-    const modelEntry = enabled.get(model);
-    if (!modelEntry) {
-      return { ready: false, reason: 'model_not_enabled' };
-    }
-    if (isModelExplicitlyUnsupportedForChat(modelEntry)) {
-      return { ready: false, reason: 'model_not_chat_capable' };
-    }
+  const modelAvailability = evaluateChatModelAvailability({
+    model,
+    models: connection.models,
+    modelSource: connection.modelSource,
+    modelsFetchedAt: connection.modelsFetchedAt,
+  });
+  if (!modelAvailability.ok) {
+    return { ready: false, reason: chatModelAvailabilityReasonToReadiness(modelAvailability.reason) };
   }
   return { ready: true, model };
 }
@@ -151,4 +150,20 @@ function isFakeBackend(connection: Pick<LlmConnection, 'providerType'>): boolean
   const defaults = PROVIDER_DEFAULTS[connection.providerType];
   if (!defaults) return true; // unknown providerType → treat as non-real
   return defaults.backendKind === 'fake';
+}
+
+function chatModelAvailabilityReasonToReadiness(reason: ChatModelAvailabilityReason): ChatConfigurationReason {
+  switch (reason) {
+    case 'missing_model':
+      return 'missing_model';
+    case 'empty_model_list':
+      return 'empty_model_list';
+    case 'not_in_live_list':
+    case 'provider_removed':
+      return 'model_not_enabled';
+    case 'unsupported_for_chat':
+      return 'model_not_chat_capable';
+    case 'auth':
+      return 'missing_api_key';
+  }
 }

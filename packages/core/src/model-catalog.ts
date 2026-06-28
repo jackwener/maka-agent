@@ -24,6 +24,24 @@ export type ModelUnavailableReason =
 
 export type ModelCatalogAvailability = 'available' | 'warning' | 'blocked';
 
+export type ChatModelAvailabilityReason =
+  | 'missing_model'
+  | 'empty_model_list'
+  | Exclude<ModelUnavailableReason, 'none' | 'stale'>;
+
+export type ChatModelAvailabilityResult =
+  | {
+      ok: true;
+      model: string;
+      entry?: ModelInfo;
+      warning?: Extract<ModelUnavailableReason, 'stale'>;
+    }
+  | {
+      ok: false;
+      reason: ChatModelAvailabilityReason;
+      entry?: ModelInfo;
+    };
+
 export interface KnownModelCapabilities {
   chat?: true;
   vision?: true;
@@ -38,6 +56,25 @@ export interface ModelCatalogPricing {
   cacheReadUsdPer1M?: number;
   cacheWriteUsdPer1M?: number;
   source: 'builtin' | 'user_override';
+}
+
+export type ModelCatalogUserChoiceSource =
+  | 'connection_default'
+  | 'saved_model'
+  | 'session_model'
+  | 'daily_review_model';
+
+export type SavedModelChoice =
+  | string
+  | {
+      id: string;
+      source: Exclude<ModelCatalogUserChoiceSource, 'connection_default'>;
+    };
+
+export interface ModelCatalogProvenanceSources {
+  providerInventory?: true;
+  staticCatalog?: true;
+  userChoice?: ModelCatalogUserChoiceSource[];
 }
 
 export interface ModelCatalogEntry {
@@ -60,6 +97,7 @@ export interface ModelCatalogEntry {
     modelsFetchedAt?: number;
     pricingModelKey?: string;
     userChoice?: true;
+    sources?: ModelCatalogProvenanceSources;
   };
 }
 
@@ -68,7 +106,7 @@ export interface BuildConnectionModelCatalogInput {
     LlmConnection,
     'slug' | 'providerType' | 'defaultModel' | 'models' | 'modelSource' | 'modelsFetchedAt'
   >;
-  savedModelIds?: Iterable<string | undefined | null>;
+  savedModelIds?: Iterable<SavedModelChoice | undefined | null>;
   fallbackModels?: string[];
   now?: number;
   staleAfterMs?: number;
@@ -92,7 +130,7 @@ export interface BuildModelCatalogInput {
   authOk?: boolean;
   pricing?: Iterable<PricingConfig>;
   pricingSource?: 'builtin' | 'user_override';
-  savedModelIds?: Iterable<string | undefined | null>;
+  savedModelIds?: Iterable<SavedModelChoice | undefined | null>;
 }
 
 const DEFAULT_STALE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
@@ -107,6 +145,7 @@ export function buildModelCatalogEntries(input: BuildModelCatalogInput): ModelCa
     id,
     ...displayNameForKnownModel(input.providerType, id),
   }));
+  const savedChoiceSources = savedChoiceSourcesById(input.savedModelIds);
   const seen = new Set<string>();
   const entries = rawModels
     .filter((model) => {
@@ -115,18 +154,18 @@ export function buildModelCatalogEntries(input: BuildModelCatalogInput): ModelCa
       seen.add(id);
       return true;
     })
-    .map((model) => makeEntry(input, model, source, modelSource));
+    .map((model) => makeEntry(input, model, source, modelSource, savedChoiceSources));
 
   const defaultModel = input.defaultModel?.trim();
   if (defaultModel && !seen.has(defaultModel)) {
-    entries.unshift(makeMissingDefaultEntry(input, defaultModel, source, modelSource));
+    entries.unshift(makeMissingDefaultEntry(input, defaultModel, modelSource, savedChoiceSources));
     seen.add(defaultModel);
   }
 
-  for (const id of normalizedSavedModelIds(input.savedModelIds)) {
+  for (const id of savedChoiceSources.keys()) {
     if (seen.has(id)) continue;
     seen.add(id);
-    entries.push(makeMissingUserChoiceEntry(input, id, source, modelSource));
+    entries.push(makeMissingUserChoiceEntry(input, id, modelSource, savedChoiceSources));
   }
 
   return entries;
@@ -177,11 +216,58 @@ export function validateChatDefaultModel(input: BuildModelCatalogInput): {
   return { ok: false, reason, entry };
 }
 
+export function evaluateChatModelAvailability(input: {
+  model?: string;
+  models?: ModelInfo[];
+  modelSource?: ModelDiscoverySource;
+  modelsFetchedAt?: number;
+  now?: number;
+  staleAfterMs?: number;
+  providerAvailable?: boolean;
+  authOk?: boolean;
+}): ChatModelAvailabilityResult {
+  const model = input.model?.trim();
+  if (!model) return { ok: false, reason: 'missing_model' };
+  if (input.models) {
+    const entries = new Map(
+      input.models
+        .map((entry): [string, ModelInfo] => [entry.id.trim(), entry])
+        .filter(([id]) => id.length > 0),
+    );
+    if (entries.size === 0) return { ok: false, reason: 'empty_model_list' };
+    const entry = entries.get(model);
+    if (!entry) return { ok: false, reason: 'not_in_live_list' };
+    const unavailableReason = deriveModelUnavailableReason(input, entry);
+    const blockingReason = blockingChatAvailabilityReason(unavailableReason);
+    if (blockingReason) {
+      return { ok: false, reason: blockingReason, entry };
+    }
+    return {
+      ok: true,
+      model,
+      entry,
+      ...(unavailableReason === 'stale' ? { warning: unavailableReason } : {}),
+    };
+  }
+
+  const unavailableReason = deriveModelUnavailableReason(input, { id: model });
+  const blockingReason = blockingChatAvailabilityReason(unavailableReason);
+  if (blockingReason) {
+    return { ok: false, reason: blockingReason };
+  }
+  return {
+    ok: true,
+    model,
+    ...(unavailableReason === 'stale' ? { warning: unavailableReason } : {}),
+  };
+}
+
 function makeEntry(
   input: BuildModelCatalogInput,
   model: ModelInfo,
   source: ModelCatalogEntry['source'],
   modelSource: ModelDiscoverySource,
+  savedChoiceSources: ReadonlyMap<string, ModelCatalogUserChoiceSource[]>,
 ): ModelCatalogEntry {
   const unavailableReason = deriveUnavailableReason(input, model);
   const pricing = findPricing(input, model.id);
@@ -204,6 +290,7 @@ function makeEntry(
       modelSource,
       ...(input.modelsFetchedAt ? { modelsFetchedAt: input.modelsFetchedAt } : {}),
       ...(pricing ? { pricingModelKey: `${input.providerType}:${model.id}` } : {}),
+      sources: provenanceSources(input, model.id, source, savedChoiceSources),
     },
   };
 }
@@ -211,16 +298,12 @@ function makeEntry(
 function makeMissingDefaultEntry(
   input: BuildModelCatalogInput,
   id: string,
-  source: ModelCatalogEntry['source'],
   modelSource: ModelDiscoverySource,
+  savedChoiceSources: ReadonlyMap<string, ModelCatalogUserChoiceSource[]>,
 ): ModelCatalogEntry {
-  const unavailableReason = input.providerAvailable === false
-    ? 'provider_removed'
-    : input.authOk === false
-      ? 'auth'
-      : source === 'provider_api'
-        ? 'not_in_live_list'
-        : 'none';
+  const unavailableReason = modelUnavailableReasonFromAvailability(
+    evaluateChatModelAvailability({ ...input, model: id }),
+  );
   return {
     id,
     ...displayNameForKnownModel(input.providerType, id),
@@ -236,6 +319,7 @@ function makeMissingDefaultEntry(
     provenance: {
       modelSource,
       ...(input.modelsFetchedAt ? { modelsFetchedAt: input.modelsFetchedAt } : {}),
+      sources: provenanceSources(input, id, 'unknown', savedChoiceSources),
     },
   };
 }
@@ -243,16 +327,12 @@ function makeMissingDefaultEntry(
 function makeMissingUserChoiceEntry(
   input: BuildModelCatalogInput,
   id: string,
-  source: ModelCatalogEntry['source'],
   modelSource: ModelDiscoverySource,
+  savedChoiceSources: ReadonlyMap<string, ModelCatalogUserChoiceSource[]>,
 ): ModelCatalogEntry {
-  const unavailableReason = input.providerAvailable === false
-    ? 'provider_removed'
-    : input.authOk === false
-      ? 'auth'
-      : source === 'provider_api'
-        ? 'not_in_live_list'
-        : 'none';
+  const unavailableReason = modelUnavailableReasonFromAvailability(
+    evaluateChatModelAvailability({ ...input, model: id }),
+  );
   return {
     id,
     ...displayNameForKnownModel(input.providerType, id),
@@ -269,6 +349,7 @@ function makeMissingUserChoiceEntry(
       modelSource,
       ...(input.modelsFetchedAt ? { modelsFetchedAt: input.modelsFetchedAt } : {}),
       userChoice: true,
+      sources: provenanceSources(input, id, 'unknown', savedChoiceSources),
     },
   };
 }
@@ -284,7 +365,50 @@ function displayNameForKnownModel(providerType: ProviderType, id: string): { dis
   return displayName ? { displayName } : {};
 }
 
+function provenanceSources(
+  input: Pick<BuildModelCatalogInput, 'providerType' | 'defaultModel'>,
+  id: string,
+  source: ModelCatalogEntry['source'],
+  savedChoiceSources: ReadonlyMap<string, ModelCatalogUserChoiceSource[]>,
+): ModelCatalogProvenanceSources {
+  const userChoice = userChoiceSources(input, id, savedChoiceSources);
+  return {
+    ...(source === 'provider_api' ? { providerInventory: true as const } : {}),
+    ...(source === 'static_catalog' || hasStaticModelMetadata(input.providerType, id)
+      ? { staticCatalog: true as const }
+      : {}),
+    ...(userChoice.length > 0 ? { userChoice } : {}),
+  };
+}
+
+function hasStaticModelMetadata(providerType: ProviderType, id: string): boolean {
+  return Object.keys(lookupModelMetadata(providerType, id)).length > 0;
+}
+
+function userChoiceSources(
+  input: Pick<BuildModelCatalogInput, 'defaultModel'>,
+  id: string,
+  savedChoiceSources: ReadonlyMap<string, ModelCatalogUserChoiceSource[]>,
+): ModelCatalogUserChoiceSource[] {
+  const sources: ModelCatalogUserChoiceSource[] = [];
+  if (id === input.defaultModel?.trim()) sources.push('connection_default');
+  for (const source of savedChoiceSources.get(id) ?? []) {
+    if (!sources.includes(source)) sources.push(source);
+  }
+  return sources;
+}
+
 function deriveUnavailableReason(input: BuildModelCatalogInput, model: ModelInfo): ModelUnavailableReason {
+  return deriveModelUnavailableReason(input, model);
+}
+
+function deriveModelUnavailableReason(
+  input: Pick<
+    BuildModelCatalogInput,
+    'providerAvailable' | 'authOk' | 'modelSource' | 'modelsFetchedAt' | 'now' | 'staleAfterMs'
+  >,
+  model: ModelInfo,
+): ModelUnavailableReason {
   if (input.providerAvailable === false) return 'provider_removed';
   if (input.authOk === false) return 'auth';
   if (isModelExplicitlyUnsupportedForChat(model)) return 'unsupported_for_chat';
@@ -292,7 +416,25 @@ function deriveUnavailableReason(input: BuildModelCatalogInput, model: ModelInfo
   return 'none';
 }
 
-function isStale(input: BuildModelCatalogInput): boolean {
+function modelUnavailableReasonFromAvailability(result: ChatModelAvailabilityResult): ModelUnavailableReason {
+  if (result.ok) return result.warning ?? 'none';
+  switch (result.reason) {
+    case 'missing_model':
+      return 'not_in_live_list';
+    case 'empty_model_list':
+      return 'not_in_live_list';
+    default:
+      return result.reason;
+  }
+}
+
+function blockingChatAvailabilityReason(
+  reason: ModelUnavailableReason,
+): Exclude<ModelUnavailableReason, 'none' | 'stale'> | null {
+  return reason === 'none' || reason === 'stale' ? null : reason;
+}
+
+function isStale(input: Pick<BuildModelCatalogInput, 'modelSource' | 'modelsFetchedAt' | 'now' | 'staleAfterMs'>): boolean {
   if (input.modelSource !== 'fetched' || input.modelsFetchedAt === undefined) return false;
   const now = input.now ?? Date.now();
   const staleAfterMs = input.staleAfterMs ?? DEFAULT_STALE_AFTER_MS;
@@ -331,15 +473,19 @@ function canUseUnavailableReasonAsDefault(reason: ModelUnavailableReason): boole
   return reason === 'none' || reason === 'stale';
 }
 
-function normalizedSavedModelIds(ids: Iterable<string | undefined | null> | undefined): string[] {
-  if (!ids) return [];
-  const result: string[] = [];
-  const seen = new Set<string>();
-  for (const id of ids) {
-    const trimmed = id?.trim();
-    if (!trimmed || seen.has(trimmed)) continue;
-    seen.add(trimmed);
-    result.push(trimmed);
+function savedChoiceSourcesById(
+  choices: Iterable<SavedModelChoice | undefined | null> | undefined,
+): Map<string, ModelCatalogUserChoiceSource[]> {
+  const result = new Map<string, ModelCatalogUserChoiceSource[]>();
+  if (!choices) return result;
+  for (const choice of choices) {
+    if (!choice) continue;
+    const id = typeof choice === 'string' ? choice.trim() : choice.id.trim();
+    if (!id) continue;
+    const source = typeof choice === 'string' ? 'saved_model' : choice.source;
+    const sources = result.get(id) ?? [];
+    if (!sources.includes(source)) sources.push(source);
+    result.set(id, sources);
   }
   return result;
 }

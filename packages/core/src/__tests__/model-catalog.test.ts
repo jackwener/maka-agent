@@ -3,11 +3,42 @@ import { describe, it } from 'node:test';
 import {
   buildConnectionModelCatalogEntries,
   buildModelCatalogEntries,
+  evaluateChatModelAvailability,
   validateChatDefaultModel,
 } from '../model-catalog.js';
 import type { LlmConnection, ModelInfo, ProviderType } from '../llm-connections.js';
 
 describe('ModelCatalogEntry', () => {
+  it('evaluates chat model availability with live inventory and stale cache semantics', () => {
+    assert.deepEqual(
+      evaluateChatModelAvailability({
+        model: 'glm-removed',
+        models: [{ id: 'glm-4.7' }],
+        modelSource: 'fetched',
+        modelsFetchedAt: 1_800_000_000_000,
+        now: 1_800_000_001_000,
+      }),
+      { ok: false, reason: 'not_in_live_list' },
+    );
+
+    assert.deepEqual(
+      evaluateChatModelAvailability({
+        model: 'claude-sonnet-4-5-20250929',
+        models: [{ id: 'claude-sonnet-4-5-20250929', capabilities: { reasoning: true } }],
+        modelSource: 'fetched',
+        modelsFetchedAt: 1_700_000_000_000,
+        now: 1_800_000_000_000,
+        staleAfterMs: 7 * 24 * 60 * 60 * 1000,
+      }),
+      {
+        ok: true,
+        model: 'claude-sonnet-4-5-20250929',
+        warning: 'stale',
+        entry: { id: 'claude-sonnet-4-5-20250929', capabilities: { reasoning: true } },
+      },
+    );
+  });
+
   it('normalizes Z.ai fetched models as provider_api facts without guessing unknown capabilities', () => {
     const models: ModelInfo[] = [
       { id: 'glm-4.5' },
@@ -62,6 +93,24 @@ describe('ModelCatalogEntry', () => {
     assert.equal(entries[0]?.provenance.modelSource, 'fallback');
     assert.equal(entries[0]?.unavailableReason, 'none');
     assert.equal(entries[0]?.canUseAsChatDefault, true);
+  });
+
+  it('tracks provider inventory, static metadata, and connection default as separate source facts', () => {
+    const [entry] = buildModelCatalogEntries({
+      providerType: 'openai',
+      defaultModel: 'gpt-5.5',
+      models: [{ id: 'gpt-5.5' }],
+      modelSource: 'fetched',
+      modelsFetchedAt: 1_800_000_000_000,
+    });
+
+    assert.deepEqual(entry?.provenance.sources, {
+      providerInventory: true,
+      staticCatalog: true,
+      userChoice: ['connection_default'],
+    });
+    assert.equal(entry?.source, 'provider_api');
+    assert.equal(entry?.displayName, 'GPT-5.5');
   });
 
   it('adds a blocked default entry when a live provider list no longer contains the selected model', () => {
@@ -166,7 +215,12 @@ describe('ModelCatalogEntry', () => {
 
     const entries = buildConnectionModelCatalogEntries({
       connection,
-      savedModelIds: ['glm-session', 'glm-daily-review', 'glm-4.7', ' '],
+      savedModelIds: [
+        { id: 'glm-session', source: 'session_model' },
+        { id: 'glm-daily-review', source: 'daily_review_model' },
+        'glm-4.7',
+        ' ',
+      ],
       now: 1_800_000_001_000,
     });
 
@@ -182,6 +236,9 @@ describe('ModelCatalogEntry', () => {
     assert.equal(entries[1]?.source, 'provider_api');
     assert.equal(entries[2]?.source, 'unknown');
     assert.equal(entries[2]?.provenance.userChoice, true);
+    assert.deepEqual(entries[0]?.provenance.sources?.userChoice, ['connection_default']);
+    assert.deepEqual(entries[2]?.provenance.sources?.userChoice, ['session_model']);
+    assert.deepEqual(entries[3]?.provenance.sources?.userChoice, ['daily_review_model']);
   });
 
   it('falls back to provider defaults for a connection without fetched models', () => {
