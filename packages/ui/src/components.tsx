@@ -194,7 +194,7 @@ import {
   cn,
 } from './ui.js';
 import { Alert, AlertAction, AlertDescription, AlertTitle } from './primitives/alert.js';
-import { Bubble, Marker, markerVariants, Message } from './primitives/chat.js';
+import { Bubble, LiveIndicator, Marker, markerVariants, Message, streamVariants } from './primitives/chat.js';
 import { Button as PrimitiveButton } from './primitives/button.js';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from './primitives/empty.js';
 import { InputGroup, InputGroupAddon, InputGroupInput } from './primitives/input-group.js';
@@ -6269,12 +6269,12 @@ function ToolOutputStream(props: {
   const redactedCount = props.chunks.filter((c) => c.redacted).length;
 
   return (
-    <div className="maka-tool-output-stream" data-live={props.live ? 'true' : undefined}>
-      <header className="maka-tool-output-stream-header">
-        <span className="maka-tool-output-stream-label">
+    <div className={streamVariants({ part: 'container' })} data-live={props.live ? 'true' : undefined}>
+      <header className={streamVariants({ part: 'header' })}>
+        <span className={streamVariants({ part: 'label' })}>
           {props.live ? (
             <>
-              <span className="maka-tool-output-stream-dot" aria-hidden="true" />
+              <LiveIndicator />
               <span>实时输出</span>
             </>
           ) : props.interrupted ? (
@@ -6283,13 +6283,13 @@ function ToolOutputStream(props: {
             <span>工具输出</span>
           )}
         </span>
-        <span className="maka-tool-output-stream-counts">
-          {stdoutCount > 0 && <span>stdout {stdoutCount}</span>}
-          {stderrCount > 0 && <span data-stream="stderr">stderr {stderrCount}</span>}
-          {redactedCount > 0 && <span data-redacted="true">已脱敏 {redactedCount}</span>}
+        <span className={streamVariants({ part: 'counts' })}>
+          {stdoutCount > 0 && <span className={streamVariants({ part: 'count' })}>stdout {stdoutCount}</span>}
+          {stderrCount > 0 && <span className={streamVariants({ part: 'count' })} data-stream="stderr">stderr {stderrCount}</span>}
+          {redactedCount > 0 && <span className={streamVariants({ part: 'count' })} data-redacted="true">已脱敏 {redactedCount}</span>}
           {props.truncated && (
             <span
-              className="maka-tool-output-stream-truncated-tag"
+              className={streamVariants({ part: 'count' })}
               data-truncated="true"
               title="部分输出已截断；如需完整输出请查看对应工具结果或生成的 artifact"
             >
@@ -6298,17 +6298,17 @@ function ToolOutputStream(props: {
           )}
         </span>
       </header>
-      <pre ref={preRef} className="maka-tool-output-stream-body">
+      <pre ref={preRef} className={streamVariants({ part: 'body' })}>
         {props.chunks.map((chunk) => (
           <span
             key={chunk.seq}
-            className="maka-tool-output-stream-chunk"
+            className={streamVariants({ part: 'chunk' })}
             data-stream={chunk.stream}
             data-redacted={chunk.redacted ? 'true' : undefined}
           >
             {chunk.text}
             {chunk.redacted && (
-              <span className="maka-tool-output-stream-redacted-tag" aria-label="已脱敏">
+              <span className={streamVariants({ part: 'redacted-tag' })} aria-label="已脱敏">
                 {' '}[已脱敏]
               </span>
             )}

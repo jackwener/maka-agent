@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Bubble, Marker, markerVariants, Message } from '../primitives/chat.js';
+import { Bubble, LiveIndicator, Marker, markerVariants, Message, streamVariants } from '../primitives/chat.js';
 import { buttonVariants, cn } from '../ui.js';
 
 // The re-anchored renderer selectors key off the primitives' own `data-slot` /
@@ -126,4 +126,44 @@ test('lineage-badge merge drops the UiButton base shell so the retired badge pix
       `conflicting UiButton utility "${dropped}" must be merged out of the lineage badge`,
     );
   }
+});
+
+// PR3 — the tool live-output stream shell. `streamVariants` is the literalize
+// vehicle the single consumer (`ToolOutputStream`) applies by className; each
+// part must resolve a non-empty leaf utility string that mirrors the retired
+// `.maka-tool-output-stream-*` declarations 1:1 (source string == computed
+// style, no browser).
+test('streamVariants resolves leaf shell strings for each stream part', () => {
+  const container = streamVariants({ part: 'container' });
+  assert.match(container, /rounded-\[8px\]/);
+  // the `[data-live="true"]` accent ring rides a data-variant so it only paints
+  // while the tool is running, exactly as the retired selector did.
+  assert.match(container, /data-\[live=true\]:\[box-shadow:inset_0_0_0_1px_oklch\(from_var\(--accent\)_l_c_h_\/_0\.06\)\]/);
+  const body = streamVariants({ part: 'body' });
+  assert.match(body, /max-h-\[220px\]/);
+  // `word-break:break-word` stays an arbitrary literal, NOT Tailwind's
+  // `break-words` (which is the different `overflow-wrap` property).
+  assert.match(body, /\[word-break:break-word\]/);
+  assert.ok(!body.split(/\s+/).includes('break-words'), 'body must not use overflow-wrap break-words');
+  assert.match(streamVariants({ part: 'count' }), /data-\[stream=stderr\]:text-\[color:var\(--destructive-text\)\]/);
+  assert.match(streamVariants({ part: 'chunk' }), /^contents /);
+  assert.match(streamVariants({ part: 'redacted-tag' }), /bg-\[oklch\(from_var\(--warning,var\(--info\)\)_l_c_h_\/_0\.10\)\]/);
+});
+
+// The live dot is the one declaration that escapes the computed-style proof (a
+// `@keyframes` is a named global rule + `getComputedStyle` reads a phase-
+// dependent value). `LiveIndicator` pins the animation reference + reduced-motion
+// fallback as literals here; the keyframe body itself is pinned in the renderer
+// CSS contract. Also proves the structural `data-slot` hook can't be clobbered.
+test('LiveIndicator pins the canonical pulse + reduced-motion fallback over conflicting props', () => {
+  const el = LiveIndicator({ 'data-slot': 'spoofed' } as never);
+  const props = el.props as Record<string, unknown>;
+  assert.equal(el.type, 'span');
+  assert.equal(props['data-slot'], 'live-indicator');
+  const className = props.className as string;
+  assert.match(className, /\[animation:maka-pulse_1\.4s_ease-in-out_infinite\]/);
+  assert.match(className, /motion-reduce:\[animation:none\]/);
+  assert.match(className, /motion-reduce:opacity-\[0\.8\]/);
+  // never the Tailwind `animate-pulse` (a different opacity-only keyframe).
+  assert.ok(!className.split(/\s+/).includes('animate-pulse'), 'must use the governed maka-pulse, not animate-pulse');
 });

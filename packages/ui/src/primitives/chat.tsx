@@ -260,3 +260,110 @@ export function Marker({
     />
   );
 }
+
+/**
+ * Tool live-output stream shell (issue #332, PR3).
+ *
+ * Retires the bespoke `.maka-tool-output-stream-*` shell CSS (the panel,
+ * header, counts row, scrolling body, and chunk/tag spans in
+ * `styles/tool-stream.css`), moving each onto this Tailwind substrate. Every
+ * value is a LITERAL arbitrary utility that compiles 1:1 to the declaration it
+ * replaces, so the cva source string IS the computed-style proof (the cascade
+ * contract asserts the exact strings).
+ *
+ * The single consumer (`ToolOutputStream`) keeps its semantic tags
+ * (`<header>` / `<pre>` / `<span>`) and applies these by `className` rather than
+ * through a wrapper component — there is one call site, the tags differ, and the
+ * literalize vehicle (this table) is what the test net asserts. `streamVariants`
+ * is kept OFF the package barrel for the same reason as `markerVariants`: the
+ * only consumer imports it by relative path, so the part set stays an internal,
+ * freely-removable styling detail.
+ *
+ * The live pulse dot is NOT a part here — it moves onto the governed
+ * `LiveIndicator` primitive below (animation can't be a leaf-literal, so it gets
+ * a primitive + a single canonical keyframe instead of a per-feature one).
+ */
+const streamVariants = cva("", {
+  variants: {
+    part: {
+      // `.maka-tool-output-stream` (+ the `[data-live="true"]` accent border /
+      // inset ring while the tool is running). The call site keeps passing
+      // `data-live`, which the literalized `data-[live=true]:` utilities read.
+      container:
+        "flex flex-col gap-[6px] my-[6px] mx-0 overflow-hidden rounded-[8px] border border-[var(--border)] bg-[var(--background)]"
+        + " data-[live=true]:border-[oklch(from_var(--accent)_l_c_h_/_0.40)] data-[live=true]:[box-shadow:inset_0_0_0_1px_oklch(from_var(--accent)_l_c_h_/_0.06)]",
+      // `.maka-tool-output-stream-header`
+      header:
+        "flex items-center justify-between gap-[12px] px-[10px] py-[6px] border-b border-[var(--border)] bg-[var(--foreground-3)] text-[0.72rem] uppercase tracking-[0.06em] text-[color:var(--foreground-50)]",
+      // `.maka-tool-output-stream-label`
+      label: "inline-flex items-center gap-[6px]",
+      // `.maka-tool-output-stream-counts`
+      counts: "inline-flex items-center gap-[10px]",
+      // `.maka-tool-output-stream-counts span` (tabular-nums on every count) plus
+      // the `[data-stream=stderr]` / `[data-redacted]` / `[data-truncated]`
+      // recolors. The `已截断` pill (`data-truncated`) gets the warning chrome the
+      // old `span[data-truncated="true"]` rule supplied; the inert
+      // `.maka-tool-output-stream-truncated-tag` class (no rule of its own) is
+      // dropped.
+      count:
+        "[font-variant-numeric:tabular-nums]"
+        + " data-[stream=stderr]:text-[color:var(--destructive-text)]"
+        + " data-[redacted=true]:text-[color:var(--warning-text,var(--info-text))]"
+        + " data-[truncated=true]:rounded-[4px] data-[truncated=true]:border data-[truncated=true]:border-[oklch(from_var(--warning)_l_c_h_/_0.30)] data-[truncated=true]:bg-[oklch(from_var(--warning)_l_c_h_/_0.06)] data-[truncated=true]:px-[4px] data-[truncated=true]:text-[color:var(--warning-text,var(--info-text))] data-[truncated=true]:cursor-help",
+      // `.maka-tool-output-stream-body` — the scrolling mono output `<pre>`.
+      // `word-break:break-word` stays an arbitrary literal (Tailwind's
+      // `break-words` is `overflow-wrap`, a different property).
+      body:
+        "m-0 max-h-[220px] overflow-y-auto whitespace-pre-wrap [word-break:break-word] px-[10px] py-[8px] [font-family:var(--font-mono)] text-[0.78rem] leading-[1.5] bg-[var(--background)] text-[color:var(--foreground-80)] [scroll-behavior:auto]",
+      // `.maka-tool-output-stream-chunk` (`display:contents`; recolors stderr,
+      // dims redacted). The call site keeps `data-stream` / `data-redacted`.
+      chunk:
+        "contents data-[stream=stderr]:text-[color:var(--destructive-text)] data-[redacted=true]:opacity-[0.65]",
+      // `.maka-tool-output-stream-redacted-tag` — the inline `[已脱敏]` pill.
+      "redacted-tag":
+        "inline ml-[2px] rounded-[4px] px-[4px] tracking-[0.04em] text-[0.7rem] text-[color:var(--warning-text,var(--info-text))] bg-[oklch(from_var(--warning,var(--info))_l_c_h_/_0.10)]",
+    },
+  },
+});
+
+export type StreamPart = NonNullable<
+  VariantProps<typeof streamVariants>["part"]
+>;
+
+export { streamVariants };
+
+/**
+ * `LiveIndicator` — the pulsing "live" dot (issue #332, PR3).
+ *
+ * The governed home for the chat live-output dot, replacing the bespoke
+ * `.maka-tool-output-stream-dot` + its per-feature `@keyframes`. The breath
+ * itself is the one declaration that can't be a leaf-literal (a `@keyframes` is
+ * a named global rule, not an element property, and `getComputedStyle` reads a
+ * phase-dependent value — so it escapes the computed-style proof). It is pinned
+ * instead by the canonical `@keyframes maka-pulse` in `maka-tokens.css` (the
+ * shared motion home) plus the literal values here, verified by a keyframe
+ * contract + before/after screenshots rather than the diff harness.
+ *
+ * This is the public, barrel-exported reuse surface: the duplicate reasoning /
+ * composer / onboarding live dots are meant to adopt it in a follow-up motion
+ * pass, retiring their own `*-pulse` keyframes onto `maka-pulse`. Reduced-motion
+ * suppression rides on the `motion-reduce:` utilities (real-OS
+ * `prefers-reduced-motion: reduce`), mirroring the retired dot's `@media` rule;
+ * the visual-smoke fixture freeze is handled globally by `base.css`.
+ */
+export function LiveIndicator({
+  className,
+  ...props
+}: React.ComponentPropsWithoutRef<"span">): React.ReactElement {
+  return (
+    <span
+      aria-hidden="true"
+      {...props}
+      data-slot="live-indicator"
+      className={cn(
+        "inline-block w-[6px] h-[6px] rounded-[50%] bg-[var(--accent)] [animation:maka-pulse_1.4s_ease-in-out_infinite] motion-reduce:[animation:none] motion-reduce:opacity-[0.8]",
+        className,
+      )}
+    />
+  );
+}
