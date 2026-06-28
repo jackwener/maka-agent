@@ -209,6 +209,24 @@ describe('ModelCatalogEntry', () => {
     assert.equal(entry?.maxOutputTokens, 128_000);
   });
 
+  it('keeps Claude subscription limits unknown instead of reusing Anthropic API context', () => {
+    const [[apiEntry], [subscriptionEntry]] = ([
+      ['anthropic', 'claude-sonnet-4-6'],
+      ['claude-subscription', 'claude-sonnet-4-6'],
+    ] as const).map(([providerType, model]) => buildModelCatalogEntries({
+      providerType,
+      defaultModel: model,
+      models: [{ id: model }],
+      modelSource: 'fetched',
+    }));
+
+    assert.equal(apiEntry?.contextWindow, 1_000_000);
+    assert.equal(apiEntry?.maxOutputTokens, 128_000);
+    assert.equal(subscriptionEntry?.contextWindow, undefined);
+    assert.equal(subscriptionEntry?.maxOutputTokens, undefined);
+    assert.deepEqual(subscriptionEntry?.capabilities, { reasoning: true, functionCalling: true });
+  });
+
   it('keeps static model facts on missing default entries without making them sendable', () => {
     const [entry] = buildModelCatalogEntries({
       providerType: 'zai-coding-plan',
@@ -367,6 +385,26 @@ describe('ModelCatalogEntry', () => {
       validation.ok ? validation : { ok: validation.ok, reason: validation.reason },
       { ok: false, reason: 'unsupported_for_chat' },
     );
+  });
+
+  it('uses merged static capabilities before deciding whether a partial provider model is chat-capable', () => {
+    const input = {
+      providerType: 'openai' as const,
+      defaultModel: 'gpt-5.4',
+      models: [{ id: 'gpt-5.4', capabilities: { imageGeneration: true } }],
+      modelSource: 'fetched' as const,
+    };
+    const [entry] = buildModelCatalogEntries(input);
+
+    assert.equal(entry?.unavailableReason, 'none');
+    assert.equal(entry?.availability, 'available');
+    assert.equal(entry?.canUseAsChatDefault, true);
+    assert.deepEqual(entry?.capabilities, {
+      reasoning: true,
+      functionCalling: true,
+      imageGeneration: true,
+    });
+    assert.equal(validateChatDefaultModel(input).ok, true);
   });
 
   it('treats stale fetchedAt as a warning, not a send-blocking failure', () => {

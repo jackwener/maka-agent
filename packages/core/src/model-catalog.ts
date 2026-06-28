@@ -213,13 +213,16 @@ function makeEntry(
   recommendedRanks: ReadonlyMap<string, number>,
 ): ModelCatalogEntry {
   const normalizedModel = { ...model, id: model.id.trim() };
-  const unavailableReason = deriveModelUnavailableReason(input, normalizedModel);
   const pricing = findPricing(input, normalizedModel.id);
   const metadata = lookupModelMetadata(input.providerType, normalizedModel.id);
   const recommendedRank = recommendedRanks.get(normalizedModel.id);
   const contextWindow = normalizedModel.contextWindow ?? metadata.contextWindow;
   const maxOutputTokens = normalizedModel.maxOutputTokens ?? metadata.maxOutputTokens;
   const capabilities = mergeCapabilities(normalizedModel.capabilities, metadata.capabilities);
+  const unavailableReason = deriveModelUnavailableReason(input, {
+    ...normalizedModel,
+    capabilities,
+  });
   return {
     id: normalizedModel.id,
     ...displayNameForModel(input.providerType, normalizedModel),

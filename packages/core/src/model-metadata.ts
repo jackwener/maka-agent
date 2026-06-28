@@ -32,6 +32,8 @@ const ANTHROPIC_MODELS_DEV_METADATA: Record<string, ModelMetadata> = {
   'claude-3-5-sonnet-20241022': { displayName: 'Claude Sonnet 3.5 v2', lifecycle: 'deprecated', docsUrl: 'https://docs.anthropic.com/en/docs/about-claude/models/overview', contextWindow: 200_000, maxOutputTokens: 8_192, capabilities: FUNCTION_CALLING_ONLY },
 };
 
+const CLAUDE_SUBSCRIPTION_MODELS_DEV_METADATA = displayMetadataOnly(ANTHROPIC_MODELS_DEV_METADATA);
+
 const GOOGLE_MODELS_DEV_METADATA: Record<string, ModelMetadata> = {
   'gemini-3.5-flash': { displayName: 'Gemini 3.5 Flash', lifecycle: 'active', docsUrl: 'https://ai.google.dev/gemini-api/docs/models', contextWindow: 1_048_576, maxOutputTokens: 65_536, capabilities: REASONING_FUNCTION_CALLING },
   'gemini-3.1-pro-preview': { displayName: 'Gemini 3.1 Pro Preview', lifecycle: 'active', docsUrl: 'https://ai.google.dev/gemini-api/docs/models', contextWindow: 1_048_576, maxOutputTokens: 65_536, capabilities: REASONING_FUNCTION_CALLING },
@@ -67,11 +69,11 @@ const OPENAI_OAUTH_MODELS_DEV_METADATA: Record<string, ModelMetadata> = {
   'gpt-5.3-codex-spark': OPENAI_MODELS_DEV_METADATA['gpt-5.3-codex-spark']!,
 };
 
-// Curated from https://models.dev/api.json. Keep this small: the model catalog
-// consumes only stable display names here, while request routing keeps raw ids.
+// Provider/access-path-specific static facts. Keep limits unset unless the
+// source is authoritative for that provider path; request routing keeps raw ids.
 const MODELS_DEV_METADATA: Partial<Record<ProviderType, Record<string, ModelMetadata>>> = {
   anthropic: ANTHROPIC_MODELS_DEV_METADATA,
-  'claude-subscription': ANTHROPIC_MODELS_DEV_METADATA,
+  'claude-subscription': CLAUDE_SUBSCRIPTION_MODELS_DEV_METADATA,
   openai: OPENAI_MODELS_DEV_METADATA,
   google: GOOGLE_MODELS_DEV_METADATA,
   'gemini-cli': GOOGLE_MODELS_DEV_METADATA,
@@ -91,6 +93,15 @@ const MODELS_DEV_METADATA: Partial<Record<ProviderType, Record<string, ModelMeta
     'glm-4.5-air': { displayName: 'GLM-4.5-Air', lifecycle: 'deprecated', docsUrl: 'https://docs.z.ai', contextWindow: 131_072, maxOutputTokens: 98_304, capabilities: REASONING_FUNCTION_CALLING },
   },
 };
+
+function displayMetadataOnly(source: Record<string, ModelMetadata>): Record<string, ModelMetadata> {
+  return Object.fromEntries(Object.entries(source).map(([id, metadata]) => [id, {
+    displayName: metadata.displayName,
+    lifecycle: metadata.lifecycle,
+    docsUrl: metadata.docsUrl,
+    capabilities: metadata.capabilities,
+  }])) as Record<string, ModelMetadata>;
+}
 
 const CATALOG_FALLBACK_MODELS: Partial<Record<ProviderType, readonly string[]>> = {
   anthropic: [
