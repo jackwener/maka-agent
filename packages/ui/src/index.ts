@@ -27,7 +27,19 @@ export * from './utils.js';
 // consumers can `import { Alert, Empty, Sidebar, ... } from '@maka/ui'`.
 export * from './bot-brand.js';
 export * from './primitives/alert.js';
-export * from './primitives/chat.js';
+// `markerVariants` is deliberately NOT re-exported here: it is an internal
+// styling table the chat call sites apply via relative import, so keeping it off
+// the package barrel preserves the governance goal — the variant set stays
+// renamable/removable without a public-API break. Only `Marker` + its types are
+// public. (Contrast `buttonVariants`, which IS public because it has external
+// consumers.)
+export { Bubble, Marker, Message } from './primitives/chat.js';
+export type {
+  BubbleProps,
+  MarkerProps,
+  MarkerVariant,
+  MessageProps,
+} from './primitives/chat.js';
 export * from './primitives/empty.js';
 export * from './primitives/item.js';
 export * from './primitives/spinner.js';

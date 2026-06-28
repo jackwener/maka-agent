@@ -124,10 +124,13 @@ export function Bubble({
  * so the layout is location-independent instead of coupled to a
  * `[data-role="assistant"]` descendant selector.
  *
- * `markerVariants` is exported (shadcn `buttonVariants` style) so the lineage
- * badge + footer action — which render as `UiButton` and can't be wrapped —
- * apply the shell via `className`; `Button` runs it through `cn`/tailwind-merge
- * last, so it wins over the button's own variant utilities.
+ * `markerVariants` is exported from THIS module (shadcn `buttonVariants` style)
+ * so the lineage badge + footer action — which render as `UiButton` and can't
+ * be wrapped — apply the shell via `className`; `Button` runs it through
+ * `cn`/tailwind-merge last, so it wins over the button's own variant utilities.
+ * It is intentionally kept OFF the `@maka/ui` package barrel (see `index.ts`):
+ * the only consumers import it by relative path, so the variant table stays an
+ * internal, freely-removable styling detail rather than public API.
  *
  * NOTE: `.maka-turn-thinking` (the committed-turn reasoning `<details>`) is
  * deliberately NOT migrated here. Its chrome lives in `summary::before` /
@@ -199,6 +202,14 @@ const markerVariants = cva("", {
         + " focus-visible:[outline:2px_solid_var(--accent)] focus-visible:[outline-offset:2px]"
         + " disabled:opacity-[0.45] disabled:cursor-not-allowed aria-disabled:opacity-[0.45] aria-disabled:cursor-not-allowed"
         + " data-[pending=true]:opacity-[0.78] data-[pending=true]:cursor-progress"
+        // Copy-in-progress sets BOTH `disabled` and `data-pending`. The plain
+        // `data-[pending=true]:opacity-[0.78]` and `disabled:opacity-[0.45]`
+        // utilities have equal specificity (0,2,0), so the pending value would
+        // only win on Tailwind's source order. These combined-modifier guards
+        // raise pending to (0,3,0) so it beats the disabled dim by specificity,
+        // not order — keeping the in-progress 0.78 stable regardless of emit
+        // sequence. (Both `disabled`/`aria-disabled` are always set together.)
+        + " disabled:data-[pending=true]:opacity-[0.78] aria-disabled:data-[pending=true]:opacity-[0.78]"
         + " data-[copy-feedback=copied]:text-[color:var(--accent)] data-[copy-feedback=failed]:text-[color:var(--destructive)]",
     },
   },
