@@ -25,6 +25,7 @@ import {
   resolvePromptOptimizationModelId,
   runPromptOptimizationRun,
 } from '../prompt-optimization-run.js';
+import { hashCandidateRationale, hashHeldInTaskSet } from '../prompt-candidate-loop.js';
 import { tokenSummary } from './helpers/cell-output-fixtures.js';
 
 const execFileAsync = promisify(execFile);
@@ -403,6 +404,14 @@ describe('runPromptOptimizationRun', () => {
       await execFileAsync('git', ['reset', '--hard', seedSha], { cwd: repoDir });
 
       const resultsJsonlPath = join(controllerDir, 'results.jsonl');
+      const candidateRationale = {
+        failurePattern: 'coverage_regression' as const,
+        evidenceRefs: [],
+        hypothesis: 'restore held-in coverage',
+        targetedFix: 'clarify success criteria',
+        predictedFixes: [],
+        riskTasks: [],
+      };
       await writeFile(resultsJsonlPath, `${JSON.stringify({
         schemaVersion: FIXED_PROMPT_WAL_SCHEMA_VERSION,
         type: 'prompt_candidate_committed',
@@ -413,17 +422,10 @@ describe('runPromptOptimizationRun', () => {
         commitSha: candidateSha,
         summary: 'candidate',
         promptHash: hashSystemPrompt('candidate prompt\n'),
-        heldInTaskSetHash: 'sha256:held-in',
+        heldInTaskSetHash: hashHeldInTaskSet(['hin-0']),
         heldInTaskIds: ['hin-0'],
-        candidateRationaleHash: 'sha256:rationale',
-        candidateRationale: {
-          failurePattern: 'coverage_regression',
-          evidenceRefs: [],
-          hypothesis: 'restore held-in coverage',
-          targetedFix: 'clarify success criteria',
-          predictedFixes: [],
-          riskTasks: [],
-        },
+        candidateRationaleHash: hashCandidateRationale(candidateRationale),
+        candidateRationale,
       })}\n`, 'utf8');
 
       await assert.rejects(

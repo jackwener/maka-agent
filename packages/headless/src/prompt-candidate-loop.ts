@@ -597,7 +597,7 @@ export function hashHeldInTaskSet(heldInTaskIds: readonly string[]): string {
   return sha256Json([...new Set(heldInTaskIds)].sort((a, b) => a.localeCompare(b)));
 }
 
-function hashCandidateRationale(candidateRationale: CandidateRationale): string {
+export function hashCandidateRationale(candidateRationale: CandidateRationale): string {
   return sha256Json(candidateRationale);
 }
 

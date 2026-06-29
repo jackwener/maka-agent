@@ -13,7 +13,7 @@ import type {
   PromptCandidateDecisionEvent,
   RsiControllerAttributionEvent,
 } from './fixed-prompt-controller.js';
-import { hashHeldInTaskSet } from './prompt-candidate-loop.js';
+import { hashCandidateRationale, hashHeldInTaskSet } from './prompt-candidate-loop.js';
 import type { PromptAcceptanceResult } from './prompt-acceptance-policy.js';
 import { validateRsiControllerAttribution } from './rsi-controller-attribution.js';
 
@@ -112,6 +112,7 @@ export function assertCandidateMatchesStableTaskSet(
   candidate: PromptCandidateCommittedEvent,
   stableHeldInTaskIds: readonly string[],
 ): void {
+  assertCandidateEventSelfConsistent(candidate);
   const actualHash = hashHeldInTaskSet(candidate.heldInTaskIds);
   const expectedHash = hashHeldInTaskSet(stableHeldInTaskIds);
   if (candidate.heldInTaskSetHash !== actualHash || candidate.heldInTaskSetHash !== expectedHash) {
@@ -228,6 +229,7 @@ export function replayPromptDecisionRound(input: {
   if (!candidate) {
     throw new Error(`RSI WAL replay missing candidate commit for decided ${input.roundId}`);
   }
+  assertCandidateMatchesStableTaskSet(candidate, input.heldInTaskIds);
   if (!decision.rewardHackScan) {
     throw new Error(`RSI WAL replay missing reward-hack scan evidence for ${input.roundId}`);
   }
@@ -310,6 +312,15 @@ export async function derivePromptOptimizationReplayState(input: {
       if (candidateByRoundId.has(event.roundId)) {
         throw new Error(`RSI WAL replay found duplicate candidate commit for ${event.roundId}`);
       }
+      if (input.strictRoundState) {
+        assertCandidateEventSelfConsistent(event);
+        assertCandidateRoundCanFollow(event.roundId, candidateByRoundId.size, decisionByRoundId.size);
+        await assertCandidateParentMatchesExpectedHead({
+          candidate: event,
+          promptRepoDir: input.promptRepoDir,
+          expectedParentSha: expectedPromptRepoHead,
+        });
+      }
       candidateByRoundId.set(event.roundId, event);
       expectedPromptRepoHead = event.commitSha;
       continue;
@@ -364,6 +375,51 @@ function assertWalBelongsToRun(events: readonly FixedPromptWalEvent[], runId: st
   }
 }
 
+function assertCandidateEventSelfConsistent(candidate: PromptCandidateCommittedEvent): void {
+  if (candidate.heldInTaskSetHash !== hashHeldInTaskSet(candidate.heldInTaskIds)) {
+    throw new Error(`RSI WAL replay candidate task-set mismatch for ${candidate.roundId}`);
+  }
+  if (candidate.candidateRationaleHash !== hashCandidateRationale(candidate.candidateRationale)) {
+    throw new Error(`RSI WAL replay candidate rationale mismatch for ${candidate.roundId}`);
+  }
+}
+
+function assertCandidateRoundCanFollow(
+  roundId: string,
+  existingCandidateCount: number,
+  existingDecisionCount: number,
+): void {
+  const roundIndex = roundIndexFromRoundId(roundId);
+  if (roundIndex === undefined) {
+    throw new Error(`RSI WAL replay found invalid candidate round id for ${roundId}`);
+  }
+  if (roundIndex !== existingCandidateCount || roundIndex !== existingDecisionCount) {
+    throw new Error(`RSI WAL replay found candidate round gap for ${roundId}`);
+  }
+}
+
+function roundIndexFromRoundId(roundId: string): number | undefined {
+  const match = /^round-(\d+)$/.exec(roundId);
+  if (!match) return undefined;
+  return Number(match[1]);
+}
+
+async function assertCandidateParentMatchesExpectedHead(input: {
+  candidate: PromptCandidateCommittedEvent;
+  promptRepoDir: string;
+  expectedParentSha: string;
+}): Promise<void> {
+  let parentSha: string;
+  try {
+    parentSha = await gitOutput(input.promptRepoDir, 'rev-parse', `${input.candidate.commitSha}^`);
+  } catch {
+    throw new Error(`RSI WAL replay found candidate parent mismatch for ${input.candidate.roundId}`);
+  }
+  if (parentSha !== input.expectedParentSha) {
+    throw new Error(`RSI WAL replay found candidate parent mismatch for ${input.candidate.roundId}`);
+  }
+}
+
 function replayDecisionAttribution(input: {
   events: readonly FixedPromptWalEvent[];
   runId: string;
@@ -376,7 +432,7 @@ function replayDecisionAttribution(input: {
     throw new Error(`RSI WAL replay missing decision event for ${input.roundId}`);
   }
   const preDecisionAttribution = input.events.slice(0, decisionIndex).find((event) =>
-    attributionMatchesCandidate(event, input.runId, input.roundId, input.candidate));
+    attributionMatchesRound(event, input.runId, input.roundId));
   if (preDecisionAttribution) {
     throw new Error(`RSI WAL replay found RSI attribution before decision for ${input.roundId}`);
   }
@@ -407,16 +463,14 @@ function replayDecisionAttribution(input: {
   return attribution;
 }
 
-function attributionMatchesCandidate(
+function attributionMatchesRound(
   event: FixedPromptWalEvent,
   runId: string,
   roundId: string,
-  candidate: PromptCandidateCommittedEvent,
 ): event is RsiControllerAttributionEvent {
   return event.type === 'rsi_controller_attribution'
     && event.runId === runId
-    && event.roundId === roundId
-    && event.candidateCommitSha === candidate.commitSha;
+    && event.roundId === roundId;
 }
 
 function assertAttributionMatchesCandidate(
