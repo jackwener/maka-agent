@@ -245,10 +245,6 @@ export async function runPromptOptimizationRun(
   });
 
   const git = createCliPromptCandidateGit({ cwd: input.gitCwdPath, systemPromptPath: input.systemPromptPath });
-  const originalCommitSha = (
-    await execFileAsync('git', ['rev-list', '--max-parents=0', 'HEAD'], { cwd: input.gitCwdPath })
-  ).stdout.trim();
-
   const config: Config = {
     id: input.runId,
     backend: 'ai-sdk',
@@ -274,7 +270,6 @@ export async function runPromptOptimizationRun(
     harborRunner,
     metaAgent,
     git,
-    originalCommitSha,
     rewardHackVerifierPatternsByTaskId: input.rewardHackVerifierPatternsByTaskId,
     ...(input.resumeFingerprint ? { resumeFingerprint: input.resumeFingerprint } : {}),
     ...(input.costCeilingUsd !== undefined ? { costCeilingUsd: input.costCeilingUsd } : {}),

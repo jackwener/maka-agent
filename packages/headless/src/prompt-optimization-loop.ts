@@ -102,8 +102,6 @@ export interface PromptOptimizationLoopInput {
   harborRunner: HarborTaskRunner;
   metaAgent: MetaAgent;
   git: PromptCandidateGit;
-  /** HEAD of the prompt repo before any candidate commit. */
-  originalCommitSha: string;
 
   /** Verifier strings, by task id, that must not be visible to the model. A
    * held-in task that completes without configured patterns quarantines the

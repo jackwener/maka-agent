@@ -151,6 +151,13 @@ export function replayPromptDecisionRound(input: {
   if (!candidate) {
     throw new Error(`RSI WAL replay missing candidate commit for decided ${input.roundId}`);
   }
+  if (!decision.rewardHackScan) {
+    throw new Error(`RSI WAL replay missing reward-hack scan evidence for ${input.roundId}`);
+  }
+  const attribution = input.state.attributionByRoundId.get(input.roundId);
+  if (!attribution) {
+    throw new Error(`RSI WAL replay missing RSI attribution evidence for ${input.roundId}`);
+  }
   const heldIn = replayRequiredControllerSweep({
     events: input.events,
     runId: input.runId,
@@ -170,7 +177,7 @@ export function replayPromptDecisionRound(input: {
     ...(input.resumeFingerprint ? { resumeFingerprint: input.resumeFingerprint } : {}),
     resultsTsvPath: input.heldOutResultsTsvPath,
   });
-  const result = promptAcceptanceResultFromDecision(decision);
+  const result = promptAcceptanceResultFromDecision(decision, decision.rewardHackScan);
   if (!heldOut && decisionRequiresHeldOutEvidence(result)) {
     throw new Error(`RSI WAL replay missing required held-out task evidence for ${input.roundId}`);
   }
@@ -178,7 +185,7 @@ export function replayPromptDecisionRound(input: {
     result,
     heldIn,
     heldOut,
-    attribution: input.state.attributionByRoundId.get(input.roundId),
+    attribution,
   };
 }
 
@@ -292,6 +299,7 @@ function hasHistoricalPromptOptimizationState(state: PromptOptimizationReplaySta
 
 function promptAcceptanceResultFromDecision(
   event: PromptCandidateDecisionEvent,
+  rewardHackScan: PromptAcceptanceResult['rewardHackScan'],
 ): PromptAcceptanceResult {
   return {
     runId: event.runId,
@@ -307,7 +315,7 @@ function promptAcceptanceResultFromDecision(
     originalHeldOutPassEligibleRate: event.originalHeldOutPassEligibleRate,
     heldInPassRateNoiseBand: event.heldInPassRateNoiseBand,
     heldOutPassRateNoiseBand: event.heldOutPassRateNoiseBand,
-    rewardHackScan: event.rewardHackScan ?? { decision: 'clean' },
+    rewardHackScan,
     metrics: event.metrics as PromptAcceptanceResult['metrics'],
   };
 }
