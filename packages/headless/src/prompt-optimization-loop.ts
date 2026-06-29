@@ -9,7 +9,9 @@ import {
   type FixedPromptTask,
   type FixedPromptTaskCompletedEvent,
   type FixedPromptTaskWalEvent,
+  type FixedPromptWalEvent,
   type HarborTaskRunner,
+  type PromptCandidateCommittedEvent,
   type PromptCandidateRewardHackScan,
   type RsiControllerAttributionEvent,
 } from './fixed-prompt-controller.js';
@@ -178,6 +180,8 @@ export async function runPromptOptimizationLoop(
   if (input.maxInfraFailureRate !== undefined) assertRatio('maxInfraFailureRate', input.maxInfraFailureRate);
   if (input.maxConcurrency !== undefined) assertPositiveInt('maxConcurrency', input.maxConcurrency);
 
+  const resumeEvents = await readFixedPromptWal(input.resultsJsonlPath);
+
   const heldInTaskIds = input.heldInTasks.map((task) => task.id);
   const heldOutTaskIds = input.heldOutTasks.map((task) => task.id);
   assertUniqueTaskIds('held-in', heldInTaskIds);
@@ -274,7 +278,12 @@ export async function runPromptOptimizationLoop(
       );
     }
     const roundId = `baseline-${index}`;
-    const heldIn = await sweep(roundId, input.heldInTasks, input.heldInResultsTsvPath);
+    const existingBaselineEvents = taskEventsForRound(resumeEvents, input.runId, roundId);
+    const existingHeldIn = eventsForTaskIds(existingBaselineEvents, heldInTaskIds);
+    const existingHeldOut = eventsForTaskIds(existingBaselineEvents, heldOutTaskIds);
+    const heldIn = existingHeldIn.length === input.heldInTasks.length
+      ? fixedPromptControllerResultFromWal(existingHeldIn, input.heldInResultsTsvPath)
+      : await sweep(roundId, input.heldInTasks, input.heldInResultsTsvPath);
     accumulate(heldIn);
     const postHeldInGuard = stopGuard();
     if (postHeldInGuard) {
@@ -283,7 +292,9 @@ export async function runPromptOptimizationLoop(
         + 'raise the budget or lower baselineRuns',
       );
     }
-    const heldOut = await sweep(roundId, input.heldOutTasks, input.heldOutResultsTsvPath);
+    const heldOut = existingHeldOut.length === input.heldOutTasks.length
+      ? fixedPromptControllerResultFromWal(existingHeldOut, input.heldOutResultsTsvPath)
+      : await sweep(roundId, input.heldOutTasks, input.heldOutResultsTsvPath);
     accumulate(heldOut);
     baselineRunsData.push({ heldInEvents: heldIn.events, heldOutEvents: heldOut.events });
   }
@@ -365,13 +376,39 @@ export async function runPromptOptimizationLoop(
       break;
     }
     const roundId = `round-${round}`;
+    const existingDecision = promptDecisionForRound(resumeEvents, input.runId, roundId);
+    if (existingDecision) {
+      const existingHeldInEvents = stableHeldIn(taskEventsForRound(resumeEvents, input.runId, roundId));
+      const existingResult = promptAcceptanceResultFromDecision(existingDecision);
+      const existingAttribution = rsiAttributionForRound(
+        resumeEvents,
+        input.runId,
+        roundId,
+        existingDecision.candidateCommitSha,
+      );
+      decisions.push(existingResult);
+      if (existingResult.decision === 'keep') {
+        lastKeptCommitSha = existingResult.lastKeptCommitSha;
+        heldInReference = existingResult.heldInReferencePassEligibleRate;
+        lastKeptHeldInEvents = existingHeldInEvents;
+      }
+      previousCandidateHeldInEvents = existingHeldInEvents;
+      latestHeldInFeedbackEvents = existingHeldInEvents;
+      nextHeldInDigests = await digestsFor(existingHeldInEvents);
+      nextPromptAttribution = existingAttribution
+        ? projectRsiPromptAttribution(existingAttribution)
+        : undefined;
+      continue;
+    }
+
     const promptAnalysis = await analyzeRsiRound({
       heldInTaskIds: stableHeldInTaskIds,
       lastKeptEvents: lastKeptHeldInEvents,
       ...(previousCandidateHeldInEvents ? { previousCandidateEvents: previousCandidateHeldInEvents } : {}),
       candidateEvents: latestHeldInFeedbackEvents,
     });
-    const candidate = await runPromptCandidateRound({
+    const existingCandidate = promptCandidateForRound(resumeEvents, input.runId, roundId);
+    const candidate = existingCandidate ?? await runPromptCandidateRound({
       runId: input.runId,
       roundId,
       agentCwdPath: input.agentCwdPath,
@@ -520,6 +557,114 @@ export async function runPromptOptimizationLoop(
     droppedHeldInTaskIds,
     droppedHeldOutTaskIds,
   };
+}
+
+function promptCandidateForRound(
+  events: readonly FixedPromptWalEvent[],
+  runId: string,
+  roundId: string,
+): PromptCandidateCommittedEvent | undefined {
+  return events.find((event): event is PromptCandidateCommittedEvent =>
+    event.type === 'prompt_candidate_committed'
+    && event.runId === runId
+    && event.roundId === roundId);
+}
+
+function promptDecisionForRound(
+  events: readonly FixedPromptWalEvent[],
+  runId: string,
+  roundId: string,
+): Extract<FixedPromptWalEvent, { type: 'prompt_candidate_decided' }> | undefined {
+  return events.find((event): event is Extract<FixedPromptWalEvent, { type: 'prompt_candidate_decided' }> =>
+    event.type === 'prompt_candidate_decided'
+    && event.runId === runId
+    && event.roundId === roundId);
+}
+
+function rsiAttributionForRound(
+  events: readonly FixedPromptWalEvent[],
+  runId: string,
+  roundId: string,
+  candidateCommitSha: string,
+): RsiControllerAttributionEvent | undefined {
+  return events.find((event): event is RsiControllerAttributionEvent =>
+    event.type === 'rsi_controller_attribution'
+    && event.runId === runId
+    && event.roundId === roundId
+    && event.candidateCommitSha === candidateCommitSha);
+}
+
+function taskEventsForRound(
+  events: readonly FixedPromptWalEvent[],
+  runId: string,
+  roundId: string,
+): FixedPromptTaskWalEvent[] {
+  return events.filter((event): event is FixedPromptTaskWalEvent =>
+    isTaskEvent(event)
+    && event.runId === runId
+    && event.roundId === roundId);
+}
+
+function eventsForTaskIds(
+  events: readonly FixedPromptTaskWalEvent[],
+  taskIds: readonly string[],
+): FixedPromptTaskWalEvent[] {
+  const byTask = new Map(events.map((event) => [event.taskId, event]));
+  return taskIds
+    .map((taskId) => byTask.get(taskId))
+    .filter((event): event is FixedPromptTaskWalEvent => event !== undefined);
+}
+
+function fixedPromptControllerResultFromWal(
+  events: readonly FixedPromptTaskWalEvent[],
+  resultsTsvPath: string,
+): FixedPromptControllerResult {
+  return {
+    taskIds: events.map((event) => event.taskId),
+    events: [...events],
+    totalTokens: sum(events.map((event) => eventHasRunArtifacts(event) ? event.tokenSummary.total : 0)),
+    totalCostUsd: sum(events.map((event) => eventHasRunArtifacts(event) ? event.tokenSummary.costUsd : 0)),
+    resultsTsvPath,
+  };
+}
+
+function promptAcceptanceResultFromDecision(
+  event: Extract<FixedPromptWalEvent, { type: 'prompt_candidate_decided' }>,
+): PromptAcceptanceResult {
+  return {
+    runId: event.runId,
+    roundId: event.roundId,
+    decision: event.decision,
+    reason: event.reason as PromptAcceptanceResult['reason'],
+    candidateCommitSha: event.candidateCommitSha,
+    previousLastKeptCommitSha: event.previousLastKeptCommitSha,
+    lastKeptCommitSha: event.lastKeptCommitSha,
+    previousHeldInReferencePassEligibleRate: event.previousHeldInReferencePassEligibleRate,
+    heldInReferencePassEligibleRate: event.heldInReferencePassEligibleRate,
+    originalCommitSha: event.originalCommitSha,
+    originalHeldOutPassEligibleRate: event.originalHeldOutPassEligibleRate,
+    heldInPassRateNoiseBand: event.heldInPassRateNoiseBand,
+    heldOutPassRateNoiseBand: event.heldOutPassRateNoiseBand,
+    rewardHackScan: event.rewardHackScan ?? { decision: 'clean' },
+    metrics: event.metrics as PromptAcceptanceResult['metrics'],
+  };
+}
+
+function isTaskEvent(event: FixedPromptWalEvent): event is FixedPromptTaskWalEvent {
+  return event.type === 'task_completed'
+    || event.type === 'task_infra_failed'
+    || event.type === 'task_budget_exhausted'
+    || event.type === 'task_plumbing_failed';
+}
+
+function eventHasRunArtifacts(
+  event: FixedPromptTaskWalEvent,
+): event is FixedPromptTaskCompletedEvent | Extract<FixedPromptTaskWalEvent, { type: 'task_plumbing_failed' }> {
+  return event.type === 'task_completed' || event.type === 'task_plumbing_failed';
+}
+
+function sum(values: readonly number[]): number {
+  return values.reduce((total, value) => total + value, 0);
 }
 
 function assertUniqueTaskIds(label: string, taskIds: readonly string[]): void {

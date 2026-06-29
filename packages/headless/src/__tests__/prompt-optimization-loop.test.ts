@@ -17,6 +17,57 @@ const CONFIG: Config = { id: 'cfg', backend: 'fake', llmConnectionSlug: 'deepsee
 const COST_PER_TASK = 0.02;
 
 describe('runPromptOptimizationLoop', () => {
+  test('resumes after a decided candidate and continues with the next round', async () => {
+    await withHarness(async (harness) => {
+      const heldInTasks = makeTasks('hin', 20);
+      const heldOutTasks = makeTasks('hout', 8);
+      const rewardFor = (roundId: string, taskId: string): number => {
+        const index = taskIndex(taskId);
+        if (taskId.startsWith('hout-')) return index < 4 ? 1 : 0;
+        if (roundId.startsWith('baseline-')) return index < 10 ? 1 : 0;
+        return roundId === 'round-0' ? 1 : 0;
+      };
+
+      const first = await runLoop(harness, {
+        heldInTasks,
+        heldOutTasks,
+        rewardFor,
+        rounds: 1,
+        baselineRuns: 1,
+      });
+      assert.deepEqual(first.decisions.map((decision) => decision.decision), ['keep']);
+
+      const resumedMetaAgentRounds: string[] = [];
+      const resumedTaskRuns: string[] = [];
+      const resumed = await runLoop(harness, {
+        heldInTasks,
+        heldOutTasks,
+        rewardFor,
+        rounds: 2,
+        baselineRuns: 1,
+        onTaskRun: (roundId, taskId) => resumedTaskRuns.push(`${roundId}:${taskId}`),
+        metaAgent: async (promptInput) => {
+          resumedMetaAgentRounds.push(promptInput.roundId);
+          return fakeMetaAgent()(promptInput);
+        },
+      });
+
+      assert.deepEqual(resumedMetaAgentRounds, ['round-1']);
+      assert.deepEqual(resumed.decisions.map((decision) => decision.decision), ['keep', 'discard']);
+      assert.equal(resumed.keptCount, 1);
+      assert.equal(resumed.stopReason, 'rounds_complete');
+      assert.equal(resumed.smoke.status, 'pass');
+      assert.ok(
+        resumedTaskRuns.every((call) => call.startsWith('round-1:')),
+        `unexpected resumed task runs: ${JSON.stringify(resumedTaskRuns)}`,
+      );
+
+      const events = await readFixedPromptWal(harness.resultsJsonlPath);
+      assert.equal(events.filter((event) => event.type === 'prompt_candidate_decided' && event.roundId === 'round-0').length, 1);
+      assert.equal(events.filter((event) => event.type === 'prompt_candidate_decided' && event.roundId === 'round-1').length, 1);
+    });
+  });
+
   test('keeps an improving candidate, discards a regressing one, and reports a passing smoke', async () => {
     await withHarness(async (harness) => {
       const heldInTasks = makeTasks('hin', 20);
