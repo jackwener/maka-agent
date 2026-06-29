@@ -132,6 +132,7 @@ export async function buildPromptOptimizationReplayPlan(input: {
   const state = await derivePromptOptimizationReplayState({
     events: input.events,
     promptRepoDir: input.promptRepoDir,
+    systemPromptGitPath: input.systemPromptGitPath,
     ...(input.runId ? { runId: input.runId } : {}),
     ...(input.resumeFingerprint ? { resumeFingerprint: input.resumeFingerprint } : {}),
     ...(input.strictRoundState !== undefined ? { strictRoundState: input.strictRoundState } : {}),
@@ -172,8 +173,7 @@ function replayControllerSweep(input: {
     if (event.resumeFingerprint !== input.resumeFingerprint) {
       throw new Error(`RSI WAL replay identity mismatch for ${event.roundId}/${event.taskId}`);
     }
-    const eventPromptHash = promptHashForReplayIdentity(event);
-    if (eventPromptHash !== input.expectedPromptHash) {
+    if (!taskEventMatchesPromptIdentity(event, input.expectedPromptHash)) {
       throw new Error(`RSI WAL replay prompt hash mismatch for ${event.roundId}/${event.taskId}`);
     }
     if (byTaskId.has(event.taskId)) {
@@ -279,6 +279,7 @@ async function readSeedSystemPromptHash(input: {
 export async function derivePromptOptimizationReplayState(input: {
   events: readonly FixedPromptWalEvent[];
   promptRepoDir: string;
+  systemPromptGitPath?: string;
   runId?: string;
   resumeFingerprint?: string;
   strictRoundState?: boolean;
@@ -303,8 +304,7 @@ export async function derivePromptOptimizationReplayState(input: {
       if (!candidate && input.strictRoundState) {
         throw new Error(`RSI WAL replay found task evidence before candidate commit for ${event.roundId}`);
       }
-      const eventPromptHash = promptHashForReplayIdentity(event);
-      if (candidate && eventPromptHash !== candidate.promptHash) {
+      if (candidate && !taskEventMatchesPromptIdentity(event, candidate.promptHash)) {
         throw new Error(`RSI WAL replay prompt hash mismatch for ${event.roundId}/${event.taskId}`);
       }
     }
@@ -319,6 +319,14 @@ export async function derivePromptOptimizationReplayState(input: {
           candidate: event,
           promptRepoDir: input.promptRepoDir,
           expectedParentSha: expectedPromptRepoHead,
+        });
+        if (!input.systemPromptGitPath) {
+          throw new Error('RSI WAL replay requires system prompt path for strict candidate replay');
+        }
+        await assertCandidatePromptHashMatchesCommit({
+          candidate: event,
+          promptRepoDir: input.promptRepoDir,
+          systemPromptGitPath: input.systemPromptGitPath,
         });
       }
       candidateByRoundId.set(event.roundId, event);
@@ -420,6 +428,22 @@ async function assertCandidateParentMatchesExpectedHead(input: {
   }
 }
 
+async function assertCandidatePromptHashMatchesCommit(input: {
+  candidate: PromptCandidateCommittedEvent;
+  promptRepoDir: string;
+  systemPromptGitPath: string;
+}): Promise<void> {
+  let systemPrompt: string;
+  try {
+    systemPrompt = await gitBlob(input.promptRepoDir, `${input.candidate.commitSha}:${input.systemPromptGitPath}`);
+  } catch {
+    throw new Error(`RSI WAL replay candidate prompt hash mismatch for ${input.candidate.roundId}`);
+  }
+  if (hashSystemPrompt(systemPrompt) !== input.candidate.promptHash) {
+    throw new Error(`RSI WAL replay candidate prompt hash mismatch for ${input.candidate.roundId}`);
+  }
+}
+
 function replayDecisionAttribution(input: {
   events: readonly FixedPromptWalEvent[];
   runId: string;
@@ -505,6 +529,14 @@ function promptHashForReplayIdentity(event: FixedPromptTaskWalEvent): string | u
   if (event.type === 'task_plumbing_failed') return event.promptHash ?? event.expectedPromptHash;
   if (event.type === 'task_budget_exhausted') return event.expectedPromptHash;
   return undefined;
+}
+
+function taskEventMatchesPromptIdentity(
+  event: FixedPromptTaskWalEvent,
+  expectedPromptHash: string,
+): boolean {
+  if (event.type === 'task_infra_failed') return true;
+  return promptHashForReplayIdentity(event) === expectedPromptHash;
 }
 
 function eventHasRunArtifacts(

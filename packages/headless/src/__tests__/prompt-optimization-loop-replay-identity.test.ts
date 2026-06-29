@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
 import { describe, test } from 'node:test';
-import { readFixedPromptWal } from '../fixed-prompt-controller.js';
+import { hashSystemPrompt, readFixedPromptWal } from '../fixed-prompt-controller.js';
 import { execFileAsync, fakeMetaAgent, makeTasks, runLoop, taskIndex, withHarness } from './helpers/prompt-optimization-loop-harness.js';
 
 describe('runPromptOptimizationLoop replay identity guards', () => {
@@ -121,6 +121,54 @@ describe('runPromptOptimizationLoop replay identity guards', () => {
           baselineRuns: 1,
         }),
         /RSI WAL replay prompt hash mismatch/,
+      );
+    });
+  });
+
+  test('fails closed when a candidate prompt hash disagrees with its prompt commit', async () => {
+    await withHarness(async (harness) => {
+      const heldInTasks = makeTasks('hin', 20);
+      const heldOutTasks = makeTasks('hout', 8);
+      const rewardFor = (roundId: string, taskId: string): number => {
+        const index = taskIndex(taskId);
+        if (taskId.startsWith('hout-')) return index < 4 ? 1 : 0;
+        if (roundId.startsWith('baseline-')) return index < 10 ? 1 : 0;
+        return 1;
+      };
+
+      await runLoop(harness, {
+        heldInTasks,
+        heldOutTasks,
+        rewardFor,
+        rounds: 1,
+        baselineRuns: 1,
+      });
+      const tamperedPromptHash = hashSystemPrompt('different candidate prompt\n');
+      const events = await readFixedPromptWal(harness.resultsJsonlPath);
+      const tamperedEvents = events.map((event) => {
+        if (event.type === 'prompt_candidate_committed' && event.roundId === 'round-0') {
+          return { ...event, promptHash: tamperedPromptHash };
+        }
+        if (event.type === 'task_completed' && event.roundId === 'round-0') {
+          return { ...event, promptHash: tamperedPromptHash };
+        }
+        return event;
+      });
+      await writeFile(
+        harness.resultsJsonlPath,
+        `${tamperedEvents.map((event) => JSON.stringify(event)).join('\n')}\n`,
+        'utf8',
+      );
+
+      await assert.rejects(
+        runLoop(harness, {
+          heldInTasks,
+          heldOutTasks,
+          rewardFor,
+          rounds: 2,
+          baselineRuns: 1,
+        }),
+        /RSI WAL replay candidate prompt hash mismatch for round-0/,
       );
     });
   });

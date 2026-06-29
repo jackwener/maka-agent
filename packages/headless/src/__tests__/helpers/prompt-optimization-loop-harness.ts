@@ -44,6 +44,7 @@ export interface RunLoopOptions {
   /** When it returns true, the runner emits a non-completed (unscored) cell for
    * that task — used to exercise the baseline stability filter. */
   shouldFail?: (roundId: string, taskId: string) => boolean;
+  shouldThrowInfra?: (roundId: string, taskId: string) => boolean;
   /** Per-task baseline duration (ms); defaults to 10. Exercises the too-slow cap. */
   durationMsFor?: (roundId: string, taskId: string) => number;
   onTaskRun?: (roundId: string, taskId: string) => void;
@@ -70,7 +71,14 @@ export async function runLoop(harness: Harness, options: RunLoopOptions) {
     heldInTasks: options.heldInTasks,
     heldOutTasks: options.heldOutTasks,
     config: CONFIG,
-    harborRunner: fakeHarborRunner(harness.eventsDir, options.rewardFor, options.shouldFail, options.durationMsFor, options.onTaskRun),
+    harborRunner: fakeHarborRunner(
+      harness.eventsDir,
+      options.rewardFor,
+      options.shouldFail,
+      options.shouldThrowInfra,
+      options.durationMsFor,
+      options.onTaskRun,
+    ),
     metaAgent: options.metaAgent ?? fakeMetaAgent(),
     git: createCliPromptCandidateGit({ cwd: harness.repoDir, systemPromptPath: harness.systemPromptPath }),
     rewardHackVerifierPatternsByTaskId,
@@ -113,11 +121,15 @@ function fakeHarborRunner(
   eventsDir: string,
   rewardFor: (roundId: string, taskId: string) => number,
   shouldFail?: (roundId: string, taskId: string) => boolean,
+  shouldThrowInfra?: (roundId: string, taskId: string) => boolean,
   durationMsFor?: (roundId: string, taskId: string) => number,
   onTaskRun?: (roundId: string, taskId: string) => void,
 ): (input: HarborTaskRunInput) => Promise<HarborTaskRunOutput> {
   return async ({ roundId, task, systemPrompt }) => {
     onTaskRun?.(roundId, task.id);
+    if (shouldThrowInfra?.(roundId, task.id)) {
+      throw new Error(`container crashed for ${roundId}/${task.id}`);
+    }
     const runtimeEventsPath = join(eventsDir, `${roundId}__${task.id}.jsonl`);
     await writeFile(runtimeEventsPath, `${JSON.stringify(modelVisibleEvent())}\n`, 'utf8');
     // A non-completed cell with a correct hash and real (non-zero) cost: scored

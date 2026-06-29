@@ -5,6 +5,45 @@ import { readFixedPromptWal } from '../fixed-prompt-controller.js';
 import { execFileAsync, fakeMetaAgent, makeTasks, runLoop, taskIndex, withHarness } from './helpers/prompt-optimization-loop-harness.js';
 
 describe('runPromptOptimizationLoop replay decision guards', () => {
+  test('replays a decided discard round with infra-failed task evidence', async () => {
+    await withHarness(async (harness) => {
+      const heldInTasks = makeTasks('hin', 20);
+      const heldOutTasks = makeTasks('hout', 8);
+      const rewardFor = (roundId: string, taskId: string): number => {
+        const index = taskIndex(taskId);
+        if (taskId.startsWith('hout-')) return index < 4 ? 1 : 0;
+        if (roundId.startsWith('baseline-')) return index < 10 ? 1 : 0;
+        return 1;
+      };
+
+      const first = await runLoop(harness, {
+        heldInTasks,
+        heldOutTasks,
+        rewardFor,
+        rounds: 1,
+        baselineRuns: 1,
+        shouldThrowInfra: (roundId, taskId) => roundId === 'round-0' && taskId === 'hin-0',
+      });
+      assert.equal(first.decisions[0]?.decision, 'discard');
+      const events = await readFixedPromptWal(harness.resultsJsonlPath);
+      assert.ok(events.some((event) => event.type === 'task_infra_failed' && event.roundId === 'round-0'));
+
+      const taskRuns: string[] = [];
+      const resumed = await runLoop(harness, {
+        heldInTasks,
+        heldOutTasks,
+        rewardFor,
+        rounds: 2,
+        baselineRuns: 1,
+        shouldThrowInfra: (roundId, taskId) => roundId === 'round-0' && taskId === 'hin-0',
+        onTaskRun: (roundId, taskId) => taskRuns.push(`${roundId}:${taskId}`),
+      });
+
+      assert.equal(resumed.decisions[0]?.decision, 'discard');
+      assert.ok(taskRuns.every((item) => !item.startsWith('round-0:')));
+    });
+  });
+
   test('fails closed when a kept decision is missing held-out task evidence', async () => {
     await withHarness(async (harness) => {
       const heldInTasks = makeTasks('hin', 20);
