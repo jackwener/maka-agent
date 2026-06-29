@@ -1496,6 +1496,18 @@
     50%      { opacity: 1;    transform: scale(1.1); }
   }
 
+  /* Canonical tool-result card mount entrance (issue #332, PR4). The compact
+     "lands instead of pops in" opacity+scale breath the OverlayPreview cards
+     (file-diff / terminal) and the load-tool card share via the
+     `[animation:maka-tool-card-enter_…]` literal in `@maka/ui` previewVariants.
+     Moved here from styles/tool-output.css so every keyframe lives in the one
+     canonical motion home; reduced-motion / visual-smoke suppression ride the
+     global `*` rules. */
+  @keyframes maka-tool-card-enter {
+    from { opacity: 0; transform: scale(0.97); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
   /* ---- Composer --------------------------------------------------- */
 
   .maka-composer {

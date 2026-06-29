@@ -166,8 +166,13 @@ describe('Office document capability contract', () => {
     assert.ok(officeBranch > 0, 'Office document branch must exist');
     assert.ok(jsonBranch > 0, 'JSON branch must exist');
     assert.ok(officeBranch < jsonBranch, 'Office document results must be intercepted before raw JSON rendering');
-    assert.match(styles, /\.maka-office-document-preview/);
-    assert.match(styles, /\.maka-office-document-stream/);
+    // #332 PR4: the office preview shell migrated onto the @maka/ui previewVariants
+    // literalize table; the bespoke selectors are retired and the render site wires
+    // the governed parts instead.
+    assert.doesNotMatch(styles, /\.maka-office-document-preview/, 'retired office preview selector must be gone post-migration');
+    assert.doesNotMatch(styles, /\.maka-office-document-stream/, 'retired office stream selector must be gone post-migration');
+    assert.match(components, /previewVariants\(\{ part: 'office' \}\)/, 'office preview must render the governed previewVariants office surface');
+    assert.match(components, /previewVariants\(\{ part: 'office-stream' \}\)/, 'office stdout/stderr must render the governed previewVariants office-stream surface');
   });
 
   it('summarizes Office document edits in the permission dialog before raw args', async () => {

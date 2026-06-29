@@ -36,7 +36,11 @@ export * from './primitives/alert.js';
 // external consumers.) `LiveIndicator` is exported to public only when the
 // reasoning / composer / onboarding live dots actually migrate onto it — not
 // speculatively before a second consumer exists.
-export { Bubble, Marker, Message } from './primitives/chat.js';
+//
+// `previewVariants` (#332 PR4) IS re-exported: its file-diff parts have a second,
+// cross-package consumer — `apps/desktop`'s `artifact-preview.tsx` — which is the
+// promotion condition the off-barrel convention named, so the export is the rule.
+export { Bubble, Marker, Message, previewVariants } from './primitives/chat.js';
 export type {
   BubbleProps,
   MarkerProps,

@@ -49,7 +49,7 @@ describe('subagent UI contract', () => {
     const source = await readFile(resolve(process.cwd(), '..', '..', 'packages', 'ui', 'src', 'components.tsx'), 'utf8');
     const block = source.match(/export function OverlayHost[\s\S]*?^}/m)?.[0] ?? '';
 
-    assert.match(block, /<UiButton[\s\S]*className="maka-button maka-overlay-close"/);
+    assert.match(block, /<UiButton[\s\S]*className=\{cn\('maka-button', previewVariants\(\{ part: 'close' \}\)\)\}/);
     assert.match(block, /aria-label="关闭预览"/);
     assert.match(block, /<X size=\{14\} strokeWidth=\{1\.75\} aria-hidden="true" \/>/);
     assert.match(block, /<span>关闭<\/span>/);

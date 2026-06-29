@@ -302,8 +302,8 @@ describe('terminal truncation handoff contract', () => {
     );
     assert.match(
       src,
-      /maka-tool-terminal-truncated-note/,
-      'TerminalPreview should render the capped-output handoff with a stable class for styling and review.',
+      /previewVariants\(\{ part: 'terminal-truncated-note' \}\)/,
+      'TerminalPreview should render the capped-output handoff through the governed previewVariants terminal-truncated-note part.',
     );
     assert.match(
       src,
@@ -342,18 +342,13 @@ describe('terminal truncation handoff contract', () => {
     );
     assert.match(
       src,
-      /<PrimitiveButton[\s\S]*variant="ghost"[\s\S]*size="sm"[\s\S]*className="maka-tool-terminal-copy"/,
-      'The capped-output handoff copy action should keep its ghost/sm affordance through shared primitive Button props and a semantic class hook.',
+      /<PrimitiveButton[\s\S]*?variant="ghost"[\s\S]*?size="sm"[\s\S]*?className=\{previewVariants\(\{ part: 'terminal-copy' \}\)\}/,
+      'The capped-output handoff copy action should keep its ghost/sm affordance through shared primitive Button props and the governed previewVariants terminal-copy part.',
     );
     assert.doesNotMatch(
       src,
-      /className="[^"]*\bmaka-button\b[^"]*\bmaka-tool-terminal-copy\b[^"]*"/,
-      'The capped-output handoff copy action must not reintroduce legacy maka-button styling classes.',
-    );
-    assert.doesNotMatch(
-      src,
-      /className="maka-tool-terminal-copy"[\s\S]{0,240}data-size="sm"/,
-      'The capped-output handoff copy action should rely on shared primitive Button size props instead of redundant data-size styling.',
+      /\bmaka-tool-terminal-copy\b/,
+      'The copy action must not reintroduce the retired bespoke maka-tool-terminal-copy class (it migrated onto previewVariants in #332 PR4).',
     );
     // PR-UI-LIB-EXTRACT-7 (round 8/10): the shared clipboard
     // feedback hook moved from `components.tsx` into a sibling
@@ -390,32 +385,36 @@ describe('terminal truncation handoff contract', () => {
   });
 
   it('styles the terminal truncation handoff distinctly from raw terminal output', async () => {
-    const src = await readRendererContractCss();
+    // #332 PR4: the handoff note + copy-state styling moved off bespoke CSS onto
+    // the `@maka/ui` `previewVariants` literalize table. The distinguishing
+    // declarations are now literal utilities in chat.tsx — assert them where they
+    // live (the diff harness proves they render identically).
+    const chatPath = resolve(process.cwd(), '..', '..', 'packages', 'ui', 'src', 'primitives', 'chat.tsx');
+    const chat = await readFile(chatPath, 'utf8');
 
-    assert.match(src, /\.maka-tool-terminal-truncated-note\s*\{/, 'Missing truncated terminal note style.');
     assert.match(
-      src,
-      /maka-tool-terminal-truncated-note[\s\S]*border-top:\s*1px solid var\(--border\);/,
-      'The truncation handoff should be visually separated from terminal text.',
+      chat,
+      /"terminal-truncated-note":\s*\n?\s*"[^"]*\[border-top:1px_solid_var\(--border\)\]/,
+      'The truncation handoff should be visually separated from terminal text (border-top).',
     );
     assert.match(
-      src,
-      /maka-tool-terminal-truncated-note[\s\S]*var\(--warning\)/,
+      chat,
+      /"terminal-truncated-note":\s*\n?\s*"[^"]*bg-\[oklch\(from_var\(--warning\)/,
       'The truncation handoff should use the warning token so it reads as a capped-output state.',
     );
     assert.match(
-      src,
-      /maka-tool-terminal-copy[\s\S]*flex:\s*0 0 auto;/,
+      chat,
+      /"terminal-copy":\s*\n?\s*"\[flex:0_0_auto\]/,
       'The copy action should keep a stable size inside the truncation handoff row.',
     );
     assert.match(
-      src,
-      /maka-tool-terminal-copy\[data-copy-error="true"\]/,
+      chat,
+      /"terminal-copy":[\s\S]*?data-\[copy-error=true\]:text-\[color:var\(--destructive\)\]/,
       'The terminal handoff copy button should have a visible failed state.',
     );
     assert.match(
-      src,
-      /maka-explore-agent-copy\[data-pending="true"\]/,
+      chat,
+      /"agent-copy":[\s\S]*?data-\[pending=true\]:cursor-progress/,
       'Explore Agent copy buttons should have a visible pending state.',
     );
   });

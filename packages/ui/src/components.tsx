@@ -194,7 +194,7 @@ import {
   cn,
 } from './ui.js';
 import { Alert, AlertAction, AlertDescription, AlertTitle } from './primitives/alert.js';
-import { Bubble, LiveIndicator, Marker, markerVariants, Message, streamVariants, toolVariants } from './primitives/chat.js';
+import { Bubble, LiveIndicator, Marker, markerVariants, Message, previewVariants, streamVariants, toolVariants } from './primitives/chat.js';
 import { Button as PrimitiveButton } from './primitives/button.js';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from './primitives/empty.js';
 import { InputGroup, InputGroupAddon, InputGroupInput } from './primitives/input-group.js';
@@ -6091,11 +6091,11 @@ function LoadToolResultPreview(props: { args: unknown; value: unknown }) {
     return <OverlayPreview content={{ kind: 'json', value: props.value }} />;
   }
   return (
-    <div className="maka-load-tool-preview" data-kind="load_tool">
-      <p className="maka-load-tool-title">{desc.title}</p>
-      <p className="maka-load-tool-count">{desc.countLabel}</p>
-      <p className="maka-load-tool-tools">{desc.toolsText}</p>
-      <p className="maka-load-tool-footer">{desc.footer}</p>
+    <div className={previewVariants({ part: 'load-tool' })} data-kind="load_tool">
+      <p className={previewVariants({ part: 'load-tool-title' })}>{desc.title}</p>
+      <p className={previewVariants({ part: 'load-tool-count' })}>{desc.countLabel}</p>
+      <p className={previewVariants({ part: 'load-tool-tools' })}>{desc.toolsText}</p>
+      <p className={previewVariants({ part: 'load-tool-footer' })}>{desc.footer}</p>
     </div>
   );
 }
@@ -6387,7 +6387,7 @@ export function OverlayHost(props: { content?: ToolResultContent; onClose(): voi
   return (
     <div className="maka-modal-backdrop overlay">
       <UiButton
-        className="maka-button maka-overlay-close"
+        className={cn('maka-button', previewVariants({ part: 'close' }))}
         type="button"
         variant="ghost"
         onClick={props.onClose}
@@ -6738,8 +6738,9 @@ function permissionValuePreview(value: unknown): string {
  * - `json`: pretty-printed in a code block
  * - `text` / others: plain `<pre>` fallback
  *
- * All variants are height-bounded by `.maka-overlay-preview` to keep kilobyte
- * outputs from pushing the composer off-screen.
+ * All variants are height-bounded by the `@maka/ui` previewVariants `overlay`
+ * part (the retired `.maka-overlay-preview` base) to keep kilobyte outputs from
+ * pushing the composer off-screen.
  */
 /**
  * Cap displayed line count to keep a giant tool output (10k-line stderr from
@@ -6821,13 +6822,13 @@ function OverlayPreview(props: { content: ToolResultContent }) {
     // JSON shouldn't contain secrets persisted by Maka (settings + telemetry
     // are sanitized at write-time), but apply the renderer redactor as a
     // second-layer defense in case a tool returned raw provider response.
-    return <pre className="maka-overlay-preview" data-kind="json">{formatUserVisibleToolText(redactSecrets(body))}</pre>;
+    return <pre className={previewVariants({ part: 'overlay' })} data-kind="json">{formatUserVisibleToolText(redactSecrets(body))}</pre>;
   }
 
   if (content.kind === 'text') {
     const { body, capped } = capLines(formatUserVisibleToolText(redactSecrets(content.text)));
     return (
-      <pre className="maka-overlay-preview" data-kind="text">
+      <pre className={previewVariants({ part: 'overlay' })} data-kind="text">
         {body}
         {capped > 0 && `\n\n… 已隐藏 ${capped} 行`}
       </pre>
@@ -6837,7 +6838,7 @@ function OverlayPreview(props: { content: ToolResultContent }) {
   // file_write / image / summary / unknown — show a compact descriptor so the
   // user knows what kind landed without dumping binary or storage refs.
   return (
-    <pre className="maka-overlay-preview" data-kind={content.kind}>
+    <pre className={previewVariants({ part: 'overlay' })} data-kind={content.kind}>
       [{content.kind}]
     </pre>
   );
@@ -6882,7 +6883,7 @@ function RiveWorkflowPreview(props: {
   ].join('\n');
   const cappedPreview = capLines(body);
   return (
-    <pre className="maka-overlay-preview" data-kind="rive_workflow">
+    <pre className={previewVariants({ part: 'overlay' })} data-kind="rive_workflow">
       {cappedPreview.body}
       {cappedPreview.capped > 0 && `\n\n… 已隐藏 ${cappedPreview.capped} 行`}
     </pre>
@@ -6924,24 +6925,24 @@ function SubagentPreview(props: {
   ].filter(Boolean).join(' · ');
 
   return (
-    <div className="maka-overlay-preview maka-subagent-preview" data-kind="subagent" data-status={result.status}>
-      <header className="maka-explore-agent-head">
+    <div className={cn(previewVariants({ part: 'overlay' }), previewVariants({ part: 'agent' }))} data-kind="subagent" data-status={result.status}>
+      <header className={previewVariants({ part: 'agent-head' })}>
         <strong>{redactSecrets(result.agentName || 'Subagent')}</strong>
         <small>{meta}</small>
       </header>
       {summary.length > 0 && (
-        <section className="maka-explore-agent-section" aria-label="子代理结果摘要">
+        <section className={previewVariants({ part: 'agent-section' })} aria-label="子代理结果摘要">
           <strong>结果摘要</strong>
           <p>{redactSecrets(summary)}</p>
         </section>
       )}
       {result.failureClass && (
-        <div className="maka-explore-agent-message" role="note">
+        <div className={previewVariants({ part: 'agent-message' })} role="note">
           {redactSecrets(result.failureClass)}
         </div>
       )}
       {artifactCount > 0 && (
-        <section className="maka-explore-agent-section" aria-label="子代理产物">
+        <section className={previewVariants({ part: 'agent-section' })} aria-label="子代理产物">
           <strong>产物</strong>
           <p>{artifactCount} 个</p>
         </section>
@@ -7131,8 +7132,8 @@ function ExploreAgentPreview(props: {
   const matchesCopy = copyButtonState('matches', '复制片段', '已复制命中片段');
 
   return (
-    <div className="maka-overlay-preview maka-explore-agent-preview" data-kind="explore_agent" data-ok={result.ok ? 'true' : 'false'}>
-      <header className="maka-explore-agent-head">
+    <div className={cn(previewVariants({ part: 'overlay' }), previewVariants({ part: 'agent' }))} data-kind="explore_agent" data-ok={result.ok ? 'true' : 'false'}>
+      <header className={previewVariants({ part: 'agent-head' })}>
         <strong>{redactSecrets(result.objective || '只读探索')}</strong>
         <small>
           {status} · 发现/读 {filesDiscovered} / {result.filesInspected} 个文件 · {skippedSummary} · {formatBytes(result.bytesRead)}
@@ -7141,13 +7142,13 @@ function ExploreAgentPreview(props: {
           {duration ? ` · 耗时 ${duration}` : ''}
         </small>
         {resultSummary.length > 0 && (
-          <div className="maka-explore-agent-summary-line">
+          <div className={previewVariants({ part: 'agent-summary-line' })}>
             <small>{redactSecrets(resultSummary)}</small>
             <UiButton
               type="button"
               variant="ghost"
               size="sm"
-              className="maka-explore-agent-copy"
+              className={previewVariants({ part: 'agent-copy' })}
               onClick={() => void copyFeedback.copy('summary', summaryText)}
               disabled={summaryCopy.disabled}
               aria-label={summaryCopy.ariaLabel}
@@ -7162,12 +7163,12 @@ function ExploreAgentPreview(props: {
           </div>
         )}
         {continuationText.length > 0 && (
-          <div className="maka-explore-agent-actions" aria-label="只读探索后续操作">
+          <div className={previewVariants({ part: 'agent-actions' })} aria-label="只读探索后续操作">
             <UiButton
               type="button"
               variant="ghost"
               size="sm"
-              className="maka-explore-agent-copy"
+              className={previewVariants({ part: 'agent-copy' })}
               onClick={() => void copyFeedback.copy('continuation', continuationText)}
               disabled={continuationCopy.disabled}
               aria-label={continuationCopy.ariaLabel}
@@ -7184,11 +7185,11 @@ function ExploreAgentPreview(props: {
         )}
       </header>
       {!result.ok && (
-        <div className="maka-explore-agent-message" role="note">
+        <div className={previewVariants({ part: 'agent-message' })} role="note">
           {redactSecrets(result.message ?? '只读探索未完成。')}
         </div>
       )}
-      <dl className="maka-explore-agent-meta">
+      <dl className={previewVariants({ part: 'agent-meta' })}>
         <div>
           <dt>终态</dt>
           <dd>{terminalStatus}</dd>
@@ -7231,14 +7232,14 @@ function ExploreAgentPreview(props: {
         )}
       </dl>
       {progress.length > 0 && (
-        <section className="maka-explore-agent-section" aria-label="探索过程">
-          <div className="maka-explore-agent-section-head">
+        <section className={previewVariants({ part: 'agent-section' })} aria-label="探索过程">
+          <div className={previewVariants({ part: 'agent-section-head' })}>
             <strong>过程</strong>
             <UiButton
               type="button"
               variant="ghost"
               size="sm"
-              className="maka-explore-agent-copy"
+              className={previewVariants({ part: 'agent-copy' })}
               onClick={() => void copyFeedback.copy('process', processText)}
               disabled={processCopy.disabled}
               aria-label={processCopy.ariaLabel}
@@ -7261,14 +7262,14 @@ function ExploreAgentPreview(props: {
         </section>
       )}
       {evidence.length > 0 && (
-        <section className="maka-explore-agent-section" aria-label="证据锚点">
-          <div className="maka-explore-agent-section-head">
+        <section className={previewVariants({ part: 'agent-section' })} aria-label="证据锚点">
+          <div className={previewVariants({ part: 'agent-section-head' })}>
             <strong>证据锚点</strong>
             <UiButton
               type="button"
               variant="ghost"
               size="sm"
-              className="maka-explore-agent-copy"
+              className={previewVariants({ part: 'agent-copy' })}
               onClick={() => void copyFeedback.copy('evidence', evidenceText)}
               disabled={evidenceCopy.disabled}
               aria-label={evidenceCopy.ariaLabel}
@@ -7298,14 +7299,14 @@ function ExploreAgentPreview(props: {
         </section>
       )}
       {reportLines.length > 0 && (
-        <section className="maka-explore-agent-section" aria-label="研究报告">
-          <div className="maka-explore-agent-section-head">
+        <section className={previewVariants({ part: 'agent-section' })} aria-label="研究报告">
+          <div className={previewVariants({ part: 'agent-section-head' })}>
             <strong>研究报告</strong>
             <UiButton
               type="button"
               variant="ghost"
               size="sm"
-              className="maka-explore-agent-copy"
+              className={previewVariants({ part: 'agent-copy' })}
               onClick={() => void copyFeedback.copy('report', reportText)}
               disabled={reportCopy.disabled}
               aria-label={reportCopy.ariaLabel}
@@ -7328,14 +7329,14 @@ function ExploreAgentPreview(props: {
         </section>
       )}
       {candidateFiles.length > 0 && (
-        <section className="maka-explore-agent-section" aria-label="候选文件">
-          <div className="maka-explore-agent-section-head">
+        <section className={previewVariants({ part: 'agent-section' })} aria-label="候选文件">
+          <div className={previewVariants({ part: 'agent-section-head' })}>
             <strong>候选文件</strong>
             <UiButton
               type="button"
               variant="ghost"
               size="sm"
-              className="maka-explore-agent-copy"
+              className={previewVariants({ part: 'agent-copy' })}
               onClick={() => void copyFeedback.copy('candidate', candidateText)}
               disabled={candidateCopy.disabled}
               aria-label={candidateCopy.ariaLabel}
@@ -7362,14 +7363,14 @@ function ExploreAgentPreview(props: {
         </section>
       )}
       {matches.length > 0 && (
-        <section className="maka-explore-agent-section" aria-label="命中片段">
-          <div className="maka-explore-agent-section-head">
+        <section className={previewVariants({ part: 'agent-section' })} aria-label="命中片段">
+          <div className={previewVariants({ part: 'agent-section-head' })}>
             <strong>命中片段</strong>
             <UiButton
               type="button"
               variant="ghost"
               size="sm"
-              className="maka-explore-agent-copy"
+              className={previewVariants({ part: 'agent-copy' })}
               onClick={() => void copyFeedback.copy('matches', matchesText)}
               disabled={matchesCopy.disabled}
               aria-label={matchesCopy.ariaLabel}
@@ -7394,7 +7395,7 @@ function ExploreAgentPreview(props: {
         </section>
       )}
       {notes.length > 0 && (
-        <section className="maka-explore-agent-section" aria-label="探索说明">
+        <section className={previewVariants({ part: 'agent-section' })} aria-label="探索说明">
           <strong>说明</strong>
           <ul>
             {notes.map((note, index) => (
@@ -7564,8 +7565,8 @@ function OfficeDocumentPreview(props: {
   const hasOutput = stdout.body.length > 0 || stderr.body.length > 0;
 
   return (
-    <div className="maka-overlay-preview maka-office-document-preview" data-kind="office_document" data-ok={result.ok ? 'true' : 'false'}>
-      <header className="maka-office-document-head">
+    <div className={cn(previewVariants({ part: 'overlay' }), previewVariants({ part: 'office' }))} data-kind="office_document" data-ok={result.ok ? 'true' : 'false'}>
+      <header className={previewVariants({ part: 'office-head' })}>
         <strong>{title}</strong>
         <small>
           {operation}
@@ -7573,22 +7574,22 @@ function OfficeDocumentPreview(props: {
           {result.truncated ? ' · 输出已截断' : ''}
         </small>
       </header>
-      {args && <code className="maka-office-document-args">officecli {args}</code>}
+      {args && <code className={previewVariants({ part: 'office-args' })}>officecli {args}</code>}
       {!result.ok && (
-        <div className="maka-office-document-message" role="note">
+        <div className={previewVariants({ part: 'office-message' })} role="note">
           <span>{message || 'Office 文档操作未完成。'}</span>
           {reason && <small>诊断：{reason}</small>}
         </div>
       )}
-      {result.ok && !hasOutput && <p className="maka-office-document-empty">（无输出）</p>}
+      {result.ok && !hasOutput && <p className={previewVariants({ part: 'office-empty' })}>（无输出）</p>}
       {stdout.body.length > 0 && (
-        <pre className="maka-office-document-stream" data-stream="stdout">
+        <pre className={previewVariants({ part: 'office-stream' })} data-stream="stdout">
           {stdout.body}
           {stdout.capped > 0 && `\n\n… stdout 已隐藏 ${stdout.capped} 行`}
         </pre>
       )}
       {stderr.body.length > 0 && (
-        <pre className="maka-office-document-stream" data-stream="stderr">
+        <pre className={previewVariants({ part: 'office-stream' })} data-stream="stderr">
           {stderr.body}
           {stderr.capped > 0 && `\n\n… stderr 已隐藏 ${stderr.capped} 行`}
         </pre>
@@ -7661,7 +7662,7 @@ function WebSearchPreview(props: {
 
   if (rows.length === 0) {
     return (
-      <div className="maka-overlay-preview maka-web-search-preview" data-kind="web_search">
+      <div className={cn(previewVariants({ part: 'overlay' }), previewVariants({ part: 'web-search' }))} data-kind="web_search">
         <header>
           <strong>{redactSecrets(props.query)}</strong>
           <small>{props.provider} · 没有结果</small>
@@ -7670,7 +7671,7 @@ function WebSearchPreview(props: {
     );
   }
   return (
-    <div className="maka-overlay-preview maka-web-search-preview" data-kind="web_search">
+    <div className={cn(previewVariants({ part: 'overlay' }), previewVariants({ part: 'web-search' }))} data-kind="web_search">
       <header>
         <strong>{redactSecrets(props.query)}</strong>
         <small>
@@ -7722,13 +7723,13 @@ function WebSearchErrorPreview(props: {
                 ? '隐私模式下不会发起联网搜索。'
                 : '请检查网络或稍后重试。';
   return (
-    <div className="maka-overlay-preview maka-web-search-preview maka-web-search-error" data-kind="web_search_error">
+    <div className={cn(previewVariants({ part: 'overlay' }), previewVariants({ part: 'web-search' }), previewVariants({ part: 'web-search-error' }))} data-kind="web_search_error">
       <header>
         <strong>{redactSecrets(props.query ?? '联网搜索')}</strong>
         <small>{redactSecrets(props.provider)} · 搜索失败 · {sourceCopy}</small>
       </header>
-      <p className="maka-web-search-error-message">{redactSecrets(props.message)}</p>
-      <p className="maka-web-search-error-repair">{repairCopy}</p>
+      <p className={previewVariants({ part: 'web-search-error-message' })}>{redactSecrets(props.message)}</p>
+      <p className={previewVariants({ part: 'web-search-error-repair' })}>{repairCopy}</p>
     </div>
   );
 }
@@ -7741,19 +7742,19 @@ function FileDiffPreview(props: { diff: string; paths: string[] }) {
   const { body, capped } = capLines(redactSecrets(props.diff));
   const lines = body.split('\n');
   return (
-    <div className="maka-overlay-preview maka-tool-diff" data-kind="file_diff">
+    <div className={cn(previewVariants({ part: 'overlay' }), previewVariants({ part: 'diff' }))} data-kind="file_diff">
       {props.paths.length > 0 && (
-        <div className="maka-tool-diff-paths">
+        <div className={previewVariants({ part: 'diff-paths' })}>
           {props.paths.map((path) => (
             <code key={path}>{path}</code>
           ))}
         </div>
       )}
-      <pre className="maka-tool-diff-body">
+      <pre className={previewVariants({ part: 'diff-body' })}>
         {lines.map((line, index) => (
           <span
             key={`${index}:${line.slice(0, 16)}`}
-            className="maka-tool-diff-line"
+            className={previewVariants({ part: 'diff-line' })}
             data-line={diffLineKind(line)}
           >
             {line || ' '}
@@ -7761,7 +7762,7 @@ function FileDiffPreview(props: { diff: string; paths: string[] }) {
           </span>
         ))}
         {capped > 0 && (
-          <span className="maka-tool-diff-line" data-line="meta">
+          <span className={previewVariants({ part: 'diff-line' })} data-line="meta">
             {`\n… 已隐藏 ${capped} 行\n`}
           </span>
         )}
@@ -7833,33 +7834,33 @@ function TerminalPreview(props: {
         : '复制终端研读提示';
 
   return (
-    <div className="maka-overlay-preview maka-tool-terminal" data-kind="terminal">
-      <header className="maka-tool-terminal-head">
-        <code className="maka-tool-terminal-cwd">{safeCwd}</code>
-        <code className="maka-tool-terminal-cmd">$ {safeCmd}</code>
+    <div className={cn(previewVariants({ part: 'overlay' }), previewVariants({ part: 'terminal' }))} data-kind="terminal">
+      <header className={previewVariants({ part: 'terminal-head' })}>
+        <code className={previewVariants({ part: 'terminal-cwd' })}>{safeCwd}</code>
+        <code className={previewVariants({ part: 'terminal-cmd' })}>$ {safeCmd}</code>
         <span
-          className="maka-tool-terminal-exit"
+          className={previewVariants({ part: 'terminal-exit' })}
           data-ok={succeeded ? 'true' : 'false'}
           aria-label={`退出码 ${props.exitCode}`}
         >
           退出码 {props.exitCode}
         </span>
       </header>
-      {!hasOutput && <p className="maka-tool-terminal-empty">（无输出）</p>}
+      {!hasOutput && <p className={previewVariants({ part: 'terminal-empty' })}>（无输出）</p>}
       {props.stdout.length > 0 && (
-        <pre className="maka-tool-terminal-stream" data-stream="stdout">
+        <pre className={previewVariants({ part: 'terminal-stream' })} data-stream="stdout">
           {stdout.body}
           {stdout.capped > 0 && `\n\n… stdout 已隐藏 ${stdout.capped} 行`}
         </pre>
       )}
       {props.stderr.length > 0 && (
-        <pre className="maka-tool-terminal-stream" data-stream="stderr">
+        <pre className={previewVariants({ part: 'terminal-stream' })} data-stream="stderr">
           {stderr.body}
           {stderr.capped > 0 && `\n\n… stderr 已隐藏 ${stderr.capped} 行`}
         </pre>
       )}
       {hiddenLines > 0 && (
-        <div className="maka-tool-terminal-truncated-note">
+        <div className={previewVariants({ part: 'terminal-truncated-note' })}>
           <span>
             输出较长，当前只展示每路输出的前 {TOOL_LINE_CAP} 行。需要继续研读时，可以切到深度研究并把命令、相关路径和想确认的问题交给只读探索。
           </span>
@@ -7867,7 +7868,7 @@ function TerminalPreview(props: {
             type="button"
             variant="ghost"
             size="sm"
-            className="maka-tool-terminal-copy"
+            className={previewVariants({ part: 'terminal-copy' })}
             onClick={() => void copyFeedback.copy('handoff', handoffText)}
             disabled={handoffCopyPhase === 'pending'}
             aria-label={handoffCopyAria}

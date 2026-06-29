@@ -36,7 +36,7 @@ import type {
   ArtifactRecord,
   ArtifactTextReadResult,
 } from '@maka/core';
-import { Spinner } from '@maka/ui';
+import { cn, previewVariants, Spinner } from '@maka/ui';
 import { RegistryArtifactPreview } from './artifact-preview-registry-shell';
 
 export function ArtifactPreview(props: { record: ArtifactRecord; onShowInFolder?: () => void }) {
@@ -78,12 +78,12 @@ function DiffPreview(props: { record: ArtifactRecord }) {
   if (!result.value.ok) return <TextFailureCard record={props.record} reason={result.value.reason} />;
   const lines = result.value.text.split('\n');
   return (
-    <div className="maka-artifact-preview-diff maka-tool-diff" data-kind="file_diff">
-      <pre className="maka-tool-diff-body">
+    <div className={cn('maka-artifact-preview-diff', previewVariants({ part: 'diff' }))} data-kind="file_diff">
+      <pre className={previewVariants({ part: 'diff-body' })}>
         {lines.map((line, index) => (
           <span
             key={`${index}:${line.slice(0, 16)}`}
-            className="maka-tool-diff-line"
+            className={previewVariants({ part: 'diff-line' })}
             data-line={diffLineKind(line)}
           >
             {line || ' '}
