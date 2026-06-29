@@ -1,4 +1,8 @@
+import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { realpath } from 'node:fs/promises';
+import { isAbsolute, relative, resolve } from 'node:path';
+import { isDeepStrictEqual, promisify } from 'node:util';
 import type { Config } from './contracts.js';
 import {
   appendFixedPromptWalEvent,
@@ -10,8 +14,8 @@ import {
   type FixedPromptTask,
   type FixedPromptTaskCompletedEvent,
   type FixedPromptTaskWalEvent,
-  type FixedPromptWalEvent,
   type HarborTaskRunner,
+  type PromptCandidateDecisionEvent,
   type PromptCandidateRewardHackScan,
   type RsiControllerAttributionEvent,
 } from './fixed-prompt-controller.js';
@@ -49,6 +53,8 @@ import {
   replayPromptBaselinePartition,
   replayPromptDecisionRound,
 } from './prompt-optimization-replay.js';
+
+const execFileAsync = promisify(execFile);
 
 /**
  * Top-level driver for the RSI prompt-optimization loop (Issue #64).
@@ -193,6 +199,12 @@ export async function runPromptOptimizationLoop(
     strictRoundState: true,
   });
   const replayState = replayPlan.state;
+  await assertPromptRepoMatchesReplayState({
+    gitRootPath: input.git.gitRootPath,
+    expectedHead: replayState.expectedPromptRepoHead,
+    programPath: input.programPath,
+    systemPromptGitPath: input.git.systemPromptGitPath,
+  });
 
   const heldInTaskIds = input.heldInTasks.map((task) => task.id);
   const heldOutTaskIds = input.heldOutTasks.map((task) => task.id);
@@ -430,10 +442,45 @@ export async function runPromptOptimizationLoop(
       const existingHeldInEvents = existingDecisionRound.heldIn.events;
       accumulate(existingDecisionRound.heldIn);
       if (existingDecisionRound.heldOut) accumulate(existingDecisionRound.heldOut);
-      decisions.push(existingDecisionRound.result);
-      if (existingDecisionRound.result.decision === 'keep') {
-        lastKeptCommitSha = existingDecisionRound.result.lastKeptCommitSha;
-        heldInReference = existingDecisionRound.result.heldInReferencePassEligibleRate;
+      const replayedRewardHackScan = await scanHeldIn(existingHeldInEvents);
+      if (!isDeepStrictEqual(existingDecisionRound.decision.rewardHackScan, replayedRewardHackScan)) {
+        throw new Error(`RSI WAL replay decision mismatch for ${roundId}`);
+      }
+      if (
+        !existingDecisionRound.heldOut
+        && heldInGateReason({
+          heldInTaskIds: stableHeldInTaskIds,
+          lastKeptHeldInEvents,
+          candidateHeldInEvents: existingHeldInEvents,
+          previousHeldInReferencePassEligibleRate: heldInReference,
+          heldInPassRateNoiseBand: baseline.heldIn.noiseBand,
+          rewardHackScan: replayedRewardHackScan,
+        }) === null
+      ) {
+        throw new Error(`RSI WAL replay missing required held-out task evidence for ${roundId}`);
+      }
+      const replayedResult = decidePromptAcceptance({
+        runId: input.runId,
+        roundId,
+        candidateCommitSha: existingDecisionRound.decision.candidateCommitSha,
+        previousLastKeptCommitSha: lastKeptCommitSha,
+        originalCommitSha: replayState.seedCommitSha,
+        heldInTaskIds: stableHeldInTaskIds,
+        heldOutTaskIds: stableHeldOutTaskIds,
+        previousHeldInReferencePassEligibleRate: heldInReference,
+        originalHeldOutPassEligibleRate: baseline.heldOut.originalPassEligibleRate,
+        heldInPassRateNoiseBand: baseline.heldIn.noiseBand,
+        heldOutPassRateNoiseBand: baseline.heldOut.noiseBand,
+        originalEvents: originalHeldOutEvents,
+        lastKeptEvents: lastKeptHeldInEvents,
+        candidateEvents: [...existingHeldInEvents, ...(existingDecisionRound.heldOut?.events ?? [])],
+        rewardHackScan: replayedRewardHackScan,
+      });
+      assertReplayedDecisionMatchesResult(existingDecisionRound.decision, replayedResult);
+      decisions.push(replayedResult);
+      if (replayedResult.decision === 'keep') {
+        lastKeptCommitSha = replayedResult.lastKeptCommitSha;
+        heldInReference = replayedResult.heldInReferencePassEligibleRate;
         lastKeptHeldInEvents = existingHeldInEvents;
       }
       previousCandidateHeldInEvents = existingHeldInEvents;
@@ -600,6 +647,74 @@ export async function runPromptOptimizationLoop(
   };
 }
 
+async function assertPromptRepoMatchesReplayState(input: {
+  gitRootPath: string;
+  expectedHead: string;
+  programPath: string;
+  systemPromptGitPath: string;
+}): Promise<void> {
+  const head = await gitOutput(input.gitRootPath, 'rev-parse', 'HEAD');
+  if (head !== input.expectedHead) {
+    throw new Error(`prompt repo HEAD does not match resumed RSI WAL state: expected ${input.expectedHead}, got ${head}`);
+  }
+  const programGitPath = await toGitRelativePath(input.gitRootPath, input.programPath);
+  const promptGitPaths = [
+    programGitPath,
+    input.systemPromptGitPath,
+  ];
+  for (const path of [...new Set(promptGitPaths)]) {
+    if (!(await gitExitZero(input.gitRootPath, 'ls-files', '--error-unmatch', '--', path))) {
+      throw new Error(`prompt repo prompt file must be tracked before RSI run: ${path}`);
+    }
+  }
+  const [worktreeClean, indexClean] = await Promise.all([
+    gitExitZero(input.gitRootPath, 'diff', '--quiet', '--', ...promptGitPaths),
+    gitExitZero(input.gitRootPath, 'diff', '--cached', '--quiet', '--', ...promptGitPaths),
+  ]);
+  if (!worktreeClean || !indexClean) {
+    throw new Error(`prompt repo has uncommitted prompt file changes: ${promptGitPaths.join(', ')}`);
+  }
+}
+
+function assertReplayedDecisionMatchesResult(
+  decision: PromptCandidateDecisionEvent,
+  result: PromptAcceptanceResult,
+): void {
+  const replayedDecision = {
+    decision: result.decision,
+    reason: result.reason,
+    candidateCommitSha: result.candidateCommitSha,
+    previousLastKeptCommitSha: result.previousLastKeptCommitSha,
+    lastKeptCommitSha: result.lastKeptCommitSha,
+    previousHeldInReferencePassEligibleRate: result.previousHeldInReferencePassEligibleRate,
+    heldInReferencePassEligibleRate: result.heldInReferencePassEligibleRate,
+    originalCommitSha: result.originalCommitSha,
+    originalHeldOutPassEligibleRate: result.originalHeldOutPassEligibleRate,
+    heldInPassRateNoiseBand: result.heldInPassRateNoiseBand,
+    heldOutPassRateNoiseBand: result.heldOutPassRateNoiseBand,
+    rewardHackScan: result.rewardHackScan,
+    metrics: result.metrics,
+  };
+  const persistedDecision = {
+    decision: decision.decision,
+    reason: decision.reason,
+    candidateCommitSha: decision.candidateCommitSha,
+    previousLastKeptCommitSha: decision.previousLastKeptCommitSha,
+    lastKeptCommitSha: decision.lastKeptCommitSha,
+    previousHeldInReferencePassEligibleRate: decision.previousHeldInReferencePassEligibleRate,
+    heldInReferencePassEligibleRate: decision.heldInReferencePassEligibleRate,
+    originalCommitSha: decision.originalCommitSha,
+    originalHeldOutPassEligibleRate: decision.originalHeldOutPassEligibleRate,
+    heldInPassRateNoiseBand: decision.heldInPassRateNoiseBand,
+    heldOutPassRateNoiseBand: decision.heldOutPassRateNoiseBand,
+    rewardHackScan: decision.rewardHackScan,
+    metrics: decision.metrics,
+  };
+  if (!isDeepStrictEqual(persistedDecision, replayedDecision)) {
+    throw new Error(`RSI WAL replay decision mismatch for ${decision.roundId}`);
+  }
+}
+
 function assertUniqueTaskIds(label: string, taskIds: readonly string[]): void {
   const seen = new Set<string>();
   const duplicates = new Set<string>();
@@ -618,4 +733,30 @@ function assertDisjointTaskIds(heldInTaskIds: readonly string[], heldOutTaskIds:
   if (overlap.length > 0) {
     throw new Error(`held-in and held-out tasks overlap: ${overlap.join(', ')}`);
   }
+}
+
+async function gitOutput(cwd: string, ...args: string[]): Promise<string> {
+  const { stdout } = await execFileAsync('git', args, { cwd, encoding: 'utf8' });
+  return stdout.trim();
+}
+
+async function gitExitZero(cwd: string, ...args: string[]): Promise<boolean> {
+  try {
+    await execFileAsync('git', args, { cwd });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function toGitRelativePath(gitRootPath: string, filePath: string): Promise<string> {
+  const [rootPath, absolutePath] = await Promise.all([
+    realpath(gitRootPath),
+    realpath(isAbsolute(filePath) ? filePath : resolve(gitRootPath, filePath)),
+  ]);
+  const gitPath = relative(rootPath, absolutePath).split('\\').join('/');
+  if (gitPath === '' || gitPath === '..' || gitPath.startsWith('../')) {
+    throw new Error(`prompt repo prompt file must stay inside git root: ${filePath}`);
+  }
+  return gitPath;
 }

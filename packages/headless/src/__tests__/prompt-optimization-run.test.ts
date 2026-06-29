@@ -10,6 +10,7 @@ import {
   resolveFixedPromptRunRoot,
 } from '../fixed-prompt-task-source.js';
 import {
+  FIXED_PROMPT_WAL_SCHEMA_VERSION,
   hashSystemPrompt,
   readFixedPromptWal,
   type FixedPromptTask,
@@ -378,6 +379,81 @@ describe('runPromptOptimizationRun', () => {
       assert.notEqual(resumed.lastKeptCommitSha, committed.commitSha);
       const head = (await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: repoDir })).stdout.trim();
       assert.equal(head, seedSha);
+    });
+  });
+
+  test('rejects resumed WAL state when the production prompt repo HEAD differs', async () => {
+    await withDir(async (dir) => {
+      const repoDir = join(dir, 'repo');
+      const controllerDir = join(dir, 'controller');
+      await mkdir(join(repoDir, 'agent-cwd'), { recursive: true });
+      await mkdir(controllerDir, { recursive: true });
+      await writeFile(join(repoDir, 'program.md'), 'Improve the prompt conservatively.\n', 'utf8');
+      await writeFile(join(repoDir, 'system_prompt.md'), 'original prompt\n', 'utf8');
+      await execFileAsync('git', ['init'], { cwd: repoDir });
+      await execFileAsync('git', ['config', 'user.email', 'test@example.com'], { cwd: repoDir });
+      await execFileAsync('git', ['config', 'user.name', 'Test User'], { cwd: repoDir });
+      await execFileAsync('git', ['add', 'program.md', 'system_prompt.md'], { cwd: repoDir });
+      await execFileAsync('git', ['commit', '-m', 'initial'], { cwd: repoDir });
+      const seedSha = (await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: repoDir })).stdout.trim();
+      await writeFile(join(repoDir, 'system_prompt.md'), 'candidate prompt\n', 'utf8');
+      await execFileAsync('git', ['add', 'system_prompt.md'], { cwd: repoDir });
+      await execFileAsync('git', ['commit', '-m', 'candidate'], { cwd: repoDir });
+      const candidateSha = (await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: repoDir })).stdout.trim();
+      await execFileAsync('git', ['reset', '--hard', seedSha], { cwd: repoDir });
+
+      const resultsJsonlPath = join(controllerDir, 'results.jsonl');
+      await writeFile(resultsJsonlPath, `${JSON.stringify({
+        schemaVersion: FIXED_PROMPT_WAL_SCHEMA_VERSION,
+        type: 'prompt_candidate_committed',
+        id: 'id-1',
+        ts: 1,
+        runId: 'run-1',
+        roundId: 'round-0',
+        commitSha: candidateSha,
+        summary: 'candidate',
+        promptHash: hashSystemPrompt('candidate prompt\n'),
+        heldInTaskSetHash: 'sha256:held-in',
+        heldInTaskIds: ['hin-0'],
+        candidateRationaleHash: 'sha256:rationale',
+        candidateRationale: {
+          failurePattern: 'coverage_regression',
+          evidenceRefs: [],
+          hypothesis: 'restore held-in coverage',
+          targetedFix: 'clarify success criteria',
+          predictedFixes: [],
+          riskTasks: [],
+        },
+      })}\n`, 'utf8');
+
+      await assert.rejects(
+        runPromptOptimizationRun({
+          runId: 'run-1',
+          rounds: 1,
+          baselineRuns: 1,
+          gitCwdPath: repoDir,
+          agentCwdPath: join(repoDir, 'agent-cwd'),
+          programPath: join(repoDir, 'program.md'),
+          systemPromptPath: join(repoDir, 'system_prompt.md'),
+          resultsJsonlPath,
+          heldInResultsTsvPath: join(controllerDir, 'held-in.tsv'),
+          heldOutResultsTsvPath: join(controllerDir, 'held-out.tsv'),
+          heldInTasks: [{ id: 'hin-0', path: '/tasks/hin-0' }],
+          heldOutTasks: [{ id: 'hout-0', path: '/tasks/hout-0' }],
+          connection: testConnection(),
+          model: 'deepseek/deepseek-v4-flash',
+          provider: 'deepseek',
+          apiKeyFile: join(dir, 'missing-key'),
+          pricing: testPricing(),
+          makaRepoPath: '/missing/maka',
+          jobsDir: join(dir, 'jobs'),
+          rewardHackVerifierPatternsByTaskId: { 'hin-0': ['ZZZ_NO_VERIFIER_MATCH'] },
+          harborRunner: async () => { throw new Error('harbor must not run when prompt repo HEAD mismatches WAL'); },
+          metaAgent: async () => { throw new Error('meta-agent must not run when prompt repo HEAD mismatches WAL'); },
+          resumeFingerprint: 'fingerprint-test',
+        }),
+        /prompt repo HEAD does not match resumed RSI WAL state/,
+      );
     });
   });
 });

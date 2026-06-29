@@ -11,7 +11,6 @@ import type {
   PromptCandidateDecisionEvent,
   RsiControllerAttributionEvent,
 } from './fixed-prompt-controller.js';
-import type { PromptAcceptanceResult } from './prompt-acceptance-policy.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -30,7 +29,7 @@ export interface PromptOptimizationReplayPlan {
 }
 
 export interface ReplayedPromptDecisionRound {
-  result: PromptAcceptanceResult;
+  decision: PromptCandidateDecisionEvent;
   heldIn: FixedPromptControllerResult;
   heldOut: FixedPromptControllerResult | undefined;
   attribution: RsiControllerAttributionEvent;
@@ -127,12 +126,6 @@ export function replayPromptBaselinePartition(input: Parameters<typeof replayCon
   });
 }
 
-function decisionRequiresHeldOutEvidence(result: PromptAcceptanceResult): boolean {
-  return result.decision === 'keep'
-    || result.reason === 'held_out_regressed'
-    || result.metrics.candidate.heldOut.observed > 0;
-}
-
 export function replayPromptDecisionRound(input: {
   events: readonly FixedPromptWalEvent[];
   state: PromptOptimizationReplayState;
@@ -179,12 +172,8 @@ export function replayPromptDecisionRound(input: {
     ...(input.resumeFingerprint ? { resumeFingerprint: input.resumeFingerprint } : {}),
     resultsTsvPath: input.heldOutResultsTsvPath,
   });
-  const result = promptAcceptanceResultFromDecision(decision, decision.rewardHackScan);
-  if (!heldOut && decisionRequiresHeldOutEvidence(result)) {
-    throw new Error(`RSI WAL replay missing required held-out task evidence for ${input.roundId}`);
-  }
   return {
-    result,
+    decision,
     heldIn,
     heldOut,
     attribution,
@@ -343,29 +332,6 @@ function assertAttributionMatchesCandidate(
   if (event.candidateRationaleHash !== candidate.candidateRationaleHash) {
     throw new Error(`RSI WAL replay found attribution rationale mismatch for ${roundId}`);
   }
-}
-
-function promptAcceptanceResultFromDecision(
-  event: PromptCandidateDecisionEvent,
-  rewardHackScan: PromptAcceptanceResult['rewardHackScan'],
-): PromptAcceptanceResult {
-  return {
-    runId: event.runId,
-    roundId: event.roundId,
-    decision: event.decision,
-    reason: event.reason as PromptAcceptanceResult['reason'],
-    candidateCommitSha: event.candidateCommitSha,
-    previousLastKeptCommitSha: event.previousLastKeptCommitSha,
-    lastKeptCommitSha: event.lastKeptCommitSha,
-    previousHeldInReferencePassEligibleRate: event.previousHeldInReferencePassEligibleRate,
-    heldInReferencePassEligibleRate: event.heldInReferencePassEligibleRate,
-    originalCommitSha: event.originalCommitSha,
-    originalHeldOutPassEligibleRate: event.originalHeldOutPassEligibleRate,
-    heldInPassRateNoiseBand: event.heldInPassRateNoiseBand,
-    heldOutPassRateNoiseBand: event.heldOutPassRateNoiseBand,
-    rewardHackScan,
-    metrics: event.metrics as PromptAcceptanceResult['metrics'],
-  };
 }
 
 function matchesRun(event: FixedPromptWalEvent, runId: string | undefined): boolean {

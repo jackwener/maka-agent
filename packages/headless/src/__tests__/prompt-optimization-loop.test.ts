@@ -582,6 +582,55 @@ describe('runPromptOptimizationLoop', () => {
     });
   });
 
+  test('fails closed when a replayed decision disagrees with task evidence', async () => {
+    await withHarness(async (harness) => {
+      const heldInTasks = makeTasks('hin', 20);
+      const heldOutTasks = makeTasks('hout', 8);
+      const rewardFor = (roundId: string, taskId: string): number => {
+        const index = taskIndex(taskId);
+        if (taskId.startsWith('hout-')) return index < 4 ? 1 : 0;
+        if (roundId.startsWith('baseline-')) return index < 10 ? 1 : 0;
+        return 1;
+      };
+
+      await runLoop(harness, {
+        heldInTasks,
+        heldOutTasks,
+        rewardFor,
+        rounds: 1,
+        baselineRuns: 1,
+      });
+      const events = await readFixedPromptWal(harness.resultsJsonlPath);
+      const tamperedDecision = events.map((event) => (
+        event.type === 'prompt_candidate_decided' && event.roundId === 'round-0'
+          ? { ...event, reason: 'held_out_regressed' }
+          : event
+      ));
+      await writeFile(
+        harness.resultsJsonlPath,
+        `${tamperedDecision.map((event) => JSON.stringify(event)).join('\n')}\n`,
+        'utf8',
+      );
+
+      let nextRoundPrompted = false;
+      await assert.rejects(
+        runLoop(harness, {
+          heldInTasks,
+          heldOutTasks,
+          rewardFor,
+          rounds: 2,
+          baselineRuns: 1,
+          metaAgent: async (promptInput) => {
+            if (promptInput.roundId === 'round-1') nextRoundPrompted = true;
+            return fakeMetaAgent()(promptInput);
+          },
+        }),
+        /RSI WAL replay decision mismatch for round-0/,
+      );
+      assert.equal(nextRoundPrompted, false);
+    });
+  });
+
   test('fails closed when a replayed decision is missing RSI attribution evidence', async () => {
     await withHarness(async (harness) => {
       const heldInTasks = makeTasks('hin', 20);
@@ -751,6 +800,71 @@ describe('runPromptOptimizationLoop', () => {
       );
       assert.equal(eventsAfterResume.some((event) =>
         event.type === 'prompt_candidate_committed' && event.roundId === 'round-2'), false);
+    });
+  });
+
+  test('fails closed when prompt repo HEAD disagrees with WAL replay state', async () => {
+    await withHarness(async (harness) => {
+      const heldInTasks = makeTasks('hin', 20);
+      const heldOutTasks = makeTasks('hout', 8);
+      const rewardFor = (roundId: string, taskId: string): number => {
+        const index = taskIndex(taskId);
+        if (taskId.startsWith('hout-')) return index < 4 ? 1 : 0;
+        if (roundId.startsWith('baseline-')) return index < 10 ? 1 : 0;
+        return 1;
+      };
+
+      await runLoop(harness, {
+        heldInTasks,
+        heldOutTasks,
+        rewardFor,
+        rounds: 1,
+        baselineRuns: 1,
+      });
+      const events = await readFixedPromptWal(harness.resultsJsonlPath);
+      const commitIndex = events.findIndex((event) =>
+        event.type === 'prompt_candidate_committed' && event.roundId === 'round-0');
+      assert.ok(commitIndex > -1);
+      await writeFile(
+        harness.resultsJsonlPath,
+        `${events.slice(0, commitIndex + 1).map((event) => JSON.stringify(event)).join('\n')}\n`,
+        'utf8',
+      );
+      await execFileAsync('git', ['reset', '--hard', harness.originalCommitSha], { cwd: harness.repoDir });
+
+      const taskRuns: string[] = [];
+      await assert.rejects(
+        runLoop(harness, {
+          heldInTasks,
+          heldOutTasks,
+          rewardFor,
+          rounds: 1,
+          baselineRuns: 1,
+          onTaskRun: (roundId, taskId) => taskRuns.push(`${roundId}:${taskId}`),
+        }),
+        /prompt repo HEAD does not match resumed RSI WAL state/,
+      );
+      assert.deepEqual(taskRuns, []);
+    });
+  });
+
+  test('fails closed before baseline when prompt files are dirty', async () => {
+    await withHarness(async (harness) => {
+      const taskRuns: string[] = [];
+      await writeFile(harness.systemPromptPath, 'dirty prompt\n', 'utf8');
+
+      await assert.rejects(
+        runLoop(harness, {
+          heldInTasks: makeTasks('hin', 2),
+          heldOutTasks: makeTasks('hout', 1),
+          rewardFor: () => 1,
+          rounds: 1,
+          baselineRuns: 1,
+          onTaskRun: (roundId, taskId) => taskRuns.push(`${roundId}:${taskId}`),
+        }),
+        /prompt repo has uncommitted prompt file changes/,
+      );
+      assert.deepEqual(taskRuns, []);
     });
   });
 
