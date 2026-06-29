@@ -86,11 +86,13 @@ describe('isolated headless tools', () => {
     assert.ok(result.stdout.length < big.length);
   });
 
-  test('Bash command policy stops unsafe commands before executor invocation', async () => {
+  test('Bash delegates cleanup commands to the isolated executor', async () => {
+    const calls: unknown[] = [];
     const emitted: Array<{ stream: string; chunk: string }> = [];
     const bash = buildIsolatedBashTool({
-      async exec() {
-        throw new Error('destructive commands must not reach the isolated executor');
+      async exec(input) {
+        calls.push(input);
+        return { exitCode: 0, stdout: 'cleaned\n', stderr: '' };
       },
     });
 
@@ -104,11 +106,18 @@ describe('isolated headless tools', () => {
         abortSignal: new AbortController().signal,
         emitOutput: (stream, chunk) => emitted.push({ stream, chunk }),
       },
-    ) as { exitCode: number; stderr: string };
+    ) as { exitCode: number; stdout: string; stderr: string };
 
-    assert.equal(result.exitCode, 126);
-    assert.match(result.stderr, /Maka command policy did not run this Bash request/);
-    assert.deepEqual(emitted, [{ stream: 'stderr', chunk: result.stderr }]);
+    assert.deepEqual(calls, [{
+      command: 'rm -f *.gcda *.gcno *.gcov',
+      cwd: '/workspace',
+      timeoutMs: 120_000,
+      boundedTail: true,
+    }]);
+    assert.equal(result.exitCode, 0);
+    assert.equal(result.stdout, 'cleaned\n');
+    assert.equal(result.stderr, '');
+    assert.deepEqual(emitted, [{ stream: 'stdout', chunk: 'cleaned\n' }]);
   });
 
   test('only Bash opts into bounded-tail; Read/Glob/Grep request full output', async () => {

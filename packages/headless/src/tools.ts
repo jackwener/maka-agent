@@ -12,7 +12,6 @@ import type { HeavyTaskEvidenceRecorder } from './heavy-task-evidence.js';
 import { buildHeavyTaskProgressTools, type HeavyTaskProgressRecorder } from './heavy-task-progress.js';
 import { buildHeavyTaskSelfCheckTools, type HeavyTaskSelfCheckRecorder } from './heavy-task-self-check.js';
 import type { IsolatedToolExecutor } from './isolation.js';
-import { checkDestructiveShellCommand, formatDestructiveCommandGuardMessage } from './destructive-command-guard.js';
 
 export interface BuildIsolatedHeadlessToolsOptions {
   heavyTaskEvidence?: HeavyTaskEvidenceRecorder;
@@ -90,24 +89,6 @@ export function buildIsolatedBashTool(
         cwd,
         timeoutMs: timeout_ms ?? 120_000,
       };
-      const guard = checkDestructiveShellCommand(command);
-      if (!guard.allowed) {
-        const result = {
-          exitCode: 126,
-          stdout: '',
-          stderr: `${formatDestructiveCommandGuardMessage(guard)}\n`,
-        };
-        emitOutput('stderr', result.stderr);
-        await options.heavyTaskEvidence?.recordToolEvidence({ name: 'Bash', input, result }, ctx);
-        return {
-          kind: 'terminal',
-          cwd,
-          cmd: command,
-          exitCode: result.exitCode,
-          stdout: result.stdout,
-          stderr: result.stderr,
-        };
-      }
       // boundedTail: Bash is the one caller that wants a recoverable tail of a
       // huge, never-killed output. Read/Glob/Grep deliberately omit it so they
       // get full, head-first content from the executor.
