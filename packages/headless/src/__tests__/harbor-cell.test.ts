@@ -1221,6 +1221,54 @@ describe('runHarborCell', () => {
     assert.equal(snapshot.activeToolResultPrune?.maxCurrentResultEstimatedTokens, 2048);
   });
 
+  test('Harbor parses semantic compact policy for headless runs', () => {
+    const options = buildHarborCellContextBudgetBackendOptions({
+      MAKA_CONTEXT_SEMANTIC_COMPACT: 'on',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_MODE: 'replace',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_MIN_STEP_NUMBER: '2',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_MAX_ACTIVE_ESTIMATED_TOKENS: '4096',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_MIN_RECENT_MESSAGES: '3',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_MIN_RECENT_TOOL_PAIRS: '2',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_MAX_SUMMARY_ESTIMATED_TOKENS: '512',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_MIN_SAVINGS_TOKENS: '128',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_MIN_SAVINGS_RATIO: '0.2',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_MAX_CALL_TOKENS: '768',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_TIMEOUT_MS: '30000',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_ARCHIVE_REQUIRED: 'true',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_BENCHMARK_STATE_CARDS: 'true',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_MODEL: 'compact-model',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_PROMPT_VERSION: 'prompt-v-test',
+    });
+
+    assert.equal(options.contextBudget?.semanticCompact?.enabled, true);
+    assert.equal(options.contextBudget?.semanticCompact?.mode, 'replace');
+    assert.equal(options.contextBudget?.semanticCompact?.minStepNumber, 2);
+    assert.equal(options.contextBudget?.semanticCompact?.maxActiveEstimatedTokens, 4096);
+    assert.equal(options.contextBudget?.semanticCompact?.minRecentMessages, 3);
+    assert.equal(options.contextBudget?.semanticCompact?.minRecentToolPairs, 2);
+    assert.equal(options.contextBudget?.semanticCompact?.maxSummaryEstimatedTokens, 512);
+    assert.equal(options.contextBudget?.semanticCompact?.minSavingsTokens, 128);
+    assert.equal(options.contextBudget?.semanticCompact?.minSavingsRatio, 0.2);
+    assert.equal(options.contextBudget?.semanticCompact?.maxCompactCallTokens, 768);
+    assert.equal(options.contextBudget?.semanticCompact?.timeoutMs, 30000);
+    assert.equal(options.contextBudget?.semanticCompact?.archiveRequired, true);
+    assert.equal(options.contextBudget?.semanticCompact?.benchmarkStateCards, true);
+    assert.equal(options.contextBudget?.semanticCompact?.summarizerModel, 'compact-model');
+    assert.equal(options.contextBudget?.semanticCompact?.promptVersion, 'prompt-v-test');
+
+    const snapshot = buildHarborCellContextBudgetPolicySnapshot({
+      MAKA_CONTEXT_SEMANTIC_COMPACT: 'on',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_MODE: 'validate_only',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_MIN_RECENT_TOOL_PAIRS: '1',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_MIN_SAVINGS_TOKENS: '64',
+    });
+    assert.equal(snapshot?.enabled, true);
+    if (!snapshot?.enabled) throw new Error('expected context budget snapshot to be enabled');
+    assert.equal(snapshot.semanticCompact?.mode, 'validate_only');
+    assert.equal(snapshot.semanticCompact?.minRecentToolPairs, 1);
+    assert.equal(snapshot.semanticCompact?.minSavingsTokens, 64);
+  });
+
   test('Harbor tool builder keeps the six container-native tools non-interactive', () => {
     const tools = buildHarborCellAiSdkTools(fakeToolExecutor());
     const names = tools.map((tool) => tool.name);
