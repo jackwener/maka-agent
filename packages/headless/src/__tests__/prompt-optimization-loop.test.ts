@@ -330,6 +330,74 @@ describe('runPromptOptimizationLoop', () => {
     });
   });
 
+  test('fails closed when replaying task evidence without a resume fingerprint', async () => {
+    await withHarness(async (harness) => {
+      const heldInTasks = makeTasks('hin', 20);
+      const heldOutTasks = makeTasks('hout', 8);
+      const rewardFor = (roundId: string, taskId: string): number => {
+        const index = taskIndex(taskId);
+        if (taskId.startsWith('hout-')) return index < 4 ? 1 : 0;
+        if (roundId.startsWith('baseline-')) return index < 10 ? 1 : 0;
+        return 1;
+      };
+
+      await runLoop(harness, {
+        heldInTasks,
+        heldOutTasks,
+        rewardFor,
+        rounds: 1,
+        baselineRuns: 1,
+        resumeFingerprint: null,
+      });
+
+      await assert.rejects(
+        runLoop(harness, {
+          heldInTasks,
+          heldOutTasks,
+          rewardFor,
+          rounds: 2,
+          baselineRuns: 1,
+          resumeFingerprint: null,
+        }),
+        /RSI WAL replay requires a resume fingerprint/,
+      );
+    });
+  });
+
+  test('fails closed when task source changes under the same task ids', async () => {
+    await withHarness(async (harness) => {
+      const heldInTasks = makeTasks('hin', 20);
+      const heldOutTasks = makeTasks('hout', 8);
+      const rewardFor = (roundId: string, taskId: string): number => {
+        const index = taskIndex(taskId);
+        if (taskId.startsWith('hout-')) return index < 4 ? 1 : 0;
+        if (roundId.startsWith('baseline-')) return index < 10 ? 1 : 0;
+        return 1;
+      };
+
+      await runLoop(harness, {
+        heldInTasks,
+        heldOutTasks,
+        rewardFor,
+        rounds: 1,
+        baselineRuns: 1,
+        resumeFingerprint: 'task-source-v1',
+      });
+
+      await assert.rejects(
+        runLoop(harness, {
+          heldInTasks: heldInTasks.map((task) => ({ ...task, path: `${task.path}-changed` })),
+          heldOutTasks: heldOutTasks.map((task) => ({ ...task, path: `${task.path}-changed` })),
+          rewardFor,
+          rounds: 2,
+          baselineRuns: 1,
+          resumeFingerprint: 'task-source-v2',
+        }),
+        /RSI WAL replay identity mismatch/,
+      );
+    });
+  });
+
   test('rebuilds held-in TSV from WAL before prompting the next resumed round', async () => {
     await withHarness(async (harness) => {
       const heldInTasks = makeTasks('hin', 20);
@@ -966,7 +1034,7 @@ interface RunLoopOptions {
   onTaskRun?: (roundId: string, taskId: string) => void;
   metaAgent?: MetaAgent;
   originalCommitSha?: string;
-  resumeFingerprint?: string;
+  resumeFingerprint?: string | null;
 }
 
 async function runLoop(harness: Harness, options: RunLoopOptions) {
@@ -993,7 +1061,7 @@ async function runLoop(harness: Harness, options: RunLoopOptions) {
     git: createCliPromptCandidateGit({ cwd: harness.repoDir, systemPromptPath: harness.systemPromptPath }),
     originalCommitSha: options.originalCommitSha ?? harness.originalCommitSha,
     rewardHackVerifierPatternsByTaskId,
-    ...(options.resumeFingerprint ? { resumeFingerprint: options.resumeFingerprint } : {}),
+    ...(options.resumeFingerprint !== null ? { resumeFingerprint: options.resumeFingerprint ?? 'fingerprint-test' } : {}),
     ...(options.costCeilingUsd !== undefined ? { costCeilingUsd: options.costCeilingUsd } : {}),
     ...(options.maxInfraFailureRate !== undefined ? { maxInfraFailureRate: options.maxInfraFailureRate } : {}),
     ...(options.minStableHeldInTasks !== undefined ? { minStableHeldInTasks: options.minStableHeldInTasks } : {}),

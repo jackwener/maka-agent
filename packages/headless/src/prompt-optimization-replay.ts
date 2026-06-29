@@ -39,10 +39,13 @@ export function replayControllerSweep(input: {
     && event.roundId === input.roundId
     && requested.has(event.taskId));
   if (matched.length === 0) return undefined;
+  if (input.resumeFingerprint === undefined) {
+    throw new Error(`RSI WAL replay requires a resume fingerprint for ${input.roundId}`);
+  }
 
   const byTaskId = new Map<string, FixedPromptTaskWalEvent>();
   for (const event of matched) {
-    if (input.resumeFingerprint !== undefined && event.resumeFingerprint !== input.resumeFingerprint) {
+    if (event.resumeFingerprint !== input.resumeFingerprint) {
       throw new Error(`RSI WAL replay identity mismatch for ${event.roundId}/${event.taskId}`);
     }
     const eventPromptHash = promptHashForReplayIdentity(event);
