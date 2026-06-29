@@ -21,7 +21,6 @@ export interface PromptOptimizationReplayState {
   expectedPromptRepoHead: string;
   candidateByRoundId: ReadonlyMap<string, PromptCandidateCommittedEvent>;
   decisionByRoundId: ReadonlyMap<string, PromptCandidateDecisionEvent>;
-  attributionByRoundId: ReadonlyMap<string, RsiControllerAttributionEvent>;
 }
 
 export interface PromptOptimizationReplayPlan {
@@ -34,7 +33,7 @@ export interface ReplayedPromptDecisionRound {
   result: PromptAcceptanceResult;
   heldIn: FixedPromptControllerResult;
   heldOut: FixedPromptControllerResult | undefined;
-  attribution: RsiControllerAttributionEvent | undefined;
+  attribution: RsiControllerAttributionEvent;
 }
 
 export async function buildPromptOptimizationReplayPlan(input: {
@@ -154,10 +153,13 @@ export function replayPromptDecisionRound(input: {
   if (!decision.rewardHackScan) {
     throw new Error(`RSI WAL replay missing reward-hack scan evidence for ${input.roundId}`);
   }
-  const attribution = input.state.attributionByRoundId.get(input.roundId);
-  if (!attribution) {
-    throw new Error(`RSI WAL replay missing RSI attribution evidence for ${input.roundId}`);
-  }
+  const attribution = replayDecisionAttribution({
+    events: input.events,
+    runId: input.runId,
+    roundId: input.roundId,
+    candidate,
+    decision,
+  });
   const heldIn = replayRequiredControllerSweep({
     events: input.events,
     runId: input.runId,
@@ -210,7 +212,6 @@ export async function derivePromptOptimizationReplayState(input: {
   let expectedPromptRepoHead = seedCommitSha;
   const candidateByRoundId = new Map<string, PromptCandidateCommittedEvent>();
   const decisionByRoundId = new Map<string, PromptCandidateDecisionEvent>();
-  const attributionByRoundId = new Map<string, RsiControllerAttributionEvent>();
 
   for (const event of input.events) {
     if (!matchesRun(event, input.runId)) continue;
@@ -265,19 +266,6 @@ export async function derivePromptOptimizationReplayState(input: {
       expectedPromptRepoHead = event.lastKeptCommitSha;
       continue;
     }
-    if (event.type === 'rsi_controller_attribution') {
-      if (attributionByRoundId.has(event.roundId)) {
-        throw new Error(`RSI WAL replay found duplicate RSI attribution for ${event.roundId}`);
-      }
-      const candidate = candidateByRoundId.get(event.roundId);
-      if (!candidate || candidate.commitSha !== event.candidateCommitSha) {
-        throw new Error(`RSI WAL replay found attribution candidate mismatch for ${event.roundId}`);
-      }
-      if (candidate.heldInTaskSetHash !== event.heldInTaskSetHash) {
-        throw new Error(`RSI WAL replay found attribution task-set mismatch for ${event.roundId}`);
-      }
-      attributionByRoundId.set(event.roundId, event);
-    }
   }
 
   return {
@@ -286,15 +274,75 @@ export async function derivePromptOptimizationReplayState(input: {
     expectedPromptRepoHead,
     candidateByRoundId,
     decisionByRoundId,
-    attributionByRoundId,
   };
 }
 
 function hasHistoricalPromptOptimizationState(state: PromptOptimizationReplayState): boolean {
   return state.candidateByRoundId.size > 0
     || state.decisionByRoundId.size > 0
-    || state.attributionByRoundId.size > 0
     || state.expectedPromptRepoHead !== state.seedCommitSha;
+}
+
+function replayDecisionAttribution(input: {
+  events: readonly FixedPromptWalEvent[];
+  runId: string;
+  roundId: string;
+  candidate: PromptCandidateCommittedEvent;
+  decision: PromptCandidateDecisionEvent;
+}): RsiControllerAttributionEvent {
+  const decisionIndex = input.events.findIndex((event) => event === input.decision);
+  if (decisionIndex < 0) {
+    throw new Error(`RSI WAL replay missing decision event for ${input.roundId}`);
+  }
+  const preDecisionAttribution = input.events.slice(0, decisionIndex).find((event) =>
+    attributionMatchesCandidate(event, input.runId, input.roundId, input.candidate));
+  if (preDecisionAttribution) {
+    throw new Error(`RSI WAL replay found RSI attribution before decision for ${input.roundId}`);
+  }
+
+  let attribution: RsiControllerAttributionEvent | undefined;
+  for (const event of input.events.slice(decisionIndex + 1)) {
+    if (!matchesRun(event, input.runId)) continue;
+    if (event.type === 'prompt_candidate_committed') break;
+    if (event.type !== 'rsi_controller_attribution' || event.roundId !== input.roundId) continue;
+    assertAttributionMatchesCandidate(event, input.candidate, input.roundId);
+    if (attribution) {
+      throw new Error(`RSI WAL replay found duplicate RSI attribution for ${input.roundId}`);
+    }
+    attribution = event;
+  }
+  if (!attribution) {
+    throw new Error(`RSI WAL replay missing post-decision RSI attribution evidence for ${input.roundId}`);
+  }
+  return attribution;
+}
+
+function attributionMatchesCandidate(
+  event: FixedPromptWalEvent,
+  runId: string,
+  roundId: string,
+  candidate: PromptCandidateCommittedEvent,
+): event is RsiControllerAttributionEvent {
+  return event.type === 'rsi_controller_attribution'
+    && event.runId === runId
+    && event.roundId === roundId
+    && event.candidateCommitSha === candidate.commitSha;
+}
+
+function assertAttributionMatchesCandidate(
+  event: RsiControllerAttributionEvent,
+  candidate: PromptCandidateCommittedEvent,
+  roundId: string,
+): void {
+  if (event.candidateCommitSha !== candidate.commitSha) {
+    throw new Error(`RSI WAL replay found attribution candidate mismatch for ${roundId}`);
+  }
+  if (event.heldInTaskSetHash !== candidate.heldInTaskSetHash) {
+    throw new Error(`RSI WAL replay found attribution task-set mismatch for ${roundId}`);
+  }
+  if (event.candidateRationaleHash !== candidate.candidateRationaleHash) {
+    throw new Error(`RSI WAL replay found attribution rationale mismatch for ${roundId}`);
+  }
 }
 
 function promptAcceptanceResultFromDecision(

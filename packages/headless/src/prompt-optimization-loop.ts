@@ -439,9 +439,7 @@ export async function runPromptOptimizationLoop(
       previousCandidateHeldInEvents = existingHeldInEvents;
       latestHeldInFeedbackEvents = existingHeldInEvents;
       nextHeldInDigests = await digestsFor(existingHeldInEvents);
-      nextPromptAttribution = existingDecisionRound.attribution
-        ? projectRsiPromptAttribution(existingDecisionRound.attribution)
-        : undefined;
+      nextPromptAttribution = projectRsiPromptAttribution(existingDecisionRound.attribution);
       continue;
     }
 
