@@ -25,10 +25,15 @@ import {
 import type { Config, ResultRecord, Task } from './contracts.js';
 import { registerFakeBackend } from './backends.js';
 import {
+  summarizeCellTools,
+  type HarborCellToolSummary,
+} from './cell-output.js';
+import {
   createHeavyTaskEvidenceRecorder,
   renderHeavyTaskEvidenceForPrompt,
 } from './heavy-task-evidence.js';
 import { configWithHeavyTaskPolicy, resolveHeavyTaskMode } from './heavy-task-policy.js';
+import { configWithEconomyTaskPolicy, resolveEconomyTaskMode } from './economy-task-policy.js';
 import {
   createHeavyTaskProgressRecorder,
   HEAVY_TASK_PROGRESS_TOOL_NAMES,
@@ -145,7 +150,9 @@ export async function runTaskOnce(
   const startedAt = now();
   const verifier = normalizeVerifier(task);
   const heavyTaskMode = resolveHeavyTaskMode(config, task);
-  const effectiveConfig = configWithHeavyTaskPolicy(config, heavyTaskMode);
+  const configAfterHeavy = configWithHeavyTaskPolicy(config, heavyTaskMode);
+  const economyTaskMode = resolveEconomyTaskMode(configAfterHeavy, task);
+  const effectiveConfig = configWithEconomyTaskPolicy(configAfterHeavy, economyTaskMode);
   const priorProjection = heavyTaskMode.enabled ? await taskRunStore.project(taskRunId) : undefined;
   const priorProgressPrompt = priorProjection ? renderHeavyTaskProgressForPrompt(priorProjection) : undefined;
   const priorSelfCheckPrompt = priorProjection ? renderHeavyTaskSelfCheckForPrompt(priorProjection) : undefined;
@@ -431,6 +438,7 @@ export async function runTaskOnce(
         scoringWorkspaceContract: 'v1_copy_snapshot_then_restore_protected_paths_in_disposable_scoring_workspace',
         isolation: runtimeSummary.isolation,
         budget: runtimeSummary.budget,
+        tools: runtimeSummary.tools,
         ...(finalScore.details ? { finalScore: finalScore.details } : {}),
       },
     };
@@ -955,6 +963,7 @@ interface RuntimeSummary {
   artifactRefs: Array<Record<string, unknown>>;
   isolation: Record<string, unknown>;
   budget: Record<string, unknown>;
+  tools: HarborCellToolSummary;
 }
 
 function summarizeRuntime(invocation: InvocationResult, isolation: RunExperimentDeps['realBackendIsolation']): RuntimeSummary {
@@ -969,6 +978,7 @@ function summarizeRuntime(invocation: InvocationResult, isolation: RunExperiment
     artifactRefs: collectArtifactRefs(invocation.events),
     isolation: isolation ? { kind: isolation.kind, label: isolation.label } : { kind: 'inert_fake_backend' },
     budget: summarizeBudget(invocation),
+    tools: summarizeCellTools(invocation.events),
   };
 }
 

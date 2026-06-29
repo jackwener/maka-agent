@@ -51,6 +51,10 @@ export interface TaskRunExport {
   verifier?: VerifierResult & { benchmark?: Record<string, unknown> };
   score?: ScoreResult;
   budget?: Record<string, unknown>;
+  economy?: {
+    tokens?: Record<string, unknown>;
+    tools?: Record<string, unknown>;
+  };
   policy?: {
     heavyTask?: TaskRunProjection['heavyTaskMode'];
   };
@@ -200,6 +204,7 @@ export function taskRunExportFromProjection(
       : undefined,
     score,
     budget: recordValue(scoreDetails.budget) ? scoreDetails.budget as Record<string, unknown> : undefined,
+    economy: economyFromDetails(scoreDetails),
     policy,
     heavyTask,
     progress,
@@ -248,6 +253,8 @@ export function renderTaskRunMarkdown(exported: TaskRunExport): string {
     `- submitted_snapshot: ${snapshotValue(exported.workspace.submittedSnapshot)}`,
     `- diff: ${exported.workspace.diff.status}`,
     `- artifacts: ${exported.artifacts.items.length}`,
+    `- tool_calls: ${exported.economy?.tools?.actualToolCalls ?? 'unknown'}`,
+    `- tokens: ${exported.economy?.tokens?.total ?? 'unknown'}`,
     '',
   ];
   if (exported.artifacts.items.length > 0) {
@@ -287,6 +294,7 @@ function compactResultView(exported: TaskRunExport): Record<string, unknown> {
         }
       : undefined,
     score: exported.score,
+    economy: exported.economy,
     policy: exported.policy,
     heavyTask: exported.heavyTask,
     progress: exported.progress,
@@ -420,6 +428,16 @@ function fence(value: string): string {
 
 function md(value: string): string {
   return value.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+}
+
+function economyFromDetails(scoreDetails: Record<string, unknown>): TaskRunExport['economy'] {
+  const budget = recordValue(scoreDetails.budget) ? scoreDetails.budget : undefined;
+  const tools = recordValue(scoreDetails.tools) ? scoreDetails.tools : undefined;
+  if (!budget && !tools) return undefined;
+  return {
+    ...(recordValue(budget) && recordValue(budget.totals) ? { tokens: budget.totals as Record<string, unknown> } : {}),
+    ...(tools ? { tools } : {}),
+  };
 }
 
 function recordValue(value: unknown): value is Record<string, unknown> {

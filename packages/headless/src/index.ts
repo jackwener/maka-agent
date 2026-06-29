@@ -189,6 +189,15 @@ export {
   type HeavyTaskModeSelection,
   type HeavyTaskModeTriggerSource,
 } from './heavy-task-policy.js';
+export {
+  appendEconomyTaskPolicyToSystemPrompt,
+  buildEconomyTaskSystemPromptPolicy,
+  configWithEconomyTaskPolicy,
+  ECONOMY_TASK_POLICY_VERSION,
+  resolveEconomyTaskMode,
+  type EconomyTaskModeSelection,
+  type EconomyTaskModeTriggerSource,
+} from './economy-task-policy.js';
 export type {
   HeavyTaskInventorySubmitInput,
   HeavyTaskProgressRecorder,

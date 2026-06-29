@@ -122,6 +122,12 @@ describe('task run export', () => {
           details: {
             runtimeRefs: { runtimeEventIds: ['runtime-1'] },
             budget: { totals: { total: 3 } },
+            tools: {
+              providerVisibleToolCount: 2,
+              actualToolCalls: 2,
+              actualToolNames: ['Read', 'Bash'],
+              actualToolCallCounts: { Read: 1, Bash: 1 },
+            },
             submittedSnapshot: { id: 'snapshot-1', manifestHash: 'sha256:abc' },
           },
         },
@@ -142,6 +148,15 @@ describe('task run export', () => {
     assert.equal(exported.artifacts.byKind.workspace_diff?.[0]?.path, '/logs/artifacts/submission.diff');
     assert.equal(exported.verifier?.benchmark?.instanceId, 'tb-1');
     assert.deepEqual(exported.budget, { totals: { total: 3 } });
+    assert.deepEqual(exported.economy, {
+      tokens: { total: 3 },
+      tools: {
+        providerVisibleToolCount: 2,
+        actualToolCalls: 2,
+        actualToolNames: ['Read', 'Bash'],
+        actualToolCallCounts: { Read: 1, Bash: 1 },
+      },
+    });
     assert.equal(exported.policy?.heavyTask?.enabled, true);
     assert.equal(exported.policy?.heavyTask?.triggerReason, 'long benchmark task');
     assert.equal(exported.isolation.policy?.mode, 'inert_fake_backend');
@@ -150,6 +165,8 @@ describe('task run export', () => {
     const markdown = renderTaskRunMarkdown(exported);
     assert.match(markdown, /verifier_authority: official_harbor_verifier authoritative=true/);
     assert.match(markdown, /artifacts: 2/);
+    assert.match(markdown, /tool_calls: 2/);
+    assert.match(markdown, /tokens: 3/);
     assert.match(markdown, /workspace_diff/);
   });
 

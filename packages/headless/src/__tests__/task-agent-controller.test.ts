@@ -353,6 +353,11 @@ describe('runTaskOnce', () => {
         assert.equal(result.projection.isolation?.mode, 'inert_fake_backend');
         assert.equal(result.projection.workspaceLease?.taskRunId, result.taskRunId);
         assert.equal(result.projection.toolExecutors[0]?.isolationMode, 'inert_fake_backend');
+        const tools = result.projection.latestScoreResult?.details?.tools as Record<string, unknown> | undefined;
+        assert.ok(tools, 'score details should include tool economy summary');
+        assert.equal(tools.actualToolCalls, 0);
+        assert.deepEqual(tools.actualToolNames, []);
+        assert.deepEqual(tools.actualToolCallCounts, {});
       } finally {
         SessionManager.prototype.sendMessage = original;
       }

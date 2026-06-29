@@ -149,9 +149,21 @@ export interface Config {
    * system prompt and records the selection reason in task-run telemetry.
    */
   heavyTaskMode?: boolean | HeavyTaskModeConfig;
+  /**
+   * Explicit opt-in/out for economy-task benchmark behavior. When enabled,
+   * headless appends the centralized economy-task policy to the model-visible
+   * system prompt for simple data-transform tasks.
+   */
+  economyTaskMode?: boolean | EconomyTaskModeConfig;
 }
 
 export interface HeavyTaskModeConfig {
+  enabled?: boolean;
+  reason?: string;
+  policyVersion?: string;
+}
+
+export interface EconomyTaskModeConfig {
   enabled?: boolean;
   reason?: string;
   policyVersion?: string;

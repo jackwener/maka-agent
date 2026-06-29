@@ -2,6 +2,7 @@
 
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import {
   buildAiSdkCellBackendRegistration,
   buildHarborCellContextBudgetPolicySnapshot,
@@ -168,7 +169,7 @@ function randomId() {
   return globalThis.crypto?.randomUUID?.() ?? `host_cell_${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}`;
 }
 
-if (process.argv[1] && new URL(process.argv[1], 'file:').href === import.meta.url) {
+if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
   main().catch((error) => {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`maka run-host-cell failed: ${message}`);
