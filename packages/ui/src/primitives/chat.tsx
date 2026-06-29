@@ -696,10 +696,17 @@ const previewVariants = cva("", {
         + " [&_a]:font-semibold [&_a]:text-[color:var(--foreground)] [&_a]:no-underline [&_a:hover]:underline"
         + " [&_li_small]:text-[11px] [&_li_small]:text-[color:var(--foreground-50)] [&_li_small]:uppercase [&_li_small]:tracking-[0.04em]"
         + " [&_li_p]:m-0 [&_li_p]:text-[12px] [&_li_p]:text-[color:var(--foreground-70)] [&_li_p]:leading-[1.45] [&_li_p]:[white-space:pre-wrap] [&_li_p]:[word-break:break-word]",
-      // `.maka-web-search-error` — the destructive container tint (layered over
-      // the `web-search` part). `color-mix` kept verbatim as an arbitrary value.
+      // `.maka-web-search-error` — the destructive container tint, layered over
+      // the `web-search` part via `cn`. It MUST restate the FULL `[border:…]`
+      // shorthand + `bg-[…]` util — NOT a bare `[border-color:…]`/`[background:…]`
+      // longhand. tailwind-merge only collapses utilities of the SAME property
+      // form, so matching the base part's forms lets the error (last in `cn`)
+      // collapse the base and win deterministically. A bare longhand survives
+      // un-collapsed and then loses to the base shorthand by Tailwind's emission
+      // order (the neutral border/bg is emitted later), silently dropping the
+      // destructive tint. `color-mix` kept verbatim as an arbitrary value.
       "web-search-error":
-        "[border-color:color-mix(in_oklab,var(--destructive-text)_32%,var(--foreground-10))] [background:color-mix(in_oklab,var(--destructive-text)_8%,var(--foreground-3))]",
+        "[border:1px_solid_color-mix(in_oklab,var(--destructive-text)_32%,var(--foreground-10))] bg-[color-mix(in_oklab,var(--destructive-text)_8%,var(--foreground-3))]",
       // `.maka-web-search-error-message`
       "web-search-error-message":
         "m-0 text-[12px] leading-[1.45] [white-space:pre-wrap] [word-break:break-word] text-[color:var(--destructive-text)]",

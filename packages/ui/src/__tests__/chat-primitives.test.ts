@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Bubble, LiveIndicator, Marker, markerVariants, Message, streamVariants, toolVariants } from '../primitives/chat.js';
+import { Bubble, LiveIndicator, Marker, markerVariants, Message, previewVariants, streamVariants, toolVariants } from '../primitives/chat.js';
 import { buttonVariants, cn } from '../ui.js';
 
 // The re-anchored renderer selectors key off the primitives' own `data-slot` /
@@ -175,6 +175,40 @@ test('LiveIndicator pins the canonical pulse + reduced-motion fallback over conf
 // and any build/refactor that re-doubles or drops it silently breaks the
 // `waiting_permission` border/dot tint (invisible until rendered — the diff
 // harness caught exactly this).
+// PR4 — the web-search error card layers `web-search-error` over `web-search`
+// via `cn`. Unlike the pure-container previews (source string == computed style
+// for free), this one only holds if both the base border/bg AND the error
+// override use the SAME utility property form so tailwind-merge COLLAPSES them —
+// then the error, last in `cn`, wins deterministically. A bare
+// `[border-color:…]`/`[background:…]` longhand would survive un-collapsed and
+// then lose to the base `[border:…]` shorthand by Tailwind's emission order,
+// silently dropping the destructive tint (invisible until rendered — the exact
+// regression this pins). No browser, no emission-order dependency: the merged
+// string itself is the proof.
+test('web-search-error tint collapses the neutral base border/bg so the destructive pixels win', () => {
+  const merged = cn(
+    previewVariants({ part: 'web-search' }),
+    previewVariants({ part: 'web-search-error' }),
+  );
+  // the neutral base border + background must be merged OUT…
+  assert.ok(
+    !merged.includes('[border:1px_solid_var(--foreground-10)]'),
+    'neutral base border must be collapsed by the error tint',
+  );
+  assert.ok(
+    !merged.split(/\s+/).includes('bg-[var(--foreground-3)]'),
+    'neutral base background must be collapsed by the error tint',
+  );
+  // …and only the destructive tints survive (kept as the collapse-safe
+  // `[border:…]` shorthand + `bg-[…]` util, never a bare longhand).
+  assert.match(merged, /\[border:1px_solid_color-mix\(in_oklab,var\(--destructive-text\)_32%/);
+  assert.match(merged, /bg-\[color-mix\(in_oklab,var\(--destructive-text\)_8%/);
+  assert.ok(
+    !merged.includes('[border-color:color-mix') && !merged.includes('[background:color-mix'),
+    'the error tint must use the collapse-safe shorthand/util forms, never a bare longhand',
+  );
+});
+
 test('toolVariants stays literal and emits the single-backslash waiting_permission escape', () => {
   const item = toolVariants({ part: 'item' });
   const dot = toolVariants({ part: 'dot' });
