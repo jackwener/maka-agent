@@ -9,7 +9,12 @@
 //   MAKA_PROMPT_ROUNDS=1 MAKA_PROMPT_BASELINE_RUNS=1 \
 //   node packages/headless/harbor/run-prompt-optimization.mjs
 //
-// Full run: drop the count/round overrides (defaults 60/20, 3 baseline, 10 rounds).
+// Profiles:
+//   MAKA_PROMPT_PROFILE=smoke  # 2/1 tasks, 1 baseline, 1 round, $0.50 guard
+//   MAKA_PROMPT_PROFILE=pilot  # 12/4 tasks, 1 baseline, 3 rounds, $2 guard
+//   MAKA_PROMPT_PROFILE=full   # 60/20 tasks, 3 baseline, 10 rounds, $30 guard
+// Omitted profile defaults to pilot. Explicit MAKA_PROMPT_* knobs still override
+// the selected profile values.
 
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { availableParallelism, homedir } from 'node:os';
@@ -47,6 +52,9 @@ import {
   buildPromptOptimizationToolchainFingerprint,
   ensurePromptOptimizationRunManifest,
 } from '#prompt-optimization-manifest';
+import {
+  resolvePromptOptimizationProfile,
+} from '#prompt-optimization-profile';
 
 // DeepSeek per-1M USD pricing (0.145 USD/CNY). "input" is the cache-miss rate;
 // cache writes carry no separate charge, so cacheWriteUsdPer1M is 0. Vendor
@@ -163,22 +171,24 @@ async function main() {
   const model = 'deepseek/deepseek-v4-flash';
   const provider = process.env.MAKA_PROMPT_PROVIDER || 'deepseek';
   const baseUrl = process.env.MAKA_PROMPT_BASE_URL || 'https://api.deepseek.com';
+  const promptProfile = resolvePromptOptimizationProfile(process.env.MAKA_PROMPT_PROFILE);
   // Rounds must be >= 1: a 0-round run is baseline-only and would trivially pass
   // the structural smoke (minimumRounds 0), contradicting the unattended >=1-round
   // validation this runner exists to perform.
-  const rounds = envPosInt('MAKA_PROMPT_ROUNDS', 10);
-  const baselineRuns = envInt('MAKA_PROMPT_BASELINE_RUNS', 3);
-  const heldInCount = envInt('MAKA_PROMPT_HELD_IN', 60);
-  const heldOutCount = envInt('MAKA_PROMPT_HELD_OUT', 20);
+  const rounds = envPosInt('MAKA_PROMPT_ROUNDS', promptProfile.rounds);
+  const baselineRuns = envInt('MAKA_PROMPT_BASELINE_RUNS', promptProfile.baselineRuns);
+  const heldInCount = envInt('MAKA_PROMPT_HELD_IN', promptProfile.heldInCount);
+  const heldOutCount = envInt('MAKA_PROMPT_HELD_OUT', promptProfile.heldOutCount);
   const runId = process.env.MAKA_PROMPT_RUN_ID || `prompt-opt-${Date.now()}`;
   const runRoot = resolveFixedPromptRunRoot(outDir, runId, 'MAKA_PROMPT_RUN_ID');
-  // Default to a $30 ceiling: an unattended full run with no cost guard at all
-  // is the worse failure mode than stopping early. An explicit value overrides.
+  // Default to the selected profile's cost guard: an unattended run with no cost
+  // guard at all is the worse failure mode than stopping early. An explicit
+  // value overrides.
   // This is a round/sweep-boundary ceiling, not a hard mid-task cap: the loop
   // checks the budget before each baseline sweep and before the held-out sweep,
   // so a single in-flight sweep can still complete past the ceiling before the
   // loop stops. It bounds overshoot to one sweep, it does not abort tasks.
-  const costCeilingUsd = envNum('MAKA_PROMPT_COST_CEILING', 30);
+  const costCeilingUsd = envNum('MAKA_PROMPT_COST_CEILING', promptProfile.costCeilingUsd);
   const maxConcurrency = envPosInt('MAKA_PROMPT_MAX_CONCURRENCY', defaultMaxConcurrency());
   const maxInfraFailureRate = envRatioOf('MAKA_PROMPT_MAX_INFRA_FAILURE_RATE', undefined);
   const maxStableTaskDurationMs = envNum('MAKA_PROMPT_MAX_STABLE_TASK_MS', undefined);
@@ -291,6 +301,7 @@ async function main() {
     manifestPath,
     buildPromptOptimizationRunManifest({
       runId,
+      profile: promptProfile.name,
       provider,
       baseUrl,
       model,
@@ -347,7 +358,7 @@ async function main() {
     updatedAt: 0,
   };
 
-  console.log(`Starting run ${runId}: ${rounds} round(s), ${baselineRuns} baseline sweep(s), model ${model}`);
+  console.log(`Starting run ${runId}: profile ${promptProfile.name}, ${rounds} round(s), ${baselineRuns} baseline sweep(s), model ${model}`);
   const result = await runPromptOptimizationRun({
     runId,
     rounds,
