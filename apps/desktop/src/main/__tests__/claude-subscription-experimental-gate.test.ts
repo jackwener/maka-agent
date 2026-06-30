@@ -68,7 +68,7 @@ describe('experimental kill-switch (kenji 1da909d5 + 45b31e16)', () => {
   });
 
   it('main.ts IPC auth handlers re-check the experimental flag (not just UI)', async () => {
-    const src = await readFile(MAIN_SOURCE, 'utf8');
+    const src = await readMainProcessCombinedSource();
     // The handlers MUST not just trust the renderer to hide the
     // card. Each of these handlers must guard with the flag.
     const handlers = [
@@ -99,7 +99,7 @@ describe('experimental kill-switch (kenji 1da909d5 + 45b31e16)', () => {
   });
 
   it('main.ts disabled response uses experimental_disabled, not provider_rejected', async () => {
-    const src = await readFile(MAIN_SOURCE, 'utf8');
+    const src = await readMainProcessCombinedSource();
     // The shared disabled response constant must use the dedicated
     // reason. We accept the literal string presence as proxy for
     // the field value.
@@ -319,7 +319,7 @@ describe('Claude OAuth model connection bridge', () => {
     const completeIdx = src.indexOf("claude-subscription:complete-authorization");
     assert.notEqual(completeIdx, -1, 'complete-authorization handler must exist');
     const completeRegion = src.slice(completeIdx, completeIdx + 1200);
-    assert.match(completeRegion, /if\s*\(\s*result\.ok\s*\)\s*\{[\s\S]*await syncClaudeSubscriptionConnection\(\);[\s\S]*emitConnectionListChanged\(\);/, 'successful OAuth completion must sync the connection and notify renderer');
+    assert.match(completeRegion, /if\s*\(\s*result\.ok\s*\)\s*\{[\s\S]*await (?:deps\.)?syncClaudeSubscriptionConnection\(\);[\s\S]*(?:deps\.)?emitConnectionListChanged\(\);/, 'successful OAuth completion must sync the connection and notify renderer');
 
     const listIdx = src.indexOf("connections:list");
     assert.notEqual(listIdx, -1, 'connections:list handler must exist');
@@ -412,7 +412,7 @@ describe('Claude OAuth model connection bridge', () => {
     const completeRegion = src.slice(completeIdx, completeIdx + 1200);
     assert.match(
       completeRegion,
-      /if\s*\(\s*result\.ok\s*\)\s*\{[\s\S]*await syncCodexSubscriptionConnection\(\);[\s\S]*emitConnectionListChanged\(\);/,
+      /if\s*\(\s*result\.ok\s*\)\s*\{[\s\S]*await (?:deps\.)?syncCodexSubscriptionConnection\(\);[\s\S]*(?:deps\.)?emitConnectionListChanged\(\);/,
       'successful Codex OAuth completion must sync the connection and notify renderer',
     );
     assert.match(

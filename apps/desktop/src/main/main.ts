@@ -63,22 +63,10 @@ import {
   normalizeSessionSendCommand,
   normalizeStopSessionInput,
 } from './permission-response-guard.js';
-import {
-  ClaudeSubscriptionService,
-  isSubscriptionExperimentalEnabled,
-} from './oauth/claude-subscription-service.js';
-import {
-  CodexSubscriptionService,
-  isCodexSubscriptionExperimentalEnabled,
-} from './oauth/codex-subscription-service.js';
-import {
-  CursorSubscriptionService,
-  isCursorSubscriptionExperimentalEnabled,
-} from './oauth/cursor-subscription-service.js';
-import {
-  AntigravitySubscriptionService,
-  isAntigravitySubscriptionExperimentalEnabled,
-} from './oauth/antigravity-subscription-service.js';
+import { ClaudeSubscriptionService } from './oauth/claude-subscription-service.js';
+import { CodexSubscriptionService } from './oauth/codex-subscription-service.js';
+import { CursorSubscriptionService } from './oauth/cursor-subscription-service.js';
+import { AntigravitySubscriptionService } from './oauth/antigravity-subscription-service.js';
 import type { WorkspacePrivacyContext } from '@maka/core/incognito';
 import type {
   PricingConfig,
@@ -207,11 +195,7 @@ import { createBotIncomingMainService } from './bot-incoming-main.js';
 import { createSubscriptionModelFetch } from './subscription-model-fetch.js';
 import { buildContextBudgetPolicy } from './context-budget-policy.js';
 import { createSystemPromptMainService } from './system-prompt-main.js';
-import {
-  CLAUDE_SUBSCRIPTION_CONNECTION_SLUG,
-  CODEX_SUBSCRIPTION_CONNECTION_SLUG,
-  createOAuthModelConnectionsMainService,
-} from './oauth-model-connections-main.js';
+import { createOAuthModelConnectionsMainService } from './oauth-model-connections-main.js';
 import {
   applyNetworkPatch,
   maskNetworkSettings,
@@ -219,6 +203,7 @@ import {
   toContractNetworkSettings,
 } from './network-settings-main.js';
 import { registerMemoryIpc } from './memory-ipc-main.js';
+import { registerSubscriptionIpc } from './subscription-ipc-main.js';
 
 const buildInfo = resolveBuildInfo(app.isPackaged, app.getAppPath());
 
@@ -1312,331 +1297,17 @@ function registerIpc(): void {
   // kenji `45b31e16`: use the dedicated `experimental_disabled`
   // reason so the user-visible state is clearly "this feature is
   // not enabled by Maka" — NOT "Anthropic rejected my account".
-  const experimentalDisabledResponse = {
-    ok: false as const,
-    reason: 'experimental_disabled' as const,
-    message: 'Claude 订阅账号为内部实验，当前未开启。',
-  };
-  ipcMain.handle('claude-subscription:get-auth-url', async () => {
-    // kenji `027c93c0` + xuan `2e5be5a`: when the experimental
-    // flag is off, return the shared `experimental_disabled`
-    // envelope so the renderer sees the same fail-closed shape as
-    // every other handler in this namespace. Settings UI
-    // self-gates via `isExperimentalEnabled` before reaching this;
-    // the envelope path is defense-in-depth for DevTools-triggered
-    // calls. Return type is now a union — renderer code checks the
-    // `ok` discriminator.
-    if (!isSubscriptionExperimentalEnabled()) {
-      return experimentalDisabledResponse;
-    }
-    return claudeSubscription.getAuthorizationUrl();
-  });
-  ipcMain.handle(
-    'claude-subscription:open-auth-url',
-    async (_event, authRequestId: unknown) => {
-      if (!isSubscriptionExperimentalEnabled()) return experimentalDisabledResponse;
-      if (typeof authRequestId !== 'string') {
-        return { ok: false as const, reason: 'authorization_pending' as const, message: '授权会话不存在。' };
-      }
-      return claudeSubscription.openAuthorizationUrl(authRequestId);
-    },
-  );
-  ipcMain.handle(
-    'claude-subscription:complete-authorization',
-    async (_event, authRequestId: unknown, pasted: unknown) => {
-      if (!isSubscriptionExperimentalEnabled()) return experimentalDisabledResponse;
-      if (typeof authRequestId !== 'string') {
-        return { ok: false as const, reason: 'authorization_pending' as const, message: '授权会话不存在。' };
-      }
-      const result = await claudeSubscription.completeAuthorization(authRequestId, pasted);
-      if (result.ok) {
-        await syncClaudeSubscriptionConnection();
-        emitConnectionListChanged();
-      }
-      return result;
-    },
-  );
-  ipcMain.handle(
-    'claude-subscription:cancel-authorization',
-    async (_event, authRequestId: unknown) => {
-      if (!isSubscriptionExperimentalEnabled()) return { ok: true as const };
-      claudeSubscription.cancelAuthorization(
-        typeof authRequestId === 'string' ? authRequestId : undefined,
-      );
-      return { ok: true as const };
-    },
-  );
-  ipcMain.handle('claude-subscription:get-account-state', async () => {
-    if (!isSubscriptionExperimentalEnabled()) {
-      // Returning the disabled state lets the UI fail-closed: the
-      // card is not rendered in the first place, but a manual call
-      // surfaces a coherent state instead of an opaque throw.
-      return {
-        provider: 'claude-subscription' as const,
-        runtimeState: 'not_logged_in' as const,
-      };
-    }
-    const state = await claudeSubscription.getAccountState();
-    if (isClaudeSubscriptionAuthenticatedState(state)) {
-      await syncClaudeSubscriptionConnection();
-    }
-    return state;
-  });
-  ipcMain.handle('claude-subscription:refresh-quota', async () => {
-    if (!isSubscriptionExperimentalEnabled()) return experimentalDisabledResponse;
-    return claudeSubscription.refreshQuota();
-  });
-  ipcMain.handle('claude-subscription:refresh-tokens', async () => {
-    if (!isSubscriptionExperimentalEnabled()) return experimentalDisabledResponse;
-    const result = await claudeSubscription.refreshTokens();
-    if (result.ok) {
-      await syncClaudeSubscriptionConnection();
-      emitConnectionListChanged();
-    }
-    return result;
-  });
-  ipcMain.handle('claude-subscription:logout', async () => {
-    // Logout is always allowed — even if experimental is off,
-    // a user might want to clear a stale token file from a
-    // previous opt-in. local-clear is harmless.
-    const result = await claudeSubscription.logout();
-    const existing = await connectionStore.get(CLAUDE_SUBSCRIPTION_CONNECTION_SLUG);
-    if (existing) {
-      await connectionStore.update(existing.slug, {
-        enabled: false,
-        lastTestStatus: 'needs_reauth',
-        lastTestAt: new Date().toISOString(),
-        lastTestMessage: 'Claude OAuth 已退出登录。',
-      });
-      emitConnectionListChanged();
-    }
-    return result;
-  });
-  /**
-   * Read-only signal so the renderer's Settings card can decide
-   * whether to render the Claude subscription UI at all. Returns
-   * `false` when `MAKA_CLAUDE_SUBSCRIPTION_EXPERIMENTAL` is not
-   * set to `'1'`.
-   */
-  ipcMain.handle('claude-subscription:is-experimental-enabled', async () =>
-    isSubscriptionExperimentalEnabled(),
-  );
-
-  // ===========================================================
-  // PR-MODEL-OAUTH-ALL-0: Codex / Cursor / Antigravity subscription
-  // IPC. Same envelope shape as `claude-subscription:*` — every
-  // handler returns either a state snapshot or a
-  // `SubscriptionActionResult` envelope. Tokens never cross the
-  // IPC boundary; the experimental kill-switch is re-checked here
-  // so a DevTools-triggered `window.maka.codexSubscription.*`
-  // call cannot bypass the renderer-side hide.
-  // ===========================================================
-  const codexDisabledResponse = {
-    ok: false as const,
-    reason: 'experimental_disabled' as const,
-    message: 'OpenAI Codex 订阅账号为内部实验，当前未开启。',
-  };
-  ipcMain.handle('codex-subscription:is-experimental-enabled', async () =>
-    isCodexSubscriptionExperimentalEnabled(),
-  );
-  ipcMain.handle('codex-subscription:get-auth-url', async () => {
-    if (!isCodexSubscriptionExperimentalEnabled()) return codexDisabledResponse;
-    return codexSubscription.getAuthorizationUrl();
-  });
-  ipcMain.handle(
-    'codex-subscription:open-auth-url',
-    async (_event, authRequestId: unknown) => {
-      if (!isCodexSubscriptionExperimentalEnabled()) return codexDisabledResponse;
-      if (typeof authRequestId !== 'string') {
-        return { ok: false as const, reason: 'authorization_pending' as const, message: '授权会话不存在。' };
-      }
-      return codexSubscription.openAuthorizationUrl(authRequestId);
-    },
-  );
-  ipcMain.handle(
-    'codex-subscription:complete-authorization',
-    async (_event, authRequestId: unknown) => {
-      if (!isCodexSubscriptionExperimentalEnabled()) return codexDisabledResponse;
-      if (typeof authRequestId !== 'string') {
-        return { ok: false as const, reason: 'authorization_pending' as const, message: '授权会话不存在。' };
-      }
-      const result = await codexSubscription.completeAuthorization(authRequestId);
-      if (result.ok) {
-        await syncCodexSubscriptionConnection();
-        emitConnectionListChanged();
-      }
-      return result;
-    },
-  );
-  ipcMain.handle(
-    'codex-subscription:cancel-authorization',
-    async (_event, authRequestId: unknown) => {
-      if (!isCodexSubscriptionExperimentalEnabled()) return { ok: true as const };
-      codexSubscription.cancelAuthorization(
-        typeof authRequestId === 'string' ? authRequestId : undefined,
-      );
-      return { ok: true as const };
-    },
-  );
-  ipcMain.handle('codex-subscription:get-account-state', async () => {
-    if (!isCodexSubscriptionExperimentalEnabled()) {
-      return {
-        provider: 'codex-subscription' as const,
-        runtimeState: 'not_logged_in' as const,
-      };
-    }
-    const state = await codexSubscription.getAccountState();
-    if (isCodexSubscriptionAuthenticatedState(state)) {
-      await syncCodexSubscriptionConnection();
-    }
-    return state;
-  });
-  ipcMain.handle('codex-subscription:refresh-tokens', async () => {
-    if (!isCodexSubscriptionExperimentalEnabled()) return codexDisabledResponse;
-    const result = await codexSubscription.refreshTokens();
-    if (result.ok) {
-      await syncCodexSubscriptionConnection();
-      emitConnectionListChanged();
-    }
-    return result;
-  });
-  ipcMain.handle('codex-subscription:logout', async () => {
-    // Logout is always allowed — even if experimental is off,
-    // clearing a stale local token file is harmless.
-    const result = await codexSubscription.logout();
-    const existing = await connectionStore.get(CODEX_SUBSCRIPTION_CONNECTION_SLUG);
-    if (existing) {
-      await connectionStore.update(existing.slug, {
-        enabled: false,
-        lastTestStatus: 'needs_reauth',
-        lastTestAt: new Date().toISOString(),
-        lastTestMessage: 'Codex OAuth 已退出登录。',
-      });
-      emitConnectionListChanged();
-    }
-    return result;
-  });
-
-  const cursorDisabledResponse = {
-    ok: false as const,
-    reason: 'experimental_disabled' as const,
-    message: 'Cursor 订阅账号为内部实验，当前未开启。',
-  };
-  ipcMain.handle('cursor-subscription:is-experimental-enabled', async () =>
-    isCursorSubscriptionExperimentalEnabled(),
-  );
-  ipcMain.handle('cursor-subscription:get-auth-url', async () => {
-    if (!isCursorSubscriptionExperimentalEnabled()) return cursorDisabledResponse;
-    return cursorSubscription.getAuthorizationUrl();
-  });
-  ipcMain.handle(
-    'cursor-subscription:open-auth-url',
-    async (_event, authRequestId: unknown) => {
-      if (!isCursorSubscriptionExperimentalEnabled()) return cursorDisabledResponse;
-      if (typeof authRequestId !== 'string') {
-        return { ok: false as const, reason: 'authorization_pending' as const, message: '授权会话不存在。' };
-      }
-      return cursorSubscription.openAuthorizationUrl(authRequestId);
-    },
-  );
-  ipcMain.handle(
-    'cursor-subscription:complete-authorization',
-    async (_event, authRequestId: unknown) => {
-      if (!isCursorSubscriptionExperimentalEnabled()) return cursorDisabledResponse;
-      if (typeof authRequestId !== 'string') {
-        return { ok: false as const, reason: 'authorization_pending' as const, message: '授权会话不存在。' };
-      }
-      return cursorSubscription.completeAuthorization(authRequestId);
-    },
-  );
-  ipcMain.handle(
-    'cursor-subscription:cancel-authorization',
-    async (_event, authRequestId: unknown) => {
-      if (!isCursorSubscriptionExperimentalEnabled()) return { ok: true as const };
-      cursorSubscription.cancelAuthorization(
-        typeof authRequestId === 'string' ? authRequestId : undefined,
-      );
-      return { ok: true as const };
-    },
-  );
-  ipcMain.handle('cursor-subscription:get-account-state', async () => {
-    if (!isCursorSubscriptionExperimentalEnabled()) {
-      return {
-        provider: 'cursor-subscription' as const,
-        runtimeState: 'not_logged_in' as const,
-      };
-    }
-    return cursorSubscription.getAccountState();
-  });
-  ipcMain.handle('cursor-subscription:refresh-tokens', async () => {
-    if (!isCursorSubscriptionExperimentalEnabled()) return cursorDisabledResponse;
-    return cursorSubscription.refreshTokens();
-  });
-  ipcMain.handle('cursor-subscription:logout', async () => {
-    return cursorSubscription.logout();
-  });
-
-  const antigravityDisabledResponse = {
-    ok: false as const,
-    reason: 'experimental_disabled' as const,
-    message: 'Google Antigravity 订阅账号为内部实验，当前未开启。',
-  };
-  ipcMain.handle('antigravity-subscription:is-experimental-enabled', async () =>
-    isAntigravitySubscriptionExperimentalEnabled(),
-  );
-  ipcMain.handle('antigravity-subscription:get-auth-url', async () => {
-    if (!isAntigravitySubscriptionExperimentalEnabled()) return antigravityDisabledResponse;
-    // The service itself returns the "需要 Google client_id" envelope
-    // when GOOGLE_CLIENT_ID is empty (preview status). This handler
-    // just forwards.
-    return antigravitySubscription.getAuthorizationUrl();
-  });
-  ipcMain.handle(
-    'antigravity-subscription:open-auth-url',
-    async (_event, authRequestId: unknown) => {
-      if (!isAntigravitySubscriptionExperimentalEnabled()) return antigravityDisabledResponse;
-      if (typeof authRequestId !== 'string') {
-        return { ok: false as const, reason: 'authorization_pending' as const, message: '授权会话不存在。' };
-      }
-      return antigravitySubscription.openAuthorizationUrl(authRequestId);
-    },
-  );
-  ipcMain.handle(
-    'antigravity-subscription:complete-authorization',
-    async (_event, authRequestId: unknown) => {
-      if (!isAntigravitySubscriptionExperimentalEnabled()) return antigravityDisabledResponse;
-      if (typeof authRequestId !== 'string') {
-        return { ok: false as const, reason: 'authorization_pending' as const, message: '授权会话不存在。' };
-      }
-      return antigravitySubscription.completeAuthorization(authRequestId);
-    },
-  );
-  ipcMain.handle(
-    'antigravity-subscription:cancel-authorization',
-    async (_event, authRequestId: unknown) => {
-      if (!isAntigravitySubscriptionExperimentalEnabled()) return { ok: true as const };
-      antigravitySubscription.cancelAuthorization(
-        typeof authRequestId === 'string' ? authRequestId : undefined,
-      );
-      return { ok: true as const };
-    },
-  );
-  ipcMain.handle('antigravity-subscription:get-account-state', async () => {
-    if (!isAntigravitySubscriptionExperimentalEnabled()) {
-      return {
-        provider: 'antigravity-subscription' as const,
-        status: 'preview' as const,
-        runtimeState: 'not_logged_in' as const,
-      };
-    }
-    return antigravitySubscription.getAccountState();
-  });
-  ipcMain.handle('antigravity-subscription:refresh-tokens', async () => {
-    if (!isAntigravitySubscriptionExperimentalEnabled()) return antigravityDisabledResponse;
-    return antigravitySubscription.refreshTokens();
-  });
-  ipcMain.handle('antigravity-subscription:logout', async () => {
-    return antigravitySubscription.logout();
+  registerSubscriptionIpc({
+    connectionStore,
+    claudeSubscription,
+    codexSubscription,
+    cursorSubscription,
+    antigravitySubscription,
+    isClaudeSubscriptionAuthenticatedState,
+    isCodexSubscriptionAuthenticatedState,
+    syncClaudeSubscriptionConnection,
+    syncCodexSubscriptionConnection,
+    emitConnectionListChanged,
   });
 
   // PR-WEB-SEARCH-TAVILY-0: explicit user-triggered web search. Token
