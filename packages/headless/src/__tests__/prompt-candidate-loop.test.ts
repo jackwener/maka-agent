@@ -1556,6 +1556,45 @@ describe('prompt candidate loop', () => {
     });
   });
 
+  test('retries scripted meta-agent after candidateRationale schema errors', async () => {
+    const input: MetaAgentPromptInput = {
+      runId: 'run-1',
+      roundId: 'round-1',
+      program: 'Improve conservatively.',
+      currentSystemPrompt: 'original prompt',
+      resultsTsv: 'task_id\tpassed\ntask-a\tfalse\n',
+      heldInDigests: [
+        {
+          taskId: 'task-a',
+          errorClass: 'verification_failed',
+          summary: 'missing expected line',
+        },
+      ],
+    };
+    const prompts: string[] = [];
+    const expected = candidatePromptResult({
+      systemPrompt: 'candidate prompt after retry\n',
+      summary: 'ask for exact output line after retry',
+      candidateRationale: validCandidateRationale(),
+    });
+    const metaAgent = createScriptedMetaAgent({
+      complete: async ({ prompt }) => {
+        prompts.push(prompt);
+        if (prompts.length === 1) {
+          return JSON.stringify(candidatePromptResult({
+            candidateRationale: validCandidateRationale({ evidenceRefs: 'rsi-sig:not-an-array' }),
+          }));
+        }
+        return JSON.stringify(expected);
+      },
+    });
+
+    assert.deepEqual(await metaAgent(input), expected);
+    assert.equal(prompts.length, 2);
+    assert.match(prompts[1], /previous meta-agent response was invalid/i);
+    assert.match(prompts[1], /candidateRationale\.evidenceRefs must be an array/);
+  });
+
   test('CLI git adapter commits only system_prompt.md with the round message', async () => {
     await withDir(async (dir) => {
       await execFileAsync('git', ['init'], { cwd: dir });

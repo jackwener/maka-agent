@@ -24,6 +24,8 @@ const execFileAsync = promisify(execFile);
 const CANDIDATE_RATIONALE_MAX_TASK_IDS = 16;
 const CANDIDATE_RATIONALE_MAX_TEXT_CHARS = 280;
 const CANDIDATE_RATIONALE_MAX_SERIALIZED_CHARS = 2000;
+const META_AGENT_MAX_ATTEMPTS = 3;
+const META_AGENT_RETRY_ERROR_MAX_CHARS = 240;
 const FORBIDDEN_RATIONALE_TEXT_RE = /```|\r|\n|held[-_]out|verifier|expected[- ]output|\/app\/|tests\/|test\.sh|canary|runtime-events|events\.jsonl|raw trace/i;
 
 export interface TrajectoryDigest {
@@ -388,9 +390,38 @@ export async function scanRuntimeEventsForRewardHack(
 
 export function createScriptedMetaAgent(input: CreateScriptedMetaAgentInput): MetaAgent {
   return async (promptInput) => {
-    const raw = await input.complete({ prompt: renderMetaAgentPrompt(promptInput) });
-    return parseMetaAgentResult(raw);
+    const basePrompt = renderMetaAgentPrompt(promptInput);
+    let lastParseError = 'unknown schema error';
+    for (let attempt = 1; attempt <= META_AGENT_MAX_ATTEMPTS; attempt += 1) {
+      const raw = await input.complete({
+        prompt: attempt === 1 ? basePrompt : renderMetaAgentRetryPrompt(basePrompt, attempt, lastParseError),
+      });
+      try {
+        return parseMetaAgentResult(raw);
+      } catch (error) {
+        if (attempt === META_AGENT_MAX_ATTEMPTS) throw error;
+        lastParseError = formatMetaAgentParseError(error);
+      }
+    }
+    throw new Error('meta-agent output parsing exhausted retry attempts');
   };
+}
+
+function renderMetaAgentRetryPrompt(basePrompt: string, attempt: number, validationError: string): string {
+  return [
+    basePrompt.trimEnd(),
+    '',
+    '# Retry Feedback',
+    `The previous meta-agent response was invalid for the required JSON schema on attempt ${attempt - 1}.`,
+    `Validation error: ${validationError}`,
+    'Return JSON only using the exact required schema. Arrays must be JSON arrays even when they contain one item.',
+    '',
+  ].join('\n');
+}
+
+function formatMetaAgentParseError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.replace(/\s+/g, ' ').slice(0, META_AGENT_RETRY_ERROR_MAX_CHARS);
 }
 
 export function renderMetaAgentPrompt(input: MetaAgentPromptInput): string {
