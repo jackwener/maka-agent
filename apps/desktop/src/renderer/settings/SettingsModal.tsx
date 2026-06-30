@@ -1427,7 +1427,7 @@ function AboutSettingsPage() {
         <h3>本地优先 · 隐私默认</h3>
         <ul aria-label="隐私与安全说明">
           <li>所有会话、设置、凭据和 Skill 指令文件都保留在本机工作区，不上传到 Maka 服务器</li>
-          <li>模型供应商密钥通过系统安全存储加密保存，优先使用 macOS 钥匙串等系统能力</li>
+          <li>模型供应商密钥保存在本机凭据文件内，依赖系统账号与文件权限；订阅账号令牌使用系统安全存储</li>
           <li>Maka 不发送任何使用遥测；只在你显式启用时与所选模型供应商通信</li>
           <li>权限策略会判断工具调用风险；高危操作需要在对话内明示授权</li>
           <li>每个会话都会在本机保留消息、工具调用、权限决策与模式变更记录</li>
@@ -1448,7 +1448,7 @@ function AboutSettingsPage() {
         />
         <SettingRow
           title="存储"
-          detail="会话记录、设置文件、SQLite 使用统计和系统安全存储加密的模型密钥。"
+          detail="会话记录、设置文件、SQLite 使用统计、本机凭据文件和订阅账号安全存储。"
           value="本地"
         />
       </SettingsRows>
@@ -2189,7 +2189,7 @@ function AccountSettingsPage(props: {
         />
         <SettingRow
           title="凭据保护"
-          detail="模型密钥和订阅账号令牌会交给系统安全存储加密保存。"
+          detail="模型密钥保存在本机凭据文件内；订阅账号令牌交给系统安全存储。"
           value="启用"
         />
         <SettingRow
@@ -2466,7 +2466,7 @@ function DataSettingsPage() {
         />
         <SettingRow
           title="存储引擎"
-          detail="会话记录、外观与账号设置、本地使用统计，以及系统安全存储加密的模型密钥。"
+          detail="会话记录、外观与账号设置、本地使用统计，以及本机凭据文件。"
           value="本地文件"
         />
       </SettingsRows>
@@ -2489,7 +2489,7 @@ function DataSettingsPage() {
       </div>
       <div className="settingsNotice">
         本机数据保存在工作区。需要备份时先退出 Maka，再复制整个目录；恢复时替换同一路径后重启。
-        模型密钥使用系统安全存储加密，跨设备恢复后需要重新测试连接。
+        模型连接凭据随工作区恢复后需要重新测试；订阅账号令牌通常需要重新登录。
       </div>
       {infoError && (
         <div className="settingsNotice" role="alert">

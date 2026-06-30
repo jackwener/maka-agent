@@ -2,6 +2,7 @@
 
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import {
   buildAiSdkCellBackendRegistration,
   buildHarborCellContextBudgetPolicySnapshot,
@@ -22,7 +23,7 @@ const HOST_BACKEND_ENV_KEYS = [
   'MAKA_OUTPUT_DIR',
   'MAKA_STORAGE_ROOT',
 ];
-export async function main() {
+export async function main(options = {}) {
   const env = process.env;
   const provider = env.MAKA_PROVIDER || providerFromModel(env.MAKA_MODEL || env.HARBOR_MODEL || 'deepseek/deepseek-v4-flash');
   const model = env.MAKA_MODEL || stripProvider(env.HARBOR_MODEL || 'deepseek/deepseek-v4-flash', provider);
@@ -31,6 +32,7 @@ export async function main() {
   const contextEnv = normalizeHarborCellContextEnv(env);
   const contextBudgetPolicy = buildHarborCellContextBudgetPolicySnapshot(contextEnv);
   const continuationPolicy = buildHarborCellContinuationPolicy(env);
+  const economyTaskMode = economyTaskModeFromEnv(env.MAKA_ECONOMY_TASK_MODE);
   const now = Date.now;
   const newId = randomId;
 
@@ -41,6 +43,7 @@ export async function main() {
       llmConnectionSlug: env.MAKA_LLM_CONNECTION_SLUG || provider,
       model,
       ...(env.MAKA_SYSTEM_PROMPT !== undefined ? { systemPrompt: env.MAKA_SYSTEM_PROMPT } : {}),
+      ...(economyTaskMode !== undefined ? { economyTaskMode } : {}),
     },
     instruction: await instructionFromEnv(env),
     cwd: env.MAKA_WORKDIR || process.cwd(),
@@ -48,7 +51,7 @@ export async function main() {
     storageRoot,
     ...(contextBudgetPolicy ? { contextBudgetPolicy } : {}),
     ...(continuationPolicy ? { continuationPolicy } : {}),
-    registerBackends: buildAiSdkCellBackendRegistration({
+    registerBackends: options.registerBackends ?? buildAiSdkCellBackendRegistration({
       provider,
       model,
       env: await backendEnv({ ...env, MAKA_OUTPUT_DIR: outputDir, MAKA_STORAGE_ROOT: storageRoot }, provider),
@@ -70,6 +73,12 @@ export async function main() {
     outputPath: result.outputPath,
     runtimeEventsPath: result.runtimeEventsPath,
   }));
+}
+
+function economyTaskModeFromEnv(value) {
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  return undefined;
 }
 
 export async function backendEnv(env, provider) {
@@ -168,7 +177,7 @@ function randomId() {
   return globalThis.crypto?.randomUUID?.() ?? `host_cell_${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}`;
 }
 
-if (process.argv[1] && new URL(process.argv[1], 'file:').href === import.meta.url) {
+if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
   main().catch((error) => {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`maka run-host-cell failed: ${message}`);

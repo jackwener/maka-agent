@@ -1,5 +1,6 @@
 node_modules
 dist
+storybook-static
 .DS_Store
 *.log
 # pnpm-lock.yaml is generated locally — the repo tracks package-lock.json
@@ -15,3 +16,4 @@ skills-lock.json
 # PR-IR-01 captured screenshots — generated artifacts, not committed.
 # The committed baseline lives in `apps/desktop/tests/screenshots-baseline/`.
 apps/desktop/tests/screenshots/
+deepseek.key

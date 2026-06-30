@@ -13,6 +13,7 @@ describe('Daily Review export-to-file contract (PR-DAILY-REVIEW-EXPORT-FILE-0)',
     const palette = await readFile(resolve(REPO_ROOT, 'apps/desktop/src/renderer/command-palette.tsx'), 'utf8');
     const renderer = await readFile(resolve(REPO_ROOT, 'apps/desktop/src/renderer/main.tsx'), 'utf8');
     const ui = await readFile(resolve(REPO_ROOT, 'packages/ui/src/components.tsx'), 'utf8');
+    const sessionListPanel = await readFile(resolve(REPO_ROOT, 'packages/ui/src/session-list-panel.tsx'), 'utf8');
     const css = await readRendererContractCss();
 
     // IPC handler is registered and shape-validates its input before
@@ -41,7 +42,7 @@ describe('Daily Review export-to-file contract (PR-DAILY-REVIEW-EXPORT-FILE-0)',
 
     // The main Daily Review panel exposes save next to copy, so export
     // is not hidden behind command palette muscle memory.
-    assert.match(ui, /onSaveDailyReviewMarkdown\?\(input:\s*DailyReviewMarkdownActionInput\)/);
+    assert.match(sessionListPanel, /onSaveDailyReviewMarkdown\?\(input:\s*DailyReviewMarkdownActionInput\)/);
     assert.match(ui, /onSaveMarkdown=\{props\.onSaveDailyReviewMarkdown\}/);
     assert.match(ui, /maka-daily-review-save[\s\S]*保存/);
     assert.match(css, /\.maka-daily-review-actions/);

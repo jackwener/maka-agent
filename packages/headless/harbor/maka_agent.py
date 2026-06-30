@@ -33,6 +33,13 @@ _HOST_NODE_ENV_ALLOWLIST = {
     "SSL_CERT_FILE",
     "SSL_CERT_DIR",
     "NODE_EXTRA_CA_CERTS",
+    # Windows-specific variables Node/OpenSSL need to initialize the CSPRNG
+    # and resolve system paths when the host cell is launched from a subprocess.
+    "SystemRoot",
+    "WINDIR",
+    "USERPROFILE",
+    "LOCALAPPDATA",
+    "COMSPEC",
 }
 
 def _host_node_process_env(cell_env: dict[str, str]) -> dict[str, str]:
@@ -78,6 +85,13 @@ class MakaAgent(BaseInstalledAgent):
             default="",
             env_fallback="MAKA_PROVIDER",
         ),
+        CliFlag(
+            "economy_task_mode",
+            cli="",
+            type="bool",
+            default=False,
+            env_fallback="MAKA_ECONOMY_TASK_MODE",
+        ),
     ]
 
     @staticmethod
@@ -90,16 +104,16 @@ class MakaAgent(BaseInstalledAgent):
     async def install(self, environment: BaseEnvironment) -> None:
         maka_repo = self._resolved_flags.get("maka_repo", "/opt/maka-agent")
         self._harbor_backend()
-        run_cell = Path(maka_repo) / "packages" / "headless" / "harbor" / "run-cell.mjs"
-        run_host_cell = Path(maka_repo) / "packages" / "headless" / "harbor" / "run-host-cell.mjs"
-        dist_index = Path(maka_repo) / "packages" / "headless" / "dist" / "index.js"
-        dist_harbor_cell = Path(maka_repo) / "packages" / "headless" / "dist" / "harbor-cell.js"
+        run_cell = (Path(maka_repo) / "packages" / "headless" / "harbor" / "run-cell.mjs").as_posix()
+        run_host_cell = (Path(maka_repo) / "packages" / "headless" / "harbor" / "run-host-cell.mjs").as_posix()
+        dist_index = (Path(maka_repo) / "packages" / "headless" / "dist" / "index.js").as_posix()
+        dist_harbor_cell = (Path(maka_repo) / "packages" / "headless" / "dist" / "harbor-cell.js").as_posix()
         if self._host_side_llm_enabled():
             await self.exec_as_agent(
                 environment,
                 command=(
-                    f"test -f {shlex.quote(str(run_host_cell))} && "
-                    f"test -f {shlex.quote(str(dist_harbor_cell))}"
+                    f"test -f {shlex.quote(run_host_cell)} && "
+                    f"test -f {shlex.quote(dist_harbor_cell)}"
                 ),
             )
             return
@@ -133,9 +147,9 @@ class MakaAgent(BaseInstalledAgent):
                 "node --version && "
                 "NODE_MAJOR=$(node -p 'process.versions.node.split(\".\")[0]') && "
                 "test \"$NODE_MAJOR\" -ge 22 && "
-                f"test -f {shlex.quote(str(run_cell))} && "
-                f"test -f {shlex.quote(str(run_host_cell))} && "
-                f"test -f {shlex.quote(str(dist_index))}"
+                f"test -f {shlex.quote(run_cell)} && "
+                f"test -f {shlex.quote(run_host_cell)} && "
+                f"test -f {shlex.quote(dist_index)}"
             ),
         )
 
@@ -176,11 +190,11 @@ class MakaAgent(BaseInstalledAgent):
 
     def _run_cell_path(self) -> str:
         maka_repo = self._resolved_flags.get("maka_repo", "/opt/maka-agent")
-        return str(Path(maka_repo) / "packages" / "headless" / "harbor" / "run-cell.mjs")
+        return (Path(maka_repo) / "packages" / "headless" / "harbor" / "run-cell.mjs").as_posix()
 
     def _run_host_cell_path(self) -> str:
         maka_repo = self._get_env("MAKA_HOST_REPO_ROOT") or os.getcwd()
-        return str(Path(maka_repo) / "packages" / "headless" / "harbor" / "run-host-cell.mjs")
+        return (Path(maka_repo) / "packages" / "headless" / "harbor" / "run-host-cell.mjs").as_posix()
 
     _DEFAULT_CELL_TIMEOUT_SEC = 900
 
@@ -255,6 +269,9 @@ class MakaAgent(BaseInstalledAgent):
         model = self.model_name or self._get_env("MAKA_MODEL") or "deepseek/deepseek-v4-flash"
         backend = self._harbor_backend()
         provider = self._resolved_flags.get("provider", "") or self._get_env("MAKA_PROVIDER") or ""
+        economy_task_flag = self._resolved_flags.get("economy_task_mode")
+        economy_task_env = self._get_env("MAKA_ECONOMY_TASK_MODE")
+        economy_task_mode = True if economy_task_flag is True else economy_task_env == "true"
         if backend == "ai-sdk" and not self._host_side_llm_enabled():
             raise RuntimeError("backend=ai-sdk requires MAKA_HOST_API_KEY or MAKA_HOST_API_KEY_FILE")
         env = {
@@ -264,6 +281,7 @@ class MakaAgent(BaseInstalledAgent):
             "MAKA_SYSTEM_PROMPT": system_prompt,
             "MAKA_OUTPUT_DIR": EnvironmentPaths.agent_dir.as_posix(),
             "MAKA_STORAGE_ROOT": (EnvironmentPaths.agent_dir / "maka-storage").as_posix(),
+            "MAKA_ECONOMY_TASK_MODE": "true" if economy_task_mode else "false",
         }
         if provider:
             env["MAKA_PROVIDER"] = provider

@@ -774,6 +774,131 @@ describe('runHarborCell', () => {
     });
   });
 
+  test('appends economy-task policy to Harbor backend context from env', async () => {
+    await withDirs(async ({ workspaceDir, outputDir, storageRoot }) => {
+      const seenPrompts: Array<string | undefined> = [];
+      const registerCapturingBackend = (registry: BackendRegistry, context: HeadlessBackendContext): void => {
+        seenPrompts.push(context.config.systemPrompt);
+        registry.register('fake', (ctx) =>
+          new CellReportingBackend({ sessionId: ctx.sessionId, header: ctx.header, store: ctx.store }),
+        );
+      };
+
+      await runHarborCellFromEnv({
+        MAKA_BACKEND: 'fake',
+        MAKA_INSTRUCTION: 'Write a CSV summary of log files.',
+        MAKA_WORKDIR: workspaceDir,
+        MAKA_OUTPUT_DIR: outputDir,
+        MAKA_STORAGE_ROOT: storageRoot,
+        MAKA_SYSTEM_PROMPT: 'Use the benchmark prompt.',
+        MAKA_ECONOMY_TASK_MODE: 'true',
+      }, {
+        registerBackends: registerCapturingBackend,
+      });
+
+      assert.match(seenPrompts[0] ?? '', /Use the benchmark prompt/);
+      assert.match(seenPrompts[0] ?? '', /Economy-task benchmark policy/);
+      assert.match(seenPrompts[0] ?? '', /one lightweight targeted preview/);
+    });
+  });
+
+  test('explicit MAKA_ECONOMY_TASK_MODE=false disables economy-task policy from env signals', async () => {
+    await withDirs(async ({ workspaceDir, outputDir, storageRoot }) => {
+      const seenPrompts: Array<string | undefined> = [];
+      const registerCapturingBackend = (registry: BackendRegistry, context: HeadlessBackendContext): void => {
+        seenPrompts.push(context.config.systemPrompt);
+        registry.register('fake', (ctx) =>
+          new CellReportingBackend({ sessionId: ctx.sessionId, header: ctx.header, store: ctx.store }),
+        );
+      };
+
+      await runHarborCellFromEnv({
+        MAKA_BACKEND: 'fake',
+        MAKA_INSTRUCTION: 'Write a CSV summary of log files.',
+        MAKA_WORKDIR: workspaceDir,
+        MAKA_OUTPUT_DIR: outputDir,
+        MAKA_STORAGE_ROOT: storageRoot,
+        MAKA_SYSTEM_PROMPT: 'Use the benchmark prompt.',
+        MAKA_ECONOMY_TASK_MODE: 'false',
+      }, {
+        registerBackends: registerCapturingBackend,
+      });
+
+      assert.match(seenPrompts[0] ?? '', /Use the benchmark prompt/);
+      assert.doesNotMatch(seenPrompts[0] ?? '', /Economy-task benchmark policy/);
+    });
+  });
+
+  test('host-side Harbor cell config reads MAKA_ECONOMY_TASK_MODE', async () => {
+    const { main } = await import(new URL('../../harbor/run-host-cell.mjs', import.meta.url).href) as {
+      main: (options?: { registerBackends?: (registry: BackendRegistry, context: HeadlessBackendContext) => void }) => Promise<void>;
+    };
+    await withDirs(async ({ workspaceDir, outputDir, storageRoot }) => {
+      const previousEnv = { ...process.env };
+      const seenPrompts: string[] = [];
+      const registerCapturingBackend = (registry: BackendRegistry, context: HeadlessBackendContext): void => {
+        seenPrompts.push(context.config.systemPrompt ?? '');
+        registry.register('ai-sdk', (ctx) =>
+          new CellReportingBackend({ sessionId: ctx.sessionId, header: ctx.header, store: ctx.store }),
+        );
+      };
+      try {
+        process.env.MAKA_PROVIDER = 'openai';
+        process.env.MAKA_MODEL = 'openai/gpt-4o-mini';
+        process.env.MAKA_HOST_API_KEY = 'test-key';
+        process.env.MAKA_HARBOR_TOOL_EXECUTOR_URL = 'http://127.0.0.1:1';
+        process.env.MAKA_HARBOR_TOOL_EXECUTOR_TOKEN = 'token';
+        process.env.MAKA_INSTRUCTION = 'Write a CSV summary of log files.';
+        process.env.MAKA_WORKDIR = workspaceDir;
+        process.env.MAKA_OUTPUT_DIR = outputDir;
+        process.env.MAKA_STORAGE_ROOT = storageRoot;
+        process.env.MAKA_SYSTEM_PROMPT = 'Use the host prompt.';
+        process.env.MAKA_ECONOMY_TASK_MODE = 'true';
+        await main({ registerBackends: registerCapturingBackend });
+      } finally {
+        process.env = previousEnv;
+      }
+
+      assert.match(seenPrompts[0] ?? '', /Use the host prompt/);
+      assert.match(seenPrompts[0] ?? '', /Economy-task benchmark policy/);
+    });
+  });
+
+  test('host-side Harbor cell config treats MAKA_ECONOMY_TASK_MODE=false as explicit disable', async () => {
+    const { main } = await import(new URL('../../harbor/run-host-cell.mjs', import.meta.url).href) as {
+      main: (options?: { registerBackends?: (registry: BackendRegistry, context: HeadlessBackendContext) => void }) => Promise<void>;
+    };
+    await withDirs(async ({ workspaceDir, outputDir, storageRoot }) => {
+      const previousEnv = { ...process.env };
+      const seenPrompts: string[] = [];
+      const registerCapturingBackend = (registry: BackendRegistry, context: HeadlessBackendContext): void => {
+        seenPrompts.push(context.config.systemPrompt ?? '');
+        registry.register('ai-sdk', (ctx) =>
+          new CellReportingBackend({ sessionId: ctx.sessionId, header: ctx.header, store: ctx.store }),
+        );
+      };
+      try {
+        process.env.MAKA_PROVIDER = 'openai';
+        process.env.MAKA_MODEL = 'openai/gpt-4o-mini';
+        process.env.MAKA_HOST_API_KEY = 'test-key';
+        process.env.MAKA_HARBOR_TOOL_EXECUTOR_URL = 'http://127.0.0.1:1';
+        process.env.MAKA_HARBOR_TOOL_EXECUTOR_TOKEN = 'token';
+        process.env.MAKA_INSTRUCTION = 'Write a CSV summary of log files.';
+        process.env.MAKA_WORKDIR = workspaceDir;
+        process.env.MAKA_OUTPUT_DIR = outputDir;
+        process.env.MAKA_STORAGE_ROOT = storageRoot;
+        process.env.MAKA_SYSTEM_PROMPT = 'Use the host prompt.';
+        process.env.MAKA_ECONOMY_TASK_MODE = 'false';
+        await main({ registerBackends: registerCapturingBackend });
+      } finally {
+        process.env = previousEnv;
+      }
+
+      assert.match(seenPrompts[0] ?? '', /Use the host prompt/);
+      assert.doesNotMatch(seenPrompts[0] ?? '', /Economy-task benchmark policy/);
+    });
+  });
+
   test('Harbor ai-sdk backend registration exposes native file tools to the provider schema', async () => {
     await withDirs(async ({ workspaceDir }) => {
       const registry = new BackendRegistry();
@@ -1219,6 +1344,62 @@ describe('runHarborCell', () => {
     assert.equal(snapshot?.enabled, true);
     if (!snapshot?.enabled) throw new Error('expected context budget snapshot to be enabled');
     assert.equal(snapshot.activeToolResultPrune?.maxCurrentResultEstimatedTokens, 2048);
+  });
+
+  test('Harbor parses semantic compact policy for headless runs', () => {
+    const options = buildHarborCellContextBudgetBackendOptions({
+      MAKA_CONTEXT_SEMANTIC_COMPACT: 'on',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_MODE: 'replace',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_MIN_STEP_NUMBER: '2',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_MAX_ACTIVE_ESTIMATED_TOKENS: '4096',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_MIN_RECENT_MESSAGES: '3',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_MIN_RECENT_TOOL_PAIRS: '2',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_MAX_SUMMARY_ESTIMATED_TOKENS: '512',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_MIN_SAVINGS_TOKENS: '128',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_MIN_SAVINGS_RATIO: '0.2',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_MIN_NET_SAVINGS_TOKENS: '256',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_CALL_TOKEN_COST_WEIGHT: '0.5',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_MAX_CALL_TOKENS: '768',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_MAX_CONSECUTIVE_INVALID_SUMMARIES: '3',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_INVALID_SUMMARY_COOLDOWN_STEPS: '11',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_TIMEOUT_MS: '30000',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_ARCHIVE_REQUIRED: 'true',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_BENCHMARK_STATE_CARDS: 'true',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_MODEL: 'compact-model',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_PROMPT_VERSION: 'prompt-v-test',
+    });
+
+    assert.equal(options.contextBudget?.semanticCompact?.enabled, true);
+    assert.equal(options.contextBudget?.semanticCompact?.mode, 'replace');
+    assert.equal(options.contextBudget?.semanticCompact?.minStepNumber, 2);
+    assert.equal(options.contextBudget?.semanticCompact?.maxActiveEstimatedTokens, 4096);
+    assert.equal(options.contextBudget?.semanticCompact?.minRecentMessages, 3);
+    assert.equal(options.contextBudget?.semanticCompact?.minRecentToolPairs, 2);
+    assert.equal(options.contextBudget?.semanticCompact?.maxSummaryEstimatedTokens, 512);
+    assert.equal(options.contextBudget?.semanticCompact?.minSavingsTokens, 128);
+    assert.equal(options.contextBudget?.semanticCompact?.minSavingsRatio, 0.2);
+    assert.equal(options.contextBudget?.semanticCompact?.minNetSavingsTokens, 256);
+    assert.equal(options.contextBudget?.semanticCompact?.compactCallTokenCostWeight, 0.5);
+    assert.equal(options.contextBudget?.semanticCompact?.maxCompactCallTokens, 768);
+    assert.equal(options.contextBudget?.semanticCompact?.maxConsecutiveInvalidSummaries, 3);
+    assert.equal(options.contextBudget?.semanticCompact?.invalidSummaryCooldownSteps, 11);
+    assert.equal(options.contextBudget?.semanticCompact?.timeoutMs, 30000);
+    assert.equal(options.contextBudget?.semanticCompact?.archiveRequired, true);
+    assert.equal(options.contextBudget?.semanticCompact?.benchmarkStateCards, true);
+    assert.equal(options.contextBudget?.semanticCompact?.summarizerModel, 'compact-model');
+    assert.equal(options.contextBudget?.semanticCompact?.promptVersion, 'prompt-v-test');
+
+    const snapshot = buildHarborCellContextBudgetPolicySnapshot({
+      MAKA_CONTEXT_SEMANTIC_COMPACT: 'on',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_MODE: 'validate_only',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_MIN_RECENT_TOOL_PAIRS: '1',
+      MAKA_CONTEXT_SEMANTIC_COMPACT_MIN_SAVINGS_TOKENS: '64',
+    });
+    assert.equal(snapshot?.enabled, true);
+    if (!snapshot?.enabled) throw new Error('expected context budget snapshot to be enabled');
+    assert.equal(snapshot.semanticCompact?.mode, 'validate_only');
+    assert.equal(snapshot.semanticCompact?.minRecentToolPairs, 1);
+    assert.equal(snapshot.semanticCompact?.minSavingsTokens, 64);
   });
 
   test('Harbor tool builder keeps the six container-native tools non-interactive', () => {
@@ -1690,6 +1871,41 @@ setTimeout(() => {
         ts: 1,
       });
       assert.equal(rawWins.apiKey, 'sk-raw');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('falls back to stored Maka credentials for secret-free Harbor configs', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'maka-cell-credentials-'));
+    try {
+      const credentialsPath = join(dir, 'credentials.json');
+      await writeFile(
+        credentialsPath,
+        `${JSON.stringify({
+          version: 1,
+          values: {
+            'zai-coding-plan:apiKey': 'stored-zai-secret',
+          },
+        })}\n`,
+        'utf8',
+      );
+
+      const stored = resolveHarborCellAiSdkEnv({
+        provider: 'zai-coding-plan',
+        model: 'glm-5.2',
+        env: { MAKA_CREDENTIALS_PATH: credentialsPath },
+        ts: 1,
+      });
+      assert.equal(stored.apiKey, 'stored-zai-secret');
+
+      const rawWins = resolveHarborCellAiSdkEnv({
+        provider: 'zai-coding-plan',
+        model: 'glm-5.2',
+        env: { MAKA_CREDENTIALS_PATH: credentialsPath, ZAI_API_KEY: 'raw-zai-secret' },
+        ts: 1,
+      });
+      assert.equal(rawWins.apiKey, 'raw-zai-secret');
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

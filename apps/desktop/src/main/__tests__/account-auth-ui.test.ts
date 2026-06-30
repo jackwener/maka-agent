@@ -147,7 +147,7 @@ describe('Account settings credential probe UI', () => {
     const page = source.match(/function AccountSettingsPage[\s\S]*?function AccountConnectionRow/)?.[0] ?? '';
     const row = source.match(/function AccountConnectionRow[\s\S]*?function AccountAuthActionView/)?.[0] ?? '';
 
-    assert.match(page, /模型密钥和订阅账号令牌会交给系统安全存储加密保存/);
+    assert.match(page, /模型密钥保存在本机凭据文件内；订阅账号令牌交给系统安全存储/);
     assert.match(page, /每个会话都会在本机保留消息、工具调用、权限决策与模式变更记录/);
     assert.match(page, /修改模型密钥、服务地址或默认模型会清掉「已验证」状态/);
     // PR-CONNECTION-LIST-A11Y-0 (round 17/30): list container

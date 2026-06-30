@@ -325,11 +325,12 @@ name: Writer
       ? join(process.cwd(), '..', '..')
       : process.cwd();
     const ui = await readFile(join(repoRoot, 'packages/ui/src/components.tsx'), 'utf8');
+    const emptyStateSource = await readFile(join(repoRoot, 'packages/ui/src/empty-state.tsx'), 'utf8');
     const renderer = await readFile(join(repoRoot, 'apps/desktop/src/renderer/main.tsx'), 'utf8');
     const chatView = ui.match(/export function ChatView\([\s\S]*?if \(props\.mode === 'automations'\)/)?.[0] ?? '';
     const skillsModuleMain = ui.match(/function SkillsModuleMain\([\s\S]*?function DailyReviewPanel/)?.[0] ?? '';
     const skillPanel = ui.match(/function SkillLibraryPanel[\s\S]*?function SkillsModuleMain/)?.[0] ?? '';
-    const emptyState = ui.match(/interface EmptyStateProps[\s\S]*?function SkillLibraryPanel/)?.[0] ?? '';
+    const emptyState = emptyStateSource;
 
     assert.match(chatView, /if \(props\.mode === 'skills'\) \{[\s\S]*<SkillsModuleMain/, 'Skills mode must mount its own main surface component');
     assert.match(skillsModuleMain, /const \[pendingSkillAction, setPendingSkillAction\] = useState<string \| null>\(null\)/);

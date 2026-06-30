@@ -409,7 +409,7 @@ describe('web-search renderer boundary (PR-WEB-SEARCH-TAVILY-0)', () => {
   });
 
   it('WebSearch shared tool-result source uses live-query naming instead of demo language', async () => {
-    const ui = await readFile(join(REPO_ROOT, 'packages/ui/src/components.tsx'), 'utf8');
+    const ui = await readFile(join(REPO_ROOT, 'packages/ui/src/tool-activity.tsx'), 'utf8');
     const coreEvents = await readFile(join(REPO_ROOT, 'packages/core/src/events.ts'), 'utf8');
     const webSearchPreview = ui.match(/function WebSearchPreview[\s\S]*?function FileDiffPreview/);
     const webSearchContent = coreEvents.match(/PR-CHAT-WEB-SEARCH-RENDER-0[\s\S]*?kind:\s*'web_search'/);
@@ -423,7 +423,7 @@ describe('web-search renderer boundary (PR-WEB-SEARCH-TAVILY-0)', () => {
   });
 
   it('WebSearch agent errors render as repair-oriented cards, not raw JSON', async () => {
-    const ui = await readFile(join(REPO_ROOT, 'packages/ui/src/components.tsx'), 'utf8');
+    const ui = await readFile(join(REPO_ROOT, 'packages/ui/src/tool-activity.tsx'), 'utf8');
     const runtime = await readFile(join(REPO_ROOT, 'packages/runtime/src/tool-runtime.ts'), 'utf8');
     const agentTool = await readFile(join(REPO_ROOT, 'apps/desktop/src/main/web-search/agent-tool.ts'), 'utf8');
     const coreEvents = await readFile(join(REPO_ROOT, 'packages/core/src/events.ts'), 'utf8');

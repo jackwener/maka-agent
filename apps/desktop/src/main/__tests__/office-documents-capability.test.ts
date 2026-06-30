@@ -16,7 +16,8 @@ const CHECK_OFFICECLI_BUNDLE = join(REPO_ROOT, 'scripts', 'check-officecli-bundl
 const PACKAGE_JSON = join(REPO_ROOT, 'package.json');
 const PERMISSION = join(REPO_ROOT, 'packages', 'core', 'src', 'permission.ts');
 const CORE_EVENTS = join(REPO_ROOT, 'packages', 'core', 'src', 'events.ts');
-const UI_COMPONENTS = join(REPO_ROOT, 'packages', 'ui', 'src', 'components.tsx');
+const TOOL_ACTIVITY = join(REPO_ROOT, 'packages', 'ui', 'src', 'tool-activity.tsx');
+const PERMISSION_DIALOG = join(REPO_ROOT, 'packages', 'ui', 'src', 'permission-dialog.tsx');
 
 describe('Office document capability contract', () => {
   it('surfaces Office 文档 as a capability backed by officecli probe', async () => {
@@ -141,7 +142,7 @@ describe('Office document capability contract', () => {
   it('renders Office document tool results through a structured preview, not raw JSON', async () => {
     const [events, components, styles] = await Promise.all([
       readFile(CORE_EVENTS, 'utf8'),
-      readFile(UI_COMPONENTS, 'utf8'),
+      readFile(TOOL_ACTIVITY, 'utf8'),
       readAllRendererCss(),
     ]);
 
@@ -176,7 +177,7 @@ describe('Office document capability contract', () => {
   });
 
   it('summarizes Office document edits in the permission dialog before raw args', async () => {
-    const components = await readFile(UI_COMPONENTS, 'utf8');
+    const components = await readFile(PERMISSION_DIALOG, 'utf8');
     const summaryBlock = components.match(/function renderPermissionSummary[\s\S]*?function permissionValuePreview/)?.[0] ?? '';
 
     assert.match(summaryBlock, /case 'OfficeDocumentEdit'/, 'OfficeDocumentEdit permission requests need a dedicated summary branch');

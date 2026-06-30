@@ -199,7 +199,7 @@ describe('maka-headless CLI', () => {
         '--out',
         outDir,
         '--include-events',
-      ]);
+      ], { env: { MAKA_ECONOMY_TASK_MODE: 'true' } });
       assert.equal(result.code, 0, result.stderr);
       const summary = JSON.parse(result.stdout);
       assert.equal(summary.taskRunId, 'harbor-run-1');
@@ -208,6 +208,8 @@ describe('maka-headless CLI', () => {
       assert.equal(summary.authoritative, false);
 
       const taskRunJson = JSON.parse(await readFile(join(outDir, 'exports', 'harbor-run-1', 'task-run.json'), 'utf8'));
+      assert.equal(taskRunJson.policy.economyTask.enabled, true);
+      assert.equal(taskRunJson.policy.economyTask.triggerSource, 'config');
       assert.equal(taskRunJson.verifier.kind, 'terminal_bench');
       assert.equal(taskRunJson.verifier.benchmark.instanceId, 'tb-real-backend');
       assert.equal(taskRunJson.verifier.benchmark.pendingExternalHarborVerifier, true);

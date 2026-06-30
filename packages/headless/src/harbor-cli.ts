@@ -92,6 +92,7 @@ const HARBOR_RUN_BOOLS = [
   'autonomous',
   'replay-prior-attempt-runtime-context',
   'heavy-task',
+  'economy-task',
 ];
 
 export async function harborCommand(args: string[]): Promise<number> {
@@ -264,6 +265,7 @@ async function resolveHarborRunOptions(args: string[], baseEnv: NodeJS.ProcessEn
     env,
     backend,
     heavyTask: parsed.bools['heavy-task'] || truthyEnv(env.MAKA_HEAVY_TASK_MODE),
+    economyTask: parsed.bools['economy-task'] || truthyEnv(env.MAKA_ECONOMY_TASK_MODE),
   });
   const registerBackends = buildBackendRegistration({ backend, env, now, newId, maxSteps });
   const realBackendIsolation = buildIsolation(isolation, env, workdir);
@@ -362,6 +364,7 @@ function buildConfig(input: {
   env: RunHarborCellEnv;
   backend: BackendKind;
   heavyTask: boolean;
+  economyTask: boolean;
 }): Config {
   if (input.backend === 'fake') {
     return {
@@ -370,6 +373,7 @@ function buildConfig(input: {
       llmConnectionSlug: input.env.MAKA_LLM_CONNECTION_SLUG ?? 'fake',
       model: input.env.MAKA_MODEL ?? input.env.HARBOR_MODEL ?? 'fake',
       ...(input.heavyTask ? { heavyTaskMode: { enabled: true, reason: 'maka-headless harbor run --heavy-task' } } : {}),
+      ...(input.economyTask ? { economyTaskMode: { enabled: true, reason: 'maka-headless harbor run --economy-task' } } : {}),
     };
   }
   if (input.backend !== 'ai-sdk') {
@@ -386,6 +390,7 @@ function buildConfig(input: {
     model: modelSpec.model,
     ...(input.env.MAKA_SYSTEM_PROMPT !== undefined ? { systemPrompt: input.env.MAKA_SYSTEM_PROMPT } : {}),
     ...(input.heavyTask ? { heavyTaskMode: { enabled: true, reason: 'maka-headless harbor run --heavy-task' } } : {}),
+    ...(input.economyTask ? { economyTaskMode: { enabled: true, reason: 'maka-headless harbor run --economy-task' } } : {}),
   };
 }
 

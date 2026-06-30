@@ -336,6 +336,7 @@ describe('runTaskOnce', () => {
             'task_run_created',
             'task_run_queued',
             'heavy_task_mode_recorded',
+            'economy_task_mode_recorded',
             'isolation_policy_recorded',
             'workspace_lease_recorded',
             'tool_executor_identity_recorded',
@@ -353,6 +354,11 @@ describe('runTaskOnce', () => {
         assert.equal(result.projection.isolation?.mode, 'inert_fake_backend');
         assert.equal(result.projection.workspaceLease?.taskRunId, result.taskRunId);
         assert.equal(result.projection.toolExecutors[0]?.isolationMode, 'inert_fake_backend');
+        const tools = result.projection.latestScoreResult?.details?.tools as Record<string, unknown> | undefined;
+        assert.ok(tools, 'score details should include tool economy summary');
+        assert.equal(tools.actualToolCalls, 0);
+        assert.deepEqual(tools.actualToolNames, []);
+        assert.deepEqual(tools.actualToolCallCounts, {});
       } finally {
         SessionManager.prototype.sendMessage = original;
       }
@@ -384,6 +390,32 @@ describe('runTaskOnce', () => {
       assert.ok(!result.projection.toolExecutors[0]?.toolNames.includes('inventory_submit'));
       assert.ok(!result.projection.toolExecutors[0]?.toolNames.includes('todo_update'));
       assert.ok(!result.projection.toolExecutors[0]?.toolNames.includes('self_check_submit'));
+    });
+  });
+
+  test('records config economy-task mode selection without changing scoring authority', async () => {
+    await withDirs(async (fixtureDir, storageRoot) => {
+      await writeFile(join(fixtureDir, 'marker.txt'), 'present', 'utf8');
+      const task: Task = {
+        id: 'economy-task',
+        instruction: 'write a csv summary',
+        workspaceDir: fixtureDir,
+        verification: { command: 'test -f marker.txt', protectedPaths: [] },
+      };
+
+      const result = await runTaskOnce({
+        ...fakeConfig,
+        economyTaskMode: { enabled: true, reason: 'declared simple task' },
+      }, task, {
+        storageRoot,
+        registerBackends: registerFakeBackend,
+      });
+
+      assert.equal(result.projection.economyTaskMode?.enabled, true);
+      assert.equal(result.projection.economyTaskMode?.triggerSource, 'config');
+      assert.equal(result.projection.economyTaskMode?.triggerReason, 'declared simple task');
+      assert.equal(result.projection.latestScoreResult?.taxonomy, 'passed');
+      assert.equal(result.resultRecord.passed, true);
     });
   });
 

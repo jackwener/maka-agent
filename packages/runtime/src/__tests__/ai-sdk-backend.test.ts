@@ -38,6 +38,7 @@ import {
 } from '../context-budget.js';
 import { buildRuntimeEventModelReplayPlan } from '../model-history.js';
 import type { ActiveFullCompactBlock } from '../active-full-compact.js';
+import type { SemanticCompactBlock } from '../semantic-compact.js';
 
 describe('AiSdkBackend model history', () => {
   test('prefers RuntimeEvent prior messages and appends current user once', async () => {
@@ -2085,6 +2086,138 @@ describe('AiSdkBackend usage telemetry', () => {
     assert.equal(recordedBlocks[0]?.blockId, 'afcompact-sync-test');
   });
 
+  test('semantic compact records a separate no-tools summarizer LLM call', async () => {
+    const messages: unknown[] = [];
+    const events: SessionEvent[] = [];
+    const llmRecords: LlmCallRecord[] = [];
+    const recordedBlocks: SemanticCompactBlock[] = [];
+    const largeBody = 'SEMANTIC_COMPACT_RAW_TOOL_OUTPUT'.repeat(180);
+    let streamCalls = 0;
+    const model = new MockLanguageModelV3({
+      doGenerate: {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            current_objective: 'Finish the benchmark task.',
+            user_constraints: ['Continue from public provider-visible context only.'],
+            important_files_and_artifacts: [],
+            commands_and_results: ['Read returned a large raw tool output.'],
+            errors_and_fixes: [],
+            failed_hypotheses: [],
+            operational_state: ['Continue in the same session.'],
+            public_verification_state: 'No verifier result claimed.',
+            remaining_work: ['Continue after compact.'],
+            next_action: 'Use the preserved recent tail to continue.',
+            archive_refs_to_reread_if_needed: [],
+          }),
+        }],
+        finishReason: { unified: 'stop', raw: 'stop' },
+        usage: {
+          inputTokens: { total: 21, noCache: 19, cacheRead: 2, cacheWrite: 0 },
+          outputTokens: { total: 13, text: 13, reasoning: 0 },
+        },
+        warnings: [],
+      },
+      doStream: async () => {
+        streamCalls += 1;
+        const chunks: LanguageModelV3StreamPart[] = streamCalls === 1
+          ? [
+              { type: 'stream-start', warnings: [] },
+              {
+                type: 'tool-call',
+                toolCallId: 'tool-semantic',
+                toolName: 'Read',
+                input: JSON.stringify({ path: 'large.log' }),
+              },
+              {
+                type: 'finish',
+                finishReason: { unified: 'tool-calls', raw: 'tool_calls' },
+                usage: { inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 1, text: 1, reasoning: 0 } },
+              },
+            ]
+          : [
+              { type: 'stream-start', warnings: [] },
+              { type: 'finish', finishReason: { unified: 'stop', raw: 'stop' }, usage: { inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 1, text: 1, reasoning: 0 } } },
+            ];
+        return { stream: simulateReadableStream({ chunks, initialDelayInMs: null, chunkDelayInMs: null }) };
+      },
+    });
+    const backend = new AiSdkBackend({
+      sessionId: 'session-1',
+      header: header(),
+      appendMessage: async (message) => {
+        messages.push(message);
+      },
+      connection: connection(),
+      apiKey: 'sk-test',
+      modelId: 'mock-model-id',
+      permissionEngine: new PermissionEngine({ newId: () => 'permission-id', now: () => 1 }),
+      modelFactory: () => model,
+      tools: [{
+        name: 'Read',
+        description: 'Read description',
+        parameters: z.object({ path: z.string() }),
+        permissionRequired: false,
+        impl: async () => ({ body: largeBody }),
+      }],
+      contextBudget: {
+        charsPerToken: 1,
+        semanticCompact: {
+          enabled: true,
+          mode: 'replace',
+          minStepNumber: 1,
+          minRecentMessages: 0,
+          maxActiveEstimatedTokens: 1,
+          highWaterRatio: 0.1,
+          maxSummaryEstimatedTokens: 1024,
+          minSavingsTokens: 1,
+          minSavingsRatio: 0,
+        },
+      },
+      newId: idGenerator(),
+      now: monotonicClock(),
+      recordLlmCall: (record) => {
+        llmRecords.push(record);
+      },
+      recordSemanticCompactBlock: (block) => {
+        recordedBlocks.push(block);
+      },
+    });
+
+    for await (const event of backend.send({ turnId: 'turn-1', text: 'hi', context: [] })) {
+      events.push(event);
+    }
+
+    assert.equal(streamCalls, 2);
+    assert.equal(model.doGenerateCalls.length, 1);
+    assert.equal(recordedBlocks.length, 1);
+    assert.equal(recordedBlocks[0]?.kind, 'maka.semantic_compact_block');
+    const secondPrompt = JSON.stringify(model.doStreamCalls[1]?.prompt.map((message) => ({
+      role: message.role,
+      content: message.content,
+    })));
+    assert.match(secondPrompt, /maka_semantic_compact_block/);
+    assert.doesNotMatch(secondPrompt, /SEMANTIC_COMPACT_RAW_TOOL_OUTPUT/);
+
+    const semanticRecord = llmRecords.find((record) => record.callKind === 'semantic_compact');
+    assert.ok(semanticRecord, 'expected semantic compact LLM record');
+    assert.match(semanticRecord.callId ?? '', /^semantic_compact_turn-1_1_/);
+    assert.equal(semanticRecord.inputTokens, 21);
+    assert.equal(semanticRecord.outputTokens, 13);
+    assert.equal(semanticRecord.cacheHitInputTokens, 2);
+    assert.equal(semanticRecord.totalTokens, 34);
+
+    const usageEvent = events.find((event) => event.type === 'token_usage') as
+      | (Extract<SessionEvent, { type: 'token_usage' }> & { contextBudget?: Record<string, unknown> })
+      | undefined;
+    const decisions = usageEvent?.contextBudget?.compactionDecisions as Array<Record<string, unknown>> | undefined;
+    assert.equal(decisions?.some((decision) =>
+      decision.boundaryKind === 'semanticCompact'
+        && decision.decision === 'replaced'
+        && decision.compactCallTotalTokens === 34
+    ), true);
+  });
+
   test('active full compact keeps the accepted boundary projection across later AI SDK steps', async () => {
     const messages: unknown[] = [];
     const events: SessionEvent[] = [];
@@ -3239,7 +3372,7 @@ describe('AiSdkBackend tool permission category hints', () => {
   test('permissionRequired=false fast path preserves tool-call/result ordering and telemetry', async () => {
     const messages: unknown[] = [];
     const events: SessionEvent[] = [];
-    const telemetry: Array<{ status: string; toolCallId?: string }> = [];
+    const telemetry: Array<{ status: string; toolCallId?: string; argsSummary?: string }> = [];
     let implCalled = false;
     const backend = new AiSdkBackend({
       sessionId: 'session-1',
@@ -3256,7 +3389,7 @@ describe('AiSdkBackend tool permission category hints', () => {
       newId: idGenerator(),
       now: monotonicClock(),
       recordToolInvocation: (record) => {
-        telemetry.push({ status: record.status, toolCallId: record.toolCallId });
+        telemetry.push({ status: record.status, toolCallId: record.toolCallId, argsSummary: record.argsSummary });
       },
     });
     const tool: MakaTool = {
@@ -3278,7 +3411,12 @@ describe('AiSdkBackend tool permission category hints', () => {
     }).wrapToolExecute(tool, 'turn-1', { push: (event) => events.push(event) });
 
     const result = await execute(
-      { path: 'notes.md' },
+      {
+        path: 'notes.md',
+        authorization: 'Bearer opaque-session-value',
+        apiKey: 'plain-provider-key',
+        password: 'correct-horse-battery-staple',
+      },
       { toolCallId: 'tool-1', abortSignal: new AbortController().signal },
     );
 
@@ -3298,8 +3436,15 @@ describe('AiSdkBackend tool permission category hints', () => {
     );
     assert.equal(events.some((event) => event.type === 'permission_request'), false);
     assert.deepEqual(telemetry, [
-      { status: 'success', toolCallId: 'tool-1' },
+      {
+        status: 'success',
+        toolCallId: 'tool-1',
+        argsSummary: '{"path":"notes.md","authorization":"[redacted]","apiKey":"[redacted]","password":"[redacted]"}',
+      },
     ]);
+    assert.equal(JSON.stringify(telemetry).includes('opaque-session-value'), false);
+    assert.equal(JSON.stringify(telemetry).includes('plain-provider-key'), false);
+    assert.equal(JSON.stringify(telemetry).includes('correct-horse-battery-staple'), false);
   });
 
   test('permission prompt timeout expires one request, resumes watchdog, and writes an error result', async () => {

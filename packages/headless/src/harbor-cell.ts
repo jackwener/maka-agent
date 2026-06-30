@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import { exec as nodeExec } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import type {
@@ -42,6 +43,7 @@ import {
 } from './cell-output.js';
 import type { Config, Task } from './contracts.js';
 import { configWithHeavyTaskPolicy, resolveHeavyTaskMode } from './heavy-task-policy.js';
+import { configWithEconomyTaskPolicy, resolveEconomyTaskMode } from './economy-task-policy.js';
 import type { HeadlessBackendContext, IsolatedToolExecutor, RealBackendIsolation } from './isolation.js';
 import { ISOLATED_HEADLESS_TOOL_NAMES, validateRealBackendIsolation } from './isolation.js';
 import { PiCliJsonTransport } from './pi-cli-json-transport.js';
@@ -158,6 +160,31 @@ export const HARBOR_CELL_CONTEXT_ENV_KEYS = [
   'MAKA_CONTEXT_ACTIVE_FULL_COMPACT_SUMMARY_MAX_ESTIMATED_TOKENS',
   'MAKA_CONTEXT_ACTIVE_FULL_COMPACT_ARCHIVE_REQUIRED',
   'MAKA_CONTEXT_ACTIVE_FULL_COMPACT_HIGH_WATER_NAME',
+  'MAKA_CONTEXT_SEMANTIC_COMPACT',
+  'MAKA_CONTEXT_SEMANTIC_COMPACT_MODE',
+  'MAKA_CONTEXT_SEMANTIC_COMPACT_MIN_STEP_NUMBER',
+  'MAKA_CONTEXT_SEMANTIC_COMPACT_HIGH_WATER_RATIO',
+  'MAKA_CONTEXT_SEMANTIC_COMPACT_FORCE_RATIO',
+  'MAKA_CONTEXT_SEMANTIC_COMPACT_TARGET_RATIO',
+  'MAKA_CONTEXT_SEMANTIC_COMPACT_MAX_ACTIVE_ESTIMATED_TOKENS',
+  'MAKA_CONTEXT_SEMANTIC_COMPACT_MAX_ESTIMATED_TOKENS',
+  'MAKA_CONTEXT_SEMANTIC_COMPACT_MIN_RECENT_MESSAGES',
+  'MAKA_CONTEXT_SEMANTIC_COMPACT_MIN_RECENT_TOOL_PAIRS',
+  'MAKA_CONTEXT_SEMANTIC_COMPACT_MAX_SUMMARY_ESTIMATED_TOKENS',
+  'MAKA_CONTEXT_SEMANTIC_COMPACT_SUMMARY_MAX_ESTIMATED_TOKENS',
+  'MAKA_CONTEXT_SEMANTIC_COMPACT_MIN_SAVINGS_TOKENS',
+  'MAKA_CONTEXT_SEMANTIC_COMPACT_MIN_SAVINGS_RATIO',
+  'MAKA_CONTEXT_SEMANTIC_COMPACT_MIN_NET_SAVINGS_TOKENS',
+  'MAKA_CONTEXT_SEMANTIC_COMPACT_CALL_TOKEN_COST_WEIGHT',
+  'MAKA_CONTEXT_SEMANTIC_COMPACT_MAX_CALL_TOKENS',
+  'MAKA_CONTEXT_SEMANTIC_COMPACT_MAX_CONSECUTIVE_INVALID_SUMMARIES',
+  'MAKA_CONTEXT_SEMANTIC_COMPACT_INVALID_SUMMARY_COOLDOWN_STEPS',
+  'MAKA_CONTEXT_SEMANTIC_COMPACT_TIMEOUT_MS',
+  'MAKA_CONTEXT_SEMANTIC_COMPACT_ARCHIVE_REQUIRED',
+  'MAKA_CONTEXT_SEMANTIC_COMPACT_BENCHMARK_STATE_CARDS',
+  'MAKA_CONTEXT_SEMANTIC_COMPACT_MODEL',
+  'MAKA_CONTEXT_SEMANTIC_COMPACT_PROMPT_VERSION',
+  'MAKA_CONTEXT_SEMANTIC_COMPACT_HIGH_WATER_NAME',
   'MAKA_CONTEXT_ARCHIVE_RETRIEVAL',
   'MAKA_CONTEXT_ARCHIVE_RETRIEVAL_MODE',
   'MAKA_CONTEXT_ARCHIVE_RETRIEVAL_MAX_RESULTS',
@@ -243,7 +270,9 @@ export async function runHarborCell(input: RunHarborCellInput): Promise<RunHarbo
     workspaceDir: input.cwd,
   };
   const heavyTaskMode = resolveHeavyTaskMode(input.config, task);
-  const config = configWithHeavyTaskPolicy(input.config, heavyTaskMode);
+  const configAfterHeavy = configWithHeavyTaskPolicy(input.config, heavyTaskMode);
+  const economyTaskMode = resolveEconomyTaskMode(configAfterHeavy, task);
+  const config = configWithEconomyTaskPolicy(configAfterHeavy, economyTaskMode);
   const registerBackends = input.registerBackends ?? ((registry: BackendRegistry) => registerFakeBackend(registry));
   await registerBackends(backends, {
     config,
@@ -352,10 +381,12 @@ export async function runHarborCellFromEnv(
   const backend = backendFromEnv(resolvedEnv.MAKA_BACKEND);
   const contextBudgetPolicy = buildHarborCellContextBudgetPolicySnapshot(resolvedEnv);
   const continuationPolicy = buildHarborCellContinuationPolicy(resolvedEnv);
+  const economyTaskMode = economyTaskModeFromEnv(resolvedEnv.MAKA_ECONOMY_TASK_MODE);
   const baseConfig = {
     id: resolvedEnv.MAKA_CONFIG_ID ?? 'harbor-cell',
     backend,
     ...(resolvedEnv.MAKA_SYSTEM_PROMPT !== undefined ? { systemPrompt: resolvedEnv.MAKA_SYSTEM_PROMPT } : {}),
+    ...(economyTaskMode !== undefined ? { economyTaskMode } : {}),
   };
   let config: Config;
   let registerBackends = options.registerBackends;
@@ -440,6 +471,12 @@ export async function runHarborCellFromEnv(
     ...(options.now ? { now: options.now } : {}),
     ...(options.newId ? { newId: options.newId } : {}),
   });
+}
+
+function economyTaskModeFromEnv(value: string | undefined): boolean | undefined {
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  return undefined;
 }
 
 export function buildHarborCellContinuationPolicy(
@@ -600,6 +637,7 @@ export function buildAiSdkCellBackendRegistration(input: {
         now: input.now,
         recordRunTrace: ctx.recordRunTrace,
         recordActiveFullCompactBlock: ctx.recordActiveFullCompactBlock,
+        recordSemanticCompactBlock: ctx.recordSemanticCompactBlock,
       }),
     );
   };
@@ -646,7 +684,12 @@ export function buildHarborCellContextBudgetBackendOptions(
     env.MAKA_HARBOR_CONTEXT_ACTIVE_FULL_COMPACT,
     'MAKA_CONTEXT_ACTIVE_FULL_COMPACT',
   ) ?? false;
-  if (!pruneEnabled && !activePruneEnabled && !archiveRetrievalEnabled && !activeFullCompactEnabled) return {};
+  const semanticCompactEnabled = booleanEnv(
+    env.MAKA_CONTEXT_SEMANTIC_COMPACT ??
+    env.MAKA_HARBOR_CONTEXT_SEMANTIC_COMPACT,
+    'MAKA_CONTEXT_SEMANTIC_COMPACT',
+  ) ?? false;
+  if (!pruneEnabled && !activePruneEnabled && !archiveRetrievalEnabled && !activeFullCompactEnabled && !semanticCompactEnabled) return {};
 
   const contextBudget: ContextBudgetPolicy = {
     name: env.MAKA_CONTEXT_BUDGET_NAME ?? 'harbor-cell-context-budget',
@@ -752,6 +795,79 @@ export function buildHarborCellContextBudgetBackendOptions(
       ...(archiveRequired !== undefined ? { archiveRequired } : {}),
       ...(env.MAKA_CONTEXT_ACTIVE_FULL_COMPACT_HIGH_WATER_NAME
         ? { highWaterName: env.MAKA_CONTEXT_ACTIVE_FULL_COMPACT_HIGH_WATER_NAME }
+        : {}),
+    };
+  }
+
+  if (semanticCompactEnabled) {
+    const mode = semanticCompactModeEnv(env.MAKA_CONTEXT_SEMANTIC_COMPACT_MODE);
+    const maxActiveEstimatedTokens = positiveIntEnv(
+      env.MAKA_CONTEXT_SEMANTIC_COMPACT_MAX_ACTIVE_ESTIMATED_TOKENS ??
+      env.MAKA_CONTEXT_SEMANTIC_COMPACT_MAX_ESTIMATED_TOKENS,
+      'MAKA_CONTEXT_SEMANTIC_COMPACT_MAX_ACTIVE_ESTIMATED_TOKENS',
+    );
+    const minStepNumber = firstContextNonNegativeIntEnv(env, ['MAKA_CONTEXT_SEMANTIC_COMPACT_MIN_STEP_NUMBER']);
+    const minRecentMessages = firstContextNonNegativeIntEnv(env, ['MAKA_CONTEXT_SEMANTIC_COMPACT_MIN_RECENT_MESSAGES']);
+    const minRecentToolPairs = firstContextNonNegativeIntEnv(env, ['MAKA_CONTEXT_SEMANTIC_COMPACT_MIN_RECENT_TOOL_PAIRS']);
+    const maxSummaryEstimatedTokens = positiveIntEnv(
+      env.MAKA_CONTEXT_SEMANTIC_COMPACT_MAX_SUMMARY_ESTIMATED_TOKENS ??
+      env.MAKA_CONTEXT_SEMANTIC_COMPACT_SUMMARY_MAX_ESTIMATED_TOKENS,
+      'MAKA_CONTEXT_SEMANTIC_COMPACT_MAX_SUMMARY_ESTIMATED_TOKENS',
+    );
+    const minSavingsTokens = firstContextNonNegativeIntEnv(env, ['MAKA_CONTEXT_SEMANTIC_COMPACT_MIN_SAVINGS_TOKENS']);
+    const minNetSavingsTokens = firstContextNonNegativeIntEnv(env, ['MAKA_CONTEXT_SEMANTIC_COMPACT_MIN_NET_SAVINGS_TOKENS']);
+    const maxCompactCallTokens = positiveIntEnv(
+      env.MAKA_CONTEXT_SEMANTIC_COMPACT_MAX_CALL_TOKENS,
+      'MAKA_CONTEXT_SEMANTIC_COMPACT_MAX_CALL_TOKENS',
+    );
+    const maxConsecutiveInvalidSummaries = firstContextNonNegativeIntEnv(env, ['MAKA_CONTEXT_SEMANTIC_COMPACT_MAX_CONSECUTIVE_INVALID_SUMMARIES']);
+    const invalidSummaryCooldownSteps = firstContextNonNegativeIntEnv(env, ['MAKA_CONTEXT_SEMANTIC_COMPACT_INVALID_SUMMARY_COOLDOWN_STEPS']);
+    const timeoutMs = positiveIntEnv(
+      env.MAKA_CONTEXT_SEMANTIC_COMPACT_TIMEOUT_MS,
+      'MAKA_CONTEXT_SEMANTIC_COMPACT_TIMEOUT_MS',
+    );
+    const archiveRequired = booleanEnv(
+      env.MAKA_CONTEXT_SEMANTIC_COMPACT_ARCHIVE_REQUIRED,
+      'MAKA_CONTEXT_SEMANTIC_COMPACT_ARCHIVE_REQUIRED',
+    );
+    const benchmarkStateCards = booleanEnv(
+      env.MAKA_CONTEXT_SEMANTIC_COMPACT_BENCHMARK_STATE_CARDS,
+      'MAKA_CONTEXT_SEMANTIC_COMPACT_BENCHMARK_STATE_CARDS',
+    );
+    const highWaterRatio = numericEnv(env.MAKA_CONTEXT_SEMANTIC_COMPACT_HIGH_WATER_RATIO);
+    const forceRatio = numericEnv(env.MAKA_CONTEXT_SEMANTIC_COMPACT_FORCE_RATIO);
+    const targetRatio = numericEnv(env.MAKA_CONTEXT_SEMANTIC_COMPACT_TARGET_RATIO);
+    const minSavingsRatio = numericEnv(env.MAKA_CONTEXT_SEMANTIC_COMPACT_MIN_SAVINGS_RATIO);
+    const compactCallTokenCostWeight = numericEnv(env.MAKA_CONTEXT_SEMANTIC_COMPACT_CALL_TOKEN_COST_WEIGHT);
+    contextBudget.semanticCompact = {
+      enabled: true,
+      ...(mode ? { mode } : {}),
+      ...(minStepNumber !== undefined ? { minStepNumber } : {}),
+      ...(highWaterRatio !== undefined ? { highWaterRatio } : {}),
+      ...(forceRatio !== undefined ? { forceRatio } : {}),
+      ...(targetRatio !== undefined ? { targetRatio } : {}),
+      ...(maxActiveEstimatedTokens !== undefined ? { maxActiveEstimatedTokens } : {}),
+      ...(minRecentMessages !== undefined ? { minRecentMessages } : {}),
+      ...(minRecentToolPairs !== undefined ? { minRecentToolPairs } : {}),
+      ...(maxSummaryEstimatedTokens !== undefined ? { maxSummaryEstimatedTokens } : {}),
+      ...(minSavingsTokens !== undefined ? { minSavingsTokens } : {}),
+      ...(minSavingsRatio !== undefined ? { minSavingsRatio } : {}),
+      ...(minNetSavingsTokens !== undefined ? { minNetSavingsTokens } : {}),
+      ...(compactCallTokenCostWeight !== undefined ? { compactCallTokenCostWeight } : {}),
+      ...(maxCompactCallTokens !== undefined ? { maxCompactCallTokens } : {}),
+      ...(maxConsecutiveInvalidSummaries !== undefined ? { maxConsecutiveInvalidSummaries } : {}),
+      ...(invalidSummaryCooldownSteps !== undefined ? { invalidSummaryCooldownSteps } : {}),
+      ...(timeoutMs !== undefined ? { timeoutMs } : {}),
+      ...(archiveRequired !== undefined ? { archiveRequired } : {}),
+      ...(benchmarkStateCards !== undefined ? { benchmarkStateCards } : {}),
+      ...(env.MAKA_CONTEXT_SEMANTIC_COMPACT_MODEL
+        ? { summarizerModel: env.MAKA_CONTEXT_SEMANTIC_COMPACT_MODEL }
+        : {}),
+      ...(env.MAKA_CONTEXT_SEMANTIC_COMPACT_PROMPT_VERSION
+        ? { promptVersion: env.MAKA_CONTEXT_SEMANTIC_COMPACT_PROMPT_VERSION }
+        : {}),
+      ...(env.MAKA_CONTEXT_SEMANTIC_COMPACT_HIGH_WATER_NAME
+        ? { highWaterName: env.MAKA_CONTEXT_SEMANTIC_COMPACT_HIGH_WATER_NAME }
         : {}),
     };
   }
@@ -874,6 +990,77 @@ export function buildHarborCellContextBudgetPolicySnapshot(
               : {}),
             ...(contextBudget.activeFullCompact.highWaterName
               ? { highWaterName: contextBudget.activeFullCompact.highWaterName }
+              : {}),
+          },
+        }
+      : {}),
+    ...(contextBudget.semanticCompact
+      ? {
+          semanticCompact: {
+            enabled: contextBudget.semanticCompact.enabled,
+            ...(contextBudget.semanticCompact.mode ? { mode: contextBudget.semanticCompact.mode } : {}),
+            ...(contextBudget.semanticCompact.minStepNumber !== undefined
+              ? { minStepNumber: contextBudget.semanticCompact.minStepNumber }
+              : {}),
+            ...(contextBudget.semanticCompact.highWaterRatio !== undefined
+              ? { highWaterRatio: contextBudget.semanticCompact.highWaterRatio }
+              : {}),
+            ...(contextBudget.semanticCompact.forceRatio !== undefined
+              ? { forceRatio: contextBudget.semanticCompact.forceRatio }
+              : {}),
+            ...(contextBudget.semanticCompact.targetRatio !== undefined
+              ? { targetRatio: contextBudget.semanticCompact.targetRatio }
+              : {}),
+            ...(contextBudget.semanticCompact.maxActiveEstimatedTokens !== undefined
+              ? { maxActiveEstimatedTokens: contextBudget.semanticCompact.maxActiveEstimatedTokens }
+              : {}),
+            ...(contextBudget.semanticCompact.minRecentMessages !== undefined
+              ? { minRecentMessages: contextBudget.semanticCompact.minRecentMessages }
+              : {}),
+            ...(contextBudget.semanticCompact.minRecentToolPairs !== undefined
+              ? { minRecentToolPairs: contextBudget.semanticCompact.minRecentToolPairs }
+              : {}),
+            ...(contextBudget.semanticCompact.maxSummaryEstimatedTokens !== undefined
+              ? { maxSummaryEstimatedTokens: contextBudget.semanticCompact.maxSummaryEstimatedTokens }
+              : {}),
+            ...(contextBudget.semanticCompact.minSavingsTokens !== undefined
+              ? { minSavingsTokens: contextBudget.semanticCompact.minSavingsTokens }
+              : {}),
+            ...(contextBudget.semanticCompact.minSavingsRatio !== undefined
+              ? { minSavingsRatio: contextBudget.semanticCompact.minSavingsRatio }
+              : {}),
+            ...(contextBudget.semanticCompact.minNetSavingsTokens !== undefined
+              ? { minNetSavingsTokens: contextBudget.semanticCompact.minNetSavingsTokens }
+              : {}),
+            ...(contextBudget.semanticCompact.compactCallTokenCostWeight !== undefined
+              ? { compactCallTokenCostWeight: contextBudget.semanticCompact.compactCallTokenCostWeight }
+              : {}),
+            ...(contextBudget.semanticCompact.maxCompactCallTokens !== undefined
+              ? { maxCompactCallTokens: contextBudget.semanticCompact.maxCompactCallTokens }
+              : {}),
+            ...(contextBudget.semanticCompact.maxConsecutiveInvalidSummaries !== undefined
+              ? { maxConsecutiveInvalidSummaries: contextBudget.semanticCompact.maxConsecutiveInvalidSummaries }
+              : {}),
+            ...(contextBudget.semanticCompact.invalidSummaryCooldownSteps !== undefined
+              ? { invalidSummaryCooldownSteps: contextBudget.semanticCompact.invalidSummaryCooldownSteps }
+              : {}),
+            ...(contextBudget.semanticCompact.timeoutMs !== undefined
+              ? { timeoutMs: contextBudget.semanticCompact.timeoutMs }
+              : {}),
+            ...(contextBudget.semanticCompact.archiveRequired !== undefined
+              ? { archiveRequired: contextBudget.semanticCompact.archiveRequired }
+              : {}),
+            ...(contextBudget.semanticCompact.benchmarkStateCards !== undefined
+              ? { benchmarkStateCards: contextBudget.semanticCompact.benchmarkStateCards }
+              : {}),
+            ...(contextBudget.semanticCompact.summarizerModel
+              ? { summarizerModel: contextBudget.semanticCompact.summarizerModel }
+              : {}),
+            ...(contextBudget.semanticCompact.promptVersion
+              ? { promptVersion: contextBudget.semanticCompact.promptVersion }
+              : {}),
+            ...(contextBudget.semanticCompact.highWaterName
+              ? { highWaterName: contextBudget.semanticCompact.highWaterName }
               : {}),
           },
         }
@@ -1081,6 +1268,19 @@ function activeFullCompactModeEnv(
   );
 }
 
+function semanticCompactModeEnv(
+  raw: string | undefined,
+): NonNullable<ContextBudgetPolicy['semanticCompact']>['mode'] | undefined {
+  const value = raw?.trim();
+  if (value === undefined || value === '') return undefined;
+  if (value === 'off' || value === 'validate_only' || value === 'prepare_step_dry_run' || value === 'replace') {
+    return value;
+  }
+  throw new Error(
+    `MAKA_CONTEXT_SEMANTIC_COMPACT_MODE must be one of off, validate_only, prepare_step_dry_run, replace, got ${JSON.stringify(raw)}`,
+  );
+}
+
 function booleanEnv(raw: string | undefined, name: string): boolean | undefined {
   const value = raw?.trim().toLowerCase();
   if (value === undefined || value === '') return undefined;
@@ -1215,9 +1415,10 @@ export function resolveHarborCellAiSdkEnv(input: {
   env: RunHarborCellEnv;
   ts: number;
 }): ResolvedHarborCellAiSdkEnv {
+  const connection = connectionFromEnv(input.provider, input.model, input.env, input.ts);
   return {
-    connection: connectionFromEnv(input.provider, input.model, input.env, input.ts),
-    apiKey: apiKeyFromEnv(input.provider, input.env),
+    connection,
+    apiKey: apiKeyFromEnv(input.provider, input.env, connection.slug),
   };
 }
 
@@ -1289,32 +1490,41 @@ function providerBaseUrl(provider: ProviderType, env: RunHarborCellEnv): string 
   }
 }
 
-function apiKeyFromEnv(provider: ProviderType, env: RunHarborCellEnv): string {
+function apiKeyFromEnv(provider: ProviderType, env: RunHarborCellEnv, connectionSlug: string): string {
+  const names: string[] = [];
   switch (provider) {
     case 'deepseek':
-      return resolveApiKey(env, ['DEEPSEEK_API_KEY', 'OPENAI_API_KEY']);
+      names.push('DEEPSEEK_API_KEY', 'OPENAI_API_KEY');
+      break;
     case 'openai':
     case 'openai-compatible':
-      return resolveApiKey(env, ['OPENAI_API_KEY']);
+      names.push('OPENAI_API_KEY');
+      break;
     case 'moonshot':
-      return resolveApiKey(env, ['MOONSHOT_API_KEY', 'OPENAI_API_KEY']);
+      names.push('MOONSHOT_API_KEY', 'OPENAI_API_KEY');
+      break;
     case 'zai-coding-plan':
-      return resolveApiKey(env, ['ZAI_API_KEY', 'ZAI_CODING_CN_API_KEY', 'OPENAI_API_KEY']);
+      names.push('ZAI_API_KEY', 'ZAI_CODING_CN_API_KEY', 'OPENAI_API_KEY');
+      break;
     case 'google':
-      return resolveApiKey(env, ['GOOGLE_API_KEY']);
+      names.push('GOOGLE_API_KEY');
+      break;
     case 'anthropic':
     case 'kimi-coding-plan':
     case 'claude-subscription':
-      return resolveApiKey(env, ['ANTHROPIC_API_KEY']);
+      names.push('ANTHROPIC_API_KEY');
+      break;
     default:
-      return resolveApiKey(env, ['OPENAI_API_KEY']);
+      names.push('OPENAI_API_KEY');
+      break;
   }
+  return resolveApiKey(env, names, connectionSlug);
 }
 
 // Resolve an API key from either the raw env var or its `<NAME>_FILE` companion.
 // The file path is what travels through the Harbor CLI / job config, so the secret
 // itself stays in a mounted file — never on a command line or in config.json.
-function resolveApiKey(env: RunHarborCellEnv, names: readonly string[]): string {
+function resolveApiKey(env: RunHarborCellEnv, names: readonly string[], connectionSlug?: string): string {
   for (const name of names) {
     const raw = env[name];
     if (raw) return raw;
@@ -1327,7 +1537,26 @@ function resolveApiKey(env: RunHarborCellEnv, names: readonly string[]): string 
       }
     }
   }
+  if (connectionSlug) {
+    return readStoredMakaApiKey(env, connectionSlug);
+  }
   return '';
+}
+
+function readStoredMakaApiKey(env: RunHarborCellEnv, connectionSlug: string): string {
+  const credentialPath = env.MAKA_CREDENTIALS_PATH
+    ?? join(homedir(), 'Library', 'Application Support', 'Maka', 'workspaces', 'default', 'credentials.json');
+  try {
+    const parsed = JSON.parse(readFileSync(credentialPath, 'utf8')) as {
+      version?: unknown;
+      values?: unknown;
+    };
+    if (parsed.version !== 1 || !parsed.values || typeof parsed.values !== 'object') return '';
+    const value = (parsed.values as Record<string, unknown>)[`${connectionSlug}:apiKey`];
+    return typeof value === 'string' ? value : '';
+  } catch {
+    return '';
+  }
 }
 
 function runtimeEventsJsonl(invocation: InvocationResult): string {

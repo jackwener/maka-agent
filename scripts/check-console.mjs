@@ -59,6 +59,10 @@ const ALLOW = new Map([
     'CLI entrypoint prints command progress, usage, and failures to stdout/stderr by design.',
   ],
   [
+    'packages/headless/src/harbor-cli.ts',
+    'Harbor CLI subcommand prints usage and command failures to stderr by design.',
+  ],
+  [
     'scripts/check-console.mjs',
     'this script — explicit allow.',
   ],

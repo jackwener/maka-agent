@@ -282,6 +282,14 @@ export interface HeavyTaskModeFacts {
   policyVersion: string;
 }
 
+export interface EconomyTaskModeFacts {
+  schemaVersion: 1;
+  enabled: boolean;
+  triggerSource: 'default' | 'config' | 'task_metadata';
+  triggerReason: string;
+  policyVersion: string;
+}
+
 export interface HeavyTaskProgressSource {
   kind: 'model_tool';
   toolCallId: string;
@@ -649,6 +657,11 @@ export interface HeavyTaskModeRecordedEvent extends BaseTaskEvent {
   facts: HeavyTaskModeFacts;
 }
 
+export interface EconomyTaskModeRecordedEvent extends BaseTaskEvent {
+  type: 'economy_task_mode_recorded';
+  facts: EconomyTaskModeFacts;
+}
+
 export interface HeavyTaskInventoryRecordedEvent extends BaseTaskEvent {
   type: 'heavy_task_inventory_recorded';
   inventory: HeavyTaskInventoryState;
@@ -793,6 +806,7 @@ export type TaskEvent =
   | TaskRunArtifactRecordedEvent
   | ScoreResultRecordedEvent
   | HeavyTaskModeRecordedEvent
+  | EconomyTaskModeRecordedEvent
   | HeavyTaskInventoryRecordedEvent
   | HeavyTaskTodosRecordedEvent
   | HeavyTaskSelfCheckRecordedEvent

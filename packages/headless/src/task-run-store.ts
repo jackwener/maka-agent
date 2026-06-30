@@ -8,6 +8,7 @@ import type {
   AutonomousDecision,
   FeedbackObservation,
   HeavyTaskCompactEvidenceEnvelope,
+  EconomyTaskModeFacts,
   HeavyTaskInventoryState,
   TaskInboxItem,
   HeavyTaskModeFacts,
@@ -47,6 +48,7 @@ export interface TaskRunProjection extends TaskRun {
   latestVerifierResult?: VerifierResult;
   latestScoreResult?: ScoreResult;
   heavyTaskMode?: HeavyTaskModeFacts;
+  economyTaskMode?: EconomyTaskModeFacts;
   heavyTaskInventory: HeavyTaskInventoryState[];
   latestHeavyTaskInventory?: HeavyTaskInventoryState;
   heavyTaskTodoStates: HeavyTaskTodoState[];
@@ -178,6 +180,9 @@ export function projectTaskRun(events: readonly TaskEvent[], taskRunId?: string)
         break;
       case 'heavy_task_mode_recorded':
         projection.heavyTaskMode = event.facts;
+        break;
+      case 'economy_task_mode_recorded':
+        projection.economyTaskMode = event.facts;
         break;
       case 'heavy_task_inventory_recorded':
         projection.heavyTaskInventory.push(event.inventory);

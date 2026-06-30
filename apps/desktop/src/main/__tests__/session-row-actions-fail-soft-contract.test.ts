@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { readRendererContractCss } from './contract-css-helpers.js';
 
-const UI_COMPONENTS_PATH = join(process.cwd(), '../../packages/ui/src/components.tsx');
+const SESSION_LIST_PANEL_PATH = join(process.cwd(), '../../packages/ui/src/session-list-panel.tsx');
 
 describe('session row actions fail soft', () => {
   it('surfaces sidebar session action failures instead of leaving fire-and-forget rejections', async () => {
@@ -77,9 +77,9 @@ describe('session row actions fail soft', () => {
   });
 
   it('renders visible busy state while a sidebar row action is pending', async () => {
-    const ui = await readFile(UI_COMPONENTS_PATH, 'utf8');
+    const ui = await readFile(SESSION_LIST_PANEL_PATH, 'utf8');
     const css = await readRendererContractCss();
-    const sessionRow = ui.slice(ui.indexOf('function SessionRow'), ui.indexOf('interface PermissionModeMeta'));
+    const sessionRow = ui.slice(ui.indexOf('function SessionRow'), ui.indexOf('interface SessionGroup'));
 
     assert.match(ui, /type SessionRowActionId = 'flag' \| 'archive' \| 'rename' \| 'delete';/);
     assert.match(ui, /onToggleFlag\(sessionId: string, next: boolean\): void \| Promise<void>;/);
