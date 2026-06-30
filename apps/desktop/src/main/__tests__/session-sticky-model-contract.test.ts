@@ -1,6 +1,7 @@
 import { strict as assert } from 'node:assert';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { readProviderSettingsCombinedSource } from './provider-contract-source-helpers.js';
 import { describe, it } from 'node:test';
 import { readRendererContractCss } from './contract-css-helpers.js';
 
@@ -55,7 +56,7 @@ describe('PR-SESSION-STICKY-MODEL-0 contract', () => {
   it('surfaces the session model in the chat header and explains default-model scope', async () => {
     const renderer = await readFile(resolve(REPO_ROOT, 'apps/desktop/src/renderer/main.tsx'), 'utf8');
     const ui = await readModelSwitcherUiSource();
-    const providers = await readFile(resolve(REPO_ROOT, 'apps/desktop/src/renderer/settings/ProvidersPanel.tsx'), 'utf8');
+    const providers = await readProviderSettingsCombinedSource();
 
     assert.match(renderer, /normalizeActiveChatModel\(activeSession, activeConnection, chatModelChoices\)/);
     assert.match(ui, /本会话固定模型：\$\{props\.activeConnectionLabel\} · \$\{props\.activeModelLabel\}/);

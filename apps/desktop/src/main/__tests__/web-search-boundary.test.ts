@@ -21,6 +21,13 @@ const RENDERER_FILES = [
   'apps/desktop/src/renderer/main.tsx',
   'apps/desktop/src/renderer/settings/SettingsModal.tsx',
   'apps/desktop/src/renderer/settings/ProvidersPanel.tsx',
+  'apps/desktop/src/renderer/settings/provider-add-form.tsx',
+  'apps/desktop/src/renderer/settings/provider-catalog.tsx',
+  'apps/desktop/src/renderer/settings/provider-config-sheet.tsx',
+  'apps/desktop/src/renderer/settings/provider-connection-detail.tsx',
+  'apps/desktop/src/renderer/settings/provider-display.tsx',
+  'apps/desktop/src/renderer/settings/provider-oauth-section.tsx',
+  'apps/desktop/src/renderer/settings/provider-panel-shared.ts',
   'apps/desktop/src/preload/preload.ts',
 ];
 

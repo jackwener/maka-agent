@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { readRendererContractCss } from './contract-css-helpers.js';
+import { readProviderSettingsCombinedSource } from './provider-contract-source-helpers.js';
 
 const repoRoot = process.cwd().endsWith('apps/desktop')
   ? join(process.cwd(), '..', '..')
@@ -108,7 +109,7 @@ describe('Settings form accessibility labels', () => {
     const settings = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
     const settingsSelect = await readRepo('packages/ui/src/primitives/settings-select.tsx');
     const passwordInput = await readRepo('apps/desktop/src/renderer/settings/password-input.tsx');
-    const providersPanel = await readRepo('apps/desktop/src/renderer/settings/ProvidersPanel.tsx');
+    const providersPanel = await readProviderSettingsCombinedSource();
     const styles = await readRendererContractCss();
 
     assert.match(settings, /SettingsSelect,/);
@@ -116,9 +117,9 @@ describe('Settings form accessibility labels', () => {
     assert.match(passwordInput, /import \{ Button, Input, useToast \} from '@maka\/ui';/);
     // ProvidersPanel sources its UI from the shared @maka/ui primitives;
     // tolerant of single- vs multi-line import formatting.
-    const providersPanelUiImport = providersPanel.match(/import \{[^}]*\} from '@maka\/ui';/)?.[0] ?? '';
+    const providersPanelUiImports = providersPanel.match(/import \{[^}]*\} from '@maka\/ui';/g)?.join('\n') ?? '';
     for (const name of ['Button', 'PrimitiveTabs', 'PrimitiveTabsList', 'PrimitiveTabsTrigger', 'Input', 'RelativeTime', 'Textarea', 'useToast', 'useModalA11y']) {
-      assert.ok(providersPanelUiImport.includes(name), `ProvidersPanel should import ${name} from @maka/ui`);
+      assert.ok(providersPanelUiImports.includes(name), `Providers provider files should import ${name} from @maka/ui`);
     }
     assert.match(settingsSelect, /export function SettingsSelect<T extends string>/);
     assert.match(settingsSelect, /<SelectPositioner alignItemWithTrigger=\{false\} sideOffset=\{6\} className="settingsSelectPositioner">/);
@@ -212,11 +213,10 @@ describe('Settings form accessibility labels', () => {
   });
 
   it('keeps every Settings input/select/textarea named for assistive tech', async () => {
-    for (const path of [
-      'apps/desktop/src/renderer/settings/SettingsModal.tsx',
-      'apps/desktop/src/renderer/settings/ProvidersPanel.tsx',
-    ]) {
-      const src = await readRepo(path);
+    for (const [path, src] of [
+      ['apps/desktop/src/renderer/settings/SettingsModal.tsx', await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx')],
+      ['apps/desktop/src/renderer/settings/provider settings sources', await readProviderSettingsCombinedSource()],
+    ] as const) {
       for (const tagName of ['input', 'select', 'textarea'] as const) {
         for (const tag of openingTags(src, tagName)) {
           assert.match(
@@ -231,7 +231,7 @@ describe('Settings form accessibility labels', () => {
 
   it('names the high-risk Settings fields found by the real app AX sweep', async () => {
     const settings = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
-    const providers = await readRepo('apps/desktop/src/renderer/settings/ProvidersPanel.tsx');
+    const providers = await readProviderSettingsCombinedSource();
 
     for (const label of [
       'Telegram 代理地址',

@@ -2,6 +2,7 @@ import { strict as assert } from 'node:assert';
 import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 import { join } from 'node:path';
+import { readProviderSettingsCombinedSource } from './provider-contract-source-helpers.js';
 
 const REPO_ROOT = join(process.cwd(), '..', '..');
 
@@ -13,7 +14,7 @@ describe('Settings destructive confirm contract', () => {
   it('does not use native confirm dialogs in Settings renderer flows', async () => {
     const [settings, providers] = await Promise.all([
       readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx'),
-      readRepo('apps/desktop/src/renderer/settings/ProvidersPanel.tsx'),
+      readProviderSettingsCombinedSource(),
     ]);
     const source = `${settings}\n${providers}`;
 
@@ -32,7 +33,7 @@ describe('Settings destructive confirm contract', () => {
   it('routes OAuth, provider, memory restore, and WeChat destructive actions through toast.confirm', async () => {
     const [settings, providers] = await Promise.all([
       readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx'),
-      readRepo('apps/desktop/src/renderer/settings/ProvidersPanel.tsx'),
+      readProviderSettingsCombinedSource(),
     ]);
 
     for (const title of [

@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 import { join } from 'node:path';
 import { readRendererContractCss } from './contract-css-helpers.js';
+import { readProviderSettingsCombinedSource } from './provider-contract-source-helpers.js';
 
 const repoRoot = process.cwd().endsWith('apps/desktop')
   ? join(process.cwd(), '..', '..')
@@ -23,7 +24,7 @@ describe('Settings coming-soon cleanup contract', () => {
 
   it('does not expose nav-level comingSoon state or command-palette soon hints', async () => {
     const settings = await readRepo('apps/desktop/src/renderer/settings/SettingsModal.tsx');
-    const providers = await readRepo('apps/desktop/src/renderer/settings/ProvidersPanel.tsx');
+    const providers = await readProviderSettingsCombinedSource();
     const palette = await readRepo('apps/desktop/src/renderer/command-palette.tsx');
     const styles = await readRendererContractCss();
     const providerCatalog = await readRepo('packages/core/src/llm-connections.ts');

@@ -158,7 +158,7 @@ type AccountSecretProbeResult =
 // `SettingsSegmented` primitive in PR yuejing/settings-segmented-primitive.
 // Both primitives now provide the same keyboard contract for free, so
 // these helpers are gone. `nextRadioId` still lives in
-// `./model-table-keyboard.ts` because ProvidersPanel.tsx's model
+// `./model-table-keyboard.ts` because the provider detail model
 // default picker keeps its hand-rolled radiogroup.
 
 // `SettingsSelect` moved to `packages/ui/src/primitives/settings-select.tsx`
@@ -2236,7 +2236,7 @@ function AccountSettingsPage(props: {
       {/*
         PR-CLAUDE-CARD-MOVE-0 (WAWQAQ msg ddecd729): the Claude
         subscription card was previously rendered here. It now
-        lives in 设置 → 模型 (`ProvidersPanel.tsx → ModelOAuthSection`)
+        lives in 设置 → 模型 (`provider-oauth-section.tsx → ModelOAuthSection`)
         alongside the other OAuth-bound providers (Codex / Cursor
         / Antigravity), because OAuth is a model-side concern and
         the 账户 panel should only carry identity / security state.

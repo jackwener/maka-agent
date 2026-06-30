@@ -18,6 +18,7 @@ import { strict as assert } from 'node:assert';
 import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 import { resolve } from 'node:path';
+import { readProviderSettingsCombinedSource } from './provider-contract-source-helpers.js';
 
 const REPO_ROOT = resolve(process.cwd(), '..', '..');
 const SERVICE_SOURCE = resolve(
@@ -38,15 +39,6 @@ const SETTINGS_SOURCE = resolve(
   'renderer',
   'settings',
   'SettingsModal.tsx',
-);
-const PROVIDERS_PANEL_SOURCE = resolve(
-  REPO_ROOT,
-  'apps',
-  'desktop',
-  'src',
-  'renderer',
-  'settings',
-  'ProvidersPanel.tsx',
 );
 const CORE_TYPES_SOURCE = resolve(REPO_ROOT, 'packages', 'core', 'src', 'oauth-subscription.ts');
 
@@ -124,9 +116,9 @@ describe('experimental kill-switch (kenji 1da909d5 + 45b31e16)', () => {
 
   it('Settings UI gates the Claude subscription card on isExperimentalEnabled', async () => {
     // PR-CLAUDE-CARD-MOVE-0: the ClaudeSubscriptionCard moved
-    // from SettingsModal.tsx → ProvidersPanel.tsx; the source we
-    // scan for the self-gate must follow it.
-    const src = await readFile(PROVIDERS_PANEL_SOURCE, 'utf8');
+    // from SettingsModal.tsx to provider OAuth settings; the source
+    // we scan for the self-gate must follow it.
+    const src = await readProviderSettingsCombinedSource();
     // The card component must:
     // 1. Read isExperimentalEnabled() on mount.
     // 2. Return null when the flag is not truthy (no teasing UI).
@@ -213,7 +205,7 @@ describe('experimental kill-switch (kenji 1da909d5 + 45b31e16)', () => {
     // other providers) and ProvidersPanel (full Claude card).
     const [settings, providers] = await Promise.all([
       readFile(SETTINGS_SOURCE, 'utf8'),
-      readFile(PROVIDERS_PANEL_SOURCE, 'utf8'),
+      readProviderSettingsCombinedSource(),
     ]);
     for (const src of [settings, providers]) {
       assert.doesNotMatch(
@@ -228,7 +220,7 @@ describe('experimental kill-switch (kenji 1da909d5 + 45b31e16)', () => {
     // PR-CLAUDE-CARD-MOVE-0: the Claude-specific copy lives in
     // ProvidersPanel now; SettingsModal only contains the modal
     // for Codex/Cursor/Antigravity.
-    const src = await readFile(PROVIDERS_PANEL_SOURCE, 'utf8');
+    const src = await readProviderSettingsCombinedSource();
     assert.match(src, /无法开始登录/, 'authorization failure toast should describe the concrete failed action');
     assert.match(src, /等待获取配额/, 'quota_unavailable state should read as a refreshable account state');
     assert.doesNotMatch(
@@ -263,7 +255,7 @@ describe('experimental kill-switch (kenji 1da909d5 + 45b31e16)', () => {
 
   it('ProvidersPanel keeps OAuth login out of CATALOG_PROVIDER_TYPES but surfaces it as a real tab', async () => {
     const [src, core] = await Promise.all([
-      readFile(PROVIDERS_PANEL_SOURCE, 'utf8'),
+      readProviderSettingsCombinedSource(),
       readFile(resolve(REPO_ROOT, 'packages', 'core', 'src', 'llm-connections.ts'), 'utf8'),
     ]);
     const catalogMatch = core.match(/export const CATALOG_PROVIDER_TYPES: ProviderType\[] = \[([\s\S]*?)\];/);
@@ -430,7 +422,7 @@ describe('Claude OAuth model connection bridge', () => {
   });
 
   it('ProvidersPanel treats OAuth model connections as login state, not editable API keys', async () => {
-    const src = await readFile(PROVIDERS_PANEL_SOURCE, 'utf8');
+    const src = await readProviderSettingsCombinedSource();
     assert.match(src, /const needsApiKey = defaults\.authKind === 'api_key'/, 'ConnectionDetail must distinguish API key providers');
     assert.match(src, /const needsOAuth = defaults\.authKind === 'oauth_token'/, 'ConnectionDetail must distinguish OAuth providers');
     assert.match(src, /\{needsApiKey && \([\s\S]*<PasswordInput/, 'PasswordInput must only render for API-key connections');
