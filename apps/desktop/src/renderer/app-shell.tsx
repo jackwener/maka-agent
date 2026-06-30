@@ -446,6 +446,11 @@ export function AppShell() {
   // changed) and is forwarded to sessions.create in `send()`. Renderer-only —
   // it never mutates the persisted Settings · 模型 default.
   const [pendingNewChatModel, setPendingNewChatModel] = useState<{ llmConnectionSlug: string; model: string } | null>(null);
+  // New-chat permission mode, mirroring pendingNewChatModel: when no session is
+  // active the composer chip shows this mode and `send()` forwards it to
+  // sessions.create so the user can pick a permission mode before the first
+  // message. Null = inherit the default ('ask').
+  const [pendingNewChatPermissionMode, setPendingNewChatPermissionMode] = useState<PermissionMode | null>(null);
   // A pick only stays in effect while it is still an offered choice. If the user
   // later disables/removes that connection or model, fall back to the default so
   // the home chip never shows — nor sends — a model that no longer exists.
@@ -1501,7 +1506,10 @@ export function AppShell() {
   }
   async function setPermissionMode(mode: PermissionMode) {
     const sessionId = activeIdRef.current;
-    if (!sessionId) return;
+    if (!sessionId) {
+      setPendingNewChatPermissionMode(mode);
+      return;
+    }
     if (pendingPermissionModeChangesRef.current.has(sessionId)) return;
     const current = sessionsRef.current.find((session) => session.id === sessionId);
     if (!current || current.permissionMode === mode) return;
@@ -1899,7 +1907,7 @@ export function AppShell() {
       const turnId = crypto.randomUUID();
       if (!initialSessionId) {
         const session = await window.maka.sessions.create({
-          permissionMode: 'ask',
+          permissionMode: pendingNewChatPermissionMode ?? 'ask',
           name: text.slice(0, 42) || '新建对话',
           ...(validPendingNewChatModel
             ? { llmConnectionSlug: validPendingNewChatModel.llmConnectionSlug, model: validPendingNewChatModel.model }
@@ -3133,16 +3141,16 @@ export function AppShell() {
                     void selectProjectDirectory();
                   },
                 }}
-                permissionMode={activeSessionForView?.permissionMode}
+                permissionMode={activeSessionForView?.permissionMode ?? pendingNewChatPermissionMode ?? undefined}
                 permissionModePending={activeId ? pendingPermissionModeBySession[activeId] === true : false}
                 permissionModeDisabledReason={
                   activeId && pendingPermissionModeBySession[activeId] === true
                     ? '权限模式正在切换，完成后再继续操作。'
-                    : activeStreaming.length > 0
+                    : activeId && activeStreaming.length > 0
                       ? '当前对话正在流式输出，等结束后再切换权限模式。'
-                      : activeSessionForView?.status === 'running'
+                      : activeId && activeSessionForView?.status === 'running'
                         ? '当前对话正在运行，等结束后再切换权限模式。'
-                        : activeSessionForView?.status === 'waiting_for_user'
+                        : activeId && activeSessionForView?.status === 'waiting_for_user'
                           ? '当前有工具调用正在等待确认，处理后再切换权限模式。'
                           : undefined
                 }
