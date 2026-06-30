@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { readProviderSettingsCombinedSource } from './provider-contract-source-helpers.js';
 import { describe, it } from 'node:test';
 import { readRendererContractCss } from './contract-css-helpers.js';
+import { readRendererShellCombinedSource } from './renderer-shell-source-helpers.js';
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../../../..');
 
@@ -56,7 +57,7 @@ describe('PR-SESSION-STICKY-MODEL-0 contract', () => {
   });
 
   it('surfaces the session model in the chat header and explains default-model scope', async () => {
-    const renderer = await readFile(resolve(REPO_ROOT, 'apps/desktop/src/renderer/main.tsx'), 'utf8');
+    const renderer = await readRendererShellCombinedSource();
     const ui = await readModelSwitcherUiSource();
     const providers = await readProviderSettingsCombinedSource();
 
@@ -70,7 +71,7 @@ describe('PR-SESSION-STICKY-MODEL-0 contract', () => {
     const main = await readFile(resolve(REPO_ROOT, 'apps/desktop/src/main/main.ts'), 'utf8');
     const preload = await readFile(resolve(REPO_ROOT, 'apps/desktop/src/preload/preload.ts'), 'utf8');
     const globalTypes = await readFile(resolve(REPO_ROOT, 'apps/desktop/src/global.d.ts'), 'utf8');
-    const renderer = await readFile(resolve(REPO_ROOT, 'apps/desktop/src/renderer/main.tsx'), 'utf8');
+    const renderer = await readRendererShellCombinedSource();
     const ui = await readModelSwitcherUiSource();
     const uiPrimitives = await readFile(resolve(REPO_ROOT, 'packages/ui/src/ui.tsx'), 'utf8');
     const styles = await readRendererContractCss();

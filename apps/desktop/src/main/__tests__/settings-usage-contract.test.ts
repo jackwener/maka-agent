@@ -2,6 +2,7 @@ import { strict as assert } from 'node:assert';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
+import { readRendererShellCombinedSource } from './renderer-shell-source-helpers.js';
 import { readSettingsCombinedSource } from './settings-contract-source-helpers.js';
 
 const repoRoot = process.cwd().endsWith('apps/desktop')
@@ -337,7 +338,7 @@ describe('Settings usage dashboard contract', () => {
 
   it('wires usage diagnostics rows back to source sessions through the shell', async () => {
     const settingsSrc = await readSettingsCombinedSource();
-    const mainSrc = await readRepo('apps/desktop/src/renderer/main.tsx');
+    const mainSrc = await readRendererShellCombinedSource();
 
     assert.match(settingsSrc, /onOpenSession\?\(sessionId: string\): void/);
     assert.match(settingsSrc, /onOpenSession=\{props\.onOpenSession\}/);

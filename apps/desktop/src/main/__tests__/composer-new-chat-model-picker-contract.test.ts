@@ -18,6 +18,7 @@ import { strict as assert } from 'node:assert';
 import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 import { join } from 'node:path';
+import { readRendererShellCombinedSource } from './renderer-shell-source-helpers.js';
 
 const repoRoot = process.cwd().endsWith('apps/desktop')
   ? join(process.cwd(), '..', '..')
@@ -77,7 +78,7 @@ describe('home composer new-chat model picker', () => {
   });
 
   it('wires the pick and forwards the chosen model to sessions.create', async () => {
-    const renderer = await readRepo('apps/desktop/src/renderer/main.tsx');
+    const renderer = await readRendererShellCombinedSource();
 
     assert.match(
       renderer,
@@ -107,7 +108,7 @@ describe('home composer new-chat model picker', () => {
   });
 
   it('does not let stale new-chat send creation steal the active session after navigation', async () => {
-    const renderer = await readRepo('apps/desktop/src/renderer/main.tsx');
+    const renderer = await readRendererShellCombinedSource();
     const sendBlock = renderer.match(/async function send\(text: string\): Promise<boolean> \{[\s\S]*?\n  async function importTextFilePrompt/)?.[0] ?? '';
 
     assert.match(
