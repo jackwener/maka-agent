@@ -218,7 +218,7 @@ describe('permission response IPC boundary', () => {
     // respondToPermission now swallows IPC errors via toast. If
     // submit() doesn't reset pending on resolve OR catch, the
     // dialog buttons lock up forever after a failed IPC.
-    const componentsPath = fileURLToPath(new URL('../../../../../packages/ui/src/components.tsx', import.meta.url));
+    const componentsPath = fileURLToPath(new URL('../../../../../packages/ui/src/permission-dialog.tsx', import.meta.url));
     const components = await readFile(componentsPath, 'utf8');
     const submit = components.match(/async function submit\(decision:[\s\S]*?\n  \}/);
     assert.ok(submit, 'PermissionDialog submit() must be async');

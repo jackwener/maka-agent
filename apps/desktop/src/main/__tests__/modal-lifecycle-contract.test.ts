@@ -38,7 +38,7 @@ interface ModalDecl {
 const MODAL_DECLS: readonly ModalDecl[] = [
   {
     name: 'SearchModal',
-    source: join(REPO_ROOT, 'packages', 'ui', 'src', 'components.tsx'),
+    source: join(REPO_ROOT, 'packages', 'ui', 'src', 'search-modal.tsx'),
     parentMountPattern: /\{searchModalOpen\s*&&\s*\(?\s*<SearchModal\s+on[A-Z]/,
   },
   {
@@ -48,7 +48,7 @@ const MODAL_DECLS: readonly ModalDecl[] = [
   },
   {
     name: 'PermissionDialog',
-    source: join(REPO_ROOT, 'packages', 'ui', 'src', 'components.tsx'),
+    source: join(REPO_ROOT, 'packages', 'ui', 'src', 'permission-dialog.tsx'),
     parentMountPattern: /\{activePermission\s*&&\s*\(?\s*<PermissionDialog/,
   },
   {
