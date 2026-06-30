@@ -9,6 +9,7 @@ const sourcePaths = [
   'main.tsx',
   'app.tsx',
   'app-shell.tsx',
+  'cached-theme-bootstrap.ts',
 ] as const;
 
 export const RENDERER_SHELL_SOURCE_REPO_PATHS: readonly string[] = sourcePaths.map(
