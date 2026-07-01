@@ -410,7 +410,6 @@ export const ImportActions: Story = {
 export const LongMessages: Story = {
   render: () => (
     <ChatSurface
-      narrow
       chat={{
         messages: longMessages,
         memoryActive: true,
@@ -418,6 +417,22 @@ export const LongMessages: Story = {
       }}
       composer={{
         draftKey: 'composer-long-messages',
+      }}
+    />
+  ),
+};
+
+export const NarrowViewport: Story = {
+  render: () => (
+    <ChatSurface
+      narrow
+      chat={{
+        messages: longMessages,
+        memoryActive: true,
+        onOpenMemorySettings: noop,
+      }}
+      composer={{
+        draftKey: 'composer-narrow-viewport',
       }}
     />
   ),

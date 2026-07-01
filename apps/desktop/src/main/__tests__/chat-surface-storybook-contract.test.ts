@@ -23,6 +23,7 @@ describe('chat surface Storybook contract', () => {
       'ComposerPendingAndDisabled',
       'ImportActions',
       'LongMessages',
+      'NarrowViewport',
     ]) {
       assert.match(
         story,
