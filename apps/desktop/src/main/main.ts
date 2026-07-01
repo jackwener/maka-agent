@@ -22,9 +22,6 @@ import type {
   BotReadinessState,
   ConnectionEvent,
   CreateSessionInput,
-  DailyReviewConfig,
-  DailyReviewMode,
-  DailyReviewSummary,
   SessionChangedEvent,
   SessionChangedReason,
   SessionEvent,
@@ -191,6 +188,7 @@ import { registerBrowserIpc } from './browser-ipc-main.js';
 import { registerConnectionsIpc } from './connections-ipc-main.js';
 import { registerPlanReminderIpc } from './plan-reminders-ipc-main.js';
 import { registerWorkspaceResourcesIpc } from './workspace-resources-ipc-main.js';
+import { registerDailyReviewIpc } from './daily-review-ipc-main.js';
 
 const buildInfo = resolveBuildInfo(app.isPackaged, app.getAppPath());
 
@@ -456,48 +454,6 @@ const planReminders = createPlanReminderMainService({
 });
 
 app.setName('Maka');
-
-/**
- * PR-DAILY-REVIEW-EXPORT-FILE-0 + PR-CMD-PALETTE-SAVE-CONVERSATION-FILE-0:
- * shared save-markdown-via-dialog helper. Shape-validates the renderer
- * payload (1MB markdown cap / 200 char filename cap / sanitized path
- * separators) so a misbehaving renderer cannot force a large write or
- * pre-populate the dialog with traversal text.
- */
-async function saveMarkdownViaDialog(
-  input: { markdown?: unknown; defaultName?: unknown } | undefined,
-  dialogTitle: string,
-): Promise<
-  | { ok: true; path: string }
-  | { ok: false; reason: 'canceled' | 'write_failed' | 'invalid_input' }
-> {
-  const markdown = typeof input?.markdown === 'string' ? input.markdown : null;
-  const defaultName = typeof input?.defaultName === 'string' ? input.defaultName : null;
-  if (!markdown || markdown.length === 0 || markdown.length > 1_000_000) {
-    return { ok: false, reason: 'invalid_input' };
-  }
-  if (!defaultName || defaultName.length === 0 || defaultName.length > 200) {
-    return { ok: false, reason: 'invalid_input' };
-  }
-  // Strip directory separators from the proposed filename so a
-  // malicious or buggy caller cannot bypass the save dialog's
-  // path picker.
-  const safeName = defaultName.replace(/[\\/]/g, '_');
-  const saveDialogOptions = {
-    title: dialogTitle,
-    defaultPath: safeName,
-    filters: [{ name: 'Markdown', extensions: ['md'] }],
-  };
-  const result = await mainWindowController.showSaveDialog(saveDialogOptions);
-  if (result.canceled || !result.filePath) return { ok: false, reason: 'canceled' };
-  try {
-    const { writeFile } = await import('node:fs/promises');
-    await writeFile(result.filePath, markdown, 'utf8');
-    return { ok: true, path: result.filePath };
-  } catch {
-    return { ok: false, reason: 'write_failed' };
-  }
-}
 
 async function persistToolArtifacts(cwd: string, event: ToolArtifactRecorderInput): Promise<void> {
   for (const candidate of event.candidates) {
@@ -1456,67 +1412,7 @@ function registerIpc(): void {
   ipcMain.handle('usage:summary', (_event, query: UsageQuery) =>
     tryResult(async () => telemetryRepo.summary(query), 'USAGE_SUMMARY_FAILED'),
   );
-  // PR-DAILY-REVIEW-MVP-0: bundle one day's telemetry + session
-  // metadata into a single IPC payload so the renderer panel does not
-  // have to fan out 4 IPC calls of its own. All reads are local: the
-  // existing telemetry repo + session list. No new disk/network IO.
-  ipcMain.handle(
-    'daily-review:day',
-    (
-      _event,
-      payload: { offsetDays?: number; daySpan?: number } | undefined,
-    ) =>
-      tryResult(async (): Promise<DailyReviewSummary> => {
-        const offset = Number.isFinite(payload?.offsetDays) ? Math.trunc(payload!.offsetDays!) : 0;
-        const rawSpan = Number.isFinite(payload?.daySpan) ? Math.trunc(payload!.daySpan!) : 1;
-        return dailyReview.buildSummaryForRange(offset, rawSpan);
-      }, 'DAILY_REVIEW_DAY_FAILED'),
-  );
-  ipcMain.handle('daily-review:getConfig', () => dailyReviewArchiveStore.getConfig());
-  ipcMain.handle('daily-review:setConfig', (_event, patch: Partial<DailyReviewConfig>) =>
-    dailyReviewArchiveStore.setConfig(patch),
-  );
-  ipcMain.handle(
-    'daily-review:runOnce',
-    (_event, input: { mode?: DailyReviewMode; day?: number; modelKey?: string } | undefined) =>
-      dailyReview.run({
-        mode: input?.mode === 'deep' ? 'deep' : 'daily',
-        day: Number.isFinite(input?.day) ? Math.trunc(input!.day!) : undefined,
-        modelKeyOverride: typeof input?.modelKey === 'string' ? input.modelKey : undefined,
-        trigger: 'manual',
-      }),
-  );
-  ipcMain.handle('daily-review:list', () => dailyReviewArchiveStore.listArchives());
-  ipcMain.handle('daily-review:get', (_event, archiveId: string) =>
-    dailyReviewArchiveStore.getArchive(archiveId),
-  );
-  ipcMain.handle('daily-review:delete', async (_event, archiveId: string) => {
-    await dailyReviewArchiveStore.deleteArchive(archiveId);
-  });
-  /**
-   * PR-DAILY-REVIEW-EXPORT-FILE-0: save a renderer-formatted Daily
-   * Review markdown to a user-chosen file. The markdown is rendered
-   * renderer-side (where the human-readable title context lives) and
-   * shipped here as bytes; this handler is purely the save dialog +
-   * write. Defensive shape check on the input so a misbehaving caller
-   * cannot e.g. force a 100 MB string write.
-   */
-  ipcMain.handle(
-    'daily-review:saveMarkdownToFile',
-    (_event, input: { markdown?: unknown; defaultName?: unknown } | undefined) =>
-      saveMarkdownViaDialog(input, '保存今日回顾'),
-  );
-  // PR-CMD-PALETTE-SAVE-CONVERSATION-FILE-0: chat-side companion to the
-  // daily review export. Renderer formats the current session as
-  // Markdown (existing `renderConversationMarkdown`) and ships the bytes
-  // here; main owns the save dialog + write. Same input shape + cap as
-  // the daily-review handler so the renderer can treat both IPCs
-  // interchangeably.
-  ipcMain.handle(
-    'chat:saveConversationToFile',
-    (_event, input: { markdown?: unknown; defaultName?: unknown } | undefined) =>
-      saveMarkdownViaDialog(input, '保存当前对话'),
-  );
+  registerDailyReviewIpc({ dailyReview, dailyReviewArchiveStore, mainWindowController });
   ipcMain.handle('usage:buckets', (_event, query: UsageQuery & { groupBy: UsageGroupBy }) =>
     tryResult(async () => telemetryRepo.buckets(query, query.groupBy), 'USAGE_BUCKETS_FAILED'),
   );
