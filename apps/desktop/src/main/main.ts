@@ -193,6 +193,7 @@ import { registerMemoryIpc } from './memory-ipc-main.js';
 import { registerSubscriptionIpc } from './subscription-ipc-main.js';
 import { registerBrowserIpc } from './browser-ipc-main.js';
 import { registerConnectionsIpc } from './connections-ipc-main.js';
+import { registerPlanReminderIpc } from './plan-reminders-ipc-main.js';
 
 const buildInfo = resolveBuildInfo(app.isPackaged, app.getAppPath());
 
@@ -1104,32 +1105,7 @@ function registerIpc(): void {
     if (error) return { ok: false, reason: 'open_failed' as const };
     return { ok: true as const, target: resolved.target };
   });
-  ipcMain.handle('plans:list', () => planReminders.list());
-  ipcMain.handle('plans:create', async (_event, input: unknown) => {
-    const privacy = await getWorkspacePrivacyContext();
-    if (privacy.incognitoActive) {
-      throw new Error('隐私模式已开启，不能创建计划提醒。');
-    }
-    return planReminders.create(input);
-  });
-  ipcMain.handle('plans:update', (_event, id: string, patch: unknown) =>
-    planReminders.update(id, patch),
-  );
-  ipcMain.handle('plans:setEnabled', (_event, id: string, enabled: boolean) =>
-    planReminders.setEnabled(id, enabled),
-  );
-  ipcMain.handle('plans:triggerNow', (_event, id: string) =>
-    planReminders.triggerNow(id),
-  );
-  ipcMain.handle('plans:snooze', (_event, id: string) =>
-    planReminders.snooze(id),
-  );
-  ipcMain.handle('plans:clearRunHistory', (_event, id: string) =>
-    planReminders.clearRunHistory(id),
-  );
-  ipcMain.handle('plans:delete', async (_event, id: string) => {
-    await planReminders.delete(id);
-  });
+  registerPlanReminderIpc({ planReminders, getWorkspacePrivacyContext });
   ipcMain.handle('sessions:list', (_event, filter?: SessionListFilter) => runtime.listSessions(filter));
   ipcMain.handle('sessions:create', async (_event, input?: Partial<CreateSessionInput>) => {
     const cwd = input?.cwd ?? process.cwd();
