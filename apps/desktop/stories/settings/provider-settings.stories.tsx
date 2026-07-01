@@ -13,11 +13,10 @@ const NOW = Date.parse('2026-07-01T08:00:00Z');
 
 const meta = {
   title: 'Product/Settings/Providers',
-  component: ProvidersPanel,
   parameters: {
     layout: 'fullscreen',
   },
-} satisfies Meta<typeof ProvidersPanel>;
+} satisfies Meta;
 
 export default meta;
 
@@ -122,7 +121,7 @@ function createBridge(input: {
   loading?: boolean;
 }): ConnectionsBridge {
   let connections = [...(input.connections ?? [])];
-  let defaultSlug = input.defaultSlug ?? connections[0]?.slug ?? null;
+  let defaultSlug: string | null = input.defaultSlug ?? connections[0]?.slug ?? null;
 
   return {
     async list() {
@@ -196,7 +195,7 @@ function createBridge(input: {
 }
 
 function installSubscriptionFixtures() {
-  const target = window as Window & {
+  const target = window as unknown as {
     maka?: Record<string, unknown>;
   };
   target.maka = {
@@ -257,13 +256,14 @@ function ProviderStoryFrame(props: {
   }, []);
 
   useEffect(() => {
-    if (!props.autoOpen) return;
+    const autoOpen = props.autoOpen;
+    if (!autoOpen) return;
     clickedRef.current = false;
     const interval = window.setInterval(() => {
       if (clickedRef.current) return;
       const root = rootRef.current;
       if (!root) return;
-      clickedRef.current = clickAutoOpenTarget(root, props.autoOpen);
+      clickedRef.current = clickAutoOpenTarget(root, autoOpen);
       if (clickedRef.current) window.clearInterval(interval);
     }, 60);
     return () => window.clearInterval(interval);
