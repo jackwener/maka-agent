@@ -28,6 +28,7 @@ import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 import { join, resolve } from 'node:path';
 import { readRendererContractCss } from './contract-css-helpers.js';
+import { RENDERER_SHELL_SOURCE_REPO_PATHS } from './renderer-shell-source-helpers.js';
 
 // Cwd is `apps/desktop` when the test runs (per the existing
 // sidebar-scroll-contract pattern).
@@ -37,7 +38,7 @@ const FILES_TO_SCAN = [
   resolve(process.cwd(), '..', '..', 'packages', 'ui', 'src', 'composer.tsx'),
   resolve(process.cwd(), '..', '..', 'packages', 'ui', 'src', 'module-panels.tsx'),
   resolve(process.cwd(), '..', '..', 'packages', 'ui', 'src', 'chat-empty-hero.tsx'),
-  join(process.cwd(), 'src', 'renderer', 'main.tsx'),
+  ...RENDERER_SHELL_SOURCE_REPO_PATHS.map((repoPath) => resolve(process.cwd(), '..', '..', repoPath)),
   join(process.cwd(), 'src', 'renderer', 'OnboardingHero.tsx'),
   join(process.cwd(), 'src', 'renderer', 'artifact-pane.tsx'),
   join(process.cwd(), 'src', 'renderer', 'artifact-preview.tsx'),

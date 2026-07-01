@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 import { join } from 'node:path';
 import { readRendererContractCss } from './contract-css-helpers.js';
+import { readRendererShellCombinedSource } from './renderer-shell-source-helpers.js';
 import { readSettingsCombinedSource } from './settings-contract-source-helpers.js';
 
 const repoRoot = process.cwd().endsWith('apps/desktop')
@@ -18,7 +19,7 @@ describe('fixed toast position contract', () => {
     const coreSettings = await readRepo('packages/core/src/settings.ts');
     const coreIndex = await readRepo('packages/core/src/index.ts');
     const settingsModal = await readSettingsCombinedSource();
-    const rendererMain = await readRepo('apps/desktop/src/renderer/main.tsx');
+    const rendererMain = await readRendererShellCombinedSource();
     const styles = await readRendererContractCss();
 
     assert.doesNotMatch(coreSettings, /\bTOAST_POSITIONS\b|\bToastPosition\b|\bisToastPosition\b|toastPosition\?:/, 'core settings must not expose a toast position setting');

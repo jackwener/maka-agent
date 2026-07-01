@@ -1,12 +1,11 @@
 import { strict as assert } from 'node:assert';
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { describe, it } from 'node:test';
+import { readRendererShellCombinedSource } from './renderer-shell-source-helpers.js';
 import { readSettingsCombinedSource } from './settings-contract-source-helpers.js';
 
 describe('renderer startup fail-soft contract', () => {
   it('catches fire-and-forget app shell settings probes', async () => {
-    const main = await readFile(join(process.cwd(), 'src/renderer/main.tsx'), 'utf8');
+    const main = await readRendererShellCombinedSource();
     const mountEffect = main.match(/useEffect\(\(\) => \{[\s\S]*?const unsubscribeConnections =/)?.[0] ?? '';
     const refreshConnections = main.match(/async function refreshConnections\(\) \{[\s\S]*?\n  \}/)?.[0] ?? '';
     const refreshAppInfo = main.match(/async function refreshAppInfo\(\) \{[\s\S]*?\n  \}/)?.[0] ?? '';

@@ -14,6 +14,7 @@ import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 import { join, resolve } from 'node:path';
 import { readAllRendererCss } from './css-test-helpers.js';
+import { RENDERER_SHELL_SOURCE_REPO_PATHS } from './renderer-shell-source-helpers.js';
 import {
   readSettingsCombinedSource,
   SETTINGS_SOURCE_REPO_PATHS,
@@ -23,7 +24,7 @@ import { readMainProcessCombinedSource } from './main-process-contract-source-he
 const REPO_ROOT = resolve(process.cwd(), '..', '..');
 
 const RENDERER_FILES = [
-  'apps/desktop/src/renderer/main.tsx',
+  ...RENDERER_SHELL_SOURCE_REPO_PATHS,
   ...SETTINGS_SOURCE_REPO_PATHS,
   'apps/desktop/src/renderer/settings/ProvidersPanel.tsx',
   'apps/desktop/src/renderer/settings/provider-add-form.tsx',

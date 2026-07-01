@@ -12,6 +12,7 @@ import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { describe, it } from 'node:test';
 import { SESSION_BLOCKED_REASONS, SESSION_STATUSES } from '@maka/core';
+import { readRendererShellCombinedSource } from './renderer-shell-source-helpers.js';
 import {
   deriveFailedTurnRecovery,
   describeBlockedReason,
@@ -144,7 +145,7 @@ describe('permission mode transition guard copy', () => {
   // `permissionModeDisabledReason` prop, so the gating contract pins
   // main.tsx, not components.tsx.
   it('passes a disabled-reason for running, waiting, streaming, and pending sessions', async () => {
-    const renderer = await readFile(join(REPO_ROOT, 'apps/desktop/src/renderer/main.tsx'), 'utf8');
+    const renderer = await readRendererShellCombinedSource();
     const composerReasonBlock = renderer.match(/permissionModeDisabledReason=\{[\s\S]*?\}\n {16}onPermissionModeChange/)?.[0] ?? '';
 
     assert.ok(composerReasonBlock, 'main.tsx must pass permissionModeDisabledReason to the <Composer/>');
@@ -190,7 +191,7 @@ describe('permission mode transition guard copy', () => {
   });
 
   it('scrubs thrown permission-mode IPC failures before toast', async () => {
-    const renderer = await readFile(join(REPO_ROOT, 'apps/desktop/src/renderer/main.tsx'), 'utf8');
+    const renderer = await readRendererShellCombinedSource();
     const setPermissionModeBlock = renderer.match(/async function setPermissionMode[\s\S]*?async function setSessionModel/)?.[0] ?? '';
 
     assert.match(renderer, /const pendingPermissionModeChangesRef = useRef<Set<string>>\(new Set\(\)\);/);
