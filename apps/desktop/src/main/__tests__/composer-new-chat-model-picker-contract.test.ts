@@ -110,6 +110,33 @@ describe('home composer new-chat model picker', () => {
     );
   });
 
+  it('wires the picked new-chat permission mode to one sessions.create call only', async () => {
+    const renderer = await readRendererShellCombinedSource();
+    const setPermissionModeBlock = renderer.match(/async function setPermissionMode[\s\S]*?async function setSessionModel/)?.[0] ?? '';
+    const sendBlock = renderer.match(/async function send\(text: string\): Promise<boolean> \{[\s\S]*?\n  async function importTextFilePrompt/)?.[0] ?? '';
+
+    assert.match(
+      renderer,
+      /const \[pendingNewChatPermissionMode, setPendingNewChatPermissionMode\] = useState<PermissionMode \| null>\(null\)/,
+      'AppShell must keep the picked empty-state permission mode in renderer-only state',
+    );
+    assert.match(
+      setPermissionModeBlock,
+      /if \(!sessionId\) \{[\s\S]*setPendingNewChatPermissionMode\(mode\);[\s\S]*return;[\s\S]*\}/,
+      'permission-mode picks without an active session must update pendingNewChatPermissionMode instead of calling IPC',
+    );
+    assert.match(
+      sendBlock,
+      /permissionMode: pendingNewChatPermissionMode \?\? 'ask'/,
+      'new-chat sessions.create must receive the picked pending permission mode',
+    );
+    assert.match(
+      sendBlock,
+      /setPendingNewChatPermissionMode\(null\);/,
+      'pending new-chat permission mode must be one-shot and reset after creating a session',
+    );
+  });
+
   it('does not let stale new-chat send creation steal the active session after navigation', async () => {
     const renderer = await readRendererShellSources([
       'app-shell-chat-actions.ts',
