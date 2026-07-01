@@ -152,19 +152,22 @@ describe('prompt optimization run manifest', () => {
     });
   });
 
-  test('allows resume when only the cost ceiling increases', async () => {
+  test('treats cost ceiling as a mutable guardrail and records the current value on resume', async () => {
     await withDir(async (dir) => {
       const runRoot = join(dir, 'run-1');
       const manifestPath = join(runRoot, 'prompt-optimization-manifest.json');
       const original = buildManifest('sha256:task-source', []);
       const raised = buildManifest('sha256:task-source', [], 'pilot', 1.5);
+      assert.equal(raised.fingerprint, original.fingerprint);
       await mkdir(runRoot, { recursive: true });
       await writeFile(manifestPath, `${JSON.stringify(original, null, 2)}\n`, 'utf8');
 
       const resumed = await ensurePromptOptimizationRunManifest(manifestPath, raised, runRoot);
 
       assert.equal(resumed.fingerprint, original.fingerprint);
-      assert.equal(resumed.costCeilingUsd, original.costCeilingUsd);
+      assert.equal(resumed.costCeilingUsd, 1.5);
+      const persisted = JSON.parse(await readFile(manifestPath, 'utf8'));
+      assert.equal(persisted.costCeilingUsd, 1.5);
     });
   });
 

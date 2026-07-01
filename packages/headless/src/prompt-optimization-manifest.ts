@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { lstat, readFile, readdir, readlink, stat } from 'node:fs/promises';
+import { lstat, readFile, readdir, readlink, stat, writeFile } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import type { FixedPromptTask } from './fixed-prompt-controller.js';
@@ -99,9 +99,13 @@ export function buildPromptOptimizationRunManifest(
     droppedHeldInNoPatternTaskIds: input.heldInNoPattern.map((task) => task.id),
     heldOutNoPatternTaskIds: input.heldOutNoPattern.map((task) => task.id),
   });
+  const {
+    costCeilingUsd: _costCeilingUsd,
+    ...fingerprintPayload
+  } = manifestWithoutFingerprint;
   return {
     ...manifestWithoutFingerprint,
-    fingerprint: buildRunManifestFingerprint(manifestWithoutFingerprint),
+    fingerprint: buildRunManifestFingerprint(fingerprintPayload),
   };
 }
 
@@ -126,11 +130,14 @@ export async function ensurePromptOptimizationRunManifest(
     }
   }
   try {
-    return await ensureAbRunManifest(path, manifest);
+    const ensured = await ensureAbRunManifest(path, manifest);
+    if (ensured.costCeilingUsd !== manifest.costCeilingUsd) {
+      await writeFile(path, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+      return manifest;
+    }
+    return ensured;
   } catch (error) {
     if (error instanceof Error && error.message.startsWith('A/B run manifest does not match existing run id:')) {
-      const existing = JSON.parse(await readFile(path, 'utf8')) as PromptOptimizationRunManifest;
-      if (isCostCeilingIncreaseOnlyResume(existing, manifest)) return existing;
       throw new Error(error.message.replace(
         'A/B run manifest does not match existing run id:',
         'prompt optimization run manifest does not match existing run id:',
@@ -294,22 +301,4 @@ function isNotFound(error: unknown): boolean {
 
 function withoutUndefined<T extends Record<string, unknown>>(value: T): T {
   return Object.fromEntries(Object.entries(value).filter(([, entryValue]) => entryValue !== undefined)) as T;
-}
-
-function isCostCeilingIncreaseOnlyResume(
-  existing: PromptOptimizationRunManifest,
-  current: PromptOptimizationRunManifest,
-): boolean {
-  if (typeof existing.costCeilingUsd !== 'number' || typeof current.costCeilingUsd !== 'number') return false;
-  if (current.costCeilingUsd <= existing.costCeilingUsd) return false;
-  return comparableResumeManifest(existing) === comparableResumeManifest(current);
-}
-
-function comparableResumeManifest(manifest: PromptOptimizationRunManifest): string {
-  const {
-    costCeilingUsd: _costCeilingUsd,
-    fingerprint: _fingerprint,
-    ...rest
-  } = manifest;
-  return buildRunManifestFingerprint(rest);
 }

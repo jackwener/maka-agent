@@ -25,6 +25,11 @@ export interface PromptTaskPartition {
   heldOutTasks: FixedPromptTask[];
 }
 
+export interface PromptOptimizationPartitionSelection extends PromptTaskPartition {
+  heldInNoPattern: FixedPromptTask[];
+  heldOutNoPattern: FixedPromptTask[];
+}
+
 export type PromptOptimizationRunResult = PromptOptimizationLoopResult;
 
 /** Deterministic id-sorted slice into disjoint held-in / held-out partitions, so
@@ -47,6 +52,42 @@ export function partitionPromptTasks(
   };
 }
 
+export function selectPromptOptimizationPartitions(
+  tasks: readonly FixedPromptTask[],
+  input: {
+    heldInCount: number;
+    heldOutCount: number;
+    rewardHackVerifierPatternsByTaskId: Readonly<Record<string, readonly string[]>>;
+  },
+): PromptOptimizationPartitionSelection {
+  if (input.heldInCount < 0 || input.heldOutCount < 0) {
+    throw new Error('partition counts must be non-negative');
+  }
+  const sorted = [...tasks].sort((a, b) => a.id.localeCompare(b.id));
+  const hasPattern = (task: FixedPromptTask) =>
+    (input.rewardHackVerifierPatternsByTaskId[task.id] ?? [])
+      .some((pattern) => pattern.trim().length > 0);
+  const heldInTasks = sorted.filter(hasPattern).slice(0, input.heldInCount);
+  if (heldInTasks.length < input.heldInCount) {
+    throw new Error(
+      `not enough reward-hack-scannable held-in tasks: need ${input.heldInCount}, have ${heldInTasks.length}`,
+    );
+  }
+  const heldInIds = new Set(heldInTasks.map((task) => task.id));
+  const heldOutTasks = sorted
+    .filter((task) => !heldInIds.has(task.id))
+    .slice(0, input.heldOutCount);
+  if (heldOutTasks.length < input.heldOutCount) {
+    throw new Error(`not enough tasks: need ${input.heldInCount + input.heldOutCount}, have ${sorted.length}`);
+  }
+  return {
+    heldInTasks,
+    heldOutTasks,
+    heldInNoPattern: heldInTasks.filter((task) => !hasPattern(task)),
+    heldOutNoPattern: heldOutTasks.filter((task) => !hasPattern(task)),
+  };
+}
+
 const CANARY_PATTERN = /terminal-bench-canary GUID ([0-9a-fA-F-]{8,})/g;
 
 /** Extract Terminal-Bench canary GUIDs that are exclusive to a task's tests.
@@ -55,18 +96,15 @@ const CANARY_PATTERN = /terminal-bench-canary GUID ([0-9a-fA-F-]{8,})/g;
  *
  * This is a substring backstop, not an airtight guarantee: an agent that reads and
  * parses the verifier without ever echoing the canary would evade it. Some tasks
- * also place the same canary in normal task files copied into the agent
- * environment; those GUIDs are not verifier-only and must not quarantine normal
- * reads of allowed helper scripts. Hidden files such as solution/ do not make a
- * canary safe to expose. */
+ * also place the same canary in ordinary task material; those GUIDs are not
+ * verifier-only and must not quarantine normal reads of allowed helper scripts.
+ * Hidden files such as solution/ do not make a canary safe to expose. */
 export async function extractRewardHackVerifierPatterns(taskPath: string): Promise<string[]> {
   const testPatterns = new Set<string>();
   const modelVisiblePatterns = new Set<string>();
   const testsPath = join(taskPath, 'tests');
   await collectCanaryPatterns(testsPath, testPatterns);
-  await collectCanaryPatterns(join(taskPath, 'environment', 'task_file'), modelVisiblePatterns);
-  await collectCanaryPatterns(join(taskPath, 'task_file'), modelVisiblePatterns);
-  await collectCanaryPatternsFromFile(join(taskPath, 'instruction.md'), modelVisiblePatterns);
+  await collectTaskMaterialCanaryPatterns(taskPath, modelVisiblePatterns);
   return [...testPatterns].filter((pattern) => !modelVisiblePatterns.has(pattern)).sort();
 }
 
@@ -86,6 +124,33 @@ async function collectCanaryPatterns(dir: string, patterns: Set<string>): Promis
     const entryPath = join(dir, entry.name);
     if (entry.isDirectory()) {
       await collectCanaryPatterns(entryPath, patterns);
+      continue;
+    }
+    if (!entry.isFile()) continue;
+    await collectCanaryPatternsFromFile(entryPath, patterns);
+  }
+}
+
+async function collectTaskMaterialCanaryPatterns(taskPath: string, patterns: Set<string>): Promise<void> {
+  await collectCanaryPatternsExcept(taskPath, patterns, new Set(['tests', 'solution']));
+}
+
+async function collectCanaryPatternsExcept(
+  dir: string,
+  patterns: Set<string>,
+  excludedDirNames: ReadonlySet<string>,
+): Promise<void> {
+  let entries;
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    const entryPath = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (excludedDirNames.has(entry.name)) continue;
+      await collectCanaryPatternsExcept(entryPath, patterns, excludedDirNames);
       continue;
     }
     if (!entry.isFile()) continue;

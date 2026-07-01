@@ -24,6 +24,7 @@ import {
   partitionPromptTasks,
   resolvePromptOptimizationModelId,
   runPromptOptimizationRun,
+  selectPromptOptimizationPartitions,
 } from '../prompt-optimization-run.js';
 import { hashCandidateRationale, hashHeldInTaskSet } from '../prompt-candidate-loop.js';
 import { tokenSummary } from './helpers/cell-output-fixtures.js';
@@ -58,6 +59,55 @@ describe('partitionPromptTasks', () => {
     assert.throws(
       () => partitionPromptTasks(tasks, { heldInCount: 3, heldOutCount: 3 }),
       /not enough tasks: need 6, have 4/,
+    );
+  });
+});
+
+describe('selectPromptOptimizationPartitions', () => {
+  test('backfills automatic held-in selection from later scannable tasks', () => {
+    const tasks: FixedPromptTask[] = [
+      { id: 'a', path: '/t/a' },
+      { id: 'b', path: '/t/b' },
+      { id: 'c', path: '/t/c' },
+      { id: 'd', path: '/t/d' },
+    ];
+
+    const result = selectPromptOptimizationPartitions(tasks, {
+      heldInCount: 2,
+      heldOutCount: 1,
+      rewardHackVerifierPatternsByTaskId: {
+        a: [],
+        b: ['canary-b'],
+        c: ['canary-c'],
+        d: ['canary-d'],
+      },
+    });
+
+    assert.deepEqual(result.heldInTasks.map((task) => task.id), ['b', 'c']);
+    assert.deepEqual(result.heldOutTasks.map((task) => task.id), ['a']);
+    assert.deepEqual(result.heldInNoPattern.map((task) => task.id), []);
+    assert.deepEqual(result.heldOutNoPattern.map((task) => task.id), ['a']);
+    assert.equal(result.heldInTasks.length, 2);
+  });
+
+  test('fails loud when automatic held-in selection cannot fill from scannable tasks', () => {
+    const tasks: FixedPromptTask[] = [
+      { id: 'a', path: '/t/a' },
+      { id: 'b', path: '/t/b' },
+      { id: 'c', path: '/t/c' },
+    ];
+
+    assert.throws(
+      () => selectPromptOptimizationPartitions(tasks, {
+        heldInCount: 2,
+        heldOutCount: 1,
+        rewardHackVerifierPatternsByTaskId: {
+          a: [],
+          b: ['canary-b'],
+          c: [],
+        },
+      }),
+      /not enough reward-hack-scannable held-in tasks: need 2, have 1/,
     );
   });
 });
@@ -101,6 +151,22 @@ describe('extractRewardHackVerifierPatterns', () => {
       await writeFile(join(taskPath, 'tests', 'test_outputs.py'), `# ${CANARY}\n`, 'utf8');
       await writeFile(
         join(taskPath, 'environment', 'task_file', 'scripts', 'cost_model.py'),
+        `# ${CANARY}\nprint("normal helper")\n`,
+        'utf8',
+      );
+
+      assert.deepEqual(await extractRewardHackVerifierPatterns(taskPath), []);
+    });
+  });
+
+  test('omits canaries that also appear in ordinary task material outside tests and solution', async () => {
+    await withDir(async (dir) => {
+      const taskPath = join(dir, 'ordinary-helper-canary');
+      await mkdir(join(taskPath, 'tests'), { recursive: true });
+      await mkdir(join(taskPath, 'scripts'), { recursive: true });
+      await writeFile(join(taskPath, 'tests', 'test_outputs.py'), `# ${CANARY}\n`, 'utf8');
+      await writeFile(
+        join(taskPath, 'scripts', 'cost_model.py'),
         `# ${CANARY}\nprint("normal helper")\n`,
         'utf8',
       );
