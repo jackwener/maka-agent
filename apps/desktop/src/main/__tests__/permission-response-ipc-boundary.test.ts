@@ -2,7 +2,11 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
-import { readRendererShellCombinedSource } from './renderer-shell-source-helpers.js';
+import {
+  readRendererShellCombinedSource,
+  readRendererShellSource,
+  readRendererShellSources,
+} from './renderer-shell-source-helpers.js';
 
 import {
   normalizeBranchFromTurnInput,
@@ -149,7 +153,11 @@ describe('permission response IPC boundary', () => {
     // failure dies as UnhandledPromiseRejection and the user sees
     // nothing while the model keeps streaming. Same applies to
     // respondToPermission().
-    const renderer = await readRendererShellCombinedSource();
+    const renderer = await readRendererShellSources([
+      'app-shell.tsx',
+      'app-shell-stop-action.ts',
+      'app-shell-chat-actions.ts',
+    ]);
     // Match `async function stop()` body up to its closing brace.
     const stop = renderer.match(/async function stop\(\)\s*\{[\s\S]*?\n  \}/);
     assert.ok(stop, 'stop() must exist in main.tsx');
@@ -199,7 +207,7 @@ describe('permission response IPC boundary', () => {
     // `permissionBySession[sessionId]`, keeping the overlay visible
     // and blocking the session UI until the user manually navigates
     // away. Mirrors the existing `abort` cleanup.
-    const renderer = await readRendererShellCombinedSource();
+    const renderer = await readRendererShellSource('app-shell-session-events.ts');
     // Find the 'complete' case in handleSessionEvent — the body must
     // clear the session's permission queue when stopReason is not
     // permission_handoff.
@@ -243,7 +251,7 @@ describe('permission response IPC boundary', () => {
   });
 
   it('refreshes active messages when a sessions:changed message-appended event arrives', async () => {
-    const renderer = await readRendererShellCombinedSource();
+    const renderer = await readRendererShellSource('app-shell-effects.ts');
 
     // PR-OAUTH-CARD-LIVE-STATE-0: the renderer uses a local
     // `changedSessionId = event.sessionId` shadow var + a truthy
@@ -276,7 +284,10 @@ describe('permission response IPC boundary', () => {
   });
 
   it('scopes session event error feedback to the active chat surface', async () => {
-    const renderer = await readRendererShellCombinedSource();
+    const renderer = await readRendererShellSources([
+      'app-shell-session-events.ts',
+      'model-connection-errors.ts',
+    ]);
     const errorBranch = renderer.match(/case 'error':[\s\S]*?case 'abort':/)?.[0] ?? '';
     const helper = renderer.match(/function sessionEventErrorMessage\(event: Extract<SessionEvent, \{ type: 'error' \}>\): string \{[\s\S]*?\n\}/)?.[0] ?? '';
 
@@ -304,7 +315,11 @@ describe('permission response IPC boundary', () => {
   });
 
   it('keeps newly created sessions selected across immediate refreshSessions() calls', async () => {
-    const renderer = await readRendererShellCombinedSource();
+    const renderer = await readRendererShellSources([
+      'app-shell-quick-chat-actions.ts',
+      'app-shell.tsx',
+      'app-shell-effects.ts',
+    ]);
     const setActiveId = renderer.match(/function setActiveId\(next: string \| undefined\): void \{[\s\S]*?\n  \}/);
     const refreshSessions = renderer.match(/async function refreshSessions\(\)(?:: Promise<SessionSummary\[]>)? \{[\s\S]*?\n  \}/);
     const bootstrapSessions = renderer.match(/async function bootstrapSessions\(\) \{[\s\S]*?\n  \}/);
@@ -414,7 +429,12 @@ describe('permission response IPC boundary', () => {
   });
 
   it('keeps normal Composer first-send visible in the newly created session', async () => {
-    const renderer = await readRendererShellCombinedSource();
+    const renderer = await readRendererShellSources([
+      'app-shell-chat-actions.ts',
+      'app-shell-import-actions.ts',
+      'model-connection-errors.ts',
+      'app-shell.tsx',
+    ]);
     const sendBlock = renderer.match(
       /async function send\(text: string\): Promise<boolean> \{[\s\S]*?async function importTextFilePrompt/,
     )?.[0] ?? '';

@@ -35,13 +35,23 @@ const sourcePaths = [
   'session-list-layout.ts',
 ] as const;
 
+export type RendererShellSourcePath = typeof sourcePaths[number];
+
 export const RENDERER_SHELL_SOURCE_REPO_PATHS: readonly string[] = sourcePaths.map(
   (sourcePath) => `apps/desktop/src/renderer/${sourcePath}`,
 );
 
-export async function readRendererShellCombinedSource(): Promise<string> {
+export async function readRendererShellSource(sourcePath: RendererShellSourcePath): Promise<string> {
+  return readFile(resolve(RENDERER_ROOT, sourcePath), 'utf8');
+}
+
+export async function readRendererShellSources(sourcePaths: readonly RendererShellSourcePath[]): Promise<string> {
   const sources = await Promise.all(
-    sourcePaths.map((sourcePath) => readFile(resolve(RENDERER_ROOT, sourcePath), 'utf8')),
+    sourcePaths.map((sourcePath) => readRendererShellSource(sourcePath)),
   );
   return sources.join('\n');
+}
+
+export async function readRendererShellCombinedSource(): Promise<string> {
+  return readRendererShellSources(sourcePaths);
 }

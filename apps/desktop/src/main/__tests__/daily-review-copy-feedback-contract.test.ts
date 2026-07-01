@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { describe, it } from 'node:test';
 import { readRendererContractCss } from './contract-css-helpers.js';
-import { readRendererShellCombinedSource } from './renderer-shell-source-helpers.js';
+import { readRendererShellCombinedSource, readRendererShellSources } from './renderer-shell-source-helpers.js';
 import { readSettingsCombinedSource } from './settings-contract-source-helpers.js';
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../../../..');
@@ -16,7 +16,12 @@ describe('Daily Review copy feedback contract', () => {
   it('lets the app shell own clipboard success and failure feedback', async () => {
     const ui = await readFile(resolve(REPO_ROOT, 'packages/ui/src/module-panels.tsx'), 'utf8');
     const chatView = await readFile(resolve(REPO_ROOT, 'packages/ui/src/chat-view.tsx'), 'utf8');
-    const main = await readRendererShellCombinedSource();
+    const main = await readRendererShellSources([
+      'daily-review-actions.ts',
+      'app-shell-daily-review-actions.ts',
+      'app-shell-command-actions.ts',
+      'app-shell.tsx',
+    ]);
 
     assert.match(chatView, /onCopyDailyReviewMarkdown\?: \(input:/);
     assert.match(chatView, /onCopyMarkdown=\{props\.onCopyDailyReviewMarkdown\}/);
@@ -45,7 +50,12 @@ describe('Daily Review copy feedback contract', () => {
   });
 
   it('appends Daily Review markdown to the composer instead of replacing the existing draft', async () => {
-    const main = await readRendererShellCombinedSource();
+    const main = await readRendererShellSources([
+      'daily-review-actions.ts',
+      'app-shell-daily-review-actions.ts',
+      'app-shell-command-actions.ts',
+      'app-shell.tsx',
+    ]);
     const handlerBlock = main.match(/onPasteTodayDailyReviewIntoComposer:\s*async \(\) => \{[\s\S]*?^\s*},/m)?.[0] ?? '';
 
     assert.match(handlerBlock, /const owner = captureComposerImportOwner\(\)/);
