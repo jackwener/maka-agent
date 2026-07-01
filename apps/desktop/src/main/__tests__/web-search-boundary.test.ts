@@ -18,6 +18,7 @@ import {
   readSettingsCombinedSource,
   SETTINGS_SOURCE_REPO_PATHS,
 } from './settings-contract-source-helpers.js';
+import { readMainProcessCombinedSource } from './main-process-contract-source-helpers.js';
 
 const REPO_ROOT = resolve(process.cwd(), '..', '..');
 
@@ -37,7 +38,7 @@ const RENDERER_FILES = [
 
 describe('web-search renderer boundary (PR-WEB-SEARCH-TAVILY-0)', () => {
   it('unsupported provider copy describes the current configuration, not a roadmap gap', async () => {
-    const main = await readFile(join(REPO_ROOT, 'apps/desktop/src/main/main.ts'), 'utf8');
+    const main = await readMainProcessCombinedSource();
     const unsupportedBlock = main.match(/const unsupportedWebSearchProviderResponse[\s\S]*?;\n\s*ipcMain\.handle/);
 
     assert.ok(unsupportedBlock, 'main process must centralize unsupported-provider copy');
