@@ -7,11 +7,10 @@ const NOW = Date.now();
 
 const meta = {
   title: 'Product/Sidebar Session List',
-  component: SessionListPanel,
   parameters: {
     layout: 'fullscreen',
   },
-} satisfies Meta<typeof SessionListPanel>;
+} satisfies Meta;
 
 export default meta;
 
