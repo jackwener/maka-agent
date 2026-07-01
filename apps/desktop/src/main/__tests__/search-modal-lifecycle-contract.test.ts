@@ -37,6 +37,7 @@ import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 import { join, resolve } from 'node:path';
 import { readRendererContractCss } from './contract-css-helpers.js';
+import { readRendererShellCombinedSource } from './renderer-shell-source-helpers.js';
 
 // The desktop test runs with cwd=apps/desktop; the UI package lives
 // two levels up. Resolve once.
@@ -44,7 +45,6 @@ const COMPONENTS_PATH = resolve(process.cwd(), '..', '..', 'packages', 'ui', 'sr
 const SEARCH_MODAL_PATH = resolve(process.cwd(), '..', '..', 'packages', 'ui', 'src', 'search-modal.tsx');
 const MODAL_A11Y_PATH = resolve(process.cwd(), '..', '..', 'packages', 'ui', 'src', 'modal-a11y.ts');
 const SESSION_LIST_PANEL_PATH = resolve(process.cwd(), '..', '..', 'packages', 'ui', 'src', 'session-list-panel.tsx');
-const MAIN_TSX_PATH = join(process.cwd(), 'src', 'renderer', 'main.tsx');
 const COMMAND_PALETTE_CONTENT_PATH = join(process.cwd(), 'src', 'renderer', 'command-palette-content-search.ts');
 
 describe('SearchModal lifecycle contract (PR-SIDEBAR-IA-0 Phase 3 P0 fixup)', () => {
@@ -98,7 +98,7 @@ describe('SearchModal lifecycle contract (PR-SIDEBAR-IA-0 Phase 3 P0 fixup)', ()
     // The fixup pattern at the call site: parent's `&&` short-
     // circuits before SearchModal is ever rendered, so its hooks
     // run only when open=true, with a fresh fiber each time.
-    const src = await readFile(MAIN_TSX_PATH, 'utf8');
+    const src = await readRendererShellCombinedSource();
     // PR-UX-POLISH-1 commit 5 (relax-only): allow optional `(` between
     // `&&` and `<SearchModal` so multi-line JSX with multiple props
     // (`onClose`, `deps`, `onNavigateToSession`) still satisfies the
@@ -120,7 +120,7 @@ describe('SearchModal lifecycle contract (PR-SIDEBAR-IA-0 Phase 3 P0 fixup)', ()
 
   it('returns focus to the sidebar Search trigger when the modal closes', async () => {
     const components = await readFile(SESSION_LIST_PANEL_PATH, 'utf8');
-    const main = await readFile(MAIN_TSX_PATH, 'utf8');
+    const main = await readRendererShellCombinedSource();
     // PR-SIDEBAR-HEADER-BUTTONS-PRIMITIVE-0 (round 5/30): the sidebar
     // search trigger was a raw <button> until routed through UiButton.
     // Match either close tag so the contract pin tracks the primitive
@@ -162,7 +162,7 @@ describe('SearchModal lifecycle contract (PR-SIDEBAR-IA-0 Phase 3 P0 fixup)', ()
     // ever flips to always-mounted with an internal early return,
     // we want to know — that would re-introduce the same class of
     // hook-order foot-guns.
-    const src = await readFile(MAIN_TSX_PATH, 'utf8');
+    const src = await readRendererShellCombinedSource();
     assert.match(
       src,
       /\{helpOpen\s*&&\s*<KeyboardHelpModal\s+onClose=/,
@@ -173,7 +173,7 @@ describe('SearchModal lifecycle contract (PR-SIDEBAR-IA-0 Phase 3 P0 fixup)', ()
   it('search result navigation consumes target.turnId instead of only switching sessions', async () => {
     const searchModalSource = await readFile(SEARCH_MODAL_PATH, 'utf8');
     const components = await readFile(COMPONENTS_PATH, 'utf8');
-    const main = await readFile(MAIN_TSX_PATH, 'utf8');
+    const main = await readRendererShellCombinedSource();
     const contentSearch = await readFile(COMMAND_PALETTE_CONTENT_PATH, 'utf8');
 
     assert.match(
