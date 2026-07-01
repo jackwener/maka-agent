@@ -80,7 +80,6 @@ import {
 import {
   buildDailyReviewRunModelOptions,
   DAILY_REVIEW_CONFIG_MODEL_VALUE,
-  dailyReviewActionErrorMessage,
 } from './daily-review-actions';
 import { buildChatModelChoices, chatModelChoiceLabel, normalizeActiveChatModel } from './chat-model-selection';
 import { basenameFromPath } from './app-shell-copy';
@@ -333,7 +332,14 @@ export function AppShell() {
     }),
     [connections],
   );
-  const { saveDailyReviewMarkdown } = createAppShellDailyReviewActions({ toastApi });
+  const {
+    appendDailyReviewMarkdown,
+    copyDailyReviewMarkdown,
+    saveDailyReviewMarkdown,
+  } = createAppShellDailyReviewActions({
+    composerRef,
+    toastApi,
+  });
   const activePermission = activePermissionFor(permissionBySession, activeId);
   const activeSession = sessions.find((session) => session.id === activeId);
   const activeConnection = activeSession
@@ -1274,21 +1280,7 @@ export function AppShell() {
             onSnoozePlanReminder={(id) => snoozePlanReminder(id)}
             onClearPlanReminderRunHistory={(id) => clearPlanReminderRunHistory(id)}
             onDeletePlanReminder={(id) => deletePlanReminder(id)}
-            onCopyDailyReviewMarkdown={async ({ markdown, label, summary }) => {
-              try {
-                await navigator.clipboard.writeText(markdown);
-                if (isDailyReviewSurfaceActive()) {
-                  toastApi.success(
-                    `已复制${label}回顾`,
-                    `${summary.totals.sessionCount} 个对话 · ${summary.totals.requestCount} 个请求`,
-                  );
-                }
-              } catch (error) {
-                if (isDailyReviewSurfaceActive()) {
-                  toastApi.error('复制失败', dailyReviewActionErrorMessage(error, '剪贴板不可用或被系统拒绝'));
-                }
-              }
-            }}
+            onCopyDailyReviewMarkdown={(input) => copyDailyReviewMarkdown(input, { shouldShowFeedback: isDailyReviewSurfaceActive })}
             onSaveDailyReviewMarkdown={(input) => saveDailyReviewMarkdown(input, { shouldShowFeedback: isDailyReviewSurfaceActive })}
             dailyReviewBridge={dailyReviewBridge}
             rowActions={{
@@ -1404,28 +1396,8 @@ export function AppShell() {
                 onDeletePlanReminder={(id) => deletePlanReminder(id)}
                 dailyReviewBridge={dailyReviewBridge}
                 onSelectSession={openSessionInChat}
-                onCopyDailyReviewMarkdown={async ({ markdown, label, summary }) => {
-                  try {
-                    await navigator.clipboard.writeText(markdown);
-                    if (isDailyReviewSurfaceActive()) {
-                      toastApi.success(
-                        `已复制${label}回顾`,
-                        `${summary.totals.sessionCount} 个对话 · ${summary.totals.requestCount} 个请求`,
-                      );
-                    }
-                  } catch (error) {
-                    if (isDailyReviewSurfaceActive()) {
-                      toastApi.error('复制失败', dailyReviewActionErrorMessage(error, '剪贴板不可用或被系统拒绝'));
-                    }
-                  }
-                }}
-                onAppendDailyReviewMarkdown={({ markdown, label, summary }) => {
-                  composerRef.current?.appendText(markdown);
-                  toastApi.success(
-                    `已追加${label}回顾到输入框`,
-                    `${summary.totals.sessionCount} 个对话 · ${summary.totals.requestCount} 个请求`,
-                  );
-                }}
+                onCopyDailyReviewMarkdown={(input) => copyDailyReviewMarkdown(input, { shouldShowFeedback: isDailyReviewSurfaceActive })}
+                onAppendDailyReviewMarkdown={appendDailyReviewMarkdown}
                 onSaveDailyReviewMarkdown={(input) => saveDailyReviewMarkdown(input, { shouldShowFeedback: isDailyReviewSurfaceActive })}
                 scrollTargetTurn={
                   activeId && searchScrollTarget?.sessionId === activeId
