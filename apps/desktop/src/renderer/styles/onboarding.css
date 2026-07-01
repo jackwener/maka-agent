@@ -659,15 +659,9 @@
 .maka-list-row-name {
   display: flex;
   align-items: center;
-  /* PR-UI-3: tighten badge gap 8→6 so streaming dot / status icon /
-   * stale pill / name cluster reads as one unit, not 4 disconnected
-   * elements. */
   gap: 6px;
   overflow: hidden;
-  /* PR-SIDEBAR-IA-0 Phase 3: 14→13px + 600→500 weight reads as a list
-   * item (Slack/Linear) instead of a card title. Bold cards felt
-   * heavy when stacked 60-deep. */
-  font-size: 13px;
+  font-size: 0.875rem;
   font-weight: 500;
   min-width: 0;
 }
@@ -722,14 +716,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  /* Phase 4A — tighten meta typography. 11/50 was reading too loud:
-     the date stamp dominated visual hierarchy when it should sit
-     under the title. 9/42 mirrors reference's secondary-meta tier. */
-  color: var(--foreground-42);
-  font-size: 9.5px;
+  color: var(--foreground-50);
+  font-size: 11px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.01em;
   flex-shrink: 0;
 }
 
@@ -840,14 +830,12 @@
 .maka-list-group-toggle {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 6px;
   width: 100%;
-  padding: 0;
   background: transparent;
   border: 0;
   text-align: left;
-  font: inherit;
-  color: inherit;
 }
 .maka-list-group-toggle:focus-visible {
   outline: 2px solid var(--accent);
@@ -857,7 +845,7 @@
 .maka-list-group-count {
   font-variant-numeric: tabular-nums;
   color: var(--foreground-35);
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 500;
 }
 
@@ -873,9 +861,8 @@
    * "已过期" is a degraded-state signal, not informational. */
   background: oklch(from var(--warning, var(--info)) l c h / 0.18);
   color: var(--warning-text, var(--info-text));
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.02em;
   line-height: 1.4;
 }
 

@@ -2,7 +2,6 @@ import { strict as assert } from 'node:assert';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
-import { readRendererContractCss } from './contract-css-helpers.js';
 import { readRendererShellCombinedSource } from './renderer-shell-source-helpers.js';
 
 const SESSION_LIST_PANEL_PATH = join(process.cwd(), '../../packages/ui/src/session-list-panel.tsx');
@@ -79,7 +78,6 @@ describe('session row actions fail soft', () => {
 
   it('renders visible busy state while a sidebar row action is pending', async () => {
     const ui = await readFile(SESSION_LIST_PANEL_PATH, 'utf8');
-    const css = await readRendererContractCss();
     const sessionRow = ui.slice(ui.indexOf('function SessionRow'), ui.indexOf('interface SessionGroup'));
 
     assert.match(ui, /type SessionRowActionId = 'flag' \| 'archive' \| 'rename' \| 'delete';/);
@@ -103,6 +101,10 @@ describe('session row actions fail soft', () => {
     assert.match(sessionRow, /aria-busy=\{pendingAction === 'flag' \? 'true' : undefined\}/);
     assert.match(sessionRow, /data-pending=\{pendingAction === 'archive' \? 'true' : undefined\}/);
     assert.match(sessionRow, /aria-busy=\{pendingAction === 'delete' \? 'true' : undefined\}/);
-    assert.match(css, /\.maka-list-row-action\[data-pending="true"\] \{[\s\S]*cursor: progress;[\s\S]*opacity: 0\.78;[\s\S]*\}/);
+    assert.match(
+      ui,
+      /data-\[pending=true\]:cursor-progress data-\[pending=true\]:bg-foreground\/5 data-\[pending=true\]:text-foreground data-\[pending=true\]:opacity-78/,
+      'rowActionVariants cva must carry a visible pending state (cursor + bg + opacity)',
+    );
   });
 });

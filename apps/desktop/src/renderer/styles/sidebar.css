@@ -546,27 +546,9 @@
    widget was removed (WAWQAQ msg cad3dec4: "现在左下角怎么还有 账户部分,
    我们没有账户"). About / version still reachable via Settings → 关于. */
 .maka-sidebar-settings-button {
-  width: 100%;
-  min-width: 0;
   display: inline-grid;
   grid-template-columns: 24px minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--foreground-65);
-  padding: 6px 8px;
-  text-align: left;
-  font-size: 12px;
-  font-weight: 500;
-  transition: background-color var(--duration-base) var(--ease-out-strong),
-              color var(--duration-base) var(--ease-out-strong);
-}
-
-.maka-sidebar-settings-button:hover {
-  background: oklch(from var(--foreground) l c h / 0.06);
-  color: var(--foreground);
 }
 
 .maka-sidebar-settings-button .maka-nav-icon {
@@ -596,71 +578,11 @@
 .maka-nav-row {
   width: calc(100% - 12px);
   margin-inline: 6px;
-  min-height: 30px;
   display: grid;
   grid-template-columns: var(--icon-size) minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--foreground-80);
   -webkit-app-region: no-drag;
-  padding: 3px 6px;
   text-align: left;
-  /* PR-NAV-NEW-TASK-WEIGHT-0 (2026-06-23): reference-atlas §2 type
-     scale uses text-sm (14px / 20px line-height) for sidebar nav
-     rows. Maka was sitting at 13px / 1.25 (≈16.25px line-height),
-     a half-step smaller that read tighter than the reference. */
-  font-size: 14px;
-  line-height: 1.43;
-  transition:
-    background var(--duration-base) var(--ease-out-strong),
-    color var(--duration-base) var(--ease-out-strong);
-}
-
-.maka-nav-row:hover {
-  /* PR-GRAY-CARD-LIFT-4 (WAWQAQ msg `d4277aba` round 2): hover bg
-     was `--foreground-3` (3% mix into background = ~oklch(0.97 0 0)),
-     which on the new `--surface-canvas` (oklch(0.935 0 0)) was almost
-     invisible. Switch to alpha overlay so the hover state lifts
-     consistently regardless of the plate tone behind it. */
-  background: oklch(from var(--foreground) l c h / 0.06);
-  color: var(--foreground);
-}
-
-.maka-nav-row[data-active="true"] {
-  background: oklch(from var(--foreground) l c h / 0.07);
-  color: var(--foreground);
-  font-weight: 600;
-  box-shadow: none;
-}
-.maka-nav-row[data-active="true"] .maka-nav-icon {
-  color: var(--foreground);
-}
-
-.maka-nav-new-task {
-  /* PR-NAV-NEW-TASK-WEIGHT-0 (2026-06-23): "新任务" should not render
-     bold by default — the active-state already carries weight: 600,
-     and a permanently-bold idle entry reads as "this is the active
-     page" even when nothing is selected. Reference nav rows are all
-     normal weight at rest; the create-action stays a normal-weight
-     row with the SquarePen glyph carrying the affordance. */
-  color: var(--foreground);
-}
-
-.maka-nav-new-task .maka-nav-icon {
-  color: var(--foreground-70);
-}
-
-.maka-nav-row[aria-disabled="true"],
-.maka-nav-row[data-disabled="true"] {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-.maka-nav-row[aria-disabled="true"]:hover,
-.maka-nav-row[data-disabled="true"]:hover {
-  background: transparent;
 }
 
 .maka-nav-row span:nth-child(2) {
@@ -671,8 +593,6 @@
 }
 
 .maka-nav-row small {
-  color: var(--foreground-40);
-  font-size: 11px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -740,19 +660,17 @@
   border-top: 1px solid oklch(from var(--foreground) l c h / 0.05);
 }
 
-/* Group label as "data-tier section header" — tighter typography,
-   uppercase tracking, slight monospace flavor. Mirrors the
-   reference's `.sidebar-section-title` (foreground-quaternary at 90%). */
+/* Group label — section header for session groups. Weight-based
+   hierarchy (not uppercase/letter-spacing) so Chinese labels read
+   cleanly without artificial tracking. */
 .maka-list-group-label {
   display: flex;
   align-items: baseline;
   gap: 3px;
   padding: 0 6px 3px;
-  color: var(--foreground-45);
-  font-size: 9.5px;
+  color: var(--foreground-50);
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   font-variant-numeric: tabular-nums;
 }
 
@@ -833,10 +751,11 @@
   }
 }
 
-/* PR-UI-PIXEL-6 (2026-06-21): selected session row uses a clearly readable
-   neutral gray (≈#efefef), still flat and accent-free like 参考实现. */
+/* Active session row: slightly stronger than hover so the current
+   session is distinguishable from hover, but lighter than nav-row
+   active (0.09) so the main navigation reads as the primary surface. */
 .maka-list-row[data-active="true"] {
-  background: oklch(from var(--foreground) l c h / 0.06);
+  background: oklch(from var(--foreground) l c h / 0.07);
 }
 
 .maka-list-row[data-active="true"] .maka-list-row-name {
@@ -937,63 +856,9 @@
   );
 }
 
-.maka-list-row-action {
-  width: 26px;
-  height: 26px;
-  display: grid;
-  place-items: center;
-  border: 0;
-  /* PR-UI-LAYOUT-26: row action toggles (rename / flag / archive)
-   * radius 6 → 8 to match the new tap-target family + add
-   * focus-visible ring; missing focus state was a a11y gap. */
-  border-radius: 8px;
-  background: transparent;
-  color: var(--foreground-60);
-  transition: background var(--duration-quick) var(--ease-out-strong), color var(--duration-quick) var(--ease-out-strong), box-shadow var(--duration-quick) var(--ease-out-strong);
-}
-
-.maka-list-row-action:hover {
-  color: var(--foreground);
-  background: var(--foreground-5);
-}
-
-.maka-list-row-action:focus-visible {
-  outline: none;
-  color: var(--foreground);
-  background: var(--foreground-5);
-  box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.14);
-}
-
-.maka-list-row-action[data-active="true"] {
-  color: var(--accent);
-}
-
-.maka-list-row-action-danger:hover {
-  color: var(--destructive-text);
-  background: oklch(from var(--destructive) l c h / 0.10);
-}
-
-.maka-list-row-action-danger:focus-visible {
-  color: var(--destructive-text);
-  background: oklch(from var(--destructive) l c h / 0.10);
-  box-shadow: 0 0 0 3px oklch(from var(--destructive) l c h / 0.18);
-}
-
-.maka-list-row-action:disabled,
-.maka-list-row-action:disabled:hover,
-.maka-list-row-action:disabled:focus-visible {
-  color: var(--foreground-45);
-  background: transparent;
-  box-shadow: none;
-  cursor: default;
-}
-
-.maka-list-row-action[data-pending="true"] {
-  color: var(--foreground);
-  background: var(--foreground-5);
-  cursor: progress;
-  opacity: 0.78;
-}
+/* Row action buttons: visual via rowActionVariants cva.
+   .maka-list-row-action class kept as a stable hook for the
+   action overlay positioning + reveal animation on the parent. */
 
 .maka-list-row-rename-input {
   width: 100%;

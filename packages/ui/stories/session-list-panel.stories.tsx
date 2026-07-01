@@ -352,12 +352,15 @@ export const LongTitlesAndNarrow: Story = {
 
 export const Collapsed: Story = {
   render: () => (
-    <StoryFrame width={72}>
-      <SessionListPanel {...panelProps({
-        sessions: coreSessions,
-        activeId: 'session-running',
-        sidebarCollapsed: true,
-      })} />
-    </StoryFrame>
+    <>
+      <style>{`.agents-sidebar[data-collapsed="true"] { width: 100% !important }`}</style>
+      <StoryFrame width={72}>
+        <SessionListPanel {...panelProps({
+          sessions: coreSessions,
+          activeId: 'session-running',
+          sidebarCollapsed: true,
+        })} />
+      </StoryFrame>
+    </>
   ),
 };

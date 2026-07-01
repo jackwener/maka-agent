@@ -32,7 +32,70 @@ import type {
 } from './module-panel-types.js';
 import { EmptyState } from './empty-state.js';
 import { OverlayScrollArea } from './overlay-scroll-area.js';
-import { Button as UiButton } from './ui.js';
+import { Button as UiButton, cn } from './ui.js';
+import { cva, type VariantProps } from 'class-variance-authority';
+
+const navRowVariants = cva(
+  [
+    'min-h-[30px] gap-2 rounded-md border-0 bg-transparent px-1.5 py-[3px]',
+    'text-left text-sm leading-[1.43] text-[var(--foreground-80)]',
+    'transition-[background-color,color] duration-[var(--duration-base)] ease-[var(--ease-out-strong)]',
+    'hover:bg-foreground/6 hover:text-foreground',
+    'data-[active=true]:bg-foreground/9 data-[active=true]:font-semibold data-[active=true]:text-foreground data-[active=true]:shadow-none',
+    'aria-disabled:cursor-not-allowed aria-disabled:opacity-55 aria-disabled:hover:bg-transparent',
+    'data-[disabled=true]:cursor-not-allowed data-[disabled=true]:opacity-55 data-[disabled=true]:hover:bg-transparent',
+  ],
+  {
+    variants: {
+      tone: {
+        default: 'text-[var(--foreground-80)]',
+        newTask: 'text-foreground',
+      },
+    },
+    defaultVariants: {
+      tone: 'default',
+    },
+  },
+);
+
+type NavRowVariants = VariantProps<typeof navRowVariants>;
+
+const settingsButtonVariants = cva(
+  [
+    'w-full min-w-0 gap-2 rounded-md border-0 bg-transparent px-2 py-1.5',
+    'text-left text-sm font-medium text-[var(--foreground-65)]',
+    'transition-[background-color,color] duration-[var(--duration-base)] ease-[var(--ease-out-strong)]',
+    'hover:bg-foreground/6 hover:text-foreground',
+  ],
+);
+
+const rowActionVariants = cva(
+  [
+    'grid h-[26px] w-[26px] place-items-center rounded-md border-0 bg-transparent',
+    'text-[var(--foreground-60)]',
+    'transition-[background-color,color,box-shadow] duration-[var(--duration-quick)] ease-[var(--ease-out-strong)]',
+    'hover:bg-foreground/5 hover:text-foreground',
+    'focus-visible:outline-none focus-visible:bg-foreground/5 focus-visible:text-foreground focus-visible:ring-[3px] focus-visible:ring-accent/14',
+    'disabled:cursor-default disabled:bg-transparent disabled:text-[var(--foreground-45)] disabled:shadow-none',
+    'disabled:hover:bg-transparent disabled:hover:text-[var(--foreground-45)]',
+    'data-[active=true]:text-accent',
+    'data-[pending=true]:cursor-progress data-[pending=true]:bg-foreground/5 data-[pending=true]:text-foreground data-[pending=true]:opacity-78',
+  ],
+  {
+    variants: {
+      tone: {
+        default: '',
+        danger: [
+          'hover:bg-destructive/10 hover:text-destructive-text',
+          'focus-visible:bg-destructive/10 focus-visible:text-destructive-text focus-visible:ring-destructive/18',
+        ],
+      },
+    },
+    defaultVariants: {
+      tone: 'default',
+    },
+  },
+);
 
 /**
  * Sidebar module ids. "sessions" is still the lower history region label,
@@ -244,7 +307,7 @@ export function SessionListPanel(props: {
         <UiButton
           variant="quiet"
           size="nav"
-          className="maka-nav-row maka-nav-new-task"
+          className={cn('maka-nav-row maka-nav-new-task', navRowVariants({ tone: 'newTask' }))}
           aria-label="新任务"
           type="button"
           onClick={props.onNew}
@@ -259,7 +322,7 @@ export function SessionListPanel(props: {
         <UiButton
           variant="quiet"
           size="nav"
-          className="maka-nav-row"
+          className={cn('maka-nav-row', navRowVariants())}
           data-active={isModuleActive('daily-review')}
           aria-current={isModuleActive('daily-review') ? 'page' : undefined}
           aria-label={MODULE_NAV_LABEL['daily-review']}
@@ -272,7 +335,7 @@ export function SessionListPanel(props: {
         <UiButton
           variant="quiet"
           size="nav"
-          className="maka-nav-row"
+          className={cn('maka-nav-row', navRowVariants())}
           data-active={isModuleActive('skills')}
           aria-current={isModuleActive('skills') ? 'page' : undefined}
           aria-label={MODULE_NAV_LABEL.skills}
@@ -285,7 +348,7 @@ export function SessionListPanel(props: {
         <UiButton
           variant="quiet"
           size="nav"
-          className="maka-nav-row"
+          className={cn('maka-nav-row', navRowVariants())}
           data-active={isModuleActive('automations')}
           aria-current={isModuleActive('automations') ? 'page' : undefined}
           type="button"
@@ -381,8 +444,9 @@ export function SessionListPanel(props: {
             this panel. The custom class still owns the
             full-width grid layout (24px icon + 1fr label). */}
         <UiButton
-          className="maka-sidebar-settings-button"
+          className={cn('maka-sidebar-settings-button', settingsButtonVariants())}
           variant="quiet"
+          size="nav"
           type="button"
           onClick={props.onOpenSettings}
           aria-label="设置"
@@ -469,6 +533,7 @@ function SessionListGroups(props: {
               <UiButton
                 type="button"
                 variant="quiet"
+                size="nav"
                 className="maka-list-group-label maka-list-group-toggle"
                 onClick={toggle}
                 aria-expanded={expanded}
@@ -890,8 +955,8 @@ function SessionRow(props: {
           <UiButton
             type="button"
             variant="quiet"
-            size="icon-sm"
-            className="maka-list-row-action"
+            size="nav"
+            className={cn('maka-list-row-action', rowActionVariants())}
             tabIndex={actionTabIndex}
             onClick={(event) => {
               stopPropagation(event);
@@ -911,8 +976,8 @@ function SessionRow(props: {
           <UiButton
             type="button"
             variant="quiet"
-            size="icon-sm"
-            className="maka-list-row-action"
+            size="nav"
+            className={cn('maka-list-row-action', rowActionVariants())}
             tabIndex={actionTabIndex}
             onClick={startRename}
             aria-label="重命名对话"
@@ -926,8 +991,8 @@ function SessionRow(props: {
           <UiButton
             type="button"
             variant="quiet"
-            size="icon-sm"
-            className="maka-list-row-action"
+            size="nav"
+            className={cn('maka-list-row-action', rowActionVariants())}
             tabIndex={actionTabIndex}
             onClick={(event) => {
               stopPropagation(event);
@@ -950,8 +1015,8 @@ function SessionRow(props: {
           <UiButton
             type="button"
             variant="quiet"
-            size="icon-sm"
-            className="maka-list-row-action maka-list-row-action-danger"
+            size="nav"
+            className={cn('maka-list-row-action', rowActionVariants({ tone: 'danger' }))}
             tabIndex={actionTabIndex}
             onClick={handleDelete}
             aria-label="删除对话"
