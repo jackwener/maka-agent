@@ -14,7 +14,7 @@ function blockBetween(source: string, start: string, end: string): string {
 
 describe('Daily Review copy feedback contract', () => {
   it('lets the app shell own clipboard success and failure feedback', async () => {
-    const ui = await readFile(resolve(REPO_ROOT, 'packages/ui/src/module-panels.tsx'), 'utf8');
+    const ui = await readFile(resolve(REPO_ROOT, 'packages/ui/src/daily-review-panel.tsx'), 'utf8');
     const chatView = await readFile(resolve(REPO_ROOT, 'packages/ui/src/chat-view.tsx'), 'utf8');
     const main = await readRendererShellSources([
       'daily-review-actions.ts',
@@ -73,7 +73,7 @@ describe('Daily Review copy feedback contract', () => {
   });
 
   it('lets the Daily Review main panel append the current range to the composer', async () => {
-    const ui = await readFile(resolve(REPO_ROOT, 'packages/ui/src/module-panels.tsx'), 'utf8');
+    const ui = await readFile(resolve(REPO_ROOT, 'packages/ui/src/daily-review-panel.tsx'), 'utf8');
     const chatView = await readFile(resolve(REPO_ROOT, 'packages/ui/src/chat-view.tsx'), 'utf8');
     const main = await readRendererShellCombinedSource();
     const panelBlock = ui.match(/function DailyReviewPanel[\s\S]*?function PlanReminderPanel/)?.[0] ?? '';
@@ -90,7 +90,7 @@ describe('Daily Review copy feedback contract', () => {
   });
 
   it('renders Daily Review controls through shared button variants without legacy button classes', async () => {
-    const ui = await readFile(resolve(REPO_ROOT, 'packages/ui/src/module-panels.tsx'), 'utf8');
+    const ui = await readFile(resolve(REPO_ROOT, 'packages/ui/src/daily-review-panel.tsx'), 'utf8');
     const css = await readRendererContractCss();
     const panelBlock = ui.match(/function DailyReviewPanel[\s\S]*?function PlanReminderPanel/)?.[0] ?? '';
 
@@ -108,7 +108,7 @@ describe('Daily Review copy feedback contract', () => {
   });
 
   it('gates Daily Review export actions while async work is pending', async () => {
-    const ui = await readFile(resolve(REPO_ROOT, 'packages/ui/src/module-panels.tsx'), 'utf8');
+    const ui = await readFile(resolve(REPO_ROOT, 'packages/ui/src/daily-review-panel.tsx'), 'utf8');
     const main = await readRendererShellCombinedSource();
     const panelBlock = ui.match(/function DailyReviewPanel[\s\S]*?function PlanReminderPanel/)?.[0] ?? '';
     const gateBlock = panelBlock.match(/async function runDailyReviewAction[\s\S]*?const dailyReviewActionBusy/)?.[0] ?? '';
@@ -149,7 +149,7 @@ describe('Daily Review copy feedback contract', () => {
   });
 
   it('guards Daily Review manual run continuations against closed panels', async () => {
-    const ui = await readFile(resolve(REPO_ROOT, 'packages/ui/src/module-panels.tsx'), 'utf8');
+    const ui = await readFile(resolve(REPO_ROOT, 'packages/ui/src/daily-review-panel.tsx'), 'utf8');
     const panelBlock = ui.match(/function DailyReviewPanel[\s\S]*?function PlanReminderPanel/)?.[0] ?? '';
     const manualRunBlock = blockBetween(panelBlock, 'async function triggerManualRun', 'return \\(');
 
@@ -179,7 +179,7 @@ describe('Daily Review copy feedback contract', () => {
   });
 
   it('guards Daily Review archive body loads against stale async responses', async () => {
-    const ui = await readFile(resolve(REPO_ROOT, 'packages/ui/src/module-panels.tsx'), 'utf8');
+    const ui = await readFile(resolve(REPO_ROOT, 'packages/ui/src/daily-review-panel.tsx'), 'utf8');
     const panelBlock = ui.match(/function DailyReviewPanel[\s\S]*?function PlanReminderPanel/)?.[0] ?? '';
     const archiveLoadBlock = panelBlock.match(/useEffect\(\(\) => \{\s*const getArchive = props\.bridge\.getArchive;[\s\S]*?\}, \[archiveReloadToken, selectedArchiveId, props\.bridge\]\);/)?.[0] ?? '';
 
@@ -277,7 +277,7 @@ describe('Daily Review copy feedback contract', () => {
   });
 
   it('scrubs Daily Review load and action failures before rendering them', async () => {
-    const ui = await readFile(resolve(REPO_ROOT, 'packages/ui/src/module-panels.tsx'), 'utf8');
+    const ui = await readFile(resolve(REPO_ROOT, 'packages/ui/src/daily-review-panel.tsx'), 'utf8');
     // PR-UI-LIB-EXTRACT-2 (round 3/10): `dailyReviewPanelErrorMessage`
     // moved out of `components.tsx` into a sibling helper module so
     // pure logic isn't tangled with the panel JSX. The assertion
