@@ -1239,7 +1239,16 @@
      `.maka-skill-search` label — reading as two stacked search
      bars. The fix zeroes every visual property the primitive can
      paint, so the inner `<input>` reads as a bare text field and
-     the outer label is the only box. */
+     the outer label is the only box.
+     Defensive addition (double-border textarea sweep): `border: 0` /
+     `box-shadow: none` here only wins today because the global
+     `:where(input, select, textarea):focus` rule below happens to
+     `!important`-override the primitive's `focus-visible:ring-2`
+     box-shadow too. If that global rule is ever scoped away, this
+     input's own `--tw-ring-shadow` / `--tw-ring-offset-shadow` would
+     re-surface the same double-box bug — see the composer/onboarding
+     textarea fixes for the pattern. Reset them here directly so this
+     rule doesn't depend on an unrelated global fallback. */
   min-width: 0;
   width: 100%;
   height: 30px;
@@ -1251,6 +1260,8 @@
   outline: none;
   padding: 0;
   font-size: 13px;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
 }
 
 .maka-skill-search input::placeholder {

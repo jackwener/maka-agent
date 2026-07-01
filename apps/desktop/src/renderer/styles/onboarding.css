@@ -480,7 +480,16 @@
     0 0 0 4px oklch(from var(--accent) l c h / 0.08),
     0 1px 0 oklch(from var(--foreground) 1 0 h / 0.75) inset;
 }
-/* The wrapper owns the visible field chrome; the inner textarea stays bare. */
+/* Justified: the wrapper owns the visible field chrome, so the textarea
+   stays bare. Tailwind's `border-0 shadow-none focus-visible:ring-0`
+   override classes on the JSX side only remove the utility classes from
+   the className string — they don't clear the underlying
+   `--tw-ring-shadow` / `--tw-ring-offset-shadow` custom properties the
+   base Textarea's `focus-visible:ring-2` utility sets. Without a scoped
+   reset here, the ring re-composites into `box-shadow` on focus and
+   renders as a second "framed" border nested inside the wrapper's own
+   border. Mirrors the same fix already applied to `.maka-composer-textarea`
+   in tool-output.css. */
 .maka-onboarding-quickchat-input {
   appearance: none;
   box-sizing: border-box;
@@ -492,6 +501,10 @@
   font-size: 15px;
   line-height: 1.5;
   outline: none;
+  border: none;
+  box-shadow: none;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
 }
 .maka-onboarding-quickchat[data-drag-active="true"] .maka-onboarding-quickchat-input {
   border-color: oklch(from var(--accent) l c h / 0.46);
