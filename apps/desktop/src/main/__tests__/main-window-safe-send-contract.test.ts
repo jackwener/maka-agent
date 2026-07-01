@@ -38,11 +38,18 @@ describe('main-process safe-send to renderer contract', () => {
       'No raw mainWindow.webContents.send( call may remain either — use safeSendToRenderer instead',
     );
 
-    // Sanity: the menu accelerator we observed crashing must now use the helper.
+    // The legacy native application menu has been retired in favor of in-app
+    // settings/navigation surfaces, so the old Cmd+, menu accelerator no
+    // longer exists as a main-process send site.
     assert.match(
       src,
-      /accelerator: 'CommandOrControl\+,'[\s\S]*?click: \(\) => safeSendToRenderer\('window:openSettings'\)/,
-      'The Cmd+, menu accelerator must route through safeSendToRenderer',
+      /function installApplicationMenu\(\): void \{[\s\S]*?Menu\.setApplicationMenu\(null\);[\s\S]*?\}/,
+      'The native application menu must stay disabled',
+    );
+    assert.doesNotMatch(
+      src,
+      /Menu\.buildFromTemplate\(/,
+      'No native application menu template should be installed',
     );
   });
 });

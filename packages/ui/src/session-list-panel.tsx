@@ -13,12 +13,9 @@ import {
   LineChart,
   Loader2,
   MessageSquare,
-  PanelLeftClose,
-  PanelLeftOpen,
   Pencil,
   Pin,
   PinOff,
-  Search,
   Settings,
   ShieldAlert,
   Sparkles,
@@ -42,19 +39,14 @@ import { Button as UiButton } from './ui.js';
  * but it is no longer rendered as a top-level nav row: "新任务" creates
  * the chat/task, while the history list below shows prior sessions.
  *
- * Includes `search` even though it is not a `NavSelection.section` —
- * search is a modal trigger and needs a label/icon but no section.
  */
-type ModuleNavId = NavSelection['section'] | 'search';
+type ModuleNavId = NavSelection['section'];
 
 /**
  * Top-level module nav labels. Chinese-first per xuan `47e204f2` #5.
- * Keyed by `ModuleNavId` so the `search` modal trigger gets a label
- * even though it is not a `NavSelection.section`.
  */
 const MODULE_NAV_LABEL: Record<ModuleNavId, string> = {
   sessions: '会话',
-  search: '搜索',
   automations: '定时任务',
   skills: '技能',
   'daily-review': '每日回顾',
@@ -120,14 +112,6 @@ export function SessionListPanel(props: {
   userLabel?: string;
   onNew(): void;
   onOpenSkill?(skillId: string): void;
-  /**
-   * PR-SIDEBAR-IA-0 Phase 2 fixup (xuan `91401163` + `94c7bf0f`):
-   * Sidebar `搜索` nav row click handler. Opens a dedicated Search
-   * modal hosted by the application shell; does NOT change
-   * `selection`. The shell owns the real search backend and modal
-   * lifecycle behind this callback.
-   */
-  onOpenSearchModal?(): void;
   onRefreshPlanReminders?(): void | Promise<void>;
   onCreatePlanReminder?(input: PlanReminderDraftInput): boolean | Promise<boolean> | void | Promise<void>;
   onUpdatePlanReminder?(id: string, patch: PlanReminderUpdatePatch): boolean | Promise<boolean> | void | Promise<void>;
@@ -148,7 +132,6 @@ export function SessionListPanel(props: {
   dailyReviewBridge?: DailyReviewBridge;
   rowActions?: SessionRowActions;
   sidebarCollapsed?: boolean;
-  onToggleSidebar?(): void;
 }) {
   // 参考实现 keeps the lower sidebar region as stable chat history
   // even when Skills / Scheduled Tasks are open in the main pane.
@@ -216,20 +199,14 @@ export function SessionListPanel(props: {
   }
 
   // PR-PARCHMENT-HOME-9 (WAWQAQ msg `781852eb`): restored module nav
-  // helpers. `search` is a transient modal trigger and never
-  // "active". Plan count shows unread reminders as a small chip.
+  // helpers. Plan count shows unread reminders as a small chip.
   const isModuleActive = (id: ModuleNavId) => {
-    if (id === 'search') return false;
     return props.selection.section === id;
   };
   const activePlanReminderCount = (props.planReminders ?? [])
     .filter((reminder) => reminder.status !== 'completed')
     .length;
   function selectModule(id: ModuleNavId) {
-    if (id === 'search') {
-      props.onOpenSearchModal?.();
-      return;
-    }
     if (id === 'sessions') {
       props.onSelect({ section: 'sessions', filter: 'chats' });
       return;
@@ -246,50 +223,7 @@ export function SessionListPanel(props: {
       data-collapsed={props.sidebarCollapsed ? 'true' : undefined}
     >
       <header className="maka-session-panel-header">
-        <div className="maka-sidebar-drag-strip">
-          {/* PR-SIDEBAR-HEADER-BUTTONS-PRIMITIVE-0 (round 5/30):
-              both icon affordances in the sidebar drag strip now
-              flow through UiButton. variant="quiet" + size="icon-sm"
-              match the 24×24 quiet-icon shape; the custom class
-              still owns -webkit-app-region + the bespoke
-              focus-visible ring (3px accent shadow). */}
-          {/* PR-SIDEBAR-WORDMARK-KILL-0 (WAWQAQ msg `1fae5521` 2026-06-24
-              "现在侧边栏左上角有Maka这个单词，好丑啊"): dropped the
-              Georgia serif `Maka` wordmark that PR #190 added next
-              to the traffic lights. The app icon + window title bar
-              already carry the brand identity; the wordmark inside
-              the sidebar drag strip read as redundant chrome. */}
-          {props.onOpenSearchModal && (
-            <UiButton
-              className="maka-sidebar-search-button"
-              variant="quiet"
-              size="icon-sm"
-              type="button"
-              data-maka-search-trigger="true"
-              onClick={props.onOpenSearchModal}
-              aria-label="搜索对话"
-              title="搜索对话"
-            >
-              <Search size={16} strokeWidth={1.65} aria-hidden="true" />
-            </UiButton>
-          )}
-          <UiButton
-            className="maka-sidebar-toggle"
-            variant="quiet"
-            size="icon-sm"
-            type="button"
-            onClick={props.onToggleSidebar}
-            aria-label={props.sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'}
-            aria-expanded={!props.sidebarCollapsed}
-            title={props.sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'}
-          >
-            {props.sidebarCollapsed ? (
-              <PanelLeftOpen size={16} strokeWidth={1.65} aria-hidden="true" />
-            ) : (
-              <PanelLeftClose size={16} strokeWidth={1.65} aria-hidden="true" />
-            )}
-          </UiButton>
-        </div>
+        <div className="maka-sidebar-drag-strip" />
       </header>
 
       {/*
@@ -319,10 +253,9 @@ export function SessionListPanel(props: {
           <span>新任务</span>
         </UiButton>
         {/* PR-UI-PIXEL-5 (2026-06-21): the standalone 搜索 nav row was
-            removed — search is reachable from the dedicated search button in
-            the sidebar header (`.maka-sidebar-search-button`) and ⌘K, so a
-            second entry point was redundant. The `search` module id + label
-            are kept for those triggers. */}
+            removed — search is reachable from the shell topbar button and
+            ⌘K/Ctrl+K, so a second entry point was redundant. The `search`
+            module id + label are kept for those triggers. */}
         <UiButton
           variant="quiet"
           size="nav"

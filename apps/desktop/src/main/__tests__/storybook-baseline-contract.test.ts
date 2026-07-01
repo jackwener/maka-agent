@@ -125,7 +125,6 @@ describe('Storybook baseline contract', () => {
     ]) {
       assert.match(src, new RegExp(`export const ${storyName}\\b`));
     }
-    assert.match(src, /onOpenSearchModal/);
     assert.match(src, /statusGroups/);
     assert.doesNotMatch(src, /app-shell/, 'Sidebar stories must not import the desktop app shell.');
   });

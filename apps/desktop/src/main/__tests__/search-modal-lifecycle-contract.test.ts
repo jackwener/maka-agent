@@ -39,13 +39,12 @@ import { join, resolve } from 'node:path';
 import { readRendererContractCss } from './contract-css-helpers.js';
 import { readRendererShellCombinedSource } from './renderer-shell-source-helpers.js';
 
-// The desktop test runs with cwd=apps/desktop; the UI package lives
-// two levels up. Resolve once.
-const COMPONENTS_PATH = resolve(process.cwd(), '..', '..', 'packages', 'ui', 'src', 'chat-view.tsx');
-const SEARCH_MODAL_PATH = resolve(process.cwd(), '..', '..', 'packages', 'ui', 'src', 'search-modal.tsx');
-const MODAL_A11Y_PATH = resolve(process.cwd(), '..', '..', 'packages', 'ui', 'src', 'modal-a11y.ts');
-const SESSION_LIST_PANEL_PATH = resolve(process.cwd(), '..', '..', 'packages', 'ui', 'src', 'session-list-panel.tsx');
-const COMMAND_PALETTE_CONTENT_PATH = join(process.cwd(), 'src', 'renderer', 'command-palette-content-search.ts');
+const REPO_ROOT = resolve(import.meta.dirname, '../../../../..');
+const COMPONENTS_PATH = resolve(REPO_ROOT, 'packages', 'ui', 'src', 'chat-view.tsx');
+const SEARCH_MODAL_PATH = resolve(REPO_ROOT, 'packages', 'ui', 'src', 'search-modal.tsx');
+const MODAL_A11Y_PATH = resolve(REPO_ROOT, 'packages', 'ui', 'src', 'modal-a11y.ts');
+const SESSION_LIST_PANEL_PATH = resolve(REPO_ROOT, 'packages', 'ui', 'src', 'session-list-panel.tsx');
+const COMMAND_PALETTE_CONTENT_PATH = join(REPO_ROOT, 'apps', 'desktop', 'src', 'renderer', 'command-palette-content-search.ts');
 
 describe('SearchModal lifecycle contract (PR-SIDEBAR-IA-0 Phase 3 P0 fixup)', () => {
   it('SearchModal signature has close and navigation callbacks — NO `open` prop (conditional-mount contract)', async () => {
@@ -77,16 +76,13 @@ describe('SearchModal lifecycle contract (PR-SIDEBAR-IA-0 Phase 3 P0 fixup)', ()
     const src = await readFile(SEARCH_MODAL_PATH, 'utf8');
     const startIdx = src.indexOf('export function SearchModal');
     assert.notEqual(startIdx, -1);
-    // Find the start of the function body — the first `{` after
-    // the signature.
-    const bodyStart = src.indexOf('{', startIdx);
+    const signatureEnd = src.indexOf(') {', startIdx);
+    assert.notEqual(signatureEnd, -1);
+    const bodyStart = signatureEnd + 2;
     assert.notEqual(bodyStart, -1);
-    // Find the closing `}` of the function. SearchModal is
-    // top-level (no nesting), so the next `^}` at column 0 ends it.
-    const after = src.slice(bodyStart);
-    const closingIdx = after.search(/\n\}\n/);
-    assert.notEqual(closingIdx, -1);
-    const body = after.slice(0, closingIdx);
+    const bodyEnd = findMatchingBrace(src, bodyStart);
+    assert.notEqual(bodyEnd, -1);
+    const body = src.slice(bodyStart, bodyEnd);
     assert.doesNotMatch(
       body,
       /if\s*\(\s*!props\.open\s*\)\s*return\s*null/,
@@ -119,20 +115,14 @@ describe('SearchModal lifecycle contract (PR-SIDEBAR-IA-0 Phase 3 P0 fixup)', ()
   });
 
   it('returns focus to the sidebar Search trigger when the modal closes', async () => {
-    const components = await readFile(SESSION_LIST_PANEL_PATH, 'utf8');
     const main = await readRendererShellCombinedSource();
-    // PR-SIDEBAR-HEADER-BUTTONS-PRIMITIVE-0 (round 5/30): the sidebar
-    // search trigger was a raw <button> until routed through UiButton.
-    // Match either close tag so the contract pin tracks the primitive
-    // routing. The `data-maka-search-trigger` attribute still reaches
-    // the underlying DOM button because UiButton spreads data-* props.
-    const sidebarSearchButton = components.match(/className="maka-sidebar-search-button"[\s\S]*?<\/(?:button|UiButton)>/)?.[0] ?? '';
+    const shellSearchButton = main.match(/className="maka-shell-topbar-button"[\s\S]*?data-maka-search-trigger="true"[\s\S]*?<\/UiButton>/)?.[0] ?? '';
     const closeSearchModal = main.match(/function closeSearchModal\(options\?: \{ restoreFocus\?: boolean \}\) \{[\s\S]*?\n  \}/)?.[0] ?? '';
 
     assert.match(
-      sidebarSearchButton,
+      shellSearchButton,
       /data-maka-search-trigger="true"[\s\S]*aria-label="搜索对话"/,
-      'Sidebar top Search trigger must be queryable for focus restoration after modal close',
+      'Shell top Search trigger must be queryable for focus restoration after modal close',
     );
     assert.match(
       closeSearchModal,
@@ -454,3 +444,16 @@ describe('SearchModal lifecycle contract (PR-SIDEBAR-IA-0 Phase 3 P0 fixup)', ()
     assert.doesNotMatch(groupingBlock, /尚未发送/, 'Session group labels should not read like unfinished implementation copy');
   });
 });
+
+function findMatchingBrace(source: string, openBraceIndex: number): number {
+  let depth = 0;
+  for (let i = openBraceIndex; i < source.length; i += 1) {
+    const ch = source[i];
+    if (ch === '{') depth += 1;
+    if (ch === '}') {
+      depth -= 1;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}

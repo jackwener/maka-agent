@@ -20,6 +20,11 @@
 }
 
 .maka-shell-2col {
+  --maka-sidebar-topbar-button-size: 24px;
+  --maka-sidebar-topbar-gap: 8px;
+  --maka-sidebar-topbar-offset-y: calc(var(--maka-titlebar-control-safe-top) - 18px);
+  --maka-sidebar-topbar-offset-x: calc(var(--maka-titlebar-control-safe-left) - 10px);
+  position: relative;
   display: grid;
   grid-template-columns:
     var(--maka-session-list-width, var(--w-sessionlist))
@@ -89,32 +94,33 @@
   border-right: 0;
 }
 
-.maka-collapsed-drag-strip {
-  min-height: 38px;
+.maka-shell-topbar-rail {
+  position: absolute;
+  z-index: 12;
+  top: var(--maka-sidebar-topbar-offset-y);
+  left: var(--maka-sidebar-topbar-offset-x);
+  min-height: 34px;
   display: flex;
   align-items: center;
-  gap: 0;
-  /* 17px correction = 12px half-icon + 5px detail-panel inset. */
-  padding: calc(var(--maka-titlebar-control-safe-top) - 17px) 12px 0 var(--maka-titlebar-control-safe-left);
-  -webkit-app-region: drag;
-}
-
-.maka-collapsed-topbar-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
+  gap: var(--maka-sidebar-topbar-gap);
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0);
+  transition:
+    opacity var(--duration-quick) var(--ease-out-strong),
+    transform var(--duration-base) var(--ease-out-strong);
   -webkit-app-region: no-drag;
 }
 
-.maka-collapsed-topbar-button {
-  width: 24px;
-  height: 24px;
+.maka-shell-topbar-button {
+  width: var(--maka-sidebar-topbar-button-size);
+  height: var(--maka-sidebar-topbar-button-size);
   border-radius: 6px;
   color: var(--foreground-70);
   -webkit-app-region: no-drag;
 }
 
-.maka-collapsed-topbar-button:hover {
+.maka-shell-topbar-button:hover {
   color: var(--foreground);
   background: var(--foreground-5);
 }
@@ -482,53 +488,8 @@
 
 .maka-sidebar-drag-strip {
   min-height: 34px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 8px;
   box-sizing: border-box;
-  /* Same baseline; 18px correction = 12px half-icon + 6px sidebar-header pad. */
-  padding-top: calc(var(--maka-titlebar-control-safe-top) - 18px);
-  padding-left: calc(var(--maka-titlebar-control-safe-left) - 10px);
   -webkit-app-region: drag;
-}
-
-.maka-sidebar-search-button,
-.maka-sidebar-toggle {
-  -webkit-app-region: no-drag;
-  width: 24px;
-  height: 24px;
-  display: inline-grid;
-  place-items: center;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--foreground-55);
-  transition: background var(--duration-base) var(--ease-out-strong), color var(--duration-base) var(--ease-out-strong), box-shadow var(--duration-base) var(--ease-out-strong);
-}
-
-.maka-sidebar-search-button:hover,
-.maka-sidebar-toggle:hover {
-  background: oklch(from var(--foreground) l c h / 0.06);
-  color: var(--foreground);
-}
-
-.maka-sidebar-search-button:focus-visible,
-.maka-sidebar-toggle:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.14);
-}
-
-.maka-session-panel[data-collapsed="true"] .maka-session-panel-header {
-  padding: 6px 8px 8px;
-}
-
-.maka-session-panel[data-collapsed="true"] .maka-sidebar-drag-strip {
-  display: flex;
-  justify-content: flex-start;
-  align-items: center;
-  gap: 4px;
-  padding-left: 8px;
 }
 
 .maka-session-panel[data-collapsed="true"] .maka-session-panel-footer {

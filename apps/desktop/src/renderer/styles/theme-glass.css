@@ -173,7 +173,7 @@ html[data-os="darwin"] .maka-nav-row {
   .maka-plan-heading,
   .maka-skill-tab,
   .maka-plan-tab,
-  .maka-sidebar-search-button {
+  .maka-shell-topbar-button {
     -webkit-user-select: none;
     user-select: none;
   }

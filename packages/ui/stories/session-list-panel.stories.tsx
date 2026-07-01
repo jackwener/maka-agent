@@ -88,9 +88,7 @@ function panelProps(input: {
     onSelect: noop,
     onOpenSettings: noop,
     onNew: noop,
-    onOpenSearchModal: noop,
     rowActions,
-    onToggleSidebar: noop,
   };
 }
 

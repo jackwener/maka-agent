@@ -391,56 +391,5 @@ function emitRealWindowSmokeDiagnostic(stage: string): void {
 }
 
 function installApplicationMenu(): void {
-  // App menu labels match the in-app Chinese-leaning UI per the PR69/70/71
-  // localization sweep. Role-based items (cut/copy/paste/reload/etc.) keep
-  // their OS-localized labels — those auto-translate when the user's system
-  // language matches; we only override the explicit `label` strings.
-  Menu.setApplicationMenu(
-    Menu.buildFromTemplate([
-      {
-        label: 'Maka',
-        submenu: [
-          { role: 'about', label: '关于 Maka' },
-          {
-            label: '设置…',
-            accelerator: 'CommandOrControl+,',
-            click: () => safeSendToRenderer('window:openSettings'),
-          },
-          { type: 'separator' },
-          { role: 'hide', label: '隐藏 Maka' },
-          { role: 'hideOthers' },
-          { role: 'unhide' },
-          { type: 'separator' },
-          { role: 'quit', label: '退出 Maka' },
-        ],
-      },
-      { label: '文件', submenu: [{ role: 'close' }] },
-      {
-        label: '编辑',
-        submenu: [
-          { role: 'undo' },
-          { role: 'redo' },
-          { type: 'separator' },
-          { role: 'cut' },
-          { role: 'copy' },
-          { role: 'paste' },
-          { role: 'selectAll' },
-        ],
-      },
-      {
-        label: '视图',
-        submenu: [
-          { role: 'reload' },
-          { role: 'toggleDevTools' },
-          { type: 'separator' },
-          { role: 'resetZoom' },
-          { role: 'zoomIn' },
-          { role: 'zoomOut' },
-          { type: 'separator' },
-          { role: 'togglefullscreen' },
-        ],
-      },
-      { label: '窗口', submenu: [{ role: 'minimize' }, { role: 'zoom' }] },
-    ]),
-  );
+  Menu.setApplicationMenu(null);
 }

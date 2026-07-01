@@ -68,7 +68,7 @@ import {
 import { buildChatModelChoices, chatModelChoiceLabel, normalizeActiveChatModel } from './chat-model-selection';
 import { basenameFromPath } from './app-shell-copy';
 import type { AppShellCommandListOptions } from './app-shell-command-actions';
-import { AppShellCollapsedTopbarActions, AppShellWorkspaceTopActions } from './app-shell-chrome-actions';
+import { AppShellTopbarActions, AppShellWorkspaceTopActions } from './app-shell-chrome-actions';
 import { AppShellOverlays } from './app-shell-overlays';
 import { createAppShellDailyReviewBridge } from './app-shell-daily-review-bridge';
 import { createAppShellPlanActions } from './app-shell-plan-actions';
@@ -1146,6 +1146,13 @@ export function AppShell() {
           '--maka-resize-handle-width': '0px',
         } as CSSProperties}
       >
+        <AppShellTopbarActions
+          sidebarCollapsed={sessionListCollapsed}
+          onOpenSearchModal={() => setSearchModalOpen(true)}
+          onCollapseSidebar={() => setSessionListCollapsed(true)}
+          onExpandSidebar={() => setSessionListCollapsed(false)}
+          onCreateSession={createSession}
+        />
         <div
           className="maka-panel maka-panel-list maka-floating-panel"
           aria-hidden={sessionListCollapsed ? 'true' : undefined}
@@ -1171,7 +1178,6 @@ export function AppShell() {
             onOpenSettings={openSettings}
             userLabel={userLabel}
             onNew={createSession}
-            onOpenSearchModal={() => setSearchModalOpen(true)}
             onRefreshPlanReminders={() => refreshPlanReminders({ shouldShowError: isAutomationsSurfaceActive })}
             onCreatePlanReminder={(input) => createPlanReminder(input)}
             onUpdatePlanReminder={(id, patch) => updatePlanReminder(id, patch)}
@@ -1191,7 +1197,6 @@ export function AppShell() {
               onDelete: (sessionId) => deleteSession(sessionId),
             }}
             sidebarCollapsed={sessionListCollapsed}
-            onToggleSidebar={() => setSessionListCollapsed((current) => !current)}
           />
         </div>
         <div
@@ -1220,15 +1225,6 @@ export function AppShell() {
                   : navSelection.section
           }
         >
-          {sessionListCollapsed && (
-            <div className="maka-collapsed-drag-strip" aria-label="侧边栏已收起">
-              <AppShellCollapsedTopbarActions
-                onOpenSearchModal={() => setSearchModalOpen(true)}
-                onExpandSidebar={() => setSessionListCollapsed(false)}
-                onCreateSession={createSession}
-              />
-            </div>
-          )}
           <AppShellWorkspaceTopActions
             onOpenFeedback={() => openSettingsSection('about')}
             onOpenPalette={openPalette}
