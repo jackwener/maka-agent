@@ -871,6 +871,7 @@ export function BotChatSettingsPage(props: {
               data-support={providerSupport}
               aria-current={selected === provider ? 'page' : undefined}
               disabled={botActionBusy}
+              style={{ ['--bot-brand-color' as string]: BOT_BRAND[provider].color }}
               onClick={() => {
                 setSelected(provider);
               }}
