@@ -107,6 +107,29 @@ describe('Storybook baseline contract', () => {
     assert.doesNotMatch(src, /className=/, 'Story fixtures must not add story-only Tailwind classes.');
   });
 
+  it('storyboards the sidebar session list states before visual polish', () => {
+    const sidebarStories = join(REPO_ROOT, 'packages', 'ui', 'stories', 'session-list-panel.stories.tsx');
+    assert.ok(existsSync(sidebarStories), 'Sidebar session-list states must be inspectable in Storybook');
+
+    const src = readFileSync(sidebarStories, 'utf8');
+    assert.match(src, /title:\s*['"]Product\/Sidebar Session List['"]/);
+    assert.match(src, /SessionListPanel/);
+    assert.match(src, /satisfies\s+Meta/);
+    for (const storyName of [
+      'Empty',
+      'LongList',
+      'StatusGroups',
+      'RowActions',
+      'LongTitlesAndNarrow',
+      'Collapsed',
+    ]) {
+      assert.match(src, new RegExp(`export const ${storyName}\\b`));
+    }
+    assert.match(src, /onOpenSearchModal/);
+    assert.match(src, /statusGroups/);
+    assert.doesNotMatch(src, /app-shell/, 'Sidebar stories must not import the desktop app shell.');
+  });
+
   it('keeps Storybook stories out of the regular @maka/ui TypeScript build', () => {
     const config = readTypescriptConfig(REPO_ROOT, join(REPO_ROOT, 'packages', 'ui', 'tsconfig.json'));
 
