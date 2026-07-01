@@ -39,6 +39,18 @@ const ALLOW = new Map([
     'dev-gated by VITE_DEV_SERVER_URL / NODE_ENV (PR100).',
   ],
   [
+    'apps/desktop/src/main/daily-review-main.ts',
+    'scheduler failures are main-process diagnostics and do not expose secrets.',
+  ],
+  [
+    'apps/desktop/src/main/main-window.ts',
+    'real-window smoke diagnostics are dev/test gated and stdout-parsed by capture tooling.',
+  ],
+  [
+    'apps/desktop/src/main/oauth-model-connections-main.ts',
+    'OAuth model sync logs provider-level failure reason only; no tokens or raw provider bodies.',
+  ],
+  [
     'apps/desktop/src/main/onboarding-service.ts',
     'PR110b: credential lookup failure logs error class only (no message / secret bytes); never reaches renderer.',
   ],
