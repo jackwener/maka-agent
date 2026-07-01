@@ -300,6 +300,7 @@ export function AppShell() {
   // changed) and is forwarded to sessions.create in `send()`. Renderer-only —
   // it never mutates the persisted Settings · 模型 default.
   const [pendingNewChatModel, setPendingNewChatModel] = useState<{ llmConnectionSlug: string; model: string } | null>(null);
+  const [pendingNewChatPermissionMode, setPendingNewChatPermissionMode] = useState<PermissionMode | null>(null);
   // A pick only stays in effect while it is still an offered choice. If the user
   // later disables/removes that connection or model, fall back to the default so
   // the home chip never shows — nor sends — a model that no longer exists.
@@ -494,6 +495,7 @@ export function AppShell() {
     refreshSessions,
     sessionsRef,
     setPendingPermissionModeBySession,
+    setPendingNewChatPermissionMode,
     setPendingSessionModelBySession,
     setSessions,
     toastApi,
@@ -764,6 +766,8 @@ export function AppShell() {
     showModelSetupToast,
     toastApi,
     upsertSessionSummary,
+    pendingNewChatPermissionMode,
+    setPendingNewChatPermissionMode,
     validPendingNewChatModel,
   });
 
@@ -1380,16 +1384,16 @@ export function AppShell() {
                     void selectProjectDirectory();
                   },
                 }}
-                permissionMode={activeSessionForView?.permissionMode}
+                permissionMode={activeSessionForView?.permissionMode ?? pendingNewChatPermissionMode ?? undefined}
                 permissionModePending={activeId ? pendingPermissionModeBySession[activeId] === true : false}
                 permissionModeDisabledReason={
                   activeId && pendingPermissionModeBySession[activeId] === true
                     ? '权限模式正在切换，完成后再继续操作。'
                     : activeStreaming.length > 0
                       ? '当前对话正在流式输出，等结束后再切换权限模式。'
-                      : activeSessionForView?.status === 'running'
+                      : activeId && activeSessionForView?.status === 'running'
                         ? '当前对话正在运行，等结束后再切换权限模式。'
-                        : activeSessionForView?.status === 'waiting_for_user'
+                        : activeId && activeSessionForView?.status === 'waiting_for_user'
                           ? '当前有工具调用正在等待确认，处理后再切换权限模式。'
                           : undefined
                 }

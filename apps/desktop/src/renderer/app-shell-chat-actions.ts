@@ -1,4 +1,4 @@
-import type { PermissionResponse, SessionSummary, StoredMessage } from '@maka/core';
+import type { PermissionMode, PermissionResponse, SessionSummary, StoredMessage } from '@maka/core';
 import { generalizedErrorMessageChinese } from '@maka/core';
 import type { NavSelection } from '@maka/ui';
 import {
@@ -24,6 +24,8 @@ type PendingNewChatModel = {
   llmConnectionSlug: string;
   model: string;
 } | null;
+
+type PendingNewChatPermissionMode = PermissionMode | null;
 
 type ToastApi = {
   error(title: string, description?: string): void;
@@ -61,6 +63,8 @@ export function createAppShellChatActions(deps: {
   showModelSetupToast: (description: string, reason?: string) => void;
   toastApi: ToastApi;
   upsertSessionSummary: (session: SessionSummary) => void;
+  pendingNewChatPermissionMode: PendingNewChatPermissionMode;
+  setPendingNewChatPermissionMode: (mode: PendingNewChatPermissionMode) => void;
   validPendingNewChatModel: PendingNewChatModel;
 }): AppShellChatActions {
   const {
@@ -80,6 +84,8 @@ export function createAppShellChatActions(deps: {
     showModelSetupToast,
     toastApi,
     upsertSessionSummary,
+    pendingNewChatPermissionMode,
+    setPendingNewChatPermissionMode,
     validPendingNewChatModel,
   } = deps;
 
@@ -127,12 +133,13 @@ export function createAppShellChatActions(deps: {
       const turnId = crypto.randomUUID();
       if (!initialSessionId) {
         const session = await window.maka.sessions.create({
-          permissionMode: 'ask',
+          permissionMode: pendingNewChatPermissionMode ?? 'ask',
           name: text.slice(0, 42) || '新建对话',
           ...(validPendingNewChatModel
             ? { llmConnectionSlug: validPendingNewChatModel.llmConnectionSlug, model: validPendingNewChatModel.model }
             : {}),
         });
+        setPendingNewChatPermissionMode(null);
         upsertSessionSummary(session);
         optimisticSessionId = session.id;
         optimisticTurnId = turnId;

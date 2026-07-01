@@ -23,6 +23,7 @@ export function createAppShellSessionSettingsActions(deps: {
   refreshSessions: () => Promise<SessionSummary[]>;
   sessionsRef: RefBox<SessionSummary[]>;
   setPendingPermissionModeBySession: BooleanRecordUpdater;
+  setPendingNewChatPermissionMode: (mode: PermissionMode | null) => void;
   setPendingSessionModelBySession: BooleanRecordUpdater;
   setSessions: (updater: (current: SessionSummary[]) => SessionSummary[]) => void;
   toastApi: ToastApi;
@@ -35,6 +36,7 @@ export function createAppShellSessionSettingsActions(deps: {
     refreshSessions,
     sessionsRef,
     setPendingPermissionModeBySession,
+    setPendingNewChatPermissionMode,
     setPendingSessionModelBySession,
     setSessions,
     toastApi,
@@ -49,7 +51,10 @@ export function createAppShellSessionSettingsActions(deps: {
 
   async function setPermissionMode(mode: PermissionMode) {
     const sessionId = activeIdRef.current;
-    if (!sessionId) return;
+    if (!sessionId) {
+      setPendingNewChatPermissionMode(mode);
+      return;
+    }
     if (pendingPermissionModeChangesRef.current.has(sessionId)) return;
     const current = sessionsRef.current.find((session) => session.id === sessionId);
     if (!current || current.permissionMode === mode) return;
