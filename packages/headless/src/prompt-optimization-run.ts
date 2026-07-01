@@ -26,31 +26,10 @@ export interface PromptTaskPartition {
 }
 
 export interface PromptOptimizationPartitionSelection extends PromptTaskPartition {
-  heldInNoPattern: FixedPromptTask[];
   heldOutNoPattern: FixedPromptTask[];
 }
 
 export type PromptOptimizationRunResult = PromptOptimizationLoopResult;
-
-/** Deterministic id-sorted slice into disjoint held-in / held-out partitions, so
- * the same cached task set always yields the same split across runs. */
-export function partitionPromptTasks(
-  tasks: readonly FixedPromptTask[],
-  input: { heldInCount: number; heldOutCount: number },
-): PromptTaskPartition {
-  if (input.heldInCount < 0 || input.heldOutCount < 0) {
-    throw new Error('partition counts must be non-negative');
-  }
-  const sorted = [...tasks].sort((a, b) => a.id.localeCompare(b.id));
-  const required = input.heldInCount + input.heldOutCount;
-  if (required > sorted.length) {
-    throw new Error(`not enough tasks: need ${required}, have ${sorted.length}`);
-  }
-  return {
-    heldInTasks: sorted.slice(0, input.heldInCount),
-    heldOutTasks: sorted.slice(input.heldInCount, required),
-  };
-}
 
 export function selectPromptOptimizationPartitions(
   tasks: readonly FixedPromptTask[],
@@ -83,7 +62,6 @@ export function selectPromptOptimizationPartitions(
   return {
     heldInTasks,
     heldOutTasks,
-    heldInNoPattern: heldInTasks.filter((task) => !hasPattern(task)),
     heldOutNoPattern: heldOutTasks.filter((task) => !hasPattern(task)),
   };
 }
@@ -132,13 +110,16 @@ async function collectCanaryPatterns(dir: string, patterns: Set<string>): Promis
 }
 
 async function collectTaskMaterialCanaryPatterns(taskPath: string, patterns: Set<string>): Promise<void> {
-  await collectCanaryPatternsExcept(taskPath, patterns, new Set(['tests', 'solution']));
+  await collectCanaryPatternsExcept(taskPath, patterns, new Set([
+    join(taskPath, 'tests'),
+    join(taskPath, 'solution'),
+  ]));
 }
 
 async function collectCanaryPatternsExcept(
   dir: string,
   patterns: Set<string>,
-  excludedDirNames: ReadonlySet<string>,
+  excludedDirs: ReadonlySet<string>,
 ): Promise<void> {
   let entries;
   try {
@@ -149,8 +130,8 @@ async function collectCanaryPatternsExcept(
   for (const entry of entries) {
     const entryPath = join(dir, entry.name);
     if (entry.isDirectory()) {
-      if (excludedDirNames.has(entry.name)) continue;
-      await collectCanaryPatternsExcept(entryPath, patterns, excludedDirNames);
+      if (excludedDirs.has(entryPath)) continue;
+      await collectCanaryPatternsExcept(entryPath, patterns, excludedDirs);
       continue;
     }
     if (!entry.isFile()) continue;

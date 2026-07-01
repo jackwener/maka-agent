@@ -34,7 +34,6 @@ export interface PromptOptimizationRunManifest {
   toolchainFingerprint: string;
   heldInTaskIds: string[];
   heldOutTaskIds: string[];
-  droppedHeldInNoPatternTaskIds: string[];
   heldOutNoPatternTaskIds: string[];
   fingerprint: string;
 }
@@ -60,7 +59,6 @@ export interface PromptOptimizationRunManifestInput {
   toolchainFingerprint: string;
   heldInTasks: readonly FixedPromptTask[];
   heldOutTasks: readonly FixedPromptTask[];
-  heldInNoPattern: readonly FixedPromptTask[];
   heldOutNoPattern: readonly FixedPromptTask[];
 }
 
@@ -96,7 +94,6 @@ export function buildPromptOptimizationRunManifest(
     toolchainFingerprint: input.toolchainFingerprint,
     heldInTaskIds: input.heldInTasks.map((task) => task.id),
     heldOutTaskIds: input.heldOutTasks.map((task) => task.id),
-    droppedHeldInNoPatternTaskIds: input.heldInNoPattern.map((task) => task.id),
     heldOutNoPatternTaskIds: input.heldOutNoPattern.map((task) => task.id),
   });
   const {

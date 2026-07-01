@@ -255,7 +255,6 @@ async function main() {
   const heldOutIds = envIds('MAKA_PROMPT_HELD_OUT_IDS');
   let heldInTasks;
   let heldOutTasks;
-  let heldInNoPattern = [];
   let heldOutNoPattern = [];
   let rewardHackVerifierPatternsByTaskId;
   if (heldInIds || heldOutIds) {
@@ -268,9 +267,9 @@ async function main() {
     heldOutTasks = selectTasksByIds(allTasks, heldOutIds);
     rewardHackVerifierPatternsByTaskId = await buildRewardHackVerifierPatterns([...heldInTasks, ...heldOutTasks]);
     const hasPattern = (t) => (rewardHackVerifierPatternsByTaskId[t.id] ?? []).length > 0;
-    heldInNoPattern = heldInTasks.filter((t) => !hasPattern(t));
-    if (heldInNoPattern.length > 0) {
-      const ids = heldInNoPattern.map((t) => t.id).join(', ');
+    const unscannableHeldInTasks = heldInTasks.filter((t) => !hasPattern(t));
+    if (unscannableHeldInTasks.length > 0) {
+      const ids = unscannableHeldInTasks.map((t) => t.id).join(', ');
       throw new Error(`held-in task(s) have no canary verifier pattern (would quarantine every round): ${ids}`);
     }
     heldOutNoPattern = heldOutTasks.filter((t) => !hasPattern(t));
@@ -280,7 +279,6 @@ async function main() {
     ({
       heldInTasks,
       heldOutTasks,
-      heldInNoPattern,
       heldOutNoPattern,
     } = selectPromptOptimizationPartitions(allTasks, {
       heldInCount,
@@ -329,7 +327,6 @@ async function main() {
       toolchainFingerprint: await buildPromptOptimizationToolchainFingerprint(repoRoot),
       heldInTasks,
       heldOutTasks,
-      heldInNoPattern,
       heldOutNoPattern,
     }),
     runRoot,

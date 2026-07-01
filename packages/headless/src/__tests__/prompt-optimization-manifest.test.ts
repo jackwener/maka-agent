@@ -179,6 +179,11 @@ describe('prompt optimization run manifest', () => {
     assert.equal(full.profile, 'full');
     assert.notEqual(full.fingerprint, pilot.fingerprint);
   });
+
+  test('does not record an always-empty dropped held-in no-pattern field', () => {
+    const manifest = buildManifest('sha256:task-source', []);
+    assert.equal('droppedHeldInNoPatternTaskIds' in manifest, false);
+  });
 });
 
 function buildManifest(
@@ -208,7 +213,6 @@ function buildManifest(
     toolchainFingerprint: 'sha256:toolchain',
     heldInTasks,
     heldOutTasks: [],
-    heldInNoPattern: [],
     heldOutNoPattern: [],
   });
 }
