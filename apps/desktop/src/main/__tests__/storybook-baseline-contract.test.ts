@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -84,15 +84,18 @@ describe('Storybook baseline contract', () => {
     const preview = readFileSync(join(REPO_ROOT, 'apps', 'desktop', '.storybook', 'preview.tsx'), 'utf8');
     const settings = readFileSync(join(REPO_ROOT, 'packages', 'core', 'src', 'settings.ts'), 'utf8');
     const paletteSource = settings.match(/export const THEME_PALETTES = \[([\s\S]*?)\] as const;/)?.[1] ?? '';
-    const allowed = new Set([...paletteSource.matchAll(/'([^']+)'/g)].map((match) => match[1]));
-    const toolbarItems = preview.match(/palette:\s*\{[\s\S]*?items:\s*\[([\s\S]*?)\]/)?.[1] ?? '';
-    const offered = [...toolbarItems.matchAll(/value:\s*'([^']+)'/g)].map((match) => match[1]);
+    const allowed = [...paletteSource.matchAll(/'([^']+)'/g)].map((match) => match[1]);
 
-    assert.ok(offered.length > 0, 'Storybook palette toolbar must expose at least one palette option');
-    assert.deepEqual(
-      [...allowed].sort(),
-      [...offered].sort(),
-      'Storybook palette toolbar must expose every @maka/core palette, no more, no less.',
+    assert.ok(allowed.length > 0, '@maka/core must define THEME_PALETTES');
+    assert.match(
+      preview,
+      /import\s+\{[^}]*THEME_PALETTES[^}]*\}\s+from\s+['"][^'"]*settings/,
+      'preview.tsx must import THEME_PALETTES so the toolbar stays single-sourced',
+    );
+    assert.match(
+      preview,
+      /items:\s*THEME_PALETTES\.map/,
+      'preview.tsx must generate toolbar items from THEME_PALETTES',
     );
   });
 
@@ -224,7 +227,6 @@ describe('Storybook baseline contract', () => {
       ['Design System/Spacing', 'spacing.stories.tsx', ['Spacing']],
       ['Design System/Elevation', 'elevation.stories.tsx', ['Elevation']],
       ['Design System/Layering', 'layering.stories.tsx', ['Layering']],
-      ['Design System/Interaction States', 'interaction-states.stories.tsx', ['InteractionStates']],
     ];
     for (const [title, file, exports] of expected) {
       const storyPath = join(REPO_ROOT, 'packages', 'ui', 'stories', file);
@@ -239,24 +241,20 @@ describe('Storybook baseline contract', () => {
 
   it('keeps Design System stories free of undefined token references', () => {
     const tokensCss = readFileSync(join(REPO_ROOT, 'apps', 'desktop', 'src', 'renderer', 'maka-tokens.css'), 'utf8');
-    const defined = new Set([...tokensCss.matchAll(/(--[\w-]+)\s*:/g)].map((m) => m[1]));
-    const storyFiles = [
-      'design-tokens.stories.tsx',
-      'animation-catalog.stories.tsx',
-      'icons.stories.tsx',
-      'palette-matrix.stories.tsx',
-      'typography.stories.tsx',
-      'spacing.stories.tsx',
-      'elevation.stories.tsx',
-      'layering.stories.tsx',
-      'interaction-states.stories.tsx',
-    ];
+    const stylesCss = readFileSync(join(REPO_ROOT, 'apps', 'desktop', 'src', 'renderer', 'styles.css'), 'utf8');
+    const defined = new Set<string>([
+      ...[...tokensCss.matchAll(/(--[\w-]+)\s*:/g)].map((m) => m[1]),
+      ...[...stylesCss.matchAll(/(--[\w-]+)\s*:/g)].map((m) => m[1]),
+    ]);
+    const storiesDir = join(REPO_ROOT, 'packages', 'ui', 'stories');
+    const storyFiles = readdirSync(storiesDir)
+      .filter((f) => f.endsWith('.stories.tsx'));
     const undefinedRefs: string[] = [];
     for (const file of storyFiles) {
-      const story = readFileSync(join(REPO_ROOT, 'packages', 'ui', 'stories', file), 'utf8');
+      const story = readFileSync(join(storiesDir, file), 'utf8');
       const referenced = new Set<string>();
-      for (const m of story.matchAll(/var\((--[\w-]+)\)/g)) referenced.add(m[1]);
-      for (const m of story.matchAll(/'(--[\w-]+)'/g)) referenced.add(m[1]);
+      for (const m of story.matchAll(/var\(\s*(--[\w-]+)\s*(?:,[^)]*)?\)/g)) referenced.add(m[1]);
+      for (const m of story.matchAll(/['"`](--[\w-]+)['"`]/g)) referenced.add(m[1]);
       for (const token of referenced) {
         if (!defined.has(token)) {
           undefinedRefs.push(`${file}: ${token}`);

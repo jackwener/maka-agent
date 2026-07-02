@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Plus, Search, Trash2 } from '@maka/ui/icons';
 import { Button } from '../src/ui.js';
+import { Spinner } from '../src/primitives/spinner.js';
 
 const meta = {
   title: 'Design System/Tokens',
@@ -285,6 +286,25 @@ export const PrimaryActions: Story = {
             <Plus />
           </Button>
           <Button size="icon-sm" variant="outline" aria-label="删除">
+            <Trash2 />
+          </Button>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gap: 10 }}>
+        <h3 style={{ fontSize: 13, fontWeight: 600, margin: 0, color: 'var(--foreground-70)' }}>
+          loading
+        </h3>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+          <Button disabled>
+            <Spinner style={{ height: 14, width: 14 }} />
+            <span>Saving</span>
+          </Button>
+          <Button variant="secondary" disabled>
+            <Spinner style={{ height: 14, width: 14 }} />
+            <span>Syncing</span>
+          </Button>
+          <Button variant="outline" disabled aria-label="删除">
             <Trash2 />
           </Button>
         </div>
