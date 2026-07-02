@@ -131,55 +131,46 @@ describe('PR-MOTION-TOKEN-CONVERGE-0 contract', () => {
     assert.match(tokens, /--ease-drawer:\s*cubic-bezier/);
   });
 
+  // Single longest-match-first matcher. Using one regex with matchAll
+  // means `ease-in-out` is reported once as `ease-in-out` (not also as
+  // `ease-in`), and `ease-linear` (a Tailwind class that compiles to
+  // `transition-timing-function: linear`) is caught explicitly. Token
+  // declarations (`--ease-out-strong:`) and Tailwind arbitrary values
+  // (`ease-[var(--ease-out-strong)]`) are safe: the lookbehind/lookahead
+  // `(?<![\w-])` / `(?![\w-])` reject the surrounding hyphens.
+  const TIMING_KEYWORD = /(?<![\w-])(ease-in-out|ease-linear|ease-in|ease-out|ease|linear)(?![\w-])/g;
+
+  function scanBareTimingKeywords(src: string, label: string): string[] {
+    const offenders: string[] = [];
+    const lines = src.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      // Split into declaration segments so a `linear` in a `transition`
+      // can't be shielded by an `infinite` in an `animation` on the
+      // same physical line. Each segment is scanned independently.
+      for (const seg of line.split(';')) {
+        for (const m of seg.matchAll(TIMING_KEYWORD)) {
+          const kw = m[1];
+          // `linear` is legitimate only inside infinite-loop animations
+          // (spinners, shimmer). Whitelist by the match's own segment,
+          // not the whole line.
+          if (kw === 'linear' && /\binfinite\b/.test(seg)) continue;
+          offenders.push(`${label}:${i + 1}: bare \`${kw}\``);
+        }
+      }
+    }
+    return offenders;
+  }
+
   it('bare ease/linear timing keywords are banned — use var(--ease-*) tokens', async () => {
     // PR-MOTION-TOKEN-CONVERGE-1 (#430 PR1): the three easing tokens
     // (--ease-out-strong / --ease-in-out-strong / --ease-drawer) are the
     // single source of truth. Bare `ease` / `ease-in` / `ease-out` /
-    // `ease-in-out` drift visually and can't be retuned in one place.
-    // `linear` is the same class of keyword but is legitimate inside
-    // infinite-loop animations (spinners, shimmer) — whitelisted per
-    // match, not per line.
-    //
-    // Token declarations like `--ease-out-strong:` are safe: the
-    // lookbehind `(?<![\w-])` rejects the preceding hyphen. Tailwind
-    // arbitrary values like `ease-[var(--ease-out-strong)]` are safe:
-    // the `ease` is followed by `-` which the negative lookahead rejects.
-    const BARE_EASE = /(?<![\w-])ease(?![\w-])/g;
-    const BARE_EASE_IN = /(?<![\w-])ease-in(?!\s*out)/g;
-    const BARE_EASE_OUT = /(?<![\w-])ease-out(?!\s*-strong)/g;
-    const BARE_EASE_IN_OUT = /(?<![\w-])ease-in-out(?!\s*-strong)/g;
-    const BARE_LINEAR = /(?<![\w-])linear(?![\w-])/g;
-
+    // `ease-in-out` / `ease-linear` / `linear` drift visually and can't
+    // be retuned in one place. `linear` is legitimate only inside
+    // infinite-loop animations (spinners, shimmer).
     const offenders: string[] = [];
-
-    function scan(src: string, label: string): void {
-      const lines = src.split('\n');
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        for (const [name, re] of [
-          ['ease', BARE_EASE],
-          ['ease-in', BARE_EASE_IN],
-          ['ease-out', BARE_EASE_OUT],
-          ['ease-in-out', BARE_EASE_IN_OUT],
-          ['linear', BARE_LINEAR],
-        ] as const) {
-          const matches = line.match(re);
-          if (matches) {
-            for (const m of matches) {
-              // `linear` is legitimate only inside infinite-loop
-              // animations (spinners, shimmer); whitelist that single
-              // match, not the whole line — a `linear` in a `transition`
-              // on the same line as an `animation ... infinite` must
-              // still be flagged.
-              if (name === 'linear' && /\binfinite\b/.test(line)) continue;
-              offenders.push(`${label}:${i + 1}: bare \`${name}\``);
-            }
-          }
-        }
-      }
-    }
-
-    scan(stripCssComments(await readAllRendererCss()), 'renderer CSS');
+    offenders.push(...scanBareTimingKeywords(stripCssComments(await readAllRendererCss()), 'renderer CSS'));
 
     const { readdir } = await import('node:fs/promises');
     async function walk(dir: string): Promise<void> {
@@ -189,7 +180,7 @@ describe('PR-MOTION-TOKEN-CONVERGE-0 contract', () => {
         const full = resolve(dir, entry.name);
         if (entry.isDirectory()) await walk(full);
         else if (entry.isFile() && /\.(tsx|ts)$/.test(entry.name)) {
-          scan(await readFile(full, 'utf8'), full.replace(REPO_ROOT + '/', ''));
+          offenders.push(...scanBareTimingKeywords(await readFile(full, 'utf8'), full.replace(REPO_ROOT + '/', '')));
         }
       }
     }
@@ -200,6 +191,35 @@ describe('PR-MOTION-TOKEN-CONVERGE-0 contract', () => {
       offenders,
       [],
       `Bare ease/linear timing keywords are banned — use var(--ease-out-strong), var(--ease-in-out-strong), or var(--ease-drawer).\n  ${offenders.join('\n  ')}`,
+    );
+  });
+
+  it('bare-timing-keyword scanner catches ease-linear and same-line transition/animation linear', () => {
+    // P1: `ease-linear` is a Tailwind class that compiles to
+    // `transition-timing-function: linear` — must be caught, not
+    // shielded by the surrounding hyphens.
+    assert.deepEqual(
+      scanBareTimingKeywords('className="transition-opacity ease-linear"', 'fixture'),
+      ['fixture:1: bare `ease-linear`'],
+    );
+    // P1: a `linear` in a `transition` must NOT be shielded by an
+    // `infinite` in an `animation` on the same physical line.
+    assert.deepEqual(
+      scanBareTimingKeywords(
+        'transition: opacity 100ms linear; animation: spin 1s linear infinite;',
+        'fixture',
+      ),
+      ['fixture:1: bare `linear`'],
+    );
+    // P3: `ease-in-out` reports once as `ease-in-out`, not also as `ease-in`.
+    assert.deepEqual(
+      scanBareTimingKeywords('transition: opacity 120ms ease-in-out', 'fixture'),
+      ['fixture:1: bare `ease-in-out`'],
+    );
+    // `linear` inside an infinite-loop animation is whitelisted.
+    assert.deepEqual(
+      scanBareTimingKeywords('animation: maka-status-spin 1.2s linear infinite;', 'fixture'),
+      [],
     );
   });
 });
