@@ -355,6 +355,15 @@ export interface HeavyTaskArtifactEvidence {
   metadata?: Record<string, unknown>;
 }
 
+export interface HeavyTaskSelfCheckExecutionHygiene {
+  scratchUsed?: boolean;
+  scratchPath?: string;
+  cleanupPerformed?: boolean;
+  workspaceSideEffects?: 'none' | 'cleaned' | 'present' | 'unknown';
+  remainingSideEffectPaths?: string[];
+  publicReason?: string;
+}
+
 export interface HeavyTaskSourceGuardResult {
   status: 'accepted' | 'rejected';
   checkedAt: number;
@@ -372,6 +381,7 @@ export interface HeavyTaskSemanticSelfCheckState {
   publicReason: string;
   commandEvidence: HeavyTaskCommandEvidence[];
   artifactEvidence: HeavyTaskArtifactEvidence[];
+  executionHygiene?: HeavyTaskSelfCheckExecutionHygiene;
   guard: HeavyTaskSourceGuardResult & { status: 'accepted' };
   source: HeavyTaskProgressSource;
 }

@@ -4,6 +4,7 @@ import type {
   HeavyTaskArtifactEvidence,
   HeavyTaskCommandEvidence,
   HeavyTaskSemanticSelfCheckState,
+  HeavyTaskSelfCheckExecutionHygiene,
   HeavyTaskSourceGuardResult,
   TaskEvent,
 } from './task-contracts.js';
@@ -57,11 +58,21 @@ export const heavyTaskArtifactEvidenceSchema = z.object({
   }
 });
 
+export const heavyTaskSelfCheckExecutionHygieneSchema = z.object({
+  scratchUsed: z.boolean().optional(),
+  scratchPath: z.string().trim().min(1).max(MAX_PATH_CHARS).optional(),
+  cleanupPerformed: z.boolean().optional(),
+  workspaceSideEffects: z.enum(['none', 'cleaned', 'present', 'unknown']).optional(),
+  remainingSideEffectPaths: z.array(z.string().trim().min(1).max(MAX_PATH_CHARS)).max(MAX_ARTIFACT_REFS).optional(),
+  publicReason: z.string().trim().min(1).max(MAX_REASON_CHARS).optional(),
+}).strict();
+
 export const heavyTaskSelfCheckSubmitSchema = z.object({
   status: z.enum(['pass', 'fail', 'inconclusive']),
   publicReason: z.string().trim().min(1).max(MAX_REASON_CHARS),
   commandEvidence: z.array(heavyTaskCommandEvidenceSchema).max(MAX_EVIDENCE_ITEMS).optional(),
   artifactEvidence: z.array(heavyTaskArtifactEvidenceSchema).max(MAX_EVIDENCE_ITEMS).optional(),
+  executionHygiene: heavyTaskSelfCheckExecutionHygieneSchema.optional(),
 }).strict().superRefine((value, ctx) => {
   if ((value.commandEvidence?.length ?? 0) + (value.artifactEvidence?.length ?? 0) === 0) {
     ctx.addIssue({
@@ -112,6 +123,7 @@ export function createHeavyTaskSelfCheckRecorder(input: {
         publicReason: args.publicReason,
         commandEvidence: args.commandEvidence ?? [],
         artifactEvidence: args.artifactEvidence ?? [],
+        ...(args.executionHygiene ? { executionHygiene: args.executionHygiene } : {}),
         guard: validation.guard,
         source: sourceFromContext(ctx),
       };
@@ -131,7 +143,7 @@ export function buildHeavyTaskSelfCheckTools(recorder: HeavyTaskSelfCheckRecorde
   return [
     {
       name: 'self_check_submit',
-      description: 'Submit public, task-derived advisory semantic self-check evidence for this heavy-task run.',
+      description: 'Submit public, task-derived advisory semantic self-check evidence for this heavy-task run, including scratch/cleanup hygiene for any local check side effects.',
       parameters: heavyTaskSelfCheckSubmitSchema,
       permissionRequired: false,
       impl: async (args, ctx) => recorder.recordSelfCheck(heavyTaskSelfCheckSubmitSchema.parse(args), ctx),
@@ -195,11 +207,19 @@ export function renderHeavyTaskSelfCheckForPrompt(projection: {
   for (const artifact of selfCheck.artifactEvidence.slice(0, 5)) {
     lines.push(`  - artifact: ${artifact.kind} ${oneLine(artifact.path, 160)}`);
   }
+  if (selfCheck.executionHygiene) {
+    const hygiene = selfCheck.executionHygiene;
+    lines.push(`- Self-check execution hygiene: scratchUsed=${hygiene.scratchUsed ?? 'unknown'} cleanupPerformed=${hygiene.cleanupPerformed ?? 'unknown'} workspaceSideEffects=${hygiene.workspaceSideEffects ?? 'unknown'}`);
+    if (hygiene.scratchPath) lines.push(`  - scratch: ${oneLine(hygiene.scratchPath, 160)}`);
+    if (hygiene.remainingSideEffectPaths?.length) {
+      lines.push(`  - remaining side-effect paths: ${hygiene.remainingSideEffectPaths.slice(0, 5).map((path) => oneLine(path, 120)).join(', ')}`);
+    }
+  }
   lines.push('Use self_check_submit to refresh advisory public semantic evidence after running public checks.');
   return lines.join('\n');
 }
 
-function stringsFromSelfCheck(input: Pick<HeavyTaskSelfCheckSubmitInput, 'publicReason' | 'commandEvidence' | 'artifactEvidence'>): string[] {
+function stringsFromSelfCheck(input: Pick<HeavyTaskSelfCheckSubmitInput, 'publicReason' | 'commandEvidence' | 'artifactEvidence' | 'executionHygiene'>): string[] {
   const strings = [input.publicReason];
   for (const command of input.commandEvidence ?? []) {
     strings.push(command.command);
@@ -210,7 +230,15 @@ function stringsFromSelfCheck(input: Pick<HeavyTaskSelfCheckSubmitInput, 'public
     strings.push(artifact.path);
     collectMetadataStrings(artifact.metadata, strings);
   }
+  collectExecutionHygieneStrings(input.executionHygiene, strings);
   return strings.filter((value) => value.length > 0).map((value) => value.slice(0, MAX_GUARD_STRING_CHARS));
+}
+
+function collectExecutionHygieneStrings(value: HeavyTaskSelfCheckExecutionHygiene | undefined, output: string[]): void {
+  if (!value) return;
+  if (value.scratchPath) output.push(value.scratchPath);
+  if (value.publicReason) output.push(value.publicReason);
+  output.push(...(value.remainingSideEffectPaths ?? []));
 }
 
 function collectMetadataStrings(value: unknown, output: string[], depth = 0): void {

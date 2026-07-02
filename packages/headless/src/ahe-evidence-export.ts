@@ -27,7 +27,7 @@ import {
 } from './result-export.js';
 import { harborOfficialVerifierOutputFromArtifacts } from './harbor-official-artifacts.js';
 import type { BenchmarkVerifierOutput } from './benchmark-adapters.js';
-import type { AutonomousResultTaxonomy, ScoreResult, TaskRunArtifact, VerifierResult } from './task-contracts.js';
+import type { AutonomousResultTaxonomy, HeavyTaskSelfCheckExecutionHygiene, ScoreResult, TaskRunArtifact, VerifierResult } from './task-contracts.js';
 import type { TaskRunProjection } from './task-run-store.js';
 
 export const MAKA_AHE_EVIDENCE_EXPORT_SOURCE_LABEL = 'ahe-evidence-export-20260701' as const;
@@ -107,6 +107,14 @@ export interface MakaAheFailureDigest {
   };
   selfCheck: {
     divergence: 'self_check_pass_official_fail' | 'self_check_fail_official_pass' | 'aligned' | 'no_self_check' | 'unscored';
+    hygiene: {
+      scratchUsed: boolean | 'unknown';
+      cleanupPerformed: boolean | 'unknown';
+      workspacePollutionSuspected: boolean;
+      remainingSideEffectPaths: string[];
+      riskFlags: string[];
+      latest?: HeavyTaskSelfCheckExecutionHygiene;
+    };
     heavyTaskSelfChecks: TaskRunProjection['heavyTaskSelfChecks'];
     legacySelfChecks: TaskRunProjection['selfChecks'];
   };
@@ -457,6 +465,7 @@ function failureDigestFromProjection(
     },
     selfCheck: {
       divergence: selfCheckDivergence(projection, exported),
+      hygiene: selfCheckHygieneSummary(projection),
       heavyTaskSelfChecks: projection.heavyTaskSelfChecks,
       legacySelfChecks: projection.selfChecks,
     },
@@ -597,6 +606,39 @@ function selfCheckDivergence(
   if (latest?.status === 'pass' && officialPassed === false) return 'self_check_pass_official_fail';
   if (latest?.status === 'fail' && officialPassed === true) return 'self_check_fail_official_pass';
   return 'aligned';
+}
+
+function selfCheckHygieneSummary(projection: TaskRunProjection): MakaAheFailureDigest['selfCheck']['hygiene'] {
+  const latest = projection.latestHeavyTaskSelfCheck?.executionHygiene;
+  if (!latest) {
+    return {
+      scratchUsed: 'unknown',
+      cleanupPerformed: 'unknown',
+      workspacePollutionSuspected: false,
+      remainingSideEffectPaths: [],
+      riskFlags: ['hygiene_not_reported'],
+    };
+  }
+
+  const remainingSideEffectPaths = uniqueStrings(latest.remainingSideEffectPaths ?? []);
+  const riskFlags = [
+    ...(latest.scratchUsed === false ? ['scratch_not_used'] : []),
+    ...(latest.scratchUsed === undefined ? ['scratch_unknown'] : []),
+    ...(latest.cleanupPerformed === false ? ['cleanup_not_performed'] : []),
+    ...(latest.cleanupPerformed === undefined ? ['cleanup_unknown'] : []),
+    ...(latest.workspaceSideEffects === 'present' ? ['workspace_side_effects_present'] : []),
+    ...(latest.workspaceSideEffects === 'unknown' || latest.workspaceSideEffects === undefined ? ['workspace_side_effects_unknown'] : []),
+    ...(remainingSideEffectPaths.length > 0 ? ['remaining_side_effect_paths_reported'] : []),
+  ];
+
+  return {
+    scratchUsed: latest.scratchUsed ?? 'unknown',
+    cleanupPerformed: latest.cleanupPerformed ?? 'unknown',
+    workspacePollutionSuspected: latest.workspaceSideEffects === 'present' || remainingSideEffectPaths.length > 0,
+    remainingSideEffectPaths,
+    riskFlags: uniqueStrings(riskFlags),
+    latest,
+  };
 }
 
 function compactVerifierResult(verifier: VerifierResult): CompactVerifierResult {

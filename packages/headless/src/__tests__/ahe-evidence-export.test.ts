@@ -267,6 +267,10 @@ describe('AHE evidence export', () => {
       assert.equal(failureDigest.schemaVersion, 'maka.ahe.failure_digest.v1');
       assert.equal(failureDigest.status, 'official_fail');
       assert.equal(failureDigest.selfCheck.divergence, 'self_check_pass_official_fail');
+      assert.equal(failureDigest.selfCheck.hygiene.scratchUsed, false);
+      assert.equal(failureDigest.selfCheck.hygiene.workspacePollutionSuspected, true);
+      assert.deepEqual(failureDigest.selfCheck.hygiene.remainingSideEffectPaths, ['/app/polyglot/cmain']);
+      assert.ok(failureDigest.selfCheck.hygiene.riskFlags.includes('workspace_side_effects_present'));
       assert.equal(failureDigest.selfCheck.heavyTaskSelfChecks[0].status, 'pass');
       assert.match(failureDigest.officialHarbor.verifier.stdoutExcerpt, /expected move e2e4/);
       assert.equal(failureDigest.debugRefs.messages.ref, 'traces/run-official/messages.json');
@@ -353,6 +357,15 @@ function acceptedHeavySelfCheck(taskRunId: string, passed: boolean) {
     publicReason: 'Accepted as public, task-derived advisory self-check evidence.',
     commandEvidence: [{ command: 'npm test', exitCode: passed ? 0 : 1, outputExcerpt: passed ? 'ok' : 'fail' }],
     artifactEvidence: [],
+    ...(passed ? {
+      executionHygiene: {
+        scratchUsed: false,
+        cleanupPerformed: false,
+        workspaceSideEffects: 'present' as const,
+        remainingSideEffectPaths: ['/app/polyglot/cmain'],
+        publicReason: 'public compile left a binary in the deliverable workspace',
+      },
+    } : {}),
     guard: {
       status: 'accepted' as const,
       checkedAt: 2,

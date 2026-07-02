@@ -47,12 +47,21 @@ describe('heavy-task semantic self-check tools', () => {
         exists: true,
         metadata: { inspected: 'public docs' },
       }],
+      executionHygiene: {
+        scratchUsed: true,
+        scratchPath: '/tmp/maka-self-check-1',
+        cleanupPerformed: true,
+        workspaceSideEffects: 'none',
+        publicReason: 'temporary compile artifacts stayed under scratch and no deliverable files were left behind',
+      },
     }, toolContext) as { accepted: true; selfCheck: HeavyTaskSemanticSelfCheckState };
 
     assert.equal(result.accepted, true);
     assert.equal(result.selfCheck.status, 'pass');
     assert.equal(result.selfCheck.guard.status, 'accepted');
     assert.equal(result.selfCheck.source.toolCallId, 'tool-1');
+    assert.equal(result.selfCheck.executionHygiene?.scratchUsed, true);
+    assert.equal(result.selfCheck.executionHygiene?.workspaceSideEffects, 'none');
     const events = await store.readEvents('run-1');
     assert.equal(events[0]?.type, 'heavy_task_self_check_recorded');
   });
@@ -75,6 +84,8 @@ describe('heavy-task semantic self-check tools', () => {
       { publicReason: 'public check', commandEvidence: [{ command: 'npm test', artifactRefs: ['expected-threshold-0.97.txt'] }] },
       { publicReason: 'public check', artifactEvidence: [{ path: 'threshold-0.97.txt', kind: 'file' }] },
       { publicReason: 'public check', artifactEvidence: [{ path: 'build-output.log', kind: 'log', metadata: { note: 'actual 41 expected 42' } }] },
+      { publicReason: 'public check', commandEvidence: [{ command: 'npm test' }], executionHygiene: { scratchUsed: true, scratchPath: 'hidden/tests/scratch' } },
+      { publicReason: 'public check', commandEvidence: [{ command: 'npm test' }], executionHygiene: { remainingSideEffectPaths: ['official-verifier-output.json'] } },
     ];
 
     for (const input of privateInputs) {
@@ -131,6 +142,15 @@ describe('heavy-task semantic self-check tools', () => {
         metadata: { a: { b: { c: { d: 'too deep' } } } },
       }],
     }), /metadata/);
+    assert.throws(() => heavyTaskSelfCheckSubmitSchema.parse({
+      status: 'pass',
+      publicReason: 'public check',
+      commandEvidence: [{ command: 'npm test' }],
+      executionHygiene: {
+        workspaceSideEffects: 'present',
+        remainingSideEffectPaths: Array.from({ length: 21 }, (_, index) => `/tmp/leftover-${index}`),
+      },
+    }));
   });
 
   test('renders compact accepted self-check state for continuation prompts', () => {
@@ -140,6 +160,7 @@ describe('heavy-task semantic self-check tools', () => {
 
     assert.match(rendered ?? '', /Heavy-task semantic self-check state/);
     assert.match(rendered ?? '', /Latest advisory status: pass/);
+    assert.match(rendered ?? '', /Self-check execution hygiene/);
     assert.match(rendered ?? '', /self_check_submit/);
   });
 });
@@ -158,6 +179,12 @@ export function acceptedSelfCheck(
     publicReason,
     commandEvidence: [{ command: 'npm test', exitCode: 0, outputExcerpt: 'public tests passed' }],
     artifactEvidence: [{ path: 'build-output.log', kind: 'log', exists: true }],
+    executionHygiene: {
+      scratchUsed: true,
+      scratchPath: '/tmp/maka-self-check',
+      cleanupPerformed: true,
+      workspaceSideEffects: 'none',
+    },
     guard: {
       status: 'accepted',
       checkedAt: 10,

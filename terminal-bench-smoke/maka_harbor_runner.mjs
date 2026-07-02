@@ -586,6 +586,7 @@ try {
             'Produce the smallest runnable artifact early, run a visible public check such as a syntax check, sample command, public test, or artifact inspection, then update the runnable_artifact and public_check todos with concise evidence.',
             'Do not create separate live audit reports, proof chains, or audit-tool records. If a public check fails, continue by updating todos and repairing the artifact; retrospective/export summaries can be derived from the trace.',
             'Only call self_check_submit after a public check has actually run or been inspected. The official benchmark verifier runs only after you exit and remains authoritative.',
+            'For self-check hygiene, run compiles, probes, temporary scripts, and generated check outputs in /tmp or another scratch directory when possible. If a check must touch the deliverable workspace, clean up temporary files before finishing and report scratch/cleanup facts in self_check_submit.executionHygiene.',
             ...(makeMipsSmokeHint
               ? [
                   'If this task expects /tmp/frame.bmp from /app/vm.js, start node /app/vm.js, wait up to 30 seconds for /tmp/frame.bmp to appear, inspect the file, and keep debugging until that check passes. The harness self-check cleans /tmp/frame.bmp safely between attempts; do not spend local tool calls deleting it.',
