@@ -194,7 +194,12 @@ const COMPONENT_RADIUS: ComponentRadiusCheck[] = [
  *  point where `name` is declared.
  *
  *  - `const X = cva(...)` / `const X = forwardRef<...>(...)`: match the
- *    outermost `(...)` call, tracking nested parens.
+ *    outermost `(...)` call, tracking nested parens, skipping string
+ *    literals so `var(--foreground-60)` inside a string-concat constant
+ *    is not mistaken for a function call.
+ *  - `const X = '...' + ...;` (string-concat constant): no real `(` is
+ *    found before the terminating `;`, so the entire declaration up to
+ *    `;` is returned.
  *  - `function X(...) { ... }`: skip the parameter `(...)`, then match
  *    the function body `{ ... }`.
  *
@@ -209,9 +214,21 @@ function extractComponentBlock(src: string, name: string): string | null {
   let i = m.index + m[0].length;
   const isFunction = /function\s/.test(m[0]);
 
-  // Skip to the first `(` (parameter list or call expression).
-  while (i < src.length && src[i] !== '(') i++;
-  if (i >= src.length) return src.slice(m.index);
+  if (!isFunction) {
+    // For const declarations, scan for the first real `(` outside of
+    // string literals. If we hit `;` first, it's a string-concat constant
+    // or array — return up to `;`.
+    i = skipStringsToChar(src, i, '(');
+    if (i < 0 || src[i] === ';') {
+      // No function call found — return up to the terminating `;` (or EOF).
+      const semi = src.indexOf(';', m.index + m[0].length);
+      return semi >= 0 ? src.slice(m.index, semi + 1) : src.slice(m.index);
+    }
+  } else {
+    // For function declarations, skip to the parameter `(`.
+    while (i < src.length && src[i] !== '(') i++;
+    if (i >= src.length) return src.slice(m.index);
+  }
 
   // Match the (...) pair.
   i = matchPair(src, i, '(', ')');
@@ -225,6 +242,31 @@ function extractComponentBlock(src: string, name: string): string | null {
     if (i < 0) return src.slice(m.index);
   }
   return src.slice(m.index, i);
+}
+
+/** Scan from `start`, skipping single/double/backtick string literals,
+ *  and return the index of the first occurrence of `char` that is NOT
+ *  inside a string. Returns -1 if not found. */
+function skipStringsToChar(src: string, start: number, char: string): number {
+  let i = start;
+  while (i < src.length) {
+    const c = src[i];
+    if (c === "'" || c === '"' || c === '`') {
+      // Skip string literal
+      const quote = c;
+      i++;
+      while (i < src.length) {
+        if (src[i] === '\\') { i += 2; continue; }
+        if (src[i] === quote) { i++; break; }
+        i++;
+      }
+      continue;
+    }
+    if (c === char) return i;
+    if (c === ';') return i; // stop at semicolon for const declarations
+    i++;
+  }
+  return -1;
 }
 
 /** Match a balanced pair starting at `src[start]` (which must be `open`).
@@ -313,6 +355,10 @@ describe('radius token governance (#406 gap 4)', () => {
   it('CSS class selectors use the correct radius tier', async () => {
     const css = await readAllRendererCss();
     const stripped = stripCssComments(css);
+    // Normalize: insert newlines after `{` and before `}` so selector
+    // matching does not depend on whether the selector follows a `{`
+    // on the same line (e.g. `@layer components { .selector {`).
+    const normalized = stripped.replace(/\{/g, '{\n').replace(/\}/g, '\n}');
     // Each entry: selector → expected tier token.
     // Every border-radius in every matching block must use this token.
     // If a selector is not found at all, that's also a failure (stale entry).
@@ -360,7 +406,7 @@ describe('radius token governance (#406 gap 4)', () => {
       const escaped = sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\s/g, '\\s+');
       // Find every block for this exact selector (not :hover/:disabled variants)
       const blockRe = new RegExp(`(?:^|\\n)\\s*${escaped}\\s*\\{([^}]*)\\}`, 'g');
-      const blocks = [...stripped.matchAll(blockRe)];
+      const blocks = [...normalized.matchAll(blockRe)];
       if (blocks.length === 0) {
         offenders.push(`${sel} not found in CSS — stale contract entry`);
         continue;
