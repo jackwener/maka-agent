@@ -330,4 +330,26 @@
     min-height: 480px;
     grid-template-columns: minmax(190px, 0.7fr) minmax(250px, 1fr);
   }
+
+  /* Memory page meta row: the absolute MEMORY.md path used to render
+     full-width mono text that shoved the sibling status words into a
+     cramped vertical stack. Give the path its own full row with
+     head-side ellipsis (RTL trick keeps the meaningful .../MEMORY.md
+     tail visible; title= carries the full path on hover). */
+  .settingsMemoryMeta {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+
+  .settingsMemoryPath {
+    /* The component already shortens the path for display
+       (displayMemoryPath); this is just the safety net so an
+       unexpectedly long tail can never shove the status words into a
+       cramped stack again. */
+    flex: 1 1 100%;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
 }

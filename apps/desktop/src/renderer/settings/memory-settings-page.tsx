@@ -674,8 +674,10 @@ export function MemorySettingsPage(props: {
         </div>
       )}
 
-      <div className="settingsConnectionMeta">
-        <span>{effective.path || '等待创建 MEMORY.md'}</span>
+      <div className="settingsConnectionMeta settingsMemoryMeta">
+        <span className="settingsMemoryPath" title={effective.path || undefined}>
+          {effective.path ? displayMemoryPath(effective.path) : '等待创建 MEMORY.md'}
+        </span>
         {effective.latestBackup ? (
           <span className="settingsMemoryBackupState">
             上一版 {localMemoryBackupKindLabel(effective.latestBackup.kind)} · {localMemoryBackupSummary(effective.latestBackup)} · <RelativeTime ts={effective.latestBackup.updatedAt} />
@@ -1138,6 +1140,18 @@ function memoryEntryStatusLabel(status: LocalMemoryState['entries'][number]['sta
 function formatLocalMemorySaveSummary(state: LocalMemoryState): string {
   const archived = state.archivedEntryCount > 0 ? ` / ${state.archivedEntryCount} 条已归档` : '';
   return `当前 ${state.activeEntryCount} 条生效${archived}；已保留上一版备份。`;
+}
+
+/** Display-only path shortening: the full absolute MEMORY.md path used
+ * to render as a full-width mono line that shoved the sibling status
+ * words into a cramped stack (and leaked the raw absolute path into
+ * the renderer, against the UI quality plan). Show the meaningful
+ * trailing segments; the full path stays available via title= and the
+ * copy-path action. */
+function displayMemoryPath(path: string): string {
+  const parts = path.split('/').filter(Boolean);
+  if (parts.length <= 3) return path;
+  return `…/${parts.slice(-3).join('/')}`;
 }
 
 function localMemoryBackupKindLabel(kind: NonNullable<LocalMemoryState['latestBackup']>['kind']): string {
