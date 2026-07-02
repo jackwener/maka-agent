@@ -136,6 +136,7 @@ export interface MakaAheFailureDigest {
   finalState: {
     taskRun: TaskRunExport['taskRun'];
     workspace: TaskRunExport['workspace'];
+    selfCheckGate?: NonNullable<TaskRunExport['heavyTask']>['selfCheckGate'];
     artifacts: Array<{
       kind: string;
       ref: string;
@@ -487,6 +488,7 @@ function failureDigestFromProjection(
     finalState: {
       taskRun: exported.taskRun,
       workspace: exported.workspace,
+      ...(exported.heavyTask?.selfCheckGate ? { selfCheckGate: exported.heavyTask.selfCheckGate } : {}),
       artifacts: exported.artifacts.items.map(compactArtifact),
       ...(exported.progress ? { progress: exported.progress } : {}),
       recentEvidence: projection.heavyTaskEvidence.slice(-20).map(compactHeavyTaskEvidence),

@@ -222,6 +222,27 @@ describe('AHE evidence export', () => {
             authority: { source: 'official_harbor_verifier', authoritative: true },
           },
         },
+        {
+          type: 'heavy_task_self_check_gate_recorded',
+          id: 'gate-run-official',
+          taskRunId: 'run-official',
+          ts: 3,
+          gate: {
+            schemaVersion: 1,
+            action: 'repair_prompt',
+            reason: 'latest self-check reports uncleaned workspace side effects',
+            attempt: 1,
+            maxAttempts: 1,
+            checklist: [{
+              id: 'check-1',
+              kind: 'workspace_hygiene',
+              source: 'generic_heavy_task',
+              description: 'Pass self-check must include sandbox execution evidence and a public workspace hygiene guard',
+              evidenceRequired: 'command_or_artifact',
+            }],
+            prompt: 'run public checks and self_check_submit',
+          },
+        },
         officialScoreEvent('run-official', false),
         { type: 'task_run_completed', id: 'e4', taskRunId: 'run-official', ts: 4, finishedAt: 4 },
       ], 'run-official');
@@ -281,6 +302,8 @@ describe('AHE evidence export', () => {
       assert.ok(failureDigest.selfCheck.hygiene.riskFlags.includes('workspace_side_effects_present'));
       assert.ok(failureDigest.selfCheck.hygiene.riskFlags.includes('workspace_guard_added_paths_reported'));
       assert.equal(failureDigest.selfCheck.heavyTaskSelfChecks[0].status, 'pass');
+      assert.equal(failureDigest.finalState.selfCheckGate.action, 'repair_prompt');
+      assert.match(failureDigest.finalState.selfCheckGate.reason, /uncleaned workspace side effects/);
       assert.match(failureDigest.officialHarbor.verifier.stdoutExcerpt, /expected move e2e4/);
       assert.equal(failureDigest.debugRefs.messages.ref, 'traces/run-official/messages.json');
       const messages = JSON.parse(await readFile(join(out, 'traces', 'run-official', 'messages.json'), 'utf8'));

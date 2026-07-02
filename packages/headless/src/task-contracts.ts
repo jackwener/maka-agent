@@ -404,6 +404,32 @@ export interface HeavyTaskSemanticSelfCheckState {
   source: HeavyTaskProgressSource;
 }
 
+export interface HeavyTaskAcceptanceCheck {
+  id: string;
+  kind: 'required_artifact' | 'artifact_parse' | 'public_command' | 'fresh_context' | 'workspace_hygiene' | 'task_family_hint';
+  source: 'task_instruction' | 'task_metadata' | 'todo' | 'terminal_bench_hint' | 'generic_heavy_task';
+  description: string;
+  evidenceRequired: 'command' | 'artifact' | 'command_or_artifact';
+  path?: string;
+  commandHint?: string;
+}
+
+export type HeavyTaskSelfCheckGateAction =
+  | 'allow_finalize'
+  | 'repair_prompt'
+  | 'allow_official_verifier_after_bounded_attempt';
+
+export interface HeavyTaskSelfCheckGateState {
+  schemaVersion: 1;
+  action: HeavyTaskSelfCheckGateAction;
+  reason: string;
+  attempt: number;
+  maxAttempts: number;
+  checklist: HeavyTaskAcceptanceCheck[];
+  selfCheckId?: string;
+  prompt?: string;
+}
+
 export type HeavyTaskEvidenceKind = 'tool' | 'check' | 'artifact';
 export type HeavyTaskToolEvidenceName = 'Bash' | 'Read' | 'Grep' | 'Write' | 'Edit' | 'Glob' | string;
 
@@ -705,6 +731,11 @@ export interface HeavyTaskSelfCheckRecordedEvent extends BaseTaskEvent {
   selfCheck: HeavyTaskSemanticSelfCheckState;
 }
 
+export interface HeavyTaskSelfCheckGateRecordedEvent extends BaseTaskEvent {
+  type: 'heavy_task_self_check_gate_recorded';
+  gate: HeavyTaskSelfCheckGateState;
+}
+
 export interface HeavyTaskEvidenceRecordedEvent extends BaseTaskEvent {
   type: 'heavy_task_evidence_recorded';
   evidence: HeavyTaskCompactEvidenceEnvelope;
@@ -838,6 +869,7 @@ export type TaskEvent =
   | HeavyTaskInventoryRecordedEvent
   | HeavyTaskTodosRecordedEvent
   | HeavyTaskSelfCheckRecordedEvent
+  | HeavyTaskSelfCheckGateRecordedEvent
   | HeavyTaskEvidenceRecordedEvent
   | IsolationPolicyRecordedEvent
   | WorkspaceLeaseRecordedEvent
