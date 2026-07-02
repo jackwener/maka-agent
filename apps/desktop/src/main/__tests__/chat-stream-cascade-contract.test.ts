@@ -79,7 +79,7 @@ describe('chat tool-output stream migration contract (#332 PR3)', () => {
     const chatSrc = rawSrc.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
     const liveBlock = chatSrc.slice(chatSrc.indexOf('function LiveIndicator'));
     for (const literal of [
-      'w-[6px] h-[6px] rounded-[50%] bg-[var(--accent)]',
+      'w-[6px] h-[6px] rounded-[50%] bg-[var(--status-running)]',
       '[animation:maka-pulse_1.4s_ease-in-out_infinite]',
       'motion-reduce:[animation:none] motion-reduce:opacity-[0.8]',
     ]) {

@@ -82,7 +82,7 @@ describe('chat Marker shell migration contract (#332 PR2)', () => {
       'data-[kind=tools]:text-[color:var(--foreground-50)]',
       'data-[kind=duration]:[font-variant-numeric:tabular-nums]',
       'data-[kind=tokens]:[font-family:var(--font-mono)]',
-      'data-[state=in-progress]:text-[color:var(--accent)]',
+      'data-[state=in-progress]:text-[color:var(--status-running)]',
       'data-[state=in-progress]:font-semibold',
       'bg-[oklch(from_var(--foreground)_l_c_h_/_0.06)]',
       // aborted marker (models.css)
@@ -106,8 +106,8 @@ describe('chat Marker shell migration contract (#332 PR2)', () => {
       // focus-visible is a non-leaf conflict (the footer action's outline vs
       // UiButton's box-shadow ring), so the rendered-style script can't force
       // it reliably; this exact literalization of the retired
-      // `outline: 2px solid var(--accent)` pins it here instead.
-      'focus-visible:[outline:2px_solid_var(--accent)]',
+      // `outline: 2px solid var(--focus-ring)` pins it here instead.
+      'focus-visible:[outline:2px_solid_var(--focus-ring)]',
       'focus-visible:[outline-offset:2px]',
       'data-[pending=true]:opacity-[0.78]',
       // the combined disabled+pending guards: a copy button can be both
@@ -116,7 +116,7 @@ describe('chat Marker shell migration contract (#332 PR2)', () => {
       // raise the specificity so emit order can't flip it.
       'disabled:data-[pending=true]:opacity-[0.78]',
       'aria-disabled:data-[pending=true]:opacity-[0.78]',
-      'data-[copy-feedback=copied]:text-[color:var(--accent)]',
+      'data-[copy-feedback=copied]:text-[color:var(--link)]',
     ]) {
       assert.ok(
         markerBlock.includes(literal),

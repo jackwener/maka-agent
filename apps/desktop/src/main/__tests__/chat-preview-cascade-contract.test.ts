@@ -88,7 +88,7 @@ describe('chat preview-surface migration contract (#332 PR4)', () => {
     for (const tint of [
       'data-[line=add]:text-[color:var(--success-text)]',
       'data-[line=del]:text-[color:var(--destructive)]',
-      'data-[line=hunk]:bg-[oklch(from_var(--accent)_l_c_h_/_0.08)]',
+      'data-[line=hunk]:bg-[oklch(from_var(--link)_l_c_h_/_0.08)]',
     ]) {
       assert.ok(block.includes(tint), `diff-line must keep the literal "${tint}"`);
     }

@@ -727,6 +727,7 @@
 
 .maka-palette-empty {
   color: var(--foreground-50);
+}
 
 .maka-palette-footer {
   display: flex;

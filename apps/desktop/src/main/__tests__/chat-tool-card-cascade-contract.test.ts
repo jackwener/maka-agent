@@ -83,8 +83,8 @@ describe('chat tool-card migration contract (#332 PR3b)', () => {
     // The box-shadow RING grows 3px → 5px and fades 0.15 → 0.06. This is the
     // running dot's zero-visual proof; it can't be machine-diffed, so it is pinned.
     for (const frame of [
-      'box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.15)',
-      'box-shadow: 0 0 0 5px oklch(from var(--accent) l c h / 0.06)',
+      'box-shadow: 0 0 0 3px oklch(from var(--status-running) l c h / 0.15)',
+      'box-shadow: 0 0 0 5px oklch(from var(--status-running) l c h / 0.06)',
     ]) {
       assert.ok(pulse.includes(frame), `maka-tool-pulse must pin the retired ring frame "${frame}"`);
     }
@@ -159,7 +159,7 @@ describe('chat tool-card migration contract (#332 PR3b)', () => {
     // one part it cannot reach. Pin the breath + its leaf box-shadow ring here.
     for (const literal of [
       '[animation:maka-tool-pulse_1.5s_ease-in-out_infinite]',
-      '[box-shadow:0_0_0_3px_oklch(from_var(--accent)_l_c_h_/_0.15)]',
+      '[box-shadow:0_0_0_3px_oklch(from_var(--status-running)_l_c_h_/_0.15)]',
     ]) {
       assert.ok(
         block.includes(literal),
