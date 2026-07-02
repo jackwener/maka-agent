@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readdir, readFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join, resolve, basename, relative, sep } from 'node:path';
 import { describe, it } from 'node:test';
 import { REPO_ROOT, TOKENS_FILE, RENDERER_STYLES_DIR, readCssTree, readAllRendererCss, stripCssComments } from './css-test-helpers.js';
 
@@ -213,18 +213,40 @@ describe('issue #406 design-system governance contract', () => {
     assert.ok(!chat.includes('[animation:maka-tool-card-enter_350ms_var(--ease-out-strong)_both]'));
   });
 
-  it('bans raw var(--accent) outside the token registry and palette preview', async () => {
+  it('bans raw var(--accent) outside token definitions and palette preview', async () => {
     // Rule: var(--accent) may only appear in:
-    //   1. maka-tokens.css — token definitions, alias RHS, --color-accent
-    //      bridge, .pill[data-tone=accent], brand derivations
-    //   2. theme-preview.css — palette swatch display
-    //   3. styles.css — --color-accent Tailwind @theme bridge (a definition)
+    //   1. maka-tokens.css — but ONLY on token-definition lines (`--xxx: ...`)
+    //      and the literal `.pill[data-tone="accent"]` rule. Component call
+    //      sites hidden inside this file (`.maka-turn-thinking`, `.hljs-*`,
+    //      `.maka-composer-inner:focus-within`, etc.) must use semantic
+    //      aliases, not raw --accent. The test checks line-by-line so a
+    //      future regression inside a component rule is caught.
+    //   2. theme-preview.css — palette swatch display (whole file allowed).
+    //   3. styles.css — --color-accent Tailwind @theme bridge (definition only).
     // Anywhere else it is a bug: the call site must use a semantic alias.
-    const allowlist = new Set([
-      'maka-tokens.css',
+
+    // Files where the ENTIRE file is allowlisted (palette swatch display).
+    const fileAllowlist = new Set([
       'theme-preview.css',
+    ]);
+
+    // Files where only token-definition lines are allowlisted.
+    const definitionOnlyFiles = new Set([
+      'maka-tokens.css',
       'styles.css',
     ]);
+
+    // A line is a token definition if it matches `--name: ...var(--accent)...`.
+    // The `.pill[data-tone="accent"]` rule is also allowlisted (it IS the accent
+    // tone) — matched by the leading `.` + `data-tone` selector.
+    function isAllowedAccentLine(line: string): boolean {
+      const trimmed = line.trim();
+      // Token definition: `--foo: ...var(--accent)...;`
+      if (/^--[\w-]+:\s/.test(trimmed)) return true;
+      // .pill[data-tone="accent"] — the literal accent tone pill
+      if (/^\.pill\[data-tone="accent"\]/.test(trimmed)) return true;
+      return false;
+    }
 
     const cssFiles = await readCssTree(RENDERER_STYLES_DIR);
     const allCss = [
@@ -234,22 +256,38 @@ describe('issue #406 design-system governance contract', () => {
     ];
     const violations: string[] = [];
     for (const file of allCss) {
-      const base = file.split('/').pop()!;
-      if (allowlist.has(base)) continue;
+      const base = basename(file);
+      const rel = relative(REPO_ROOT, file).split(sep).join('/');
+
+      // Whole-file allowlist (palette swatch display)
+      if (fileAllowlist.has(base)) continue;
+
       const source = stripCssComments(await readFile(file, 'utf8'));
-      if (source.includes('var(--accent)')) {
-        violations.push(file);
+      if (!source.includes('var(--accent)')) continue;
+
+      // Definition-only files: check line-by-line
+      if (definitionOnlyFiles.has(base)) {
+        const lines = source.split('\n');
+        for (const line of lines) {
+          if (line.includes('var(--accent)') && !isAllowedAccentLine(line)) {
+            violations.push(`${rel}: ${line.trim()}`);
+          }
+        }
+        continue;
       }
+
+      // Any other file: any var(--accent) is a violation
+      violations.push(rel);
     }
 
     // TSX primitives in @maka/ui
     const uiSources = await readSourceTree(resolve(REPO_ROOT, 'packages/ui/src'));
     for (const { path, source } of uiSources) {
       if (source.includes('var(--accent)')) {
-        violations.push(path);
+        violations.push(relative(REPO_ROOT, path).split(sep).join('/'));
       }
     }
 
-    assert.deepEqual(violations, [], `raw var(--accent) must only live in maka-tokens.css, theme-preview.css, and styles.css. Found in:\n${violations.join('\n')}`);
+    assert.deepEqual(violations, [], `raw var(--accent) must only appear in token definitions (maka-tokens.css, styles.css) or palette display (theme-preview.css). Component call sites must use semantic aliases. Found:\n${violations.join('\n')}`);
   });
 });
