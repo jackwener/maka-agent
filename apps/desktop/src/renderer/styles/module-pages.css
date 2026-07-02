@@ -1241,14 +1241,11 @@
      paint, so the inner `<input>` reads as a bare text field and
      the outer label is the only box.
      Correction (double-border textarea sweep, verified live via CDP):
-     `box-shadow: none` here does NOT actually win while the input is
-     focused — the global `:where(input, select, textarea):focus` rule
-     below sets its own `!important` inset box-shadow on every focused
-     field, and `!important` always beats a non-`!important` declaration
-     regardless of this selector's specificity. That repaints the exact
-     nested-box bug on focus. `border-radius`/`background` don't need
-     `!important` (nothing else sets them on focus), but `box-shadow`
-     and the ring-var reset do. */
+     `box-shadow`/ring-var reset need `!important` to beat the global
+     `:where(input, select, textarea):focus` rule below on focus — see
+     `.composer .maka-composer-textarea` in tool-output.css for why.
+     `border-radius`/`background` don't need it (nothing else sets them
+     on focus). */
   min-width: 0;
   width: 100%;
   height: 30px;
