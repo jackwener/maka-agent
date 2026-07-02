@@ -135,7 +135,7 @@ async function collectTsxOffenders(): Promise<string[]> {
 
 // --- component → expected radius tier contract ------------------------------
 
-type Tier = 'control' | 'surface' | 'pill';
+type Tier = 'control' | 'surface' | 'modal' | 'pill';
 
 interface ComponentRadiusCheck {
   file: string;
@@ -147,6 +147,7 @@ interface ComponentRadiusCheck {
 const TIER_CLASS: Record<Tier, string[]> = {
   control: ['rounded-sm'],
   surface: ['rounded-md'],
+  modal: ['rounded-xl'],
   pill: ['rounded-[var(--radius-pill)]', 'rounded-full'],
 };
 
@@ -164,6 +165,7 @@ const COMPONENT_RADIUS: ComponentRadiusCheck[] = [
   { file: 'packages/ui/src/ui.tsx', name: 'Toggle', tier: 'control' },
   { file: 'packages/ui/src/ui.tsx', name: 'TabsTrigger', tier: 'control' },
   { file: 'packages/ui/src/ui.tsx', name: 'badgeVariants', tier: 'pill' },
+  { file: 'packages/ui/src/ui.tsx', name: 'DialogPopup', tier: 'modal' },
   { file: 'packages/ui/src/ui.tsx', name: 'TabsList', tier: 'surface' },
   { file: 'packages/ui/src/ui.tsx', name: 'SelectPopup', tier: 'surface' },
   { file: 'packages/ui/src/ui.tsx', name: 'ToggleGroup', tier: 'surface' },
@@ -244,17 +246,20 @@ describe('radius token governance (#406 gap 4)', () => {
     assert.deepEqual(offenders, [], `Component tier violations:\n  ${offenders.join('\n  ')}`);
   });
 
-  it('CSS class selectors .maka-code and .maka-skeleton-card use --radius-surface', async () => {
+  it('CSS class selectors use the correct radius tier', async () => {
     const css = await readAllRendererCss();
     const stripped = stripCssComments(css);
     const checks: Record<string, RegExp> = {
       '.maka-code': /\.maka-code\s*\{[^}]*border-radius:\s*var\(--radius-surface\)/,
       '.maka-skeleton-card': /\.maka-skeleton-card\s*\{[^}]*border-radius:\s*var\(--radius-surface\)/,
+      '.maka-composer-inner': /\.maka-composer-inner\s*\{[^}]*border-radius:\s*var\(--radius-modal\)/,
+      '.settingsPermissionRefresh': /\.settingsPermissionRefresh\s*\{[^}]*border-radius:\s*var\(--radius-control\)/,
+      '.settingsCapabilityGuidanceActions code': /\.settingsCapabilityGuidanceActions\s+code\s*\{[^}]*border-radius:\s*var\(--radius-surface\)/,
     };
     const offenders: string[] = [];
     for (const [sel, re] of Object.entries(checks)) {
       if (!re.test(stripped)) {
-        offenders.push(`${sel} must use border-radius: var(--radius-surface)`);
+        offenders.push(`${sel} must use the correct --radius-* tier`);
       }
     }
     assert.deepEqual(offenders, [], `Selector violations:\n  ${offenders.join('\n  ')}`);
