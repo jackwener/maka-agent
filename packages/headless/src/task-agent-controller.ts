@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import {
+  isTerminalRuntimeEvent,
   type AgentRunStore,
   type RuntimeEvent,
   type RuntimeEventStore,
@@ -409,6 +410,7 @@ export async function runTaskOnce(
             header,
             instruction: gateDecision.prompt,
             ...(deps.priorRuntimeContext ? { priorRuntimeContext: deps.priorRuntimeContext } : {}),
+            requireTerminalRuntimeEventWrite: Boolean(runtimeEventStore),
             now,
             newId,
           });
