@@ -24,7 +24,7 @@ const withMakaRoot: Decorator = (Story, context) => {
   }
 
   return (
-    <div className="min-h-screen bg-background p-6 text-foreground antialiased">
+    <div className="h-screen w-screen overflow-y-auto bg-background p-6 text-foreground antialiased">
       <Story />
     </div>
   );
