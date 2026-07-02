@@ -1,10 +1,11 @@
-import { useEffect, type ReactNode } from 'react';
-import type { Decorator, Meta, StoryObj } from '@storybook/react-vite';
+import { type ReactNode } from 'react';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { ToastProvider } from '@maka/ui';
 import type { LlmConnection, OnboardingState, PlanReminder, ProviderType, SettingsSection } from '@maka/core';
 import { createDefaultSettings } from '@maka/core';
 import { OnboardingHero } from '../src/renderer/OnboardingHero';
 import { FirstRunChecklist } from '../src/renderer/FirstRunChecklist';
+import { withScopedMakaBridge } from './maka-bridge';
 
 const meta = {
   title: 'Product/Onboarding',
@@ -183,22 +184,8 @@ function makeChecklistBridge(fixture: ChecklistFixture) {
   } satisfies Record<string, unknown>;
 }
 
-function withChecklistBridge(fixture: ChecklistFixture): Decorator {
-  return (Story) => {
-    const target = window as unknown as { maka?: Record<string, unknown> };
-    const previous = target.maka;
-    target.maka = makeChecklistBridge(fixture);
-    useEffect(() => {
-      return () => {
-        if (previous === undefined) {
-          delete target.maka;
-        } else {
-          target.maka = previous;
-        }
-      };
-    }, []);
-    return <Story />;
-  };
+function withChecklistBridge(fixture: ChecklistFixture) {
+  return withScopedMakaBridge(makeChecklistBridge(fixture));
 }
 
 function ChecklistStory() {

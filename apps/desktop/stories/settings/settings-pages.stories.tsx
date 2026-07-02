@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import type { Decorator, Meta, StoryObj } from '@storybook/react-vite';
+import { useRef } from 'react';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { ToastProvider } from '@maka/ui';
 import type {
   LlmConnection,
@@ -13,6 +13,7 @@ import type {
 import { createDefaultSettings, DEFAULT_DAILY_REVIEW_CONFIG } from '@maka/core';
 import { SettingsSurface } from '../../src/renderer/settings/settings-surface';
 import type { ConnectionsBridge } from '../../src/renderer/settings/ProvidersPanel';
+import { withScopedMakaBridge } from '../maka-bridge';
 
 const STORY_PLATFORM = 'darwin' as const;
 
@@ -182,24 +183,7 @@ const makaBridge = {
   },
 } satisfies Record<string, unknown>;
 
-const withSettingsBridge: Decorator = (Story) => {
-  const target = window as unknown as { maka?: Record<string, unknown> };
-  const previous = target.maka;
-  target.maka = makaBridge;
-  // Restore after the story unmounts. useEffect runs after children mount,
-  // but assignment above happens synchronously during render, before any
-  // child effect fires — so child IPC reads see the bridge.
-  useEffect(() => {
-    return () => {
-      if (previous === undefined) {
-        delete target.maka;
-      } else {
-        target.maka = previous;
-      }
-    };
-  }, []);
-  return <Story />;
-};
+const withSettingsBridge = withScopedMakaBridge(makaBridge);
 
 function SettingsStory(props: { section: SettingsSection }) {
   const initialFocusRef = useRef<HTMLButtonElement>(null);
