@@ -17,13 +17,16 @@
  * Contract rules:
  *   1. CSS `border-radius` (shorthand + physical + logical longhand) must
  *      reference a whitelisted `--radius-*` token, or be 0 / 50% / inherit / initial.
- *   2. TSX `rounded-[...]` and directional `rounded-{t|tr|tl|b|br|bl|l|r|s|e|ss|se|es|ee}-[...]`
- *      must likewise reference a whitelisted token.
+ *   2. TSX `rounded-[...]`, `rounded-(...)`, directional/logical variants, and
+ *      `rounded-{2-9}xl` must likewise reference a whitelisted token or be banned.
  *   3. `calc(var(--radius-*))` may only *shrink* (subtract Npx); `+Npx` is banned.
- *   4. `rounded-2xl` / `rounded-3xl` (≥16px) are banned.
- *   5. Control components must use `rounded-sm`; surface components `rounded-md`;
- *      Badge must use `rounded-[var(--radius-pill)]`.
+ *   4. `rounded-2xl`+ (≥16px) are banned.
+ *   5. Components must use the correct tier: control→rounded-sm, surface→rounded-md,
+ *      modal→rounded-xl, pill→rounded-full/rounded-[var(--radius-pill)].
+ *      Every --radius-* reference inside a component block must belong to the
+ *      expected tier's alias set.
  *   6. Token values are pinned: control=6px, surface=8px, modal=12px, pill=999px.
+ *   7. `--radius-button` is deleted; no stale references may remain.
  */
 
 import { strict as assert } from 'node:assert';
@@ -39,7 +42,6 @@ const RADIUS_TOKEN_WHITELIST = new Set([
   '--radius-surface',
   '--radius-modal',
   '--radius-pill',
-  '--radius-button', // alias → control
   '--radius-sm', // tailwind alias → control
   '--radius-md', // tailwind alias → surface
   '--radius-lg', // tailwind alias → surface
@@ -97,7 +99,7 @@ function findCssOffenders(css: string, label: string): string[] {
 
 // --- TSX/TS scanning --------------------------------------------------------
 
-const ROUNDED_RE = /rounded-(?:\[(?<arb>[^\]]+)\]|(?<tw>2xl|3xl)\b|(?:t|tr|tl|b|br|bl|l|r|s|e|ss|se|es|ee)-\[(?<dir>[^\]]+)\])/g;
+const ROUNDED_RE = /rounded-(?:\[(?<arb>[^\]]+)\]|\((?<paren>[^)]+)\)|(?<tw>[2-9]xl)\b|(?:t|tr|tl|b|br|bl|l|r|s|e|ss|se|es|ee)-\[(?<dir>[^\]]+)\]|(?:t|tr|tl|b|br|bl|l|r|s|e|ss|se|es|ee)-\((?<dirpar>[^)]+)\))/g;
 
 async function collectTsxOffenders(): Promise<string[]> {
   const offenders: string[] = [];
@@ -114,16 +116,18 @@ async function collectTsxOffenders(): Promise<string[]> {
       const src = await readFile(full, 'utf8');
       const label = full.replace(REPO_ROOT + '/', '');
       for (const m of src.matchAll(ROUNDED_RE)) {
-        const groups = m.groups as { arb?: string; tw?: string; dir?: string } | undefined;
+        const groups = m.groups as { arb?: string; paren?: string; tw?: string; dir?: string; dirpar?: string } | undefined;
         if (groups?.tw) {
           offenders.push(`${label}: rounded-${groups.tw} (≥16px, exceeds 12px cap)`);
           continue;
         }
-        const val = (groups?.arb ?? groups?.dir ?? '').trim();
+        const val = (groups?.arb ?? groups?.dir ?? groups?.paren ?? groups?.dirpar ?? '').trim();
         if (LITERAL_OK.test(val)) continue;
         if (isWhitelistedVar(val) || isWhitelistedCalc(val)) continue;
         // menu.tsx checkbox-thumb morph animation — dynamic, not a static tier
         if (/^var\(--thumb-size\)\/calc\(var\(--thumb-size\)\*1\.10\)$/.test(val)) continue;
+        // rounded-(--thumb-size) is a dynamic thumb-size ref, not a --radius-* token
+        if (/^--thumb-size$/.test(val)) continue;
         offenders.push(`${label}: rounded-[${val}]`);
       }
     }
@@ -149,6 +153,15 @@ const TIER_CLASS: Record<Tier, string[]> = {
   surface: ['rounded-md'],
   modal: ['rounded-xl'],
   pill: ['rounded-[var(--radius-pill)]', 'rounded-full'],
+};
+
+/** Token aliases that belong to each tier. A component block must only
+ *  reference tokens from its expected tier's alias set. */
+const TIER_TOKENS: Record<Tier, Set<string>> = {
+  control: new Set(['--radius-control', '--radius-sm']),
+  surface: new Set(['--radius-surface', '--radius-md', '--radius-lg']),
+  modal: new Set(['--radius-modal', '--radius-xl']),
+  pill: new Set(['--radius-pill']),
 };
 
 /** Classes that belong to a *different* tier — must not appear. */
@@ -187,6 +200,7 @@ function checkComponentTier(src: string, check: ComponentRadiusCheck): string[] 
     'g',
   );
   const expected = TIER_CLASS[check.tier];
+  const expectedTokens = TIER_TOKENS[check.tier];
   const forbidden = classesForOtherTiers(check.tier);
   let matched = 0;
   for (const m of src.matchAll(re)) {
@@ -199,6 +213,15 @@ function checkComponentTier(src: string, check: ComponentRadiusCheck): string[] 
     for (const bad of forbidden) {
       if (block.includes(bad)) {
         offenders.push(`${check.file}: ${check.name} must not use ${bad} (wrong tier for ${check.tier})`);
+      }
+    }
+    // Extract every --radius-* reference in the block and verify it belongs
+    // to the expected tier. Catches calc() and arbitrary value paths that
+    // the class-based check misses.
+    const blockTokens = [...block.matchAll(/--radius-[\w-]+/g)].map((t) => t[0]);
+    for (const tok of blockTokens) {
+      if (!expectedTokens.has(tok)) {
+        offenders.push(`${check.file}: ${check.name} references ${tok} which is not a ${check.tier} tier token`);
       }
     }
   }
@@ -277,7 +300,6 @@ describe('radius token governance (#406 gap 4)', () => {
       assert.equal(tokens.get(tok), val, `${tok} must be ${val}. Update this test AND docs/design-system.md §1.4 together.`);
     }
     const aliases: Record<string, string> = {
-      '--radius-button': 'var(--radius-control)',
       '--radius-sm': 'var(--radius-control)',
       '--radius-md': 'var(--radius-surface)',
       '--radius-lg': 'var(--radius-surface)',
@@ -286,6 +308,22 @@ describe('radius token governance (#406 gap 4)', () => {
     for (const [tok, val] of Object.entries(aliases)) {
       assert.equal(tokens.get(tok), val, `${tok} must be ${val}.`);
     }
+  });
+
+  it('--radius-button alias is fully deleted (no stale references)', async () => {
+    const css = await readAllRendererCss();
+    const stripped = stripCssComments(css);
+    assert.equal(
+      stripped.includes('--radius-button'),
+      false,
+      '--radius-button must not appear anywhere in renderer CSS (alias deleted).',
+    );
+    const tokens = await readFile(TOKENS_FILE, 'utf8');
+    assert.equal(
+      tokens.includes('--radius-button'),
+      false,
+      '--radius-button must not appear in maka-tokens.css (alias deleted).',
+    );
   });
 });
 
@@ -312,5 +350,22 @@ describe('radius whitelist negative cases', () => {
     assert.equal(isWhitelistedCalc('calc(var(--radius-modal) - 1px)'), true, 'subtraction must pass');
     assert.equal(isWhitelistedCalc('calc(var(--radius-xl) - 1px)'), true, 'subtraction with alias must pass');
     assert.equal(isWhitelistedCalc('calc(var(--radius-sm) - 1.5px)'), true, 'fractional subtraction must pass');
+  });
+
+  it('TSX scanner catches rounded-(--private-radius) and rounded-4xl', async () => {
+    // These are synthetic inline tests — verify the regex catches them.
+    // We test the ROUNDED_RE directly against known-bad strings.
+    const badCases = [
+      'rounded-(--private-radius)',
+      'rounded-se-(--private-radius)',
+      'rounded-4xl',
+      'rounded-9xl',
+    ];
+    for (const bad of badCases) {
+      const m = [...bad.matchAll(ROUNDED_RE)];
+      assert.ok(m.length > 0, `${bad} must be caught by ROUNDED_RE`);
+    }
+    // Good cases must not produce offenders (tested via the functions).
+    assert.equal(isWhitelistedVar('var(--radius-pill)'), true, 'valid pill token must pass');
   });
 });

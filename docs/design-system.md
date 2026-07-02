@@ -159,7 +159,7 @@ background / foreground / accent (purple) / info (amber) / success (green) / des
 | Token | 值 | 用法 |
 |---|---|---|
 | `--radius` | 0rem | 默认；page、layout 容器 |
-| `--radius-control` (`--radius-button`) | 6px | button / input / small chip / sidebar row / kbd / inline code |
+| `--radius-control` | 6px | button / input / small chip / sidebar row / kbd / inline code |
 | `--radius-surface` | 8px | card / popover / code block / toast / notice / table |
 | `--radius-modal` | 12px | Settings / Confirm / Permission modal / composer / floating card |
 | `--radius-pill` | 999px | pill / badge / round dot / skeleton-line |

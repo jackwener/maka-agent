@@ -239,7 +239,6 @@
   --radius-surface: 8px;
   --radius-modal: 12px;
   --radius-pill: 999px;
-  --radius-button: var(--radius-control);
   --spacing: 0.25rem;          /* 4px base step */
   --icon-size: 16px;           /* chrome glyph size (nav + button icons); dense
                                   meta (12-14) and hero (20+) stay call-site */
@@ -853,7 +852,7 @@
     align-items: center;
     gap: 8px;
     padding: 6px 10px;
-    border-radius: var(--radius-button);
+    border-radius: var(--radius-control);
     color: var(--foreground-80);
     font-size: 14px;
     line-height: 1.4;
@@ -879,7 +878,7 @@
     background: transparent;
     border: none;
     padding: 4px 8px;
-    border-radius: var(--radius-button);
+    border-radius: var(--radius-control);
     color: var(--foreground-60);
     font-size: 13px;
   }
@@ -1617,7 +1616,7 @@
     background: var(--background);
     color: var(--foreground);
     padding: 7px 14px;
-    border-radius: var(--radius-button);
+    border-radius: var(--radius-control);
     font-size: 13px;
     font-weight: 500;
     line-height: 1.2;
