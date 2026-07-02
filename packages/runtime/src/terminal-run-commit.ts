@@ -131,7 +131,6 @@ export interface CommitOrCreateTerminalRunFactInput extends Omit<
   fallbackInvocationId: string;
   fallbackFailureClass?: string;
   fallbackFailureMessage?: string;
-  fallbackAbortSource?: string;
 }
 
 export interface CommitOrCreateTerminalRunFactResult {
@@ -147,7 +146,10 @@ export async function commitOrCreateTerminalRunFact(
   input: CommitOrCreateTerminalRunFactInput,
 ): Promise<CommitOrCreateTerminalRunFactResult> {
   const createdTerminalEvent = !input.terminalEvent;
-  const terminalEvent = input.terminalEvent ?? buildLiveSyntheticTerminalRuntimeEvent({
+  const effectiveAbortSource = input.fallbackStatus === 'cancelled'
+    ? input.abortSource ?? 'user_stop'
+    : input.abortSource;
+  const terminalEvent = input.terminalEvent ?? buildSyntheticTerminalRuntimeEvent({
     id: input.newId(),
     invocationId: input.fallbackInvocationId,
     run: {
@@ -158,7 +160,7 @@ export async function commitOrCreateTerminalRunFact(
     status: input.fallbackStatus,
     ts: input.ts,
     ...(input.fallbackFailureClass ? { failureClass: input.fallbackFailureClass } : {}),
-    ...(input.fallbackAbortSource ?? input.abortSource ? { abortSource: input.fallbackAbortSource ?? input.abortSource } : {}),
+    ...(effectiveAbortSource ? { abortSource: effectiveAbortSource } : {}),
     ...(input.fallbackFailureMessage ?? input.failureMessage
       ? { message: input.fallbackFailureMessage ?? input.failureMessage }
       : {}),
@@ -196,6 +198,7 @@ export async function commitOrCreateTerminalRunFact(
       terminalEvent,
       status,
       ...(failureClass ? { failureClass } : {}),
+      ...(effectiveAbortSource ? { abortSource: effectiveAbortSource } : {}),
       terminalEventAlreadyPersisted,
     });
     headerCommitted = true;
@@ -213,7 +216,7 @@ export async function commitOrCreateTerminalRunFact(
   };
 }
 
-export interface BuildLiveSyntheticTerminalRuntimeEventInput {
+export interface BuildSyntheticTerminalRuntimeEventInput {
   id: string;
   invocationId: string;
   run: Pick<AgentRunHeader, 'runId' | 'sessionId' | 'turnId'>;
@@ -221,14 +224,16 @@ export interface BuildLiveSyntheticTerminalRuntimeEventInput {
   ts: number;
   failureClass?: string;
   abortSource?: string;
+  recoveryReason?: string;
+  diagnostic?: Record<string, unknown>;
   message?: string;
 }
 
-export function buildLiveSyntheticTerminalRuntimeEvent(
-  input: BuildLiveSyntheticTerminalRuntimeEventInput,
+export function buildSyntheticTerminalRuntimeEvent(
+  input: BuildSyntheticTerminalRuntimeEventInput,
 ): RuntimeEvent {
   const failureClass = input.status === 'failed' ? input.failureClass ?? 'unknown' : undefined;
-  const abortSource = input.status === 'cancelled' ? input.abortSource ?? 'user_stop' : undefined;
+  const abortSource = input.status === 'cancelled' ? input.abortSource : undefined;
   return {
     id: input.id,
     invocationId: input.invocationId,
@@ -253,6 +258,8 @@ export function buildLiveSyntheticTerminalRuntimeEvent(
     actions: {
       endInvocation: true,
       stateDelta: {
+        ...(input.recoveryReason ? { recovered: true, recoveryReason: input.recoveryReason } : {}),
+        ...(input.diagnostic ?? {}),
         ...(failureClass ? { failureClass } : {}),
         ...(abortSource ? { abortSource } : {}),
       },
@@ -276,40 +283,18 @@ export interface BuildRecoveredTerminalRuntimeEventInput {
 export function buildRecoveredTerminalRuntimeEvent(
   input: BuildRecoveredTerminalRuntimeEventInput,
 ): RuntimeEvent {
-  const failureClass = input.status === 'failed' ? input.failureClass ?? 'unknown' : undefined;
-  const abortSource = input.status === 'cancelled' ? input.abortSource ?? 'unknown' : undefined;
-  return {
+  return buildSyntheticTerminalRuntimeEvent({
     id: input.id,
     invocationId: input.invocationId ?? `recovery-${input.run.runId}`,
-    runId: input.run.runId,
-    sessionId: input.run.sessionId,
-    turnId: input.run.turnId,
+    run: input.run,
     ts: input.ts,
-    partial: false,
-    role: 'system',
-    author: 'system',
-    status: input.status === 'cancelled' ? 'aborted' : input.status,
-    ...(failureClass
-      ? {
-          content: {
-            kind: 'error',
-            code: failureClass,
-            reason: failureClass,
-            message: input.message ?? failureClass,
-          },
-        }
-      : {}),
-    actions: {
-      endInvocation: true,
-      stateDelta: {
-        recovered: true,
-        recoveryReason: input.recoveryReason,
-        ...(input.diagnostic ?? {}),
-        ...(failureClass ? { failureClass } : {}),
-        ...(abortSource ? { abortSource } : {}),
-      },
-    },
-  };
+    status: input.status,
+    ...(input.failureClass ? { failureClass: input.failureClass } : {}),
+    ...(input.status === 'cancelled' ? { abortSource: input.abortSource ?? 'unknown' } : {}),
+    recoveryReason: input.recoveryReason,
+    ...(input.diagnostic ? { diagnostic: input.diagnostic } : {}),
+    ...(input.message ? { message: input.message } : {}),
+  });
 }
 
 export function hasTerminalAgentRunEvent(events: readonly Pick<AgentRunEvent, 'type'>[]): boolean {

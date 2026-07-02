@@ -808,11 +808,12 @@ export class AgentRun {
           ? { failureClass: this.failureClass ?? finalStatus?.blockedReason }
           : {}),
         ...(this.failureMessage ? { failureMessage: this.failureMessage } : {}),
-        ...(this.abortSource ? { abortSource: this.abortSource } : {}),
+        ...(this.abortSource || fallbackStatus === 'cancelled'
+          ? { abortSource: this.abortSource ?? 'user_stop' }
+          : {}),
         fallbackStatus,
         fallbackInvocationId: this.runId,
         ...(fallbackStatus === 'failed' ? { fallbackFailureClass, fallbackFailureMessage } : {}),
-        ...(fallbackStatus === 'cancelled' ? { fallbackAbortSource: this.abortSource ?? 'user_stop' } : {}),
         allowHeaderCommitFailure: true,
       });
       if (result.createdTerminalEvent && result.status === 'failed') {
