@@ -1951,6 +1951,24 @@
   -webkit-app-region: drag;
 }
 
+/* PR-CHAT-HEADER-STATUS-CLUSTER-0: the session-status / connection /
+   event-stream alert badges used to render inline in .maka-chat-header,
+   right-aligned via the header's flex spacer — which put them directly
+   underneath .maka-workspace-top-actions (top-right toolbar) once more
+   than one badge was showing at once. Pulled them out of the header's
+   flow and anchored them in their own row, directly below the toolbar,
+   sharing its `right: 24px` baseline. */
+.maka-chat-status-cluster {
+  position: absolute;
+  z-index: var(--z-panel-action);
+  top: calc(var(--maka-workspace-top-actions-bottom) + 6px);
+  right: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  -webkit-app-region: no-drag;
+}
+
 /* PR-REMOVE-CHAT-TAB (WAWQAQ msg d401938d 2026-06-23): the
    browser-style session tab + the duplicate "新建对话" plus button at
    the top-left of the chat header are removed. ~95 LOC of .maka-chat-tab*

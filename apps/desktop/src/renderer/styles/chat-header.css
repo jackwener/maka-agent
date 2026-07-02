@@ -41,10 +41,14 @@
   .maka-chat-header-status {
     display: inline-flex;
     align-items: center;
-    padding: 2px 8px;
+    /* PR-CHAT-HEADER-BADGE-SCALE-0: matches .maka-chat-header-alert's
+       footprint so the status pill reads at the same visual scale as
+       the neighboring alert badge and toolbar icon buttons instead of
+       towering over them. */
+    padding: 1px 7px;
     border-radius: 999px;
     border: 1px solid transparent;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
     line-height: 1.4;
     margin-right: 6px;

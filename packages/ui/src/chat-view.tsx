@@ -468,13 +468,21 @@ export function ChatView(props: {
             <span>深度研究</span>
           </span>
         )}
-        {props.sessionStatusBadge && <SessionStatusBadge badge={props.sessionStatusBadge} />}
-        {props.connectionAlert && <ChatHeaderAlertBadge alert={props.connectionAlert} />}
-        {props.eventStreamAlert && <ChatHeaderAlertBadge alert={props.eventStreamAlert} />}
         {/* PR-MOVE-PERMISSION-MODE: switcher relocated into the
             composer left-controls. Header keeps the per-session status
             chips only. */}
       </header>
+      {(props.sessionStatusBadge || props.connectionAlert || props.eventStreamAlert) && (
+        /* Anchored below the top-right workspace toolbar (see
+           .maka-chat-status-cluster) rather than inline in
+           .maka-chat-header — keeps the badges from overlapping the
+           toolbar's icon buttons when more than one is showing. */
+        <div className="maka-chat-status-cluster">
+          {props.sessionStatusBadge && <SessionStatusBadge badge={props.sessionStatusBadge} />}
+          {props.connectionAlert && <ChatHeaderAlertBadge alert={props.connectionAlert} />}
+          {props.eventStreamAlert && <ChatHeaderAlertBadge alert={props.eventStreamAlert} />}
+        </div>
+      )}
       {isLocalSimulationBackend && (
         <Alert variant="info" className="maka-fake-backend-banner" role="status">
           <AlertTriangle size={14} strokeWidth={1.75} aria-hidden="true" />
