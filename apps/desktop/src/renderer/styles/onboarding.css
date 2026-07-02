@@ -64,6 +64,22 @@
   gap: 0;
 }
 
+/* PR-FIRSTRUN-FOLD-0: keep the primary CTA above the fold at the default
+   1280x800 window. Three stacked paddings (home-surface chatContent
+   clamp(72px,10vh,116px) + onboarding-stack clamp(40px,7vh,76px) + a 56vh
+   provider list) pushed the footer button below the viewport, so the very
+   first screen rendered a half-clipped CTA. First-run flattens the outer
+   padding stack; the other onboarding states keep their centered rhythm. */
+.mainColumn[data-home-surface="true"] .maka-chatContent:has(.maka-firstrun) {
+  padding-top: clamp(24px, 3.5vh, 44px);
+  align-content: start;
+}
+
+.maka-onboarding-stack:has(.maka-firstrun) {
+  min-height: 0;
+  padding-top: clamp(12px, 2vh, 24px);
+}
+
 /* PR-FRONTEND-AUDIT-CLEANUP-0 F1 (WAWQAQ msg `dde696a1`): the earlier
    `maka-agents-fade-in 150ms` block + nth-child delay ladder was
    completely overridden by the `maka-card-enter 280ms` block below,
@@ -185,7 +201,10 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  max-height: 56vh;
+  /* PR-FIRSTRUN-FOLD-0: 56vh let the list eat the CTA's room at short
+     windows. The clamp keeps all six compact rows visible at 800px-tall
+     windows while still bounding growth as more providers are added. */
+  max-height: clamp(240px, 42vh, 420px);
   overflow-y: auto;
 }
 .maka-firstrun-list li + li {

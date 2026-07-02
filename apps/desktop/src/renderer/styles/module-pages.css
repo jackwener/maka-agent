@@ -1153,6 +1153,15 @@
   overflow: auto;
 }
 
+/* The skills module stacks THREE direct children (header, capability
+   audit strip, library) but the shared template only defines two rows,
+   so the strip landed in the minmax(0,1fr) row, collapsed to ~0 height,
+   and its caption bled over the banner below. Give any module main that
+   hosts the strip directly a third row. */
+.maka-module-main:has(> .maka-capability-audit-strip) {
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
 .maka-module-main[data-module="daily-review"] {
   grid-template-rows: auto auto;
   align-content: start;

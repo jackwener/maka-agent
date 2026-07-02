@@ -271,7 +271,7 @@ function NeedsConnectionHero(props: {
             return (
               <li key={entry.type}>
                 <Item
-                  className="maka-firstrun-row px-3.5 py-3 rounded-none"
+                  className="maka-firstrun-row px-3.5 py-2 rounded-none"
                   render={
                     <button
                       type="button"
