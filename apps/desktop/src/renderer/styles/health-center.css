@@ -58,7 +58,7 @@
 .settingsHealthRefresh {
   border: 1px solid var(--border);
   background: var(--background);
-  border-radius: var(--radius-surface);
+  border-radius: var(--radius-control);
   padding: 4px 10px;
   color: var(--foreground-80);
   font-size: 0.8125rem;

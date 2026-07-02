@@ -125,8 +125,6 @@ async function collectTsxOffenders(): Promise<string[]> {
         const val = (groups?.arb ?? groups?.dir ?? groups?.paren ?? groups?.dirpar ?? '').trim();
         if (LITERAL_OK.test(val)) continue;
         if (isWhitelistedVar(val) || isWhitelistedCalc(val)) continue;
-        // menu.tsx checkbox-thumb morph animation — dynamic, not a static tier
-        if (/^var\(--thumb-size\)\/calc\(var\(--thumb-size\)\*1\.10\)$/.test(val)) continue;
         offenders.push(`${label}: rounded-[${val}]`);
       }
     }
@@ -272,8 +270,8 @@ describe('radius token governance (#406 gap 4)', () => {
     const css = await readAllRendererCss();
     const stripped = stripCssComments(css);
     // Each entry: selector → expected tier token.
-    // Covers every selector that was found wrong in the full audit (round 6)
-    // plus previously-fixed high-value entries.
+    // Every border-radius in every matching block must use this token.
+    // If a selector is not found at all, that's also a failure (stale entry).
     const SELECTOR_TIER: Record<string, string> = {
       '.maka-code': '--radius-surface',
       '.maka-skeleton-card': '--radius-surface',
@@ -288,6 +286,7 @@ describe('radius token governance (#406 gap 4)', () => {
       '.settingsOsPermissionList': '--radius-surface',
       '.settingsHealthIntro': '--radius-surface',
       '.settingsHealthError': '--radius-surface',
+      '.settingsHealthRefresh': '--radius-control',
       '.settingsBotHero': '--radius-surface',
       '.settingsRows': '--radius-surface',
       '.settingsNotice': '--radius-surface',
@@ -303,15 +302,40 @@ describe('radius token governance (#406 gap 4)', () => {
       '.maka-first-run-checklist': '--radius-surface',
       '.providerLogo': '--radius-surface',
       '.maka-browser-address': '--radius-control',
+      '.maka-plan-shell': '--radius-surface',
+      '.maka-module-main .maka-daily-review-panel': '--radius-surface',
+      '.maka-daily-review-info': '--radius-surface',
+      '.maka-daily-review-archive-body': '--radius-surface',
+      '.settingsPermissionSummaryTile': '--radius-surface',
     };
     const offenders: string[] = [];
     for (const [sel, token] of Object.entries(SELECTOR_TIER)) {
-      // Match selector block containing the expected token
-      const re = new RegExp(
-        sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + `\\s*\\{[^}]*border-radius:\\s*var\\(${token}\\)`,
-      );
-      if (!re.test(stripped)) {
-        offenders.push(`${sel} must use border-radius: var(${token})`);
+      const escaped = sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\s/g, '\\s+');
+      // Find every block for this exact selector (not :hover/:disabled variants)
+      const blockRe = new RegExp(`(?:^|\\n)\\s*${escaped}\\s*\\{([^}]*)\\}`, 'g');
+      const blocks = [...stripped.matchAll(blockRe)];
+      if (blocks.length === 0) {
+        offenders.push(`${sel} not found in CSS — stale contract entry`);
+        continue;
+      }
+      // Every border-radius in every block must match expected token.
+      // Skip blocks that have no border-radius (e.g. :hover/:disabled variants
+      // matched by substring — but the exact-selector anchor above should
+      // prevent that. If a block has no border-radius at all, it's not a
+      // tier concern.)
+      let checkedAny = false;
+      for (const block of blocks) {
+        const body = block[1];
+        const radiusMatches = [...body.matchAll(/border-radius:\s*var\((--radius-[\w-]+)\)/g)];
+        for (const rm of radiusMatches) {
+          checkedAny = true;
+          if (rm[1] !== token) {
+            offenders.push(`${sel} uses ${rm[1]}, must use ${token}`);
+          }
+        }
+      }
+      if (!checkedAny) {
+        offenders.push(`${sel} has no border-radius declaration`);
       }
     }
     assert.deepEqual(offenders, [], `Selector tier violations:\n  ${offenders.join('\n  ')}`);

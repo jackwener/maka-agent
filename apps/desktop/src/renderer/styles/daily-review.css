@@ -9,7 +9,7 @@
     margin-inline: auto;
     background: var(--card-bg);
     border: 1px solid var(--card-border-color);
-    border-radius: var(--radius-control);
+    border-radius: var(--radius-surface);
     box-shadow:
       var(--card-shadow),
       var(--card-highlight);
@@ -34,7 +34,7 @@
     gap: 4px;
     padding: 10px 12px;
     border: 1px solid var(--card-border-color);
-    border-radius: var(--radius-control);
+    border-radius: var(--radius-surface);
     background: oklch(from var(--foreground) l c h / 0.03);
     box-shadow: var(--card-highlight);
   }
@@ -190,7 +190,7 @@
     min-width: 0;
     padding: 10px 12px;
     border: 1px solid var(--card-border-color);
-    border-radius: var(--radius-control);
+    border-radius: var(--radius-surface);
     background: oklch(from var(--foreground) l c h / 0.025);
     box-shadow: var(--card-highlight);
   }

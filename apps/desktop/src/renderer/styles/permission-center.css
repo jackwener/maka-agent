@@ -508,7 +508,7 @@
     gap: 2px;
     padding: 12px 14px;
     border: 1px solid var(--card-border-color, var(--border));
-    border-radius: var(--radius-control);
+    border-radius: var(--radius-surface);
     background: var(--card-bg, var(--background));
     box-shadow:
       var(--card-shadow, none),
