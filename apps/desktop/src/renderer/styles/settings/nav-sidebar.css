@@ -58,7 +58,7 @@
      mouse; without a visible focus ring keyboard-only users couldn't
      tell it was selected. Use the same 2px accent outline +
      `:focus-visible` recipe as the settings rows. */
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
   color: var(--foreground);
 }
@@ -167,8 +167,8 @@
   height: 18px;
   padding: 0 6px;
   border-radius: var(--radius-control);
-  background: oklch(from var(--accent) l c h / 0.12);
-  color: var(--accent);
+  background: oklch(from var(--nav-active) l c h / 0.12);
+  color: var(--nav-active);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -207,9 +207,9 @@
 }
 
 .settingsNavItem:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
-  background: oklch(from var(--accent) l c h / 0.04);
+  background: oklch(from var(--focus-ring) l c h / 0.04);
 }
 
 .settingsNavItem[data-active="true"] .settingsNavGlyph {
@@ -298,8 +298,8 @@
   display: grid;
   place-items: center;
   border-radius: var(--radius-surface);
-  background: oklch(from var(--accent) l c h / 0.08);
-  color: var(--accent);
+  background: oklch(from var(--link) l c h / 0.08);
+  color: var(--link);
 }
 
 .settingsFeatureStatusHero h3 {
@@ -391,8 +391,8 @@
   align-items: center;
   padding: 2px 8px;
   border-radius: var(--radius-pill);
-  background: oklch(from var(--accent) l c h / 0.12);
-  color: var(--accent);
+  background: oklch(from var(--nav-active) l c h / 0.12);
+  color: var(--nav-active);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -646,9 +646,9 @@
    with the row's hairline divider. */
 .settingsFormRow:focus-visible,
 .settingsRow:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
-  background: oklch(from var(--accent) l c h / 0.04);
+  background: oklch(from var(--focus-ring) l c h / 0.04);
 }
 
 .settingsField input:focus-visible,
@@ -656,8 +656,8 @@
 .settingsFormGrid input:focus-visible,
 .settingsFormGrid select:focus-visible {
   outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.18);
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 3px oklch(from var(--focus-ring) l c h / 0.18);
 }
 
 /* PR-SETTINGS-A11Y-POLISH-0 — respect prefers-reduced-motion. Strip

@@ -114,7 +114,7 @@
    rather than sitting flat (study §8.1, §8.4). */
 .composer .maka-composer-inner:focus-within {
   box-shadow:
-    0 0 0 1px oklch(from var(--accent) l c h / 0.24),
+    0 0 0 1px oklch(from var(--focus-ring) l c h / 0.24),
     0 14px 34px -28px oklch(from var(--foreground) l c h / 0.24);
 }
 
@@ -255,8 +255,8 @@
   font-variant-numeric: tabular-nums;
 }
 .maka-composer-mode-chip[data-tone="accent"] {
-  border-color: oklch(from var(--accent) l c h / 0.32);
-  color: oklch(from var(--accent) l c h);
+  border-color: oklch(from var(--nav-active) l c h / 0.32);
+  color: oklch(from var(--nav-active) l c h);
 }
 .maka-composer-mode-chip[data-tone="caution"] {
   border-color: oklch(from var(--success) l c h / 0.32);
@@ -305,7 +305,7 @@
   white-space: normal;
 }
 .maka-composer-mode-menu [data-active="true"] .maka-composer-mode-menu-label {
-  color: oklch(from var(--accent) l c h);
+  color: oklch(from var(--nav-active) l c h);
 }
 
 .maka-composer-right-controls .maka-model-switcher {

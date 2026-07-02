@@ -169,8 +169,8 @@
   }
 
   .settingsMemoryPromptPreview[data-active="true"] {
-    border-color: oklch(from var(--accent) l c h / 0.35);
-    background: oklch(from var(--accent) l c h / 0.06);
+    border-color: oklch(from var(--nav-active) l c h / 0.35);
+    background: oklch(from var(--nav-active) l c h / 0.06);
   }
 
   .settingsMemoryPromptPreviewHeader {
@@ -198,7 +198,7 @@
   }
 
   .settingsMemoryPromptPreview[data-active="true"] .settingsMemoryPromptPreviewHeader span {
-    color: var(--accent);
+    color: var(--nav-active);
   }
 
   .settingsMemoryPromptPreview small {
@@ -628,7 +628,7 @@
 }
 
 .settingsMemoryEditor textarea:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 

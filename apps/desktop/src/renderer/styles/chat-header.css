@@ -19,7 +19,7 @@
     transform: translateY(-1px);
   }
   .maka-chat-header-alert:focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--focus-ring);
     outline-offset: 2px;
   }
   .maka-chat-header-alert[data-tone="info"] {
@@ -58,9 +58,9 @@
     flex: 0 0 auto;
   }
   .maka-chat-header-status[data-tone="accent"] {
-    background: oklch(from var(--accent) l c h / 0.14);
-    color: var(--accent);
-    border-color: oklch(from var(--accent) l c h / 0.24);
+    background: oklch(from var(--nav-active) l c h / 0.14);
+    color: var(--nav-active);
+    border-color: oklch(from var(--nav-active) l c h / 0.24);
   }
   .maka-chat-header-status[data-tone="warning"] {
     background: oklch(from var(--info) l c h / 0.18);
@@ -337,7 +337,7 @@
 .maka-toast[data-variant="success"] { border-left: 3px solid var(--success); }
 .maka-toast[data-variant="warning"] { border-left: 3px solid var(--info); }
 .maka-toast[data-variant="error"]   { border-left: 3px solid var(--destructive); }
-.maka-toast[data-variant="info"]    { border-left: 3px solid var(--accent); }
+.maka-toast[data-variant="info"]    { border-left: 3px solid var(--toast-accent); }
 
 .maka-toast-icon {
   margin-top: 2px;
@@ -346,7 +346,7 @@
 .maka-toast[data-variant="success"] .maka-toast-icon { color: var(--success-text); }
 .maka-toast[data-variant="warning"] .maka-toast-icon { color: var(--info-text); }
 .maka-toast[data-variant="error"]   .maka-toast-icon { color: var(--destructive-text); }
-.maka-toast[data-variant="info"]    .maka-toast-icon { color: var(--accent); }
+.maka-toast[data-variant="info"]    .maka-toast-icon { color: var(--toast-accent); }
 
 .maka-toast-copy {
   min-width: 0;
@@ -373,7 +373,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
   background: var(--background);
-  color: var(--accent);
+  color: var(--toast-accent);
   padding: 3px 9px;
   font-size: 10px;
   font-weight: 600;
@@ -383,7 +383,7 @@
 }
 
 .maka-toast-action:hover {
-  background: oklch(from var(--accent) l c h / 0.08);
+  background: oklch(from var(--toast-accent) l c h / 0.08);
 }
 
 .maka-toast-action:active {
@@ -661,12 +661,12 @@
 }
 
 .maka-palette-item[data-active="true"] {
-  background: oklch(from var(--accent) l c h / 0.10);
+  background: oklch(from var(--nav-active) l c h / 0.10);
   color: var(--foreground);
 }
 
 .maka-palette-item[data-active="true"]::before {
-  background: oklch(from var(--accent) l c h / 0.72);
+  background: oklch(from var(--nav-active) l c h / 0.72);
 }
 
 .maka-palette-item:active:not([data-disabled="true"]) {
@@ -701,8 +701,8 @@
 }
 
 .maka-palette-item[data-active="true"] .maka-palette-icon {
-  background: oklch(from var(--accent) l c h / 0.10);
-  color: var(--accent);
+  background: oklch(from var(--nav-active) l c h / 0.10);
+  color: var(--nav-active);
 }
 
 .maka-palette-label {
@@ -722,12 +722,11 @@
 }
 
 .maka-palette-item[data-pending="true"] .maka-palette-hint {
-  color: var(--accent);
+  color: var(--status-running);
 }
 
 .maka-palette-empty {
   color: var(--foreground-50);
-}
 
 .maka-palette-footer {
   display: flex;

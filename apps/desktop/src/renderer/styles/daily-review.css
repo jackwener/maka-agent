@@ -161,8 +161,8 @@
 }
 
 .maka-daily-review-archive-row[data-active="true"] {
-  background: oklch(from var(--accent) l c h / 0.10);
-  border-color: oklch(from var(--accent) l c h / 0.18);
+  background: oklch(from var(--nav-active) l c h / 0.10);
+  border-color: oklch(from var(--nav-active) l c h / 0.18);
 }
 
 @layer components {
@@ -237,8 +237,8 @@
   }
 
   .maka-daily-review-archive-status[data-status="ok"] {
-    border-color: oklch(from var(--success, var(--accent)) l c h / 0.26);
-    color: var(--success, var(--accent));
+    border-color: oklch(from var(--success, var(--status-running)) l c h / 0.26);
+    color: var(--success, var(--status-running));
   }
 
   .maka-daily-review-archive-status[data-status="failed"],
@@ -325,8 +325,8 @@
 }
 
 .maka-daily-review-range-tab[data-active="true"] {
-  background: oklch(from var(--accent) l c h / 0.12);
-  color: var(--accent);
+  background: oklch(from var(--nav-active) l c h / 0.12);
+  color: var(--nav-active);
   font-weight: 600;
 }
 
@@ -442,7 +442,7 @@
     width: 3px;
     height: 12px;
     border-radius: var(--radius-pill);
-    background: oklch(from var(--accent) l c h / 0.85);
+    background: oklch(from var(--status-running) l c h / 0.85);
     flex-shrink: 0;
   }
 

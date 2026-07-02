@@ -389,7 +389,7 @@
   margin: 6px 4px;
 }
 .maka-search-modal-state[data-tone="info"] {
-  background: oklch(from var(--info, var(--accent)) l c h / 0.06);
+  background: oklch(from var(--info, var(--status-running)) l c h / 0.06);
 }
 .maka-search-modal-state[data-tone="warning"] {
   background: oklch(from var(--warning, var(--info)) l c h / 0.08);
@@ -440,13 +440,13 @@
   transform: translateX(1px);
 }
 .maka-search-modal-result[data-active="true"]:not([disabled]) {
-  background: oklch(from var(--accent) l c h / 0.08);
-  box-shadow: inset 2px 0 0 var(--accent);
+  background: oklch(from var(--nav-active) l c h / 0.08);
+  box-shadow: inset 2px 0 0 var(--nav-active);
 }
 .maka-search-modal-result:focus-visible {
   outline: none;
   background: oklch(from var(--foreground) l c h / 0.04);
-  box-shadow: 0 0 0 2px oklch(from var(--accent) l c h / 0.18);
+  box-shadow: 0 0 0 2px oklch(from var(--focus-ring) l c h / 0.18);
 }
 .maka-search-modal-result[disabled] {
   cursor: default;
@@ -481,7 +481,7 @@
 }
 .maka-search-modal-snippet-hit {
   color: var(--foreground);
-  background: oklch(from var(--accent) l c h / 0.14);
+  background: oklch(from var(--link) l c h / 0.14);
   border-radius: var(--radius-control);
   padding: 0 2px;
 }
@@ -851,15 +851,15 @@
   font-weight: 600;
   outline: 0;
   padding: 1px 0;
-  border-bottom: 1px solid oklch(from var(--accent) l c h / 0.4);
+  border-bottom: 1px solid oklch(from var(--focus-ring) l c h / 0.4);
 }
 
 .maka-list-row-rename-input:focus {
-  border-bottom-color: var(--accent);
+  border-bottom-color: var(--focus-ring);
 }
 
 .maka-list-row[data-editing="true"] {
-  border-color: oklch(from var(--accent) l c h / 0.45);
+  border-color: oklch(from var(--focus-ring) l c h / 0.45);
   background: var(--background);
 }
 
@@ -872,8 +872,8 @@
 }
 
 .maka-list-row:has(.maka-list-row-main:focus-visible) {
-  border-color: oklch(from var(--accent) l c h / 0.4);
-  box-shadow: 0 0 0 2px oklch(from var(--accent) l c h / 0.18);
+  border-color: oklch(from var(--focus-ring) l c h / 0.4);
+  box-shadow: 0 0 0 2px oklch(from var(--focus-ring) l c h / 0.18);
 }
 
 .maka-prompt-suggestions {
@@ -913,8 +913,8 @@
 }
 
 .maka-prompt-chip:hover {
-  border-color: oklch(from var(--accent) l c h / 0.32);
-  background: oklch(from var(--accent) l c h / 0.04);
+  border-color: oklch(from var(--nav-active) l c h / 0.32);
+  background: oklch(from var(--nav-active) l c h / 0.04);
   transform: translateY(-1px);
 }
 
@@ -952,7 +952,7 @@
   min-width: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius-surface);
-  background: oklch(from var(--accent) l c h / 0.035);
+  background: oklch(from var(--focus-ring) l c h / 0.035);
   padding: 10px;
 }
 

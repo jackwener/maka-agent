@@ -152,7 +152,7 @@ const markerVariants = cva("", {
         + " data-[kind=tools]:text-[color:var(--foreground-50)]"
         + " data-[kind=duration]:[font-variant-numeric:tabular-nums]"
         + " data-[kind=tokens]:[font-variant-numeric:tabular-nums] data-[kind=tokens]:[font-family:var(--font-mono)] data-[kind=tokens]:text-[12px]"
-        + " data-[state=in-progress]:text-[color:var(--accent)] data-[state=in-progress]:font-semibold"
+        + " data-[state=in-progress]:text-[color:var(--status-running)] data-[state=in-progress]:font-semibold"
         + " data-[kind=model]:data-[switched=true]:[&_code]:text-[color:var(--foreground-60)]",
       // `.maka-turn-summary-chip-switched` — the muted "切换" pill.
       "summary-switched":
@@ -185,7 +185,7 @@ const markerVariants = cva("", {
         // the marker shell.
         "inline-flex items-center h-8 gap-[3px] px-[5px] py-[1px] rounded-[var(--radius-pill)] [border:0] bg-[oklch(from_var(--foreground)_l_c_h_/_0.05)] text-[color:var(--foreground-50)] text-[9px] leading-[12px] [transition:background_150ms_var(--ease-out-strong),color_150ms_var(--ease-out-strong)]"
         + " hover:bg-[oklch(from_var(--foreground)_l_c_h_/_0.08)] hover:text-[color:var(--foreground)]"
-        + " focus-visible:[outline:2px_solid_var(--accent)] focus-visible:[outline-offset:2px]"
+        + " focus-visible:[outline:2px_solid_var(--focus-ring)] focus-visible:[outline-offset:2px]"
         + " data-[direction=forward]:bg-[oklch(from_var(--info)_l_c_h_/_0.06)] data-[direction=forward]:text-[oklch(from_var(--info-text)_calc(l_-_0.06)_c_h)]"
         + " data-[direction=reverse]:bg-[oklch(from_var(--brand-deep)_l_c_h_/_0.06)] data-[direction=reverse]:text-[oklch(from_var(--brand-deep)_calc(l_-_0.04)_c_h)]",
       // `.maka-turn-footer` (+ measure-column re-anchor) — quiet toolbar that
@@ -205,7 +205,7 @@ const markerVariants = cva("", {
         // geometry (verified equal to `main` by computed style, headless electron).
         "inline-flex items-center gap-[6px] min-h-[28px] h-8 px-[8px] py-[4px] rounded-[var(--radius-surface)] [border:0] bg-transparent text-[color:var(--foreground-50)] text-[12px] leading-[16px] [transition:background_120ms_ease,color_120ms_ease,opacity_120ms_ease]"
         + " [&:hover:not(:disabled)]:bg-[oklch(from_var(--foreground)_l_c_h_/_0.05)] [&:hover:not(:disabled)]:text-[color:var(--foreground)]"
-        + " focus-visible:[outline:2px_solid_var(--accent)] focus-visible:[outline-offset:2px]"
+        + " focus-visible:[outline:2px_solid_var(--focus-ring)] focus-visible:[outline-offset:2px]"
         + " disabled:opacity-[0.45] disabled:cursor-not-allowed aria-disabled:opacity-[0.45] aria-disabled:cursor-not-allowed"
         + " data-[pending=true]:opacity-[0.78] data-[pending=true]:cursor-progress"
         // Copy-in-progress sets BOTH `disabled` and `data-pending`. The plain
@@ -216,7 +216,7 @@ const markerVariants = cva("", {
         // not order — keeping the in-progress 0.78 stable regardless of emit
         // sequence. (Both `disabled`/`aria-disabled` are always set together.)
         + " disabled:data-[pending=true]:opacity-[0.78] aria-disabled:data-[pending=true]:opacity-[0.78]"
-        + " data-[copy-feedback=copied]:text-[color:var(--accent)] data-[copy-feedback=failed]:text-[color:var(--destructive)]",
+        + " data-[copy-feedback=copied]:text-[color:var(--link)] data-[copy-feedback=failed]:text-[color:var(--destructive)]",
     },
   },
 });
@@ -285,7 +285,7 @@ const streamVariants = cva("", {
       // `data-live`, which the literalized `data-[live=true]:` utilities read.
       container:
         "flex flex-col gap-[6px] my-[6px] mx-0 overflow-hidden rounded-[var(--radius-surface)] border border-[var(--border)] bg-[var(--background)]"
-        + " data-[live=true]:border-[oklch(from_var(--accent)_l_c_h_/_0.40)] data-[live=true]:[box-shadow:inset_0_0_0_1px_oklch(from_var(--accent)_l_c_h_/_0.06)]",
+        + " data-[live=true]:border-[oklch(from_var(--status-running)_l_c_h_/_0.40)] data-[live=true]:[box-shadow:inset_0_0_0_1px_oklch(from_var(--status-running)_l_c_h_/_0.06)]",
       // `.maka-tool-output-stream-header`
       header:
         "flex items-center justify-between gap-[12px] px-[10px] py-[6px] border-b border-[var(--border)] bg-[var(--foreground-3)] text-[0.72rem] uppercase tracking-[0.06em] text-[color:var(--foreground-50)]",
@@ -353,7 +353,7 @@ export function LiveIndicator({
       {...props}
       data-slot="live-indicator"
       className={cn(
-        "inline-block w-[6px] h-[6px] rounded-[50%] bg-[var(--accent)] [animation:maka-pulse_1.4s_ease-in-out_infinite] motion-reduce:[animation:none] motion-reduce:opacity-[0.8]",
+        "inline-block w-[6px] h-[6px] rounded-[50%] bg-[var(--status-running)] [animation:maka-pulse_1.4s_ease-in-out_infinite] motion-reduce:[animation:none] motion-reduce:opacity-[0.8]",
         className,
       )}
     />
@@ -438,7 +438,7 @@ const toolVariants = cva("", {
         + " [&[open]>summary]:[border-bottom:1px_solid_var(--border)]"
         // `waiting_permission` border tint — see `WP_CARD_BORDER` above (String.raw).
         + " " + WP_CARD_BORDER
-        + " data-[status=running]:[border-color:oklch(from_var(--accent)_l_c_h_/_0.4)]"
+        + " data-[status=running]:[border-color:oklch(from_var(--status-running)_l_c_h_/_0.4)]"
         + " data-[status=completed]:[border-color:var(--border)]"
         + " data-[status=errored]:[border-color:oklch(from_var(--destructive)_l_c_h_/_0.4)] data-[status=errored]:bg-[oklch(from_var(--destructive)_l_c_h_/_0.04)]"
         + " data-[status=interrupted]:[border-color:var(--border)] data-[status=interrupted]:bg-[var(--foreground-3)] data-[status=interrupted]:opacity-[0.7]",
@@ -452,7 +452,7 @@ const toolVariants = cva("", {
         "w-[8px] h-[8px] rounded-[var(--radius-pill)] bg-[var(--foreground-30)] [flex:0_0_auto]"
         // `waiting_permission` dot tint — see `WP_DOT_BG` above (String.raw).
         + " " + WP_DOT_BG
-        + " data-[status=running]:bg-[var(--accent)] data-[status=running]:[box-shadow:0_0_0_3px_oklch(from_var(--accent)_l_c_h_/_0.15)] data-[status=running]:[animation:maka-tool-pulse_1.5s_ease-in-out_infinite]"
+        + " data-[status=running]:bg-[var(--status-running)] data-[status=running]:[box-shadow:0_0_0_3px_oklch(from_var(--status-running)_l_c_h_/_0.15)] data-[status=running]:[animation:maka-tool-pulse_1.5s_ease-in-out_infinite]"
         + " data-[status=completed]:bg-[var(--success)]"
         + " data-[status=errored]:bg-[var(--destructive)]"
         + " data-[status=interrupted]:bg-[var(--foreground-30)]",
@@ -558,7 +558,7 @@ const previewVariants = cva("", {
         "block px-[8px] py-0 [white-space:pre]"
         + " data-[line=add]:bg-[oklch(from_var(--success)_l_c_h_/_0.10)] data-[line=add]:text-[color:var(--success-text)]"
         + " data-[line=del]:bg-[oklch(from_var(--destructive)_l_c_h_/_0.10)] data-[line=del]:text-[color:var(--destructive)]"
-        + " data-[line=hunk]:bg-[oklch(from_var(--accent)_l_c_h_/_0.08)] data-[line=hunk]:text-[color:var(--foreground-70)] data-[line=hunk]:font-semibold"
+        + " data-[line=hunk]:bg-[oklch(from_var(--link)_l_c_h_/_0.08)] data-[line=hunk]:text-[color:var(--foreground-70)] data-[line=hunk]:font-semibold"
         + " data-[line=meta]:text-[color:var(--foreground-50)]"
         + " data-[line=ctx]:text-[color:var(--foreground-70)]",
 
@@ -666,7 +666,7 @@ const previewVariants = cva("", {
       // `.maka-explore-agent-copy` (UiButton) + the copied / shared copy-state tints.
       "agent-copy":
         "[flex:0_0_auto] gap-[4px] min-h-[24px] px-[8px] py-[3px] text-[11px]"
-        + " data-[copied=true]:text-[color:var(--accent)] data-[copied=true]:[border-color:oklch(from_var(--accent)_l_c_h_/_0.35)]"
+        + " data-[copied=true]:text-[color:var(--link)] data-[copied=true]:[border-color:oklch(from_var(--link)_l_c_h_/_0.35)]"
         + " data-[pending=true]:cursor-progress"
         + " data-[copy-error=true]:text-[color:var(--destructive)] data-[copy-error=true]:[border-color:oklch(from_var(--destructive)_l_c_h_/_0.35)]",
 

@@ -109,7 +109,7 @@
 }
 
 .enabledConnRow[data-default="true"] {
-  background: oklch(from var(--accent) l c h / 0.07);
+  background: oklch(from var(--control) l c h / 0.07);
 }
 
 .enabledConnRow[data-disabled="true"] {
@@ -125,8 +125,8 @@
 .enabledDefaultTag {
   font-size: 11px;
   font-weight: 650;
-  color: var(--accent);
-  background: oklch(from var(--accent) l c h / 0.14);
+  color: var(--nav-active);
+  background: oklch(from var(--nav-active) l c h / 0.14);
   border-radius: var(--radius-pill);
   padding: 1px 8px;
 }
@@ -162,9 +162,9 @@
 }
 
 .catalogPillTabs button[data-active="true"] {
-  border-color: oklch(from var(--accent) l c h / 0.22);
-  background: oklch(from var(--accent) l c h / 0.13);
-  color: var(--accent);
+  border-color: oklch(from var(--nav-active) l c h / 0.22);
+  background: oklch(from var(--nav-active) l c h / 0.13);
+  color: var(--nav-active);
 }
 
 /* Base UI's Tabs renders a sliding rounded-md indicator behind the active
@@ -268,10 +268,10 @@
 .customProviderEntry button {
   flex: 0 0 auto;
   min-height: 36px;
-  border: 1px dashed oklch(from var(--accent) l c h / 0.34);
+  border: 1px dashed oklch(from var(--link) l c h / 0.34);
   border-radius: var(--radius-pill);
   background: transparent;
-  color: var(--accent);
+  color: var(--link);
   padding: 0 14px;
   font-size: 12px;
   font-weight: 700;
@@ -461,8 +461,8 @@
 
 .maka-artifact-pane-collapse:focus-visible {
   outline: none;
-  border-color: oklch(from var(--accent) l c h / 0.42);
-  box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.14);
+  border-color: oklch(from var(--focus-ring) l c h / 0.42);
+  box-shadow: 0 0 0 3px oklch(from var(--focus-ring) l c h / 0.14);
 }
 
 .maka-artifact-pane-title {
@@ -545,8 +545,8 @@
 
 .maka-artifact-error-retry:focus-visible {
   outline: none;
-  border-color: oklch(from var(--accent) l c h / 0.42);
-  box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.14);
+  border-color: oklch(from var(--focus-ring) l c h / 0.42);
+  box-shadow: 0 0 0 3px oklch(from var(--focus-ring) l c h / 0.14);
 }
 
 .maka-artifact-list {
@@ -597,8 +597,8 @@
 }
 
 .maka-artifact-row[data-selected="true"] {
-  background: oklch(from var(--accent) l c h / 0.10);
-  border-color: oklch(from var(--accent) l c h / 0.24);
+  background: oklch(from var(--nav-active) l c h / 0.10);
+  border-color: oklch(from var(--nav-active) l c h / 0.24);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -618,7 +618,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--accent);
+  color: var(--link);
 }
 
 .maka-artifact-row-name {
@@ -812,7 +812,7 @@
   width: 12px;
   height: 12px;
   flex: 0 0 auto;
-  color: var(--accent);
+  color: var(--status-running);
 }
 
 .maka-artifact-preview-fail {
@@ -970,9 +970,9 @@
  * chrome. */
 .maka-turn[data-search-highlight="true"] {
   border-radius: var(--radius-surface);
-  outline: 1px solid oklch(from var(--accent) l c h / 0.34);
+  outline: 1px solid oklch(from var(--link) l c h / 0.34);
   outline-offset: 6px;
-  background: oklch(from var(--accent) l c h / 0.045);
+  background: oklch(from var(--link) l c h / 0.045);
 }
 
 /* Turn aborted marker / failed banner / lineage rows + badges / footer +
@@ -1012,7 +1012,7 @@
   color: var(--info);
 }
 .maka-session-branch-banner:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 .maka-session-branch-banner[data-from-aborted] {

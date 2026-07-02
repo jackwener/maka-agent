@@ -91,7 +91,7 @@
   }
 
   .settingsConnectionRow[data-default="true"] {
-    box-shadow: 0 0 0 2px oklch(from var(--accent) l c h / 0.12);
+    box-shadow: 0 0 0 2px oklch(from var(--control) l c h / 0.12);
   }
 
   .settingsConnectionRowName {
@@ -106,8 +106,8 @@
     align-items: center;
     padding: 1px 7px;
     border-radius: var(--radius-control);
-    background: oklch(from var(--accent) l c h / 0.14);
-    color: var(--accent);
+    background: oklch(from var(--nav-active) l c h / 0.14);
+    color: var(--nav-active);
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 0;
@@ -268,7 +268,7 @@
     border: 0;
     padding: 0;
     background: transparent;
-    color: var(--accent);
+    color: var(--link);
     font: inherit;
   }
 

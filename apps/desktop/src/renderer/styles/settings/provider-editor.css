@@ -35,8 +35,8 @@
 }
 
 .catalogTab[data-active="true"] {
-  border-color: oklch(from var(--accent) l c h / 0.16);
-  background: oklch(from var(--accent) l c h / 0.08);
+  border-color: oklch(from var(--nav-active) l c h / 0.16);
+  background: oklch(from var(--nav-active) l c h / 0.08);
 }
 
 .catalogTabs strong {
@@ -178,9 +178,9 @@
 
 .providerEditor input:focus,
 .providerEditor select:focus {
-  border-color: oklch(from var(--accent) l c h / 0.42);
+  border-color: oklch(from var(--focus-ring) l c h / 0.42);
   background: var(--background);
-  box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.10);
+  box-shadow: 0 0 0 3px oklch(from var(--focus-ring) l c h / 0.10);
 }
 
 .providerActions {
@@ -199,7 +199,7 @@
 
 .providerExternalLink {
   width: fit-content;
-  color: var(--accent);
+  color: var(--link);
   font-size: 12px;
   font-weight: 600;
   text-decoration: none;
@@ -218,8 +218,8 @@
 
 .providerExternalLink:focus-visible {
   outline: none;
-  background: oklch(from var(--accent) l c h / 0.06);
-  box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.14);
+  background: oklch(from var(--focus-ring) l c h / 0.06);
+  box-shadow: 0 0 0 3px oklch(from var(--focus-ring) l c h / 0.14);
 }
 
 /* UI-02 model table: per-row default radio, capability chips, search box,
@@ -294,8 +294,8 @@
   outline: none;
   /* PR-UI-LAYOUT-22: brought into the focus-ring family — was
    * border-color only, now 3px accent halo to match the rest. */
-  border-color: oklch(from var(--accent) l c h / 0.42);
-  box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.10);
+  border-color: oklch(from var(--focus-ring) l c h / 0.42);
+  box-shadow: 0 0 0 3px oklch(from var(--focus-ring) l c h / 0.10);
 }
 
 .modelTableEmpty {
@@ -315,8 +315,8 @@
   text-align: left;
   padding: 6px 12px;
   border-radius: var(--radius-surface);
-  border: 1px solid oklch(from var(--accent) l c h / 0.22);
-  background: oklch(from var(--accent) l c h / 0.06);
+  border: 1px solid oklch(from var(--focus-ring) l c h / 0.22);
+  background: oklch(from var(--focus-ring) l c h / 0.06);
   color: var(--foreground);
   font-size: 11px;
   line-height: 1.5;
@@ -324,13 +324,13 @@
 }
 
 .modelTableDefaultHint:hover {
-  background: oklch(from var(--accent) l c h / 0.10);
+  background: oklch(from var(--nav-active) l c h / 0.10);
 }
 
 .modelTableDefaultHint code {
   font-family: var(--font-mono);
   background: transparent;
-  color: var(--accent);
+  color: var(--link);
   font-weight: 600;
 }
 
@@ -376,13 +376,13 @@
 .modelTableRow:focus-visible {
   outline: none;
   background: var(--background);
-  border-color: oklch(from var(--accent) l c h / 0.42);
-  box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.14);
+  border-color: oklch(from var(--focus-ring) l c h / 0.42);
+  box-shadow: 0 0 0 3px oklch(from var(--focus-ring) l c h / 0.14);
 }
 
 .modelTableRow[data-default="true"] {
-  background: oklch(from var(--accent) l c h / 0.06);
-  border-color: oklch(from var(--accent) l c h / 0.30);
+  background: oklch(from var(--control) l c h / 0.06);
+  border-color: oklch(from var(--control) l c h / 0.30);
 }
 
 .modelTableRowRadio {
@@ -395,7 +395,7 @@
 }
 
 .modelTableRow[data-default="true"] .modelTableRowRadio {
-  border-color: var(--accent);
+  border-color: var(--control);
 }
 
 .modelTableRow[data-default="true"] .modelTableRowRadio::after {
@@ -403,7 +403,7 @@
   position: absolute;
   inset: 3px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--control);
 }
 
 .modelTableRowText {
@@ -460,8 +460,8 @@
 .modelTableDefaultBadge {
   padding: 1px 7px;
   border-radius: var(--radius-control);
-  background: oklch(from var(--accent) l c h / 0.14);
-  color: var(--accent);
+  background: oklch(from var(--nav-active) l c h / 0.14);
+  color: var(--nav-active);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0;
@@ -618,7 +618,7 @@
 }
 
 .enabledEmptyChip:hover {
-  border-color: oklch(from var(--accent) l c h / 0.16);
+  border-color: oklch(from var(--nav-active) l c h / 0.16);
   background: var(--background-elevated);
 }
 

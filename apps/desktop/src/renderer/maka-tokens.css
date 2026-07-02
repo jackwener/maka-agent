@@ -108,6 +108,7 @@
      Done CTA and made every palette read as olive-green. */
   --brand-deep: var(--accent);
   --brand-deep-hover: oklch(from var(--accent) calc(l - 0.06) c h);
+  --bot-brand-default: var(--accent);
 
   /* === text variants (mixed toward foreground for better contrast) === */
   --success-text: color-mix(in oklab, var(--success) 50%, var(--foreground));
@@ -372,6 +373,7 @@
      variant for the darker surface. */
   --brand-deep: var(--accent);
   --brand-deep-hover: oklch(from var(--accent) calc(l + 0.06) c h);
+  --bot-brand-default: var(--accent);
 }
 
 /* =============================================================================

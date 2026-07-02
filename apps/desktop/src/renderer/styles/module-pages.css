@@ -382,7 +382,7 @@
   border: 1px solid var(--foreground-8);
   border-radius: var(--radius-control);
   background:
-    linear-gradient(90deg, oklch(from var(--accent) l c h / 0.06), transparent 42%),
+    linear-gradient(90deg, oklch(from var(--focus-ring) l c h / 0.06), transparent 42%),
     var(--background);
   padding: 12px 14px;
 }
@@ -686,8 +686,8 @@
 
 .maka-plan-field input:focus,
 .maka-plan-field textarea:focus {
-  border-color: oklch(from var(--accent) l c h / 0.55);
-  box-shadow: 0 0 0 2px oklch(from var(--accent) l c h / 0.12);
+  border-color: oklch(from var(--focus-ring) l c h / 0.55);
+  box-shadow: 0 0 0 2px oklch(from var(--focus-ring) l c h / 0.12);
 }
 
 .maka-plan-presets {
@@ -788,8 +788,8 @@
 }
 
 .maka-plan-search input:focus {
-  border-color: oklch(from var(--accent) l c h / 0.55);
-  box-shadow: 0 0 0 2px oklch(from var(--accent) l c h / 0.12);
+  border-color: oklch(from var(--focus-ring) l c h / 0.55);
+  box-shadow: 0 0 0 2px oklch(from var(--focus-ring) l c h / 0.12);
 }
 
 /* PR round-AB-shared-select (yuejing 2026-06-25): the Plan Reminder
@@ -993,8 +993,8 @@
   margin-left: 4px;
   padding: 0 5px;
   border-radius: var(--radius-pill);
-  background: oklch(from var(--accent) l c h / 0.10);
-  color: var(--accent);
+  background: oklch(from var(--nav-active) l c h / 0.10);
+  color: var(--nav-active);
   font-weight: 600;
   font-size: 9px;
   letter-spacing: 0;
@@ -1659,8 +1659,8 @@
   display: inline-grid;
   place-items: center;
   border-radius: var(--radius-control);
-  background: oklch(from var(--accent) l c h / 0.08);
-  color: var(--accent);
+  background: oklch(from var(--link) l c h / 0.08);
+  color: var(--link);
 }
 
 .maka-skill-template-copy {
@@ -1760,7 +1760,7 @@
 }
 
 .maka-skill-library-row:focus-visible {
-  outline: 3px solid oklch(from var(--accent) l c h / 0.35);
+  outline: 3px solid oklch(from var(--focus-ring) l c h / 0.35);
   outline-offset: 2px;
 }
 
@@ -1874,7 +1874,7 @@
   width: 34px;
   height: 18px;
   border-radius: var(--radius-pill);
-  background: var(--accent);
+  background: var(--control);
   box-shadow: inset 0 0 0 1px oklch(from var(--foreground) l c h / 0.05);
 }
 
@@ -1945,8 +1945,8 @@
    ring utilities. */
 :where(input, select, textarea):focus {
   outline: none;
-  border-color: oklch(from var(--accent) l c h / 0.48);
-  box-shadow: inset 0 0 0 1px oklch(from var(--accent) l c h / 0.22) !important;
+  border-color: oklch(from var(--focus-ring) l c h / 0.48);
+  box-shadow: inset 0 0 0 1px oklch(from var(--focus-ring) l c h / 0.22) !important;
 }
 
 .maka-chat-header {
@@ -2010,9 +2010,9 @@
    prompt. Tone matches the existing info badge family. */
 .maka-chat-header-memory-pill {
   appearance: none;
-  background: oklch(from var(--accent) l c h / 0.10);
-  border: 1px solid oklch(from var(--accent) l c h / 0.25);
-  color: var(--accent);
+  background: oklch(from var(--nav-active) l c h / 0.10);
+  border: 1px solid oklch(from var(--nav-active) l c h / 0.25);
+  color: var(--nav-active);
   border-radius: var(--radius-pill);
   display: inline-flex;
   align-items: center;
@@ -2028,11 +2028,11 @@
 }
 
 .maka-chat-header-memory-pill:hover {
-  background: oklch(from var(--accent) l c h / 0.18);
+  background: oklch(from var(--nav-active) l c h / 0.18);
 }
 
 .maka-chat-header-memory-pill:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 

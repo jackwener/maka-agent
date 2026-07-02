@@ -21,7 +21,7 @@
 }
 
 .settingsBotList button[data-active="true"] {
-  background: color-mix(in srgb, var(--bot-brand-color, var(--accent)) 8%, transparent);
+  background: color-mix(in srgb, var(--bot-brand-color, var(--bot-brand-default)) 8%, transparent);
   color: var(--foreground);
   position: relative;
 }
@@ -34,7 +34,7 @@
   width: 3px;
   height: 20px;
   border-radius: 0 var(--radius-control) var(--radius-control) 0;
-  background: var(--bot-brand-color, var(--accent));
+  background: var(--bot-brand-color, var(--bot-brand-default));
 }
 
 .settingsBotList em {
@@ -43,7 +43,7 @@
   color: var(--foreground-50);
 }
 
-.settingsBotList em[data-tone="info"] { color: var(--accent); }
+.settingsBotList em[data-tone="info"] { color: var(--status-running); }
 .settingsBotList em[data-tone="success"] { color: var(--success-text); }
 .settingsBotList em[data-tone="warning"] { color: var(--info-text); }
 .settingsBotList em[data-tone="destructive"] { color: var(--destructive-text); }
@@ -89,7 +89,7 @@
     display: grid;
     place-items: center;
     background: transparent;
-    color: var(--bot-brand-color, var(--accent));
+    color: var(--bot-brand-color, var(--bot-brand-default));
     font-size: 13px;
     font-weight: 700;
     letter-spacing: 0;
@@ -124,7 +124,7 @@
     bottom: -3px;
     box-shadow: 0 0 0 2.5px var(--background);
   }
-  .settingsBotLogoStatusDot[data-tone="info"] { background: var(--accent); }
+  .settingsBotLogoStatusDot[data-tone="info"] { background: var(--status-running); }
   .settingsBotLogoStatusDot[data-tone="success"] { background: var(--success); }
   .settingsBotLogoStatusDot[data-tone="warning"] { background: var(--info); }
   .settingsBotLogoStatusDot[data-tone="destructive"] { background: var(--destructive); }
@@ -146,8 +146,8 @@
     align-items: start;
     gap: 14px;
     border-radius: var(--radius-surface);
-    background: color-mix(in srgb, var(--bot-brand-color, var(--accent)) 7%, var(--background));
-    border: 1px solid color-mix(in srgb, var(--bot-brand-color, var(--accent)) 14%, transparent);
+    background: color-mix(in srgb, var(--bot-brand-color, var(--bot-brand-default)) 7%, var(--background));
+    border: 1px solid color-mix(in srgb, var(--bot-brand-color, var(--bot-brand-default)) 14%, transparent);
     padding: 16px 18px;
   }
 
@@ -193,7 +193,7 @@
   }
 
   .settingsBotConfigDocLink {
-    color: var(--bot-brand-color, var(--accent));
+    color: var(--bot-brand-color, var(--bot-brand-default));
     text-decoration: none;
     font-weight: 500;
     white-space: nowrap;
@@ -221,7 +221,7 @@
     border-radius: 50%;
     background: var(--foreground-40);
   }
-  .settingsBotStatusPill[data-tone="info"] .settingsBotStatusPillDot { background: var(--accent); }
+  .settingsBotStatusPill[data-tone="info"] .settingsBotStatusPillDot { background: var(--status-running); }
   .settingsBotStatusPill[data-tone="success"] { color: var(--success-text); }
   .settingsBotStatusPill[data-tone="success"] .settingsBotStatusPillDot { background: var(--success); }
   .settingsBotStatusPill[data-tone="warning"] { color: var(--info-text); }
@@ -268,7 +268,7 @@
   }
 
   .settingsBotReason {
-    border-left: 2px solid var(--accent);
+    border-left: 2px solid var(--focus-ring);
     color: var(--foreground-60);
     font-size: 12px;
     line-height: 1.5;
