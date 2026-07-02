@@ -871,6 +871,15 @@
 }
 
 .maka-artifact-toolbar-separator {
+  /* Pin the separator to a literal 1px hairline. At narrow pane widths
+     the toolbar wraps and this element rendered as a ~15px bordered
+     pill next to the delete button — visual noise that read as an
+     empty broken button. */
+  flex: 0 0 1px;
+  width: 1px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
   min-height: 22px;
   background: var(--border);
 }
